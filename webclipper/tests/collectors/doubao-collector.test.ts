@@ -58,13 +58,16 @@ describe('doubao-collector', () => {
 
   it('falls back to plain text markdown when markdown helper is unavailable', async () => {
     const html = `
-      <main data-testid="message_list">
-        <div data-testid="union_message">
-          <div data-testid="receive_message">
-            <div data-testid="message_text_content">plain answer</div>
+      <div aria-label="doc_editor">
+        <div class="container-PvPoAn">
+          <div data-copy-telemetry="right_click_copy" class="flex flex-col flex-grow">
+            <div data-message-id="43080634158259458" class="relative flex-row flex w-full">
+              <div data-testid="message_text_content">plain answer</div>
+            </div>
+            <div data-foundation-type="receive-message-action-bar"></div>
           </div>
         </div>
-      </main>
+      </div>
     `;
 
     vi.resetModules();
@@ -91,17 +94,27 @@ describe('doubao-collector', () => {
     const data = new Uint8Array([0, 1, 2, 3, 4, 5]);
 
     const html = `
-      <main data-testid="message_list">
-        <div data-testid="union_message">
-          <div data-testid="send_message">
-            <div data-testid="message_text_content">解释图片</div>
-            <img decoding="async" width="1080" height="1352" src="${blobUrl}">
-          </div>
-          <div data-testid="receive_message">
-            <div data-testid="message_text_content">好的</div>
+      <div aria-label="doc_editor">
+        <div class="container-PvPoAn">
+          <div class="flex flex-col flex-grow">
+            <div data-message-id="43080634158254594" class="flex-row flex w-full justify-end">
+              <div class="bg-g-send-msg-bubble-bg">
+                <div data-testid="message_text_content">解释图片</div>
+                <img decoding="async" width="1080" height="1352" src="${blobUrl}">
+              </div>
+            </div>
+            <div data-foundation-type="send-message-action-bar"></div>
           </div>
         </div>
-      </main>
+        <div class="container-PvPoAn">
+          <div data-copy-telemetry="right_click_copy" class="flex flex-col flex-grow">
+            <div data-message-id="43080634158259458" class="relative flex-row flex w-full">
+              <div data-testid="message_text_content">好的</div>
+            </div>
+            <div data-foundation-type="receive-message-action-bar"></div>
+          </div>
+        </div>
+      </div>
     `;
 
     const dom = setupDoubaoDom(html, 'https://www.doubao.com/chat/blob001');
