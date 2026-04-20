@@ -31,7 +31,8 @@ export function createDoubaoCollectorDef(env: CollectorEnv): CollectorDefinition
 
   function getConversationRoot(): any {
     return (
-      env.document.querySelector("[data-testid='message_list']") ||
+      env.document.querySelector("[aria-label='doc_editor']") ||
+      env.document.querySelector("[class*='message-list-']") ||
       env.document.querySelector('main') ||
       env.document.body
     );
@@ -182,67 +183,90 @@ export function createDoubaoCollectorDef(env: CollectorEnv): CollectorDefinition
     return out;
   }
 
-  async function collectMessages(ctx: InlineImageContext): Promise<any[]> {
+  function detectModernRole(messageRow: any): 'user' | 'assistant' | null {
+    if (!messageRow) return null;
+
+    const host = messageRow.closest?.('.flex.flex-col.flex-grow') || messageRow.parentElement || messageRow;
+    const hasSendActionBar = !!host?.querySelector?.("[data-foundation-type='send-message-action-bar']");
+    const hasReceiveActionBar = !!host?.querySelector?.("[data-foundation-type='receive-message-action-bar']");
+    if (hasSendActionBar && !hasReceiveActionBar) return 'user';
+    if (hasReceiveActionBar && !hasSendActionBar) return 'assistant';
+
+    const classText = String(messageRow.className || '');
+    if (/\bjustify-end\b/.test(classText)) return 'user';
+
+    if (messageRow.closest?.("[data-copy-telemetry='right_click_copy']")) return 'assistant';
+
+    const hasUserBubble = !!messageRow.querySelector?.(".bg-g-send-msg-bubble-bg, [class*='send-msg-bubble']");
+    if (hasUserBubble) return 'user';
+
+    const hasAssistantMarkdown = !!messageRow.querySelector?.('.flow-markdown-body, [class*="flow-markdown-body"]');
+    if (hasAssistantMarkdown) return 'assistant';
+
+    return null;
+  }
+
+  async function collectModernMessages(ctx: InlineImageContext): Promise<any[]> {
     const root = getConversationRoot();
     if (!root) return [];
     if (inEditMode(root)) return [];
 
-    const containers: any[] = Array.from(env.document.querySelectorAll("[data-testid='union_message']")) as any[];
-    if (!containers.length) return [];
+    const messageRows: any[] = Array.from(root.querySelectorAll('[data-message-id]')) as any[];
+    if (!messageRows.length) return [];
 
     const out = [];
+    const seenMessageIds = new Set<string>();
     let seq = 0;
-    for (const c of containers) {
-      const sendMessage = c.querySelector("[data-testid='send_message']");
-      if (sendMessage) {
-        const tEl = sendMessage.querySelector("[data-testid='message_text_content']") || sendMessage;
-        const text = env.normalize.normalizeText((tEl as any).innerText || tEl.textContent || '');
-        const imageUrls = await extractImageUrlsIncludingBlobImages(sendMessage, ctx);
-        if (text || imageUrls.length) {
-          const contentText = text || '';
-          const contentMarkdown = appendImageMarkdown(contentText, imageUrls, { allowDataImageUrls: true });
-          out.push({
-            messageKey: env.normalize.makeFallbackMessageKey({ role: 'user', contentText, sequence: seq }),
-            role: 'user',
-            contentText,
-            contentMarkdown,
-            sequence: seq,
-            updatedAt: Date.now(),
-          });
-          seq += 1;
-        }
-      }
+    for (const row of messageRows) {
+      const messageId = String(row.getAttribute?.('data-message-id') || '').trim();
+      if (messageId && seenMessageIds.has(messageId)) continue;
+      if (messageId) seenMessageIds.add(messageId);
 
-      const recv = c.querySelector("[data-testid='receive_message']");
-      if (recv) {
-        const all: any[] = Array.from(recv.querySelectorAll("[data-testid='message_text_content']")) as any[];
-        const textEl = all.find((el: any) => !el.closest("[data-testid='think_block_collapse']")) || recv;
-        const fallbackText = env.normalize.normalizeText((textEl as any).innerText || textEl.textContent || '');
-        const text =
-          typeof doubaoMarkdown.extractAssistantText === 'function'
-            ? doubaoMarkdown.extractAssistantText(textEl) || fallbackText
-            : fallbackText;
-        const imageUrls = await extractImageUrlsIncludingBlobImages(recv, ctx);
-        if (text || imageUrls.length) {
-          const contentText = text || '';
-          const baseMarkdown =
-            typeof doubaoMarkdown.extractAssistantMarkdown === 'function'
-              ? doubaoMarkdown.extractAssistantMarkdown(textEl) || contentText
-              : contentText;
-          const contentMarkdown = appendImageMarkdown(baseMarkdown, imageUrls, { allowDataImageUrls: true });
-          out.push({
-            messageKey: env.normalize.makeFallbackMessageKey({ role: 'assistant', contentText, sequence: seq }),
-            role: 'assistant',
-            contentText,
-            contentMarkdown,
-            sequence: seq,
-            updatedAt: Date.now(),
-          });
-          seq += 1;
-        }
-      }
+      const role = detectModernRole(row);
+      if (!role) continue;
+
+      const textEl =
+        role === 'user'
+          ? row.querySelector(
+              "[data-testid='message_text_content'], .bg-g-send-msg-bubble-bg, [class*='send-msg-bubble']",
+            ) || row
+          : row.querySelector(
+              "[data-testid='message_text_content'], .flow-markdown-body, [class*='flow-markdown-body']",
+            ) || row;
+
+      const fallbackText = env.normalize.normalizeText((textEl as any).innerText || textEl.textContent || '');
+      const text =
+        role === 'assistant' && typeof doubaoMarkdown.extractAssistantText === 'function'
+          ? doubaoMarkdown.extractAssistantText(textEl) || fallbackText
+          : fallbackText;
+
+      const imageScope = role === 'assistant' ? row.closest?.("[data-copy-telemetry='right_click_copy']") || row : row;
+      const imageUrls = await extractImageUrlsIncludingBlobImages(imageScope, ctx);
+      if (!text && !imageUrls.length) continue;
+
+      const contentText = text || '';
+      const baseMarkdown =
+        role === 'assistant' && typeof doubaoMarkdown.extractAssistantMarkdown === 'function'
+          ? doubaoMarkdown.extractAssistantMarkdown(textEl) || contentText
+          : contentText;
+      const contentMarkdown = appendImageMarkdown(baseMarkdown, imageUrls, { allowDataImageUrls: true });
+
+      out.push({
+        messageKey: env.normalize.makeFallbackMessageKey({ role, contentText, sequence: seq }),
+        role,
+        contentText,
+        contentMarkdown,
+        sequence: seq,
+        updatedAt: Date.now(),
+      });
+      seq += 1;
     }
+
     return out;
+  }
+
+  async function collectMessages(ctx: InlineImageContext): Promise<any[]> {
+    return collectModernMessages(ctx);
   }
 
   async function capture(): Promise<any> {

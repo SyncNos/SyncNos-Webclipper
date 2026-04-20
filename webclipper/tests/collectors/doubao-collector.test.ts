@@ -10,50 +10,35 @@ function setupDoubaoDom(html: string, url: string) {
 }
 
 describe('doubao-collector', () => {
-  it('extracts assistant contentMarkdown from semantic markdown DOM', async () => {
+  it('extracts messages from modern data-message-id DOM structure', async () => {
     const html = `
-      <main data-testid="message_list">
-        <div data-testid="union_message">
-          <div data-testid="send_message">
-            <div data-testid="message_text_content">你好</div>
-          </div>
-          <div data-testid="receive_message">
-            <div data-testid="think_block_collapse">
-              <div data-testid="message_text_content">这是思考内容，不应被抓取</div>
+      <div aria-label="doc_editor">
+        <div class="container-PvPoAn">
+          <div class="flex flex-col flex-grow">
+            <div data-message-id="43080634158254594" class="flex-row flex w-full justify-end">
+              <div class="bg-g-send-msg-bubble-bg">111</div>
             </div>
-            <div data-testid="message_text_content" class="flow-markdown-body">
-              <h1>生活随笔</h1>
-              <div class="paragraph-pP9ZLC paragraph-element">清晨的阳光<strong>温柔</strong>，还有<em>热牛奶</em>。</div>
-              <ul>
-                <li>父级条目
-                  <ul><li>子级条目</li></ul>
-                </li>
-              </ul>
-              <blockquote><div class="paragraph-pP9ZLC paragraph-element">心若向阳，目之所及皆是美好。</div></blockquote>
-              <div class="table-wrapper-wG0rS7">
-                <div class="table-header-qH9Ajf"><div class="title-JhOBP1">表格</div><div class="actions-XLKatx">操作</div></div>
-                <table>
-                  <thead><tr><th>物品</th><th>用途</th></tr></thead>
-                  <tbody><tr><td>笔记本</td><td>记录灵感</td></tr></tbody>
-                </table>
-              </div>
-              <div class="paragraph-pP9ZLC paragraph-element">查看<a href="https://example.com/life">生活分享平台</a></div>
-              <div class="code-block-element-R6c8c0 custom-code-block-container">
-                <div class="header-wrapper-Mbk8s6">
-                  <div class="title-TXcgFG"><div class="text-OkYU_0">python</div></div>
-                  <div class="action-ysQCxz"><div class="hoverable-kRHiX2">运行</div><div class="hoverable-kRHiX2">复制</div></div>
-                </div>
-                <div class="content-y8qlFa">
-                  <pre class="language-python"><code class="language-python">daily = "hello"\nprint(daily)</code></pre>
-                </div>
-              </div>
-            </div>
+            <div data-foundation-type="send-message-action-bar"></div>
           </div>
         </div>
-      </main>
+        <div class="container-PvPoAn">
+          <div data-copy-telemetry="right_click_copy" class="flex flex-col flex-grow">
+            <div data-message-id="43080634158259458" class="relative flex-row flex w-full">
+              <div class="flow-markdown-body">
+                <div class="paragraph-pP9ZLC paragraph-element">111～👀</div>
+              </div>
+            </div>
+            <div data-foundation-type="receive-message-action-bar"></div>
+          </div>
+        </div>
+      </div>
+      <textarea id="composer"></textarea>
     `;
 
-    const dom = setupDoubaoDom(html, 'https://www.doubao.com/chat/conv001');
+    const dom = setupDoubaoDom(html, 'https://www.doubao.com/chat/conv-modern-001');
+    const textarea = dom.window.document.getElementById('composer') as HTMLTextAreaElement | null;
+    textarea?.focus();
+
     const env = createCollectorEnv({
       window: dom.window as any,
       document: dom.window.document as any,
@@ -61,34 +46,28 @@ describe('doubao-collector', () => {
       normalize: normalizeApi,
     });
     const snap = (await Promise.resolve(createDoubaoCollectorDef(env).collector.capture())) as any;
+
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(2);
-    const assistant = snap.messages.find((m: { role: string }) => m.role === 'assistant');
-    expect(assistant).toBeTruthy();
-    expect(assistant.contentMarkdown).toContain('# 生活随笔');
-    expect(assistant.contentMarkdown).toContain('**温柔**');
-    expect(assistant.contentMarkdown).toContain('*热牛奶*');
-    expect(assistant.contentMarkdown).toContain('- 父级条目');
-    expect(assistant.contentMarkdown).toContain('  - 子级条目');
-    expect(assistant.contentMarkdown).toContain('> 心若向阳，目之所及皆是美好。');
-    expect(assistant.contentMarkdown).toContain('| 物品 | 用途 |');
-    expect(assistant.contentMarkdown).toContain('[生活分享平台](https://example.com/life)');
-    expect(assistant.contentMarkdown).toContain('```python');
-    expect(assistant.contentMarkdown).toContain('print(daily)');
-    expect(assistant.contentMarkdown).not.toContain('这是思考内容，不应被抓取');
-    expect(assistant.contentMarkdown).not.toContain('运行');
-    expect(assistant.contentMarkdown).not.toContain('复制');
+    expect(snap.messages[0].role).toBe('user');
+    expect(snap.messages[0].contentText).toBe('111');
+    expect(snap.messages[1].role).toBe('assistant');
+    expect(snap.messages[1].contentText).toBe('111～👀');
+    expect(snap.messages[1].contentMarkdown).toContain('111～👀');
   });
 
   it('falls back to plain text markdown when markdown helper is unavailable', async () => {
     const html = `
-      <main data-testid="message_list">
-        <div data-testid="union_message">
-          <div data-testid="receive_message">
-            <div data-testid="message_text_content">plain answer</div>
+      <div aria-label="doc_editor">
+        <div class="container-PvPoAn">
+          <div data-copy-telemetry="right_click_copy" class="flex flex-col flex-grow">
+            <div data-message-id="43080634158259458" class="relative flex-row flex w-full">
+              <div data-testid="message_text_content">plain answer</div>
+            </div>
+            <div data-foundation-type="receive-message-action-bar"></div>
           </div>
         </div>
-      </main>
+      </div>
     `;
 
     vi.resetModules();
@@ -115,17 +94,27 @@ describe('doubao-collector', () => {
     const data = new Uint8Array([0, 1, 2, 3, 4, 5]);
 
     const html = `
-      <main data-testid="message_list">
-        <div data-testid="union_message">
-          <div data-testid="send_message">
-            <div data-testid="message_text_content">解释图片</div>
-            <img decoding="async" width="1080" height="1352" src="${blobUrl}">
-          </div>
-          <div data-testid="receive_message">
-            <div data-testid="message_text_content">好的</div>
+      <div aria-label="doc_editor">
+        <div class="container-PvPoAn">
+          <div class="flex flex-col flex-grow">
+            <div data-message-id="43080634158254594" class="flex-row flex w-full justify-end">
+              <div class="bg-g-send-msg-bubble-bg">
+                <div data-testid="message_text_content">解释图片</div>
+                <img decoding="async" width="1080" height="1352" src="${blobUrl}">
+              </div>
+            </div>
+            <div data-foundation-type="send-message-action-bar"></div>
           </div>
         </div>
-      </main>
+        <div class="container-PvPoAn">
+          <div data-copy-telemetry="right_click_copy" class="flex flex-col flex-grow">
+            <div data-message-id="43080634158259458" class="relative flex-row flex w-full">
+              <div data-testid="message_text_content">好的</div>
+            </div>
+            <div data-foundation-type="receive-message-action-bar"></div>
+          </div>
+        </div>
+      </div>
     `;
 
     const dom = setupDoubaoDom(html, 'https://www.doubao.com/chat/blob001');
