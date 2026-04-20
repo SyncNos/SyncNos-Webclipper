@@ -80,6 +80,52 @@ describe('doubao-collector', () => {
     expect(assistant.contentMarkdown).not.toContain('复制');
   });
 
+  it('extracts messages from modern data-message-id DOM structure', async () => {
+    const html = `
+      <div aria-label="doc_editor">
+        <div class="container-PvPoAn">
+          <div class="flex flex-col flex-grow">
+            <div data-message-id="43080634158254594" class="flex-row flex w-full justify-end">
+              <div class="bg-g-send-msg-bubble-bg">111</div>
+            </div>
+            <div data-foundation-type="send-message-action-bar"></div>
+          </div>
+        </div>
+        <div class="container-PvPoAn">
+          <div data-copy-telemetry="right_click_copy" class="flex flex-col flex-grow">
+            <div data-message-id="43080634158259458" class="relative flex-row flex w-full">
+              <div class="flow-markdown-body">
+                <div class="paragraph-pP9ZLC paragraph-element">111～👀</div>
+              </div>
+            </div>
+            <div data-foundation-type="receive-message-action-bar"></div>
+          </div>
+        </div>
+      </div>
+      <textarea id="composer"></textarea>
+    `;
+
+    const dom = setupDoubaoDom(html, 'https://www.doubao.com/chat/conv-modern-001');
+    const textarea = dom.window.document.getElementById('composer') as HTMLTextAreaElement | null;
+    textarea?.focus();
+
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    const snap = (await Promise.resolve(createDoubaoCollectorDef(env).collector.capture())) as any;
+
+    expect(snap).toBeTruthy();
+    expect(snap.messages.length).toBe(2);
+    expect(snap.messages[0].role).toBe('user');
+    expect(snap.messages[0].contentText).toBe('111');
+    expect(snap.messages[1].role).toBe('assistant');
+    expect(snap.messages[1].contentText).toBe('111～👀');
+    expect(snap.messages[1].contentMarkdown).toContain('111～👀');
+  });
+
   it('falls back to plain text markdown when markdown helper is unavailable', async () => {
     const html = `
       <main data-testid="message_list">
