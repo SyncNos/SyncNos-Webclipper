@@ -120,6 +120,9 @@ vi.mock('@services/comments/client/repo', () => ({
   })),
   deleteArticleCommentById: vi.fn(async () => true),
   listArticleCommentsByCanonicalUrl: listArticleCommentsByCanonicalUrlMock,
+  listArticleCommentsByConversationId: vi.fn(async (conversationId: number) => {
+    return commentsByUrl.get(`convo:${Number(conversationId)}`) || [];
+  }),
 }));
 
 vi.mock('../../src/ui/conversations/ConversationDetailPane', () => ({
@@ -327,6 +330,36 @@ describe('AppShell comments sidebar', () => {
       sourceType: 'video',
       conversationKey: 'video-91',
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=12s',
+    };
+
+    act(() => {
+      root!.render(createElement(AppShell));
+    });
+
+    const openBtn = document.querySelector('[aria-label="Comment"]') as HTMLButtonElement | null;
+    expect(openBtn).toBeTruthy();
+    expect(openBtn?.getAttribute('data-can-trigger')).toBe('1');
+
+    act(() => {
+      openBtn!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(
+      () => {
+        expect(document.querySelector('webclipper-threaded-comments-panel')).toBeTruthy();
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it('enables the docked comments sidebar for chat conversations', async () => {
+    currentState.selectedConversation = {
+      id: 92,
+      title: 'Chat',
+      source: 'chatgpt',
+      sourceType: 'chat',
+      conversationKey: 'c-92',
+      url: 'https://chatgpt.com/c/92',
     };
 
     act(() => {

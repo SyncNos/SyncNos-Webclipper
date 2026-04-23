@@ -12,8 +12,12 @@ import { AppTooltipHost, tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useResponsiveTier } from '@ui/shared/hooks/useResponsiveTier';
 import { useArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
 import { decodeConversationLoc, encodeConversationLoc } from '@services/shared/conversation-loc';
-import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
 import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
+import {
+  buildCommentTargetKeyFromConversation,
+  buildOrphanCommentTargetKeyFromLocation,
+} from '@services/comments/domain/comment-target';
 import { createThreadedCommentChatWithConfig } from '@ui/comments';
 import type { ThreadedCommentsPanelChatWithAction } from '@ui/comments';
 import { defaultDetailHeaderActionPort, type DetailHeaderAction } from '@services/integrations/detail-header-actions';
@@ -34,26 +38,11 @@ function normalizeSourceType(value: unknown): string {
     .toLowerCase();
 }
 
-function isArticleConversationLike(conversation: any): boolean {
+function resolveCommentsSidebarCanonicalUrlForChatWith(conversation: any): string {
   const sourceType = normalizeSourceType(conversation?.sourceType);
-  if (sourceType === 'article') return true;
-
-  const source = normalizeSourceType(conversation?.source);
-  if (source !== 'web') return false;
-  return Boolean(canonicalizeArticleUrl(conversation?.url));
-}
-
-function isVideoConversationLike(conversation: any): boolean {
-  const sourceType = normalizeSourceType(conversation?.sourceType);
-  if (sourceType === 'video') return true;
-  const source = normalizeSourceType(conversation?.source);
-  return source === 'video';
-}
-
-function resolveCommentsSidebarCanonicalUrl(conversation: any): string {
-  if (isVideoConversationLike(conversation)) return canonicalizeVideoUrl(conversation?.url);
-  if (isArticleConversationLike(conversation)) return canonicalizeArticleUrl(conversation?.url);
-  return '';
+  if (sourceType === 'video') return canonicalizeVideoUrl(conversation?.url);
+  if (sourceType === 'article') return canonicalizeArticleUrl(conversation?.url);
+  return normalizeHttpUrl(conversation?.url);
 }
 
 function safeString(value: unknown): string {
@@ -210,8 +199,11 @@ export default function AppShell() {
     const lastInternalLocRef = useRef<string | null>(null);
     const processedLocRef = useRef<string | null>(null);
     const locMountedRef = useRef(false);
-    const commentsSidebarCanonicalUrl = resolveCommentsSidebarCanonicalUrl(selectedConversation);
-    const canToggleCommentsSidebar = !isNarrow && Boolean(commentsSidebarCanonicalUrl);
+    const commentsSidebarCanonicalUrl = resolveCommentsSidebarCanonicalUrlForChatWith(selectedConversation);
+    const commentsSidebarTargetKey =
+      buildCommentTargetKeyFromConversation(selectedConversation) ||
+      buildOrphanCommentTargetKeyFromLocation((selectedConversation as any)?.url);
+    const canToggleCommentsSidebar = !isNarrow && Boolean(commentsSidebarTargetKey);
     const commentsSidebarCollapsed = isMedium ? mediumCommentsSidebarCollapsed : wideCommentsSidebarCollapsed;
     const canAutoOpenCommentsSidebarInWide = isWide && canToggleCommentsSidebar;
 
@@ -412,10 +404,11 @@ export default function AppShell() {
     }, [commentsSidebarSession, setMediumCommentsCollapsed, tier]);
 
     useEffect(() => {
-      if (commentsSidebarCanonicalUrl) {
+      if (commentsSidebarTargetKey) {
         commentsSidebarController.setContext({
-          canonicalUrl: commentsSidebarCanonicalUrl,
+          commentTargetKey: commentsSidebarTargetKey,
           conversationId: Number((selectedConversation as any)?.id || 0) || null,
+          canonicalUrl: commentsSidebarCanonicalUrl || null,
         });
         return;
       }
@@ -432,6 +425,7 @@ export default function AppShell() {
       commentsSidebarCanonicalUrl,
       commentsSidebarController,
       commentsSidebarSession,
+      commentsSidebarTargetKey,
       selectedConversation,
       suppressCommentsSidebarCollapseRef,
     ]);

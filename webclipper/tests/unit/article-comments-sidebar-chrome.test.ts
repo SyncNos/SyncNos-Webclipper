@@ -26,6 +26,7 @@ vi.mock('@services/comments/client/repo', () => ({
   })),
   deleteArticleCommentById: vi.fn(async () => true),
   listArticleCommentsByCanonicalUrl: vi.fn(async () => []),
+  listArticleCommentsByConversationId: vi.fn(async () => []),
 }));
 
 vi.mock('../../src/platform/runtime/ports', () => ({

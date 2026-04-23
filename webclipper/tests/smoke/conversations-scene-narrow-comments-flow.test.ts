@@ -243,6 +243,7 @@ describe('ConversationsScene narrow comments flow', () => {
     });
 
     expect(setContext).toHaveBeenCalledWith({
+      commentTargetKey: 'url:https://example.com/article/11',
       canonicalUrl: 'https://example.com/article/11',
       conversationId: 11,
     });
@@ -340,6 +341,7 @@ describe('ConversationsScene narrow comments flow', () => {
     });
 
     expect(setContext).toHaveBeenCalledWith({
+      commentTargetKey: 'url:https://example.com/article/11',
       canonicalUrl: 'https://example.com/article/11',
       conversationId: 11,
     });

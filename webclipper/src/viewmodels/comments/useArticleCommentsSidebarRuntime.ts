@@ -1,27 +1,29 @@
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 
-import { createArticleCommentsSidebarAppAdapter } from '@services/comments/sidebar/article-comments-sidebar-app-adapter';
 import {
-  createArticleCommentsSidebarController,
-  type ArticleCommentsSidebarController,
-} from '@services/comments/sidebar/article-comments-sidebar-controller';
+  createCommentsSidebarController,
+  type CommentsSidebarController,
+} from '@services/comments/sidebar/comments-sidebar-controller';
 import { buildArticleCommentLocatorFromRange } from '@services/comments/locator';
 import type {
   CommentSidebarSession,
   CommentSidebarSessionSnapshot,
 } from '@services/comments/sidebar/comment-sidebar-contract';
 import { createCommentSidebarSession } from '@services/comments/sidebar/comment-sidebar-session';
+import { createCommentsSidebarAppAdapter } from '@services/comments/sidebar/comments-sidebar-app-adapter';
 
-export type ArticleCommentsSidebarRuntime = {
+export type CommentsSidebarRuntime = {
   sidebarSession: CommentSidebarSession;
-  sidebarController: ArticleCommentsSidebarController;
+  sidebarController: CommentsSidebarController;
   sidebarSnapshot: CommentSidebarSessionSnapshot;
   setLocatorRoot: (root: Element | null) => void;
   getLocatorRoot: () => Element | null;
   subscribeSidebarClose: (listener: () => void) => () => void;
 };
 
-export function useArticleCommentsSidebarRuntime(input: { onClose?: () => void } = {}): ArticleCommentsSidebarRuntime {
+export type ArticleCommentsSidebarRuntime = CommentsSidebarRuntime;
+
+export function useCommentsSidebarRuntime(input: { onClose?: () => void } = {}): CommentsSidebarRuntime {
   const onCloseRef = useRef<(() => void) | undefined>(input.onClose);
   onCloseRef.current = input.onClose;
   const closeListenersRef = useRef<Set<() => void>>(new Set());
@@ -112,11 +114,11 @@ export function useArticleCommentsSidebarRuntime(input: { onClose?: () => void }
   }
   const sidebarSession = sidebarSessionRef.current;
 
-  const sidebarControllerRef = useRef<ArticleCommentsSidebarController | null>(null);
+  const sidebarControllerRef = useRef<CommentsSidebarController | null>(null);
   if (!sidebarControllerRef.current) {
-    sidebarControllerRef.current = createArticleCommentsSidebarController({
+    sidebarControllerRef.current = createCommentsSidebarController({
       session: sidebarSession,
-      adapter: createArticleCommentsSidebarAppAdapter(),
+      adapter: createCommentsSidebarAppAdapter(),
       resolveComposerSelection: () => resolveAppSelectionPayload(),
       onClose: () => {
         onCloseRef.current?.();
@@ -158,4 +160,8 @@ export function useArticleCommentsSidebarRuntime(input: { onClose?: () => void }
     getLocatorRoot,
     subscribeSidebarClose,
   };
+}
+
+export function useArticleCommentsSidebarRuntime(input: { onClose?: () => void } = {}): ArticleCommentsSidebarRuntime {
+  return useCommentsSidebarRuntime(input);
 }

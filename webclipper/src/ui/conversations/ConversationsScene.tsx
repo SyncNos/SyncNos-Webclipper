@@ -5,8 +5,12 @@ import { useIsNarrowScreen } from '@ui/shared/hooks/useIsNarrowScreen';
 import { useNarrowListDetailCommentsRoute } from '@ui/shared/hooks/useNarrowListDetailCommentsRoute';
 import type { ArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
 
-import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
 import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
+import {
+  buildCommentTargetKeyFromConversation,
+  buildOrphanCommentTargetKeyFromLocation,
+} from '@services/comments/domain/comment-target';
 import type { ThreadedCommentsPanelChatWithAction, ThreadedCommentsPanelCommentChatWithConfig } from '@ui/comments';
 import { ConversationDetailPane } from '@ui/conversations/ConversationDetailPane';
 import { ConversationListPane } from '@ui/conversations/ConversationListPane';
@@ -43,34 +47,13 @@ export type ConversationsSceneProps = {
   wideChrome?: ConversationsSceneWideChrome;
 };
 
-function isArticleConversationLike(conversation: any): boolean {
+function resolveCommentsSidebarCanonicalUrlForChatWith(conversation: any): string {
   const sourceType = String(conversation?.sourceType || '')
     .trim()
     .toLowerCase();
-  if (sourceType === 'article') return true;
-
-  const source = String(conversation?.source || '')
-    .trim()
-    .toLowerCase();
-  if (source !== 'web') return false;
-  return Boolean(canonicalizeArticleUrl(conversation?.url));
-}
-
-function isVideoConversationLike(conversation: any): boolean {
-  const sourceType = String(conversation?.sourceType || '')
-    .trim()
-    .toLowerCase();
-  if (sourceType === 'video') return true;
-  const source = String(conversation?.source || '')
-    .trim()
-    .toLowerCase();
-  return source === 'video';
-}
-
-function resolveCommentsSidebarCanonicalUrl(conversation: any): string {
-  if (isVideoConversationLike(conversation)) return canonicalizeVideoUrl(conversation?.url);
-  if (isArticleConversationLike(conversation)) return canonicalizeArticleUrl(conversation?.url);
-  return '';
+  if (sourceType === 'video') return canonicalizeVideoUrl(conversation?.url);
+  if (sourceType === 'article') return canonicalizeArticleUrl(conversation?.url);
+  return normalizeHttpUrl(conversation?.url);
 }
 
 export function ConversationsScene({
@@ -105,26 +88,30 @@ export function ConversationsScene({
     isNarrow,
     defaultRoute: defaultNarrowRoute,
   });
-  const selectedConversationCanonicalUrl = resolveCommentsSidebarCanonicalUrl(selectedConversation);
+  const selectedConversationCanonicalUrl = resolveCommentsSidebarCanonicalUrlForChatWith(selectedConversation);
+  const selectedConversationTargetKey =
+    buildCommentTargetKeyFromConversation(selectedConversation) ||
+    buildOrphanCommentTargetKeyFromLocation((selectedConversation as any)?.url);
   const canOpenCommentsFromDetail =
     (typeof onOpenCommentsExternally === 'function' || Boolean(commentsSidebarRuntime)) &&
-    Boolean(selectedConversationCanonicalUrl);
+    Boolean(selectedConversationTargetKey);
 
   useEffect(() => {
     if (!commentsSidebarRuntime) return;
     const controller = commentsSidebarRuntime.sidebarController;
     if (!controller || typeof controller.setContext !== 'function') return;
 
-    if (selectedConversationCanonicalUrl) {
+    if (selectedConversationTargetKey) {
       controller.setContext({
-        canonicalUrl: selectedConversationCanonicalUrl,
+        commentTargetKey: selectedConversationTargetKey,
         conversationId: Number((selectedConversation as any)?.id || 0) || null,
+        canonicalUrl: selectedConversationCanonicalUrl || null,
       });
       return;
     }
 
     controller.setContext(null);
-  }, [commentsSidebarRuntime, selectedConversation, selectedConversationCanonicalUrl]);
+  }, [commentsSidebarRuntime, selectedConversation, selectedConversationCanonicalUrl, selectedConversationTargetKey]);
 
   useEffect(() => {
     if (!isNarrow) return;
