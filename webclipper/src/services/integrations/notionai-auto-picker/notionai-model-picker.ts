@@ -147,15 +147,28 @@ function restoreFocusToComposerWithRetry() {
 
 function findModelMenu() {
   const menus = Array.from(document.querySelectorAll('[role="menu"]'));
+
+  const candidates = [];
   for (const menu of menus) {
     if (!isVisible(menu)) continue;
     const text = String(menu.innerText || menu.textContent || '');
     if (!/自动|Auto/i.test(text)) continue;
     if (!/Sonnet|Opus|Gemini|GPT/i.test(text)) continue;
     const items = menu.querySelectorAll('[role="menuitem"]');
-    if (items && items.length >= 2) return menu;
+    if (!items || items.length < 2) continue;
+    candidates.push(menu);
   }
-  return null;
+
+  if (!candidates.length) return null;
+
+  // Prefer the model picker popup menu (aria-modal dialog) to avoid accidentally
+  // matching other "menus" on the page (e.g. sidebar lists).
+  for (const menu of candidates) {
+    const dialog = menu.closest('[role="dialog"][aria-modal="true"]');
+    if (dialog && isVisible(dialog)) return menu;
+  }
+
+  return candidates[0] || null;
 }
 
 async function loadPreferredIndex1Based() {
