@@ -11,8 +11,8 @@ import {
   upsertConversation,
 } from '@services/conversations/data/storage-idb';
 import {
-  attachOrphanCommentsToConversation as attachOrphanArticleCommentsToConversation,
-  listArticleCommentsByConversationId as getArticleCommentsByConversationId,
+  attachOrphanCommentsToConversation,
+  listCommentsByConversationId as getCommentsByConversationId,
 } from '@services/comments/data/storage';
 
 export const backgroundStorage = {
@@ -26,8 +26,6 @@ export const backgroundStorage = {
   patchSyncMapping,
   setSyncCursor,
   clearSyncCursor,
-  getCommentsByConversationId: getArticleCommentsByConversationId,
-  attachOrphanCommentsToConversation: attachOrphanArticleCommentsToConversation,
-  getArticleCommentsByConversationId,
-  attachOrphanArticleCommentsToConversation,
+  getCommentsByConversationId,
+  attachOrphanCommentsToConversation,
 };

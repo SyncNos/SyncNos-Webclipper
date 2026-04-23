@@ -1,7 +1,7 @@
 import { CONTENT_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { createCommentSidebarSession } from '@services/comments/sidebar/comment-sidebar-session';
-import { createArticleCommentsSidebarController } from '@services/comments/sidebar/article-comments-sidebar-controller';
-import { createArticleCommentsSidebarInpageAdapter } from '@services/comments/sidebar/article-comments-sidebar-inpage-adapter';
+import { createCommentsSidebarController } from '@services/comments/sidebar/comments-sidebar-controller';
+import { createCommentsSidebarInpageAdapter } from '@services/comments/sidebar/comments-sidebar-inpage-adapter';
 import { buildCommentLocatorFromRange } from '@services/comments/locator';
 import { normalizePositiveInt } from '@services/shared/numbers';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
@@ -95,20 +95,20 @@ function resolveInpageSelectionPayload(): {
 }
 
 export type InpageCommentsPanelController = {
-  open: (input?: { tabId?: number | null; focusComposer?: boolean; ensureArticle?: boolean }) => Promise<void>;
+  open: (input?: { tabId?: number | null; focusComposer?: boolean; ensureConversationForTarget?: boolean }) => Promise<void>;
 };
 
 export function createInpageCommentsPanelController(runtime: RuntimeClient | null): InpageCommentsPanelController {
   const sidebarSession = createCommentSidebarSession(getInpageCommentsPanelApi(runtime));
-  const controller = createArticleCommentsSidebarController({
+  const controller = createCommentsSidebarController({
     session: sidebarSession,
-    adapter: createArticleCommentsSidebarInpageAdapter(runtime),
+    adapter: createCommentsSidebarInpageAdapter(runtime),
     resolveComposerSelection: () => resolveInpageSelectionPayload(),
   });
 
   let lastTabId: number | null = null;
 
-  async function open(input?: { tabId?: number | null; focusComposer?: boolean; ensureArticle?: boolean }) {
+  async function open(input?: { tabId?: number | null; focusComposer?: boolean; ensureConversationForTarget?: boolean }) {
     // Only handle on top frame to avoid duplicate panels.
     try {
       if (globalThis.top && globalThis.top !== globalThis.self) return;
@@ -117,7 +117,7 @@ export function createInpageCommentsPanelController(runtime: RuntimeClient | nul
     }
 
     lastTabId = normalizePositiveInt(input?.tabId) || lastTabId;
-    const ensureArticle = input?.ensureArticle === true;
+    const ensureConversationForTarget = input?.ensureConversationForTarget === true;
 
     await controller.open({
       focusComposer: input?.focusComposer === true,
@@ -126,7 +126,8 @@ export function createInpageCommentsPanelController(runtime: RuntimeClient | nul
       ensureContextInput: {
         tabId: lastTabId,
         canonicalUrlFallback: canonicalizeArticleUrl(location.href),
-        ensureArticle,
+        commentTargetKeyFallback: canonicalizeArticleUrl(location.href) ? `url:${canonicalizeArticleUrl(location.href)}` : '',
+        ensureConversationForTarget,
       },
     });
   }
@@ -148,7 +149,7 @@ export function registerInpageCommentsPanelContentHandlers(runtime: RuntimeClien
       .open({
         tabId: normalizePositiveInt(msg?.payload?.tabId) || null,
         focusComposer: true,
-        ensureArticle: msg?.payload?.ensureArticle === true,
+        ensureConversationForTarget: msg?.payload?.ensureConversationForTarget === true,
       })
       .finally(() => {
         sendResponse?.({ ok: true });

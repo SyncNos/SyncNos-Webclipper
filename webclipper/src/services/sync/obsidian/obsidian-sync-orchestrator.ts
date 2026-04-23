@@ -348,21 +348,13 @@ async function decideSyncModeForConversation({
   {
     const canonicalUrl = safeString(convo?.url);
     const attachOrphans =
-      typeof (storage as any).attachOrphanCommentsToConversation === 'function'
-        ? (storage as any).attachOrphanCommentsToConversation
-        : typeof (storage as any).attachOrphanArticleCommentsToConversation === 'function'
-          ? (storage as any).attachOrphanArticleCommentsToConversation
-          : null;
+      typeof (storage as any).attachOrphanCommentsToConversation === 'function' ? (storage as any).attachOrphanCommentsToConversation : null;
     if (canonicalUrl && attachOrphans) {
       await attachOrphans(canonicalUrl, conversationId);
     }
 
     const getComments =
-      typeof (storage as any).getCommentsByConversationId === 'function'
-        ? (storage as any).getCommentsByConversationId
-        : typeof (storage as any).getArticleCommentsByConversationId === 'function'
-          ? (storage as any).getArticleCommentsByConversationId
-          : null;
+      typeof (storage as any).getCommentsByConversationId === 'function' ? (storage as any).getCommentsByConversationId : null;
     if (getComments) {
       comments = await getComments(conversationId);
       if (!Array.isArray(comments)) comments = [];

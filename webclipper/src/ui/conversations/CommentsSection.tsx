@@ -9,8 +9,8 @@ import {
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 import { createCommentSidebarSession } from '@services/comments/sidebar/comment-sidebar-session';
 import type { CommentSidebarSession } from '@services/comments/sidebar/comment-sidebar-contract';
-import { createArticleCommentsSidebarController } from '@services/comments/sidebar/article-comments-sidebar-controller';
-import { createArticleCommentsSidebarAppAdapter } from '@services/comments/sidebar/article-comments-sidebar-app-adapter';
+import { createCommentsSidebarController } from '@services/comments/sidebar/comments-sidebar-controller';
+import { createCommentsSidebarAppAdapter } from '@services/comments/sidebar/comments-sidebar-app-adapter';
 
 type SidebarModeProps = {
   sidebarSession: CommentSidebarSession;
@@ -187,22 +187,24 @@ function CommentsEmbedded({
   variant?: 'embedded' | 'sidebar';
 }) {
   const sessionRef = useRef<CommentSidebarSession | null>(null);
-  const controllerRef = useRef<ReturnType<typeof createArticleCommentsSidebarController> | null>(null);
+  const controllerRef = useRef<ReturnType<typeof createCommentsSidebarController> | null>(null);
 
   if (!sessionRef.current) sessionRef.current = createCommentSidebarSession();
   const session = sessionRef.current;
 
   if (!controllerRef.current) {
-    controllerRef.current = createArticleCommentsSidebarController({
+    controllerRef.current = createCommentsSidebarController({
       session,
-      adapter: createArticleCommentsSidebarAppAdapter(),
+      adapter: createCommentsSidebarAppAdapter(),
     });
   }
   const controller = controllerRef.current;
 
   useEffect(() => {
+    const normalizedCanonicalUrl = canonicalizeArticleUrl(canonicalUrl);
     controller.setContext({
-      canonicalUrl: canonicalizeArticleUrl(canonicalUrl),
+      commentTargetKey: normalizedCanonicalUrl ? `url:${normalizedCanonicalUrl}` : '',
+      canonicalUrl: normalizedCanonicalUrl || null,
       conversationId: Number(conversationId) > 0 ? Number(conversationId) : null,
     });
   }, [canonicalUrl, conversationId, controller]);
@@ -216,4 +218,3 @@ function CommentsEmbedded({
     />
   );
 }
-

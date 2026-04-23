@@ -1,5 +1,5 @@
-import type { ArticleComment } from '@services/comments/domain/models';
-import { computeArticleCommentThreadCount } from '@services/comments/domain/comment-metrics';
+import type { Comment } from '@services/comments/domain/models';
+import { computeCommentThreadCount } from '@services/comments/domain/comment-metrics';
 import { normalizeStandaloneImageCaptionLines } from '@services/sync/shared/markdown-image-normalizer';
 
 const MESSAGES_HEADING = 'Conversations';

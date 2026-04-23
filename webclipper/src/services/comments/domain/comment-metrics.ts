@@ -1,6 +1,6 @@
-import type { ArticleComment } from '@services/comments/domain/models';
+import type { Comment } from '@services/comments/domain/models';
 
-type ArticleCommentThreadCandidate = Pick<ArticleComment, 'id' | 'parentId'>;
+type CommentThreadCandidate = Pick<Comment, 'id' | 'parentId'>;
 
 function normalizePositiveNumber(value: unknown): number | null {
   const n = Number(value);
@@ -8,8 +8,8 @@ function normalizePositiveNumber(value: unknown): number | null {
   return n;
 }
 
-export function computeArticleCommentThreadCount(comments: unknown): number {
-  const list = Array.isArray(comments) ? (comments as ArticleCommentThreadCandidate[]) : [];
+export function computeCommentThreadCount(comments: unknown): number {
+  const list = Array.isArray(comments) ? (comments as CommentThreadCandidate[]) : [];
   if (!list.length) return 0;
 
   const existingIds = new Set<number>();

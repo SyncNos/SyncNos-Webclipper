@@ -1,4 +1,4 @@
-import type { ArticleComment } from '@services/comments/domain/models';
+import type { Comment } from '@services/comments/domain/models';
 
 const MAX_TEXT = 1900;
 const NOTION_COMMENTS_DIGEST_VERSION = 5;
@@ -116,7 +116,7 @@ function commentItemBlock(input: {
   return bulletedItemBlock(metaLine, children);
 }
 
-export function buildNotionCommentsBlocks(comments: ArticleComment[]): {
+export function buildNotionCommentsBlocks(comments: Comment[]): {
   blocks: any[];
   threads: number;
   items: number;
@@ -124,14 +124,14 @@ export function buildNotionCommentsBlocks(comments: ArticleComment[]): {
   const list = Array.isArray(comments) ? comments.slice() : [];
   list.sort((a, b) => Number(a?.createdAt || 0) - Number(b?.createdAt || 0));
 
-  const byId = new Map<number, ArticleComment>();
+  const byId = new Map<number, Comment>();
   for (const c of list) {
     const id = Number(c?.id);
     if (Number.isFinite(id) && id > 0) byId.set(id, c);
   }
 
-  const byParentId = new Map<number, ArticleComment[]>();
-  const roots: ArticleComment[] = [];
+  const byParentId = new Map<number, Comment[]>();
+  const roots: Comment[] = [];
   for (const c of list) {
     const parentId = c && c.parentId != null ? Number(c.parentId) : null;
     if (parentId && Number.isFinite(parentId) && parentId > 0 && byId.has(parentId)) {
@@ -157,8 +157,8 @@ export function buildNotionCommentsBlocks(comments: ArticleComment[]): {
       for (const part of quoteParts) threadBlocks.push(quoteBlock(part));
     }
 
-    const ordered: ArticleComment[] = [];
-    const pushDescendants = (parent: ArticleComment) => {
+    const ordered: Comment[] = [];
+    const pushDescendants = (parent: Comment) => {
       const replies = byParentId.get(Number(parent?.id)) || [];
       for (const reply of replies) {
         ordered.push(reply);
@@ -204,7 +204,7 @@ function fnv1a32(input: string): string {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-export function computeNotionCommentsDigest(comments: ArticleComment[]): string {
+export function computeNotionCommentsDigest(comments: Comment[]): string {
   const list = Array.isArray(comments) ? comments.slice() : [];
   list.sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
   const normalized = list.map((c) => ({

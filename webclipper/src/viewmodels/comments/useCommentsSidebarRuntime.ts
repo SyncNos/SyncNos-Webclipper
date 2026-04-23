@@ -21,8 +21,6 @@ export type CommentsSidebarRuntime = {
   subscribeSidebarClose: (listener: () => void) => () => void;
 };
 
-export type ArticleCommentsSidebarRuntime = CommentsSidebarRuntime;
-
 export function useCommentsSidebarRuntime(input: { onClose?: () => void } = {}): CommentsSidebarRuntime {
   const onCloseRef = useRef<(() => void) | undefined>(input.onClose);
   onCloseRef.current = input.onClose;
@@ -162,6 +160,3 @@ export function useCommentsSidebarRuntime(input: { onClose?: () => void } = {}):
   };
 }
 
-export function useArticleCommentsSidebarRuntime(input: { onClose?: () => void } = {}): ArticleCommentsSidebarRuntime {
-  return useCommentsSidebarRuntime(input);
-}

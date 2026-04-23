@@ -14,7 +14,7 @@ import {
   buildNotionCommentsBlocks,
   computeNotionCommentsDigest,
 } from '@services/comments/sync/notion-comments-renderer';
-import { computeArticleCommentThreadCount } from '@services/comments/domain/comment-metrics';
+import { computeCommentThreadCount } from '@services/comments/domain/comment-metrics';
 import { buildToggleHeadingBlock as buildNotionToggleHeadingBlock } from '@services/sync/notion/notion-section-blocks.ts';
 import {
   ensureSectionHeadingBlockId,
@@ -619,17 +619,11 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
           commentsLoadFailed = false;
 
           const getComments =
-            storage && typeof storage.getCommentsByConversationId === 'function'
-              ? storage.getCommentsByConversationId
-              : storage && typeof storage.getArticleCommentsByConversationId === 'function'
-                ? storage.getArticleCommentsByConversationId
-                : null;
+            storage && typeof storage.getCommentsByConversationId === 'function' ? storage.getCommentsByConversationId : null;
           const attachOrphans =
             storage && typeof storage.attachOrphanCommentsToConversation === 'function'
               ? storage.attachOrphanCommentsToConversation
-              : storage && typeof storage.attachOrphanArticleCommentsToConversation === 'function'
-                ? storage.attachOrphanArticleCommentsToConversation
-                : null;
+              : null;
 
           if (getComments) {
             commentsSourceAvailable = true;
@@ -653,7 +647,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
             commentsSourceAvailable = false;
             cachedComments = [];
           }
-          (convo as any).commentThreadCount = computeArticleCommentThreadCount(cachedComments);
+          (convo as any).commentThreadCount = computeCommentThreadCount(cachedComments);
           return cachedComments;
         };
 

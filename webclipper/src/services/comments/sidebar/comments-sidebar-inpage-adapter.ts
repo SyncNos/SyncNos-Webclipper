@@ -60,7 +60,7 @@ export function createCommentsSidebarInpageAdapter(runtime: RuntimeClient | null
       if (!rt?.send) return [];
       const id = normalizeConversationId(conversationId);
       if (isConvoTargetKey(commentTargetKey) && id) {
-        const res = await rt.send(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, {
+        const res = await rt.send(COMMENTS_MESSAGE_TYPES.LIST_COMMENTS, {
           canonicalUrl: '',
           conversationId: id,
         } as any);
@@ -71,7 +71,7 @@ export function createCommentsSidebarInpageAdapter(runtime: RuntimeClient | null
       const canonicalUrl = urlFromTargetKey(commentTargetKey) || safeString(canonicalUrlFallback);
       const normalized = canonicalizeArticleUrl(canonicalUrl);
       if (!normalized) return [];
-      const res = await rt.send(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, { canonicalUrl: normalized } as any);
+      const res = await rt.send(COMMENTS_MESSAGE_TYPES.LIST_COMMENTS, { canonicalUrl: normalized } as any);
       if (!res?.ok) return [];
       return toSidebarItems(res?.data);
     },
@@ -105,7 +105,7 @@ export function createCommentsSidebarInpageAdapter(runtime: RuntimeClient | null
 
       if (resolvedCanonicalUrl && conversationId) {
         try {
-          await rt.send(COMMENTS_MESSAGE_TYPES.ATTACH_ORPHAN_ARTICLE_COMMENTS, {
+          await rt.send(COMMENTS_MESSAGE_TYPES.ATTACH_ORPHAN_COMMENTS, {
             canonicalUrl: resolvedCanonicalUrl,
             conversationId,
           } as any);
@@ -124,7 +124,7 @@ export function createCommentsSidebarInpageAdapter(runtime: RuntimeClient | null
       if (!rt?.send) throw new Error('missing runtime for adding comment');
       const normalized = canonicalizeArticleUrl(canonicalUrl);
       if (!normalized) throw new Error('missing canonicalUrl for adding comment');
-      const res = await rt.send(COMMENTS_MESSAGE_TYPES.ADD_ARTICLE_COMMENT, {
+      const res = await rt.send(COMMENTS_MESSAGE_TYPES.ADD_COMMENT, {
         canonicalUrl: normalized,
         conversationId,
         quoteText,
@@ -140,7 +140,7 @@ export function createCommentsSidebarInpageAdapter(runtime: RuntimeClient | null
       if (!rt?.send) throw new Error('missing runtime for replying comment');
       const normalized = canonicalizeArticleUrl(canonicalUrl);
       if (!normalized) throw new Error('missing canonicalUrl for replying comment');
-      const res = await rt.send(COMMENTS_MESSAGE_TYPES.ADD_ARTICLE_COMMENT, {
+      const res = await rt.send(COMMENTS_MESSAGE_TYPES.ADD_COMMENT, {
         canonicalUrl: normalized,
         conversationId,
         parentId,
@@ -151,7 +151,7 @@ export function createCommentsSidebarInpageAdapter(runtime: RuntimeClient | null
     },
     async delete({ id }) {
       if (!rt?.send) throw new Error('missing runtime for deleting comment');
-      const res = await rt.send(COMMENTS_MESSAGE_TYPES.DELETE_ARTICLE_COMMENT, { id } as any);
+      const res = await rt.send(COMMENTS_MESSAGE_TYPES.DELETE_COMMENT, { id } as any);
       if (!res?.ok) throw new Error('failed to delete comment');
     },
     async migrateTargetKey({ fromTargetKey, toTargetKey, conversationId }) {
@@ -161,7 +161,7 @@ export function createCommentsSidebarInpageAdapter(runtime: RuntimeClient | null
       const to = canonicalizeArticleUrl(toCanonicalUrl);
       if (!from || !to || from === to) return;
       if (!rt?.send) return;
-      await rt.send(COMMENTS_MESSAGE_TYPES.MIGRATE_ARTICLE_COMMENTS_CANONICAL_URL, {
+      await rt.send(COMMENTS_MESSAGE_TYPES.MIGRATE_COMMENTS_CANONICAL_URL, {
         fromCanonicalUrl: from,
         toCanonicalUrl: to,
         conversationId,

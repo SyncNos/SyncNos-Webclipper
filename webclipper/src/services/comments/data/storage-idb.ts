@@ -1,9 +1,9 @@
-import type { AddArticleCommentInput, ArticleComment } from '@services/comments/domain/models';
+import type { Comment } from '@services/comments/domain/models';
 import { openDb as openSchemaDb } from '@platform/idb/schema';
 import { canonicalizeCommentTargetUrl } from '@services/url-cleaning/comment-target-url';
 import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
 
-export type ArticleCommentDeleteContext = {
+export type CommentDeleteContext = {
   conversationId: number | null;
   canonicalUrl: string;
 };
@@ -144,13 +144,14 @@ function normalizeLocator(value: unknown): any | null {
   return value as any;
 }
 
-function toComment(row: any): ArticleComment {
+function toComment(row: any): Comment {
   const targetKey = normalizeTargetKey(row?.targetKey);
   const canonicalUrlFromTarget = targetKey.startsWith('url:') ? targetKey.slice('url:'.length) : '';
   return {
     id: Number(row?.id),
     parentId: normalizeParentId(row?.parentId),
     conversationId: normalizeConversationId(row?.conversationId),
+    targetKey,
     canonicalUrl: canonicalUrlFromTarget || normalizeCanonicalUrl(row?.canonicalUrl),
     authorName: safeString(row?.authorName) || null,
     quoteText: safeString(row?.quoteText),
@@ -161,9 +162,18 @@ function toComment(row: any): ArticleComment {
   };
 }
 
-export async function addArticleComment(
-  input: AddArticleCommentInput & { commentTargetKey?: string | null },
-): Promise<ArticleComment> {
+export async function addComment(input: {
+  parentId?: number | null;
+  conversationId?: number | null;
+  canonicalUrl?: string;
+  commentTargetKey?: string | null;
+  authorName?: string | null;
+  quoteText?: string | null;
+  commentText: string;
+  locator?: unknown | null;
+  createdAt?: number | null;
+  updatedAt?: number | null;
+}): Promise<Comment> {
   const db = await openDb();
   if (!hasCommentsStore(db)) throw new Error('legacy article_comments writes disabled (missing comments store)');
   const { t, stores } = tx(db, ['comments'], 'readwrite');
@@ -199,7 +209,7 @@ export async function addArticleComment(
   return toComment({ ...row, id });
 }
 
-export async function listArticleCommentsByCanonicalUrl(canonicalUrl: string): Promise<ArticleComment[]> {
+export async function listCommentsByCanonicalUrl(canonicalUrl: string): Promise<Comment[]> {
   const normalized = normalizeCanonicalUrl(canonicalUrl);
   if (!normalized) return [];
 
@@ -240,7 +250,7 @@ export async function listArticleCommentsByCanonicalUrl(canonicalUrl: string): P
   return (Array.isArray(rows) ? rows : []).map(toComment);
 }
 
-export async function listArticleCommentsByConversationId(conversationId: number): Promise<ArticleComment[]> {
+export async function listCommentsByConversationId(conversationId: number): Promise<Comment[]> {
   const id = Number(conversationId);
   if (!Number.isFinite(id) || id <= 0) return [];
 
@@ -267,7 +277,7 @@ export async function listArticleCommentsByConversationId(conversationId: number
   return (Array.isArray(rows) ? rows : []).map(toComment);
 }
 
-function toDeleteContext(row: any): ArticleCommentDeleteContext {
+function toDeleteContext(row: any): CommentDeleteContext {
   const targetKey = normalizeTargetKey(row?.targetKey);
   const canonicalUrlFromTarget = targetKey.startsWith('url:') ? targetKey.slice('url:'.length) : '';
   return {
@@ -276,7 +286,7 @@ function toDeleteContext(row: any): ArticleCommentDeleteContext {
   };
 }
 
-export async function getArticleCommentDeleteContextById(id: number): Promise<ArticleCommentDeleteContext | null> {
+export async function getCommentDeleteContextById(id: number): Promise<CommentDeleteContext | null> {
   const commentId = Number(id);
   if (!Number.isFinite(commentId) || commentId <= 0) return null;
 
@@ -344,7 +354,7 @@ export async function getArticleCommentDeleteContextById(id: number): Promise<Ar
   return context;
 }
 
-export async function deleteArticleCommentById(id: number): Promise<boolean> {
+export async function deleteCommentById(id: number): Promise<boolean> {
   const commentId = Number(id);
   if (!Number.isFinite(commentId) || commentId <= 0) return false;
 
@@ -381,7 +391,7 @@ export async function deleteArticleCommentById(id: number): Promise<boolean> {
   return true;
 }
 
-export async function hasAnyArticleCommentsForCanonicalUrl(canonicalUrl: string): Promise<boolean> {
+export async function hasAnyCommentsForCanonicalUrl(canonicalUrl: string): Promise<boolean> {
   const normalized = normalizeCanonicalUrl(canonicalUrl);
   if (!normalized) return false;
 
@@ -460,7 +470,7 @@ export async function attachOrphanCommentsToConversation(
   return { updated };
 }
 
-export async function migrateArticleCommentsCanonicalUrl(
+export async function migrateCommentsCanonicalUrl(
   fromCanonicalUrl: string,
   toCanonicalUrl: string,
 ): Promise<{ updated: number }> {

@@ -14,7 +14,7 @@ import {
 import { writeConversationMessagesSnapshot, writeConversationSnapshot } from '@services/conversations/data/write';
 import { inlineChatImagesInMessages } from '@services/conversations/data/image-inline';
 import { backfillConversationImages } from '@services/conversations/background/image-backfill-job';
-import { attachOrphanCommentsToConversation, migrateArticleCommentsCanonicalUrl } from '@services/comments/data/storage';
+import { attachOrphanCommentsToConversation, migrateCommentsCanonicalUrl } from '@services/comments/data/storage';
 import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
 import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
 import {
@@ -210,7 +210,7 @@ export function registerConversationHandlers(router: AnyRouter) {
           for (const url of candidates) {
             if (!url || url === preferred) continue;
             try {
-              await migrateArticleCommentsCanonicalUrl(url, preferred);
+              await migrateCommentsCanonicalUrl(url, preferred);
             } catch (_e) {
               // ignore
             }

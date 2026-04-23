@@ -5,7 +5,7 @@ import { createBackgroundRouter } from '@platform/messaging/background-router';
 import { registerWebArticleHandlers } from '@collectors/web/article-fetch-background-handlers';
 import { registerChatgptDeepResearchHandlers } from '@collectors/chatgpt/chatgpt-deep-research-background-handlers';
 import { registerUiMessageHandlers } from '@platform/messaging/ui-background-handlers';
-import { registerArticleCommentsHandlers } from '@services/comments/background/handlers';
+import { registerCommentsHandlers } from '@services/comments/background/handlers';
 import { registerItemMentionHandlers } from '@services/integrations/item-mention/background-handlers';
 import { registerChatWithBackgroundHandlers } from '@services/integrations/chatwith/chatwith-background-handlers';
 import { ensureDefaultNotionOAuthClientId, setupNotionOAuthNavigationListener } from '@services/sync/notion/auth/oauth';
@@ -40,7 +40,7 @@ export default defineBackground(() => {
   registerConversationHandlers(router);
   registerItemMentionHandlers(router);
   registerChatWithBackgroundHandlers(router);
-  registerArticleCommentsHandlers(router);
+  registerCommentsHandlers(router);
   registerWebArticleHandlers(router);
   registerChatgptDeepResearchHandlers(router);
   registerNotionSettingsHandlers(router, {

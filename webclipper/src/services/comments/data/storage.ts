@@ -1,36 +1,36 @@
 import * as idb from '@services/comments/data/storage-idb';
 
-export async function addArticleComment(payload: any) {
-  return await idb.addArticleComment(payload);
+export async function addComment(payload: any) {
+  return await idb.addComment(payload);
 }
 
-export async function listArticleCommentsByCanonicalUrl(canonicalUrl: string) {
-  return await idb.listArticleCommentsByCanonicalUrl(canonicalUrl);
+export async function listCommentsByCanonicalUrl(canonicalUrl: string) {
+  return await idb.listCommentsByCanonicalUrl(canonicalUrl);
 }
 
-export async function listArticleCommentsByConversationId(conversationId: number) {
-  return await idb.listArticleCommentsByConversationId(conversationId);
+export async function listCommentsByConversationId(conversationId: number) {
+  return await idb.listCommentsByConversationId(conversationId);
 }
 
-export async function getArticleCommentDeleteContextById(id: number) {
-  return await idb.getArticleCommentDeleteContextById(id);
+export async function getCommentDeleteContextById(id: number) {
+  return await idb.getCommentDeleteContextById(id);
 }
 
-export async function deleteArticleCommentById(id: number) {
-  return await idb.deleteArticleCommentById(id);
+export async function deleteCommentById(id: number) {
+  return await idb.deleteCommentById(id);
 }
 
-export async function hasAnyArticleCommentsForCanonicalUrl(canonicalUrl: string) {
-  return await idb.hasAnyArticleCommentsForCanonicalUrl(canonicalUrl);
+export async function hasAnyCommentsForCanonicalUrl(canonicalUrl: string) {
+  return await idb.hasAnyCommentsForCanonicalUrl(canonicalUrl);
 }
 
 export async function attachOrphanCommentsToConversation(canonicalUrl: string, conversationId: number) {
   return await idb.attachOrphanCommentsToConversation(canonicalUrl, conversationId);
 }
 
-export async function migrateArticleCommentsCanonicalUrl(
+export async function migrateCommentsCanonicalUrl(
   fromCanonicalUrl: string,
   toCanonicalUrl: string,
 ): Promise<{ updated: number }> {
-  return await idb.migrateArticleCommentsCanonicalUrl(fromCanonicalUrl, toCanonicalUrl);
+  return await idb.migrateCommentsCanonicalUrl(fromCanonicalUrl, toCanonicalUrl);
 }

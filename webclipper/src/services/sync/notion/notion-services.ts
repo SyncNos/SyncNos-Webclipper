@@ -28,9 +28,6 @@ export type NotionBackgroundStorage = {
   patchSyncMapping?: (conversationId: number, patch: Record<string, unknown>) => Promise<any>;
   getCommentsByConversationId?: (conversationId: number) => Promise<any[]>;
   attachOrphanCommentsToConversation?: (canonicalUrl: string, conversationId: number) => Promise<any>;
-  // Legacy aliases (kept for compatibility; will be removed after callers migrate).
-  getArticleCommentsByConversationId?: (conversationId: number) => Promise<any[]>;
-  attachOrphanArticleCommentsToConversation?: (canonicalUrl: string, conversationId: number) => Promise<any>;
 };
 
 export type NotionDbManager = {
