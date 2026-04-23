@@ -14,6 +14,9 @@ import {
 import { writeConversationMessagesSnapshot, writeConversationSnapshot } from '@services/conversations/data/write';
 import { inlineChatImagesInMessages } from '@services/conversations/data/image-inline';
 import { backfillConversationImages } from '@services/conversations/background/image-backfill-job';
+import { attachOrphanCommentsToConversation, migrateArticleCommentsCanonicalUrl } from '@services/comments/data/storage';
+import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
+import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
 import {
   ABOUT_YOU_USER_NAME_STORAGE_KEY,
   DEFAULT_ABOUT_YOU_USER_NAME,
@@ -172,6 +175,51 @@ export function registerConversationHandlers(router: AnyRouter) {
     }
     const convo = await writeConversationSnapshot(payload);
     const conversationId = Number((convo as any)?.id);
+    try {
+      const rawUrl = String(payload?.url || (convo as any)?.url || '').trim();
+      const sourceType =
+        String(payload?.sourceType || (convo as any)?.sourceType || '')
+          .trim()
+          .toLowerCase() || 'chat';
+
+      const preferred =
+        sourceType === 'video'
+          ? canonicalizeVideoUrl(rawUrl)
+          : sourceType === 'article'
+            ? canonicalizeArticleUrl(rawUrl)
+            : normalizeHttpUrl(rawUrl);
+
+      const candidates = new Set<string>();
+      const a = canonicalizeArticleUrl(rawUrl);
+      const v = canonicalizeVideoUrl(rawUrl);
+      const n = normalizeHttpUrl(rawUrl);
+      if (a) candidates.add(a);
+      if (v) candidates.add(v);
+      if (n) candidates.add(n);
+      if (preferred) candidates.add(preferred);
+
+      if (Number.isFinite(conversationId) && conversationId > 0 && candidates.size) {
+        for (const url of candidates) {
+          try {
+            await attachOrphanCommentsToConversation(url, conversationId);
+          } catch (_e) {
+            // ignore
+          }
+        }
+        if (preferred) {
+          for (const url of candidates) {
+            if (!url || url === preferred) continue;
+            try {
+              await migrateArticleCommentsCanonicalUrl(url, preferred);
+            } catch (_e) {
+              // ignore
+            }
+          }
+        }
+      }
+    } catch (_e) {
+      // ignore: orphan attach must not break conversation upsert
+    }
     if (Number.isFinite(conversationId) && conversationId > 0) {
       router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
         reason: existed ? 'upsertConversation' : 'createConversation',
