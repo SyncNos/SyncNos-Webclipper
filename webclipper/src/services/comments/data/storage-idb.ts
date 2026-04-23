@@ -45,7 +45,7 @@ function hasCommentsStore(db: IDBDatabase): boolean {
   }
 }
 
-function hasLegacyArticleCommentsStore(db: IDBDatabase): boolean {
+function hasLegacyCommentsStore(db: IDBDatabase): boolean {
   try {
     return db.objectStoreNames.contains('article_comments');
   } catch (_e) {
@@ -239,7 +239,7 @@ export async function listCommentsByCanonicalUrl(canonicalUrl: string): Promise<
     }
   }
 
-  if (!hasLegacyArticleCommentsStore(db)) return [];
+  if (!hasLegacyCommentsStore(db)) return [];
   const { t, stores } = tx(db, ['article_comments'], 'readonly');
   const idx = stores.article_comments.index('by_canonicalUrl_createdAt');
   const range = globalThis.IDBKeyRange?.bound
@@ -266,7 +266,7 @@ export async function listCommentsByConversationId(conversationId: number): Prom
     if (Array.isArray(rows) && rows.length) return rows.map(toComment);
   }
 
-  if (!hasLegacyArticleCommentsStore(db)) return [];
+  if (!hasLegacyCommentsStore(db)) return [];
   const { t, stores } = tx(db, ['article_comments'], 'readonly');
   const idx = stores.article_comments.index('by_conversationId_createdAt');
   const range = globalThis.IDBKeyRange?.bound
@@ -316,7 +316,7 @@ export async function getCommentDeleteContextById(id: number): Promise<CommentDe
     if (context.conversationId != null || context.canonicalUrl) return context;
   }
 
-  if (!hasLegacyArticleCommentsStore(db)) return null;
+  if (!hasLegacyCommentsStore(db)) return null;
   const { t, stores } = tx(db, ['article_comments'], 'readonly');
   const rows = (await reqToPromise<any[]>(stores.article_comments.getAll() as any)) || [];
   await txDone(t);
@@ -414,7 +414,7 @@ export async function hasAnyCommentsForCanonicalUrl(canonicalUrl: string): Promi
     await txDone(t);
   }
 
-  if (!hasLegacyArticleCommentsStore(db)) return false;
+  if (!hasLegacyCommentsStore(db)) return false;
   const { t, stores } = tx(db, ['article_comments'], 'readonly');
   const idx = stores.article_comments.index('by_canonicalUrl_createdAt');
   const range = globalThis.IDBKeyRange?.bound

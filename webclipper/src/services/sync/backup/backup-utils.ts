@@ -4,7 +4,7 @@ export const BACKUP_SCHEMA_VERSION = 1;
 export const BACKUP_ZIP_SCHEMA_VERSION = 2;
 export const LAST_BACKUP_EXPORT_AT_STORAGE_KEY = 'last_backup_export_at';
 export const IMAGE_CACHE_INDEX_SCHEMA_VERSION = 1;
-export const ARTICLE_COMMENTS_INDEX_SCHEMA_VERSION = 1;
+export const COMMENTS_INDEX_SCHEMA_VERSION = 1;
 
 // Legacy export: previously we only backed up an allowlist of keys.
 // Now we back up all chrome.storage.local keys except a small sensitive denylist.
@@ -274,40 +274,40 @@ export function validateImageCacheIndexDocument(doc: unknown): { ok: boolean; er
   return { ok: true, error: '' };
 }
 
-export function validateArticleCommentsIndexDocument(doc: unknown): { ok: boolean; error: string } {
+export function validateCommentsIndexDocument(doc: unknown): { ok: boolean; error: string } {
   const d: any = doc;
-  if (!d || typeof d !== 'object') return { ok: false, error: 'Article comments index is not an object' };
-  if (Number(d.schemaVersion) !== ARTICLE_COMMENTS_INDEX_SCHEMA_VERSION) {
-    return { ok: false, error: 'Unsupported article comments schemaVersion' };
+  if (!d || typeof d !== 'object') return { ok: false, error: 'Comments index is not an object' };
+  if (Number(d.schemaVersion) !== COMMENTS_INDEX_SCHEMA_VERSION) {
+    return { ok: false, error: 'Unsupported comments schemaVersion' };
   }
   const comments = Array.isArray(d.comments) ? d.comments : null;
-  if (!comments) return { ok: false, error: 'Missing article comments list' };
+  if (!comments) return { ok: false, error: 'Missing comments list' };
 
   for (const c of comments) {
-    if (!c || typeof c !== 'object') return { ok: false, error: 'Invalid article comment item' };
+    if (!c || typeof c !== 'object') return { ok: false, error: 'Invalid comment item' };
     const commentId = Number(c.commentId);
-    if (!Number.isFinite(commentId) || commentId <= 0) return { ok: false, error: 'Invalid article commentId' };
+    if (!Number.isFinite(commentId) || commentId <= 0) return { ok: false, error: 'Invalid commentId' };
 
     const parentId = c.parentCommentId == null ? null : Number(c.parentCommentId);
     if (parentId != null && (!Number.isFinite(parentId) || parentId <= 0)) {
-      return { ok: false, error: 'Invalid article parentCommentId' };
+      return { ok: false, error: 'Invalid parentCommentId' };
     }
 
     const uk = c.uniqueKey == null ? '' : String(c.uniqueKey || '').trim();
     if (uk && (!isNonEmptyString(uk) || !uk.includes('||'))) {
-      return { ok: false, error: 'Invalid article comment uniqueKey' };
+      return { ok: false, error: 'Invalid comment uniqueKey' };
     }
 
     const canonicalUrl = String(c.canonicalUrl || '').trim();
-    if (!isNonEmptyString(canonicalUrl)) return { ok: false, error: 'Invalid article comment canonicalUrl' };
+    if (!isNonEmptyString(canonicalUrl)) return { ok: false, error: 'Invalid comment canonicalUrl' };
 
     const commentText = String(c.commentText || '').trim();
-    if (!isNonEmptyString(commentText)) return { ok: false, error: 'Invalid article comment commentText' };
+    if (!isNonEmptyString(commentText)) return { ok: false, error: 'Invalid comment commentText' };
 
     const createdAt = Number(c.createdAt);
     const updatedAt = Number(c.updatedAt);
-    if (!Number.isFinite(createdAt) || createdAt < 0) return { ok: false, error: 'Invalid article comment createdAt' };
-    if (!Number.isFinite(updatedAt) || updatedAt < 0) return { ok: false, error: 'Invalid article comment updatedAt' };
+    if (!Number.isFinite(createdAt) || createdAt < 0) return { ok: false, error: 'Invalid comment createdAt' };
+    if (!Number.isFinite(updatedAt) || updatedAt < 0) return { ok: false, error: 'Invalid comment updatedAt' };
   }
 
   return { ok: true, error: '' };

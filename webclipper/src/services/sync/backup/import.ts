@@ -2,7 +2,7 @@ import { storageSet } from '@platform/storage/local';
 import {
   filterStorageForBackup,
   validateImageCacheIndexDocument,
-  validateArticleCommentsIndexDocument,
+  validateCommentsIndexDocument,
   mergeConversationRecord,
   mergeMessageRecord,
   mergeSyncMappingRecord,
@@ -444,7 +444,7 @@ export async function importBackupZipV2Merge(
       ? readJsonEntry(entries, articleCommentsIndexPath)
       : null;
   if (articleCommentsIndexDoc) {
-    const commentsValidation = validateArticleCommentsIndexDocument(articleCommentsIndexDoc);
+    const commentsValidation = validateCommentsIndexDocument(articleCommentsIndexDoc);
     if (!commentsValidation.ok) throw new Error(commentsValidation.error || 'Invalid article comments index');
   }
   const articleCommentItems: AnyRecord[] =

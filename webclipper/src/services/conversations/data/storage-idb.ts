@@ -14,7 +14,7 @@ import type {
   ConversationListSummary,
 } from '@services/conversations/domain/list-pagination';
 import { openDb as openSchemaDb } from '@platform/idb/schema';
-import { computeArticleCommentThreadCount } from '@services/comments/domain/comment-metrics';
+import { computeCommentThreadCount } from '@services/comments/domain/comment-metrics';
 import { canonicalizeCommentTargetUrl } from '@services/url-cleaning/comment-target-url';
 
 let cachedDb: IDBDatabase | null = null;
@@ -903,7 +903,7 @@ async function readConversationListPageItems(input: {
         const batch = (await reqToPromise<any[]>(idx.getAll(range) as any)) || [];
         if (Array.isArray(batch)) rows.push(...batch);
       }
-      (item as any).commentThreadCount = computeArticleCommentThreadCount(rows);
+      (item as any).commentThreadCount = computeCommentThreadCount(rows);
       continue;
     }
 
@@ -913,7 +913,7 @@ async function readConversationListPageItems(input: {
       : null;
     if (!range) continue;
     const comments = (await reqToPromise<any[]>(articleCommentIndex.getAll(range) as any)) || [];
-    (item as any).commentThreadCount = computeArticleCommentThreadCount(comments);
+    (item as any).commentThreadCount = computeCommentThreadCount(comments);
   }
 
   const tail = pageItems.length ? pageItems[pageItems.length - 1] : null;

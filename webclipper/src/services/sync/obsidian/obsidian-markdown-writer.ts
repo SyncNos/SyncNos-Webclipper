@@ -156,20 +156,20 @@ function buildListItemParagraph(text: string, indentLevel: number): string[] {
     .filter((x) => !!x);
 }
 
-function buildObsidianCommentsMarkdown(comments: ArticleComment[]) {
+function buildObsidianCommentsMarkdown(comments: Comment[]) {
   const list = Array.isArray(comments) ? comments.slice() : [];
   if (!list.length) return '';
 
   list.sort((a, b) => Number(a?.createdAt || 0) - Number(b?.createdAt || 0));
 
-  const byId = new Map<number, ArticleComment>();
+  const byId = new Map<number, Comment>();
   for (const c of list) {
     const id = Number(c?.id);
     if (Number.isFinite(id) && id > 0) byId.set(id, c);
   }
 
-  const byParentId = new Map<number, ArticleComment[]>();
-  const roots: ArticleComment[] = [];
+  const byParentId = new Map<number, Comment[]>();
+  const roots: Comment[] = [];
   for (const c of list) {
     const parentId = c && c.parentId != null ? Number(c.parentId) : null;
     if (parentId && Number.isFinite(parentId) && parentId > 0 && byId.has(parentId)) {
@@ -181,7 +181,7 @@ function buildObsidianCommentsMarkdown(comments: ArticleComment[]) {
     }
   }
 
-  function renderFlatBulletItem(comment: ArticleComment): string[] {
+  function renderFlatBulletItem(comment: Comment): string[] {
     const out: string[] = [];
     const metaLine = buildCommentMetaLine({ authorName: (comment as any)?.authorName, createdAt: comment?.createdAt });
     const head = buildListItemHead(metaLine, 0);
@@ -191,11 +191,11 @@ function buildObsidianCommentsMarkdown(comments: ArticleComment[]) {
     return out.filter((x) => !!x);
   }
 
-  function renderFlatThread(root: ArticleComment): string[] {
+  function renderFlatThread(root: Comment): string[] {
     const out: string[] = [];
     const visited = new Set<number>();
 
-    const pushRecursive = (comment: ArticleComment) => {
+    const pushRecursive = (comment: Comment) => {
       if (!comment) return;
       const id = Number(comment?.id);
       if (Number.isFinite(id) && id > 0) {
@@ -249,7 +249,7 @@ function buildFullNoteMarkdown({
   conversation?: any;
   messages?: any[];
   syncnosObject?: any;
-  comments?: ArticleComment[];
+  comments?: Comment[];
 }) {
   const c = conversation || {};
   const url = safeString(c.url);
@@ -261,7 +261,7 @@ function buildFullNoteMarkdown({
   };
 
   const isArticle = sourceType === 'article';
-  const commentsRootCount = computeArticleCommentThreadCount(comments || []);
+  const commentsRootCount = computeCommentThreadCount(comments || []);
   frontmatter.comments_root_count = commentsRootCount;
   if (isArticle) {
     const articleMd = buildArticleBodyMarkdown(messages || []);

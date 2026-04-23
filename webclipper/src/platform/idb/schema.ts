@@ -928,7 +928,7 @@ function ensureImageCacheStore(db: IDBDatabase, tx: IDBTransaction | null): void
   }
 }
 
-function ensureArticleCommentsStore(db: IDBDatabase, tx: IDBTransaction | null): void {
+function ensureLegacyCommentsStore(db: IDBDatabase, tx: IDBTransaction | null): void {
   if (!db.objectStoreNames.contains('article_comments')) {
     const store = db.createObjectStore('article_comments', { keyPath: 'id', autoIncrement: true });
     store.createIndex('by_canonicalUrl_createdAt', ['canonicalUrl', 'createdAt'], { unique: false });
@@ -964,7 +964,7 @@ function ensureCommentsStore(db: IDBDatabase, tx: IDBTransaction | null): void {
   }
 }
 
-function migrateArticleCommentsToCommentsStore({ db, tx }: MigrationContext): void {
+function migrateLegacyCommentsToCommentsStore({ db, tx }: MigrationContext): void {
   if (!db.objectStoreNames.contains('article_comments')) return;
   if (!db.objectStoreNames.contains('comments')) return;
 
@@ -1022,7 +1022,7 @@ function runUpgrades(request: IDBOpenDBRequest, oldVersion: number): void {
   ensureMessagesStore(db, tx);
   ensureSyncMappingsStore(db, tx);
   ensureImageCacheStore(db, tx);
-  ensureArticleCommentsStore(db, tx);
+  ensureLegacyCommentsStore(db, tx);
   ensureCommentsStore(db, tx);
 
   if (tx && oldVersion < 2) {
@@ -1052,7 +1052,7 @@ function runUpgrades(request: IDBOpenDBRequest, oldVersion: number): void {
     backfillConversationListDerivedKeys({ db, tx });
   }
   if (tx && oldVersion < 9) {
-    migrateArticleCommentsToCommentsStore({ db, tx });
+    migrateLegacyCommentsToCommentsStore({ db, tx });
   }
 }
 
