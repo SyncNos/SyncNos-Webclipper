@@ -11,6 +11,10 @@ export type ArticleComment = {
   updatedAt: number;
 };
 
+export type Comment = Omit<ArticleComment, 'canonicalUrl'> & {
+  targetKey: string;
+};
+
 export type ArticleCommentLocatorEnv = 'inpage' | 'app';
 
 export type ArticleCommentTextQuoteSelector = {
@@ -45,4 +49,8 @@ export type AddArticleCommentInput = {
   locator?: ArticleCommentLocator | null;
   createdAt?: number | null;
   updatedAt?: number | null;
+};
+
+export type AddCommentInput = Omit<AddArticleCommentInput, 'canonicalUrl'> & {
+  targetKey: string;
 };
