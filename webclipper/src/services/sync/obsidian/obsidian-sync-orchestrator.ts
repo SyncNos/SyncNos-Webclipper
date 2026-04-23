@@ -344,16 +344,28 @@ async function decideSyncModeForConversation({
     };
   }
 
-  const isArticle = safeString(convo?.sourceType) === 'article';
-  let articleComments: any[] = [];
-  if (isArticle) {
+  let comments: any[] = [];
+  {
     const canonicalUrl = safeString(convo?.url);
-    if (canonicalUrl && typeof (storage as any).attachOrphanArticleCommentsToConversation === 'function') {
-      await (storage as any).attachOrphanArticleCommentsToConversation(canonicalUrl, conversationId);
+    const attachOrphans =
+      typeof (storage as any).attachOrphanCommentsToConversation === 'function'
+        ? (storage as any).attachOrphanCommentsToConversation
+        : typeof (storage as any).attachOrphanArticleCommentsToConversation === 'function'
+          ? (storage as any).attachOrphanArticleCommentsToConversation
+          : null;
+    if (canonicalUrl && attachOrphans) {
+      await attachOrphans(canonicalUrl, conversationId);
     }
-    if (typeof (storage as any).getArticleCommentsByConversationId === 'function') {
-      articleComments = await (storage as any).getArticleCommentsByConversationId(conversationId);
-      if (!Array.isArray(articleComments)) articleComments = [];
+
+    const getComments =
+      typeof (storage as any).getCommentsByConversationId === 'function'
+        ? (storage as any).getCommentsByConversationId
+        : typeof (storage as any).getArticleCommentsByConversationId === 'function'
+          ? (storage as any).getArticleCommentsByConversationId
+          : null;
+    if (getComments) {
+      comments = await getComments(conversationId);
+      if (!Array.isArray(comments)) comments = [];
     }
   }
 
@@ -432,7 +444,7 @@ async function decideSyncModeForConversation({
       convo,
       filePath: desiredFilePath,
       messages,
-      comments: articleComments,
+      comments,
       mode: forceFull ? 'full_rebuild_forced' : 'full_rebuild',
     };
   }
@@ -446,7 +458,7 @@ async function decideSyncModeForConversation({
       filePath: desiredFilePath,
       deleteAfterFilePath,
       messages,
-      comments: articleComments,
+      comments,
       mode: forceFull ? 'full_rebuild_forced' : 'full_rebuild_rename',
     };
   }
@@ -458,7 +470,7 @@ async function decideSyncModeForConversation({
       convo,
       filePath: desiredFilePath,
       messages,
-      comments: articleComments,
+      comments,
       mode: 'full_rebuild_forced',
     };
   }
@@ -475,7 +487,7 @@ async function decideSyncModeForConversation({
       convo,
       filePath: desiredFilePath,
       messages,
-      comments: articleComments,
+      comments,
       mode: 'full_rebuild',
     };
   }
@@ -489,7 +501,7 @@ async function decideSyncModeForConversation({
       convo,
       filePath: desiredFilePath,
       messages,
-      comments: articleComments,
+      comments,
       mode: 'full_rebuild',
     };
   }
@@ -500,7 +512,7 @@ async function decideSyncModeForConversation({
     convo,
     filePath: desiredFilePath,
     messages,
-    comments: articleComments,
+    comments,
     mode: 'full_rebuild',
   };
 }

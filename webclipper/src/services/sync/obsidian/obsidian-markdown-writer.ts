@@ -261,9 +261,9 @@ function buildFullNoteMarkdown({
   };
 
   const isArticle = sourceType === 'article';
+  const commentsRootCount = computeArticleCommentThreadCount(comments || []);
+  frontmatter.comments_root_count = commentsRootCount;
   if (isArticle) {
-    const commentsRootCount = computeArticleCommentThreadCount(comments || []);
-    frontmatter.comments_root_count = commentsRootCount;
     const articleMd = buildArticleBodyMarkdown(messages || []);
     const commentsMd = buildObsidianCommentsMarkdown(comments || []);
     const sections: string[] = [];
@@ -272,7 +272,11 @@ function buildFullNoteMarkdown({
   }
 
   const messagesMd = buildMessagesMarkdown(messages || []);
-  return buildFrontmatterBlock(frontmatter) + `# ${MESSAGES_HEADING}\n\n` + messagesMd;
+  const heading = sourceType === 'video' ? 'Transcript' : MESSAGES_HEADING;
+  const commentsMd = buildObsidianCommentsMarkdown(comments || []);
+  const sections: string[] = [];
+  sections.push(`# ${heading}`, '', messagesMd || '', '', `## ${COMMENTS_HEADING}`, '', commentsMd || '');
+  return buildFrontmatterBlock(frontmatter) + `${sections.join('\n').trim()}\n`;
 }
 
 const api = {

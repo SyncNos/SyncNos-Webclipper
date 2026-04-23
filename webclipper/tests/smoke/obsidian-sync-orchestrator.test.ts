@@ -270,6 +270,81 @@ describe('obsidian-sync-orchestrator', () => {
     expect(putBody).toContain('## Comments');
   });
 
+  it('rebuilds video note with transcript + comments when remote exists', async () => {
+    setupChromeStorage();
+    const settingsStore = await loadModule('@services/sync/obsidian/settings-store.ts');
+    await loadModule('@services/sync/obsidian/obsidian-local-rest-client.ts');
+    await loadModule('@services/sync/obsidian/obsidian-note-path.ts');
+    await loadModule('@services/sync/obsidian/obsidian-sync-metadata.ts');
+    const orch = await loadModule('@services/sync/obsidian/obsidian-sync-orchestrator.ts');
+
+    const convo = {
+      id: 2,
+      sourceType: 'video',
+      source: 'youtube',
+      conversationKey: 'k2',
+      title: 'v',
+      url: 'https://www.youtube.com/watch?v=abc',
+    };
+    backgroundStorageMocks.getConversationById.mockResolvedValue(convo);
+    backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([
+      { messageKey: 'transcript', sequence: 1, contentMarkdown: 'Line 1', updatedAt: 1 },
+    ]);
+    backgroundStorageMocks.getArticleCommentsByConversationId.mockResolvedValue([
+      {
+        id: 1,
+        parentId: null,
+        conversationId: 2,
+        canonicalUrl: convo.url,
+        quoteText: '',
+        commentText: 'Root',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    let putBody = '';
+    // @ts-expect-error test global
+    globalThis.fetch = async (_url: any, init: any) => {
+      const method = String(init?.method || 'GET').toUpperCase();
+      if (method === 'GET') {
+        return new Response(
+          JSON.stringify({
+            frontmatter: {
+              syncnos: {
+                source: 'youtube',
+                conversationKey: 'k2',
+                schemaVersion: 1,
+                lastSyncedSequence: 1,
+                lastSyncedMessageKey: 'transcript',
+              },
+            },
+            content: 'x',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (method === 'PUT') {
+        putBody = String(init?.body || '');
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ errorCode: 40000, message: 'unexpected' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    await settingsStore.saveObsidianSettings({ apiBaseUrl: 'http://127.0.0.1:27123', apiKey: 'k' });
+    const syncRes = await orch.syncConversations({ conversationIds: [2], instanceId: 'x' });
+    expect(syncRes.results[0].mode).toBe('full_rebuild');
+    expect(syncRes.results[0].ok).toBe(true);
+    expect(putBody).toContain('# Transcript');
+    expect(putBody).toContain('## Comments');
+  });
+
   it('rebuilds chat note even when remote cursor mismatches', async () => {
     setupChromeStorage();
     const settingsStore = await loadModule('@services/sync/obsidian/settings-store.ts');
