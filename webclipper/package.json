@@ -71,5 +71,8 @@
     "recharts": "^3.8.0",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2"
+  },
+  "overrides": {
+    "web-ext-run": "0.2.3"
   }
 }

@@ -7,7 +7,6 @@ function markVisible(el: Element | null, rect?: Partial<DOMRect>) {
   if (!el) return;
   const base = { width: 100, height: 40, top: 0, left: 0, right: 100, bottom: 40 };
   const merged = { ...base, ...(rect || {}) };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (el as any).getBoundingClientRect = () => merged;
 }
 
