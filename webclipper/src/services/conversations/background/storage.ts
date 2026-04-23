@@ -26,6 +26,8 @@ export const backgroundStorage = {
   patchSyncMapping,
   setSyncCursor,
   clearSyncCursor,
+  getCommentsByConversationId: getArticleCommentsByConversationId,
+  attachOrphanCommentsToConversation: attachOrphanArticleCommentsToConversation,
   getArticleCommentsByConversationId,
   attachOrphanArticleCommentsToConversation,
 };

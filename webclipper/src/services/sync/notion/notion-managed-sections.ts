@@ -59,11 +59,17 @@ export function layoutSpecForConversationKind(kindId: string): NotionManagedLayo
   }
   if (id === 'video') {
     return {
-      sections: [{ id: 'conversations', title: 'Transcript', level: 2 }],
+      sections: [
+        { id: 'conversations', title: 'Transcript', level: 2 },
+        { id: 'comments', title: 'Comments', level: 2 },
+      ],
     };
   }
   return {
-    sections: [{ id: 'conversations', title: 'Conversations', level: 2 }],
+    sections: [
+      { id: 'conversations', title: 'Conversations', level: 2 },
+      { id: 'comments', title: 'Comments', level: 2 },
+    ],
   };
 }
 

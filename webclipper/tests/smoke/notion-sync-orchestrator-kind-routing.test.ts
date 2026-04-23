@@ -250,4 +250,107 @@ describe('notion-sync-orchestrator kind routing', () => {
     expect(calls.some((c) => c.op === 'fetch' && c.req?.method === 'DELETE')).toBe(true);
     expect(calls.some((c) => c.op === 'append')).toBe(true);
   });
+
+  it('rebuilds comments section for chat when digest changes', async () => {
+    const calls: any[] = [];
+    const setSyncCursorCalls: any[] = [];
+    const patchCalls: any[] = [];
+
+    // @ts-expect-error test global
+    globalThis.chrome = mockChromeStorage();
+
+    const jobStore = {
+      abortRunningJobIfFromOtherInstance: async () => null,
+      isRunningJob: () => false,
+      setJob: async () => true,
+    };
+
+    const tokenStore = { getToken: async () => ({ accessToken: 't' }) };
+    const dbManager = { ensureDatabase: async () => ({ databaseId: 'db_chats' }) };
+
+    const storage = {
+      getSyncMappingByConversation: async () => ({
+        conversation: {
+          id: 2,
+          sourceType: 'chat',
+          source: 'chatgpt',
+          title: 'Chat 2',
+          url: 'https://chatgpt.com/c/thread',
+          lastCapturedAt: 1000,
+          notionPageId: 'p1',
+        },
+        mapping: {
+          notionPageId: 'p1',
+          notionSections: {
+            conversations: { headingBlockId: 'h_conv' },
+            comments: { headingBlockId: 'h_comments' },
+          },
+          notionSectionCursors: {
+            conversations: {
+              lastSyncedMessageKey: 'm1',
+              lastSyncedSequence: 1,
+              lastSyncedMessageUpdatedAt: 1,
+            },
+          },
+          notionSectionDigests: { comments: { digest: 'old' } },
+          lastSyncedAt: 1,
+        },
+      }),
+      getMessagesByConversationId: async () => [
+        { messageKey: 'm1', role: 'assistant', contentText: 'hi', sequence: 1, updatedAt: 1 },
+      ],
+      getCommentsByConversationId: async () => [
+        { id: 1, parentId: null, createdAt: 1, updatedAt: 1, quoteText: 'q', commentText: 'c' },
+      ],
+      patchSyncMapping: async (_id: number, patch: any) => {
+        patchCalls.push(patch);
+        return true;
+      },
+      setSyncCursor: async (_id: number, cursor: any) => {
+        setSyncCursorCalls.push(cursor);
+        return true;
+      },
+      setConversationNotionPageId: async () => true,
+    };
+
+    notionFetchImpl = async (req: any) => {
+      calls.push({ op: 'fetch', req });
+      if (req.method === 'DELETE' && req.path === '/v1/blocks/h_comments') return { ok: true };
+      throw new Error(`unexpected notionFetch: ${req.method} ${req.path}`);
+    };
+
+    const syncService = {
+      getPage: async () => ({
+        id: 'p1',
+        parent: { type: 'database_id', database_id: 'db_chats' },
+        properties: {},
+      }),
+      pageBelongsToDatabase: () => true,
+      updatePageProperties: async () => ({ ok: true }),
+      appendChildren: async (_t: string, _blockId: string, blocks: any[]) => {
+        const results = Array.isArray(blocks)
+          ? blocks.map((_, i) => ({ id: `b_${i}_${Math.random().toString(16).slice(2)}` }))
+          : [];
+        return { ok: true, results };
+      },
+      messagesToBlocks: (messages: any[]) => [{ kind: 'blocks', count: messages.length }],
+    };
+
+    const orchestrator = createNotionSyncOrchestrator({
+      tokenStore,
+      storage,
+      conversationKinds,
+      notionApi: {},
+      notionFilesApi: {},
+      dbManager,
+      syncService,
+      jobStore,
+    });
+    const res = await orchestrator.syncConversations({ conversationIds: [2], instanceId: 'i' });
+    expect(res.okCount).toBe(1);
+
+    expect(calls.some((c) => c.req.method === 'DELETE' && c.req.path === '/v1/blocks/h_comments')).toBe(true);
+    expect(patchCalls.some((p) => p.notionSections && p.notionSections.comments)).toBe(true);
+    expect(setSyncCursorCalls.some((c) => c.notionSectionDigests && c.notionSectionDigests.comments)).toBe(true);
+  });
 });
