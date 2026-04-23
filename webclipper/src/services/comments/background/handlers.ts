@@ -45,7 +45,8 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
 
   router.register(COMMENTS_MESSAGE_TYPES.ADD_ARTICLE_COMMENT, async (msg) => {
     const canonicalUrl = canonicalizeArticleUrl(msg?.canonicalUrl);
-    if (!canonicalUrl) return router.err('missing canonicalUrl');
+    const commentTargetKey = String(msg?.commentTargetKey || '').trim();
+    if (!canonicalUrl && !commentTargetKey) return router.err('missing canonicalUrl');
 
     const local = await storageGet([ABOUT_YOU_USER_NAME_STORAGE_KEY]);
     const authorName = normalizeUserName(local?.[ABOUT_YOU_USER_NAME_STORAGE_KEY]) || DEFAULT_ABOUT_YOU_USER_NAME;
@@ -54,6 +55,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
       parentId: msg?.parentId != null ? Number(msg.parentId) : null,
       conversationId: msg?.conversationId ? Number(msg.conversationId) : null,
       canonicalUrl,
+      commentTargetKey,
       authorName,
       quoteText: msg?.quoteText ?? '',
       commentText: String(msg?.commentText || ''),

@@ -1,5 +1,4 @@
-import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
-import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
+import { canonicalizeCommentTargetUrl } from '@services/url-cleaning/comment-target-url';
 
 export type ConversationKindId = 'article' | 'video' | 'chat' | 'unknown';
 
@@ -18,7 +17,7 @@ function asKeyPart(value: unknown): string {
 }
 
 export function buildOrphanCommentTargetKeyFromLocation(href: unknown): CommentTargetKey {
-  const url = normalizeHttpUrl(href);
+  const url = canonicalizeCommentTargetUrl(href);
   if (!url) return '';
   return `url:${url}`;
 }
@@ -35,21 +34,20 @@ export function buildCommentTargetKeyFromConversation(conversation: any): Commen
     if (source && conversationKey) {
       return `convo:${asKeyPart(source)}:${asKeyPart(conversationKey)}`;
     }
-    const fallback = normalizeHttpUrl(url);
+    const fallback = canonicalizeCommentTargetUrl(url);
     return fallback ? `url:${fallback}` : '';
   }
 
   if (kindId === 'video') {
-    const canonical = canonicalizeVideoUrl(url);
+    const canonical = canonicalizeCommentTargetUrl(url);
     return canonical ? `url:${canonical}` : '';
   }
 
   if (kindId === 'article') {
-    const canonical = canonicalizeArticleUrl(url);
+    const canonical = canonicalizeCommentTargetUrl(url);
     return canonical ? `url:${canonical}` : '';
   }
 
-  const canonical = normalizeHttpUrl(url);
+  const canonical = canonicalizeCommentTargetUrl(url);
   return canonical ? `url:${canonical}` : '';
 }
-

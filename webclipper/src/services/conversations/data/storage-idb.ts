@@ -1,5 +1,5 @@
 import type { Conversation, ConversationMessage } from '@services/conversations/domain/models';
-import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
 import {
   LIST_SITE_KEY_ALL,
   LIST_SOURCE_KEY_ALL,
@@ -15,6 +15,7 @@ import type {
 } from '@services/conversations/domain/list-pagination';
 import { openDb as openSchemaDb } from '@platform/idb/schema';
 import { computeArticleCommentThreadCount } from '@services/comments/domain/comment-metrics';
+import { canonicalizeCommentTargetUrl } from '@services/url-cleaning/comment-target-url';
 
 let cachedDb: IDBDatabase | null = null;
 let openingDb: Promise<IDBDatabase> | null = null;
@@ -214,6 +215,17 @@ function sortFacetItems(items: Array<{ key: string; label: string; count: number
 
 function normalizeArticleUrl(raw: unknown): string {
   return canonicalizeArticleUrl(raw);
+}
+
+function candidateCommentTargetKeysFromUrl(raw: unknown): string[] {
+  const keys = new Set<string>();
+  const a = canonicalizeArticleUrl(raw);
+  const n = normalizeHttpUrl(raw);
+  const c = canonicalizeCommentTargetUrl(raw);
+  if (c) keys.add(`url:${c}`);
+  if (a) keys.add(`url:${a}`);
+  if (n) keys.add(`url:${n}`);
+  return Array.from(keys);
 }
 
 function normalizeArticleConversationKey(raw: unknown): string {
@@ -848,11 +860,12 @@ function buildListPageRange(
 
 async function readConversationListPageItems(input: {
   store: IDBObjectStore;
-  articleCommentsStore: IDBObjectStore;
+  commentsStore: IDBObjectStore;
+  commentsStoreName: 'comments' | 'article_comments';
   query: ReturnType<typeof normalizeConversationListQuery>;
   cursor: ConversationListCursor | null;
 }): Promise<{ items: Conversation[]; cursor: ConversationListCursor | null; hasMore: boolean }> {
-  const { store, articleCommentsStore, query, cursor } = input;
+  const { store, commentsStore, commentsStoreName, query, cursor } = input;
   const safeLimit = Number.isFinite(query.limit) && query.limit > 0 ? Math.floor(query.limit) : 1;
   const rangeInput = buildListPageRange(query, cursor);
   const idx = store.index(rangeInput.indexName);
@@ -872,12 +885,29 @@ async function readConversationListPageItems(input: {
 
   const hasMore = rows.length > safeLimit;
   const pageItems = hasMore ? rows.slice(0, safeLimit) : rows;
-  const articleCommentIndex = articleCommentsStore.index('by_canonicalUrl_createdAt');
   for (const item of pageItems) {
     const sourceType = safeString((item as any).sourceType).toLowerCase();
     if (sourceType !== 'article') continue;
     const canonicalUrl = normalizeArticleUrl((item as any).url);
     if (!canonicalUrl) continue;
+
+    if (commentsStoreName === 'comments') {
+      const idx = commentsStore.index('by_targetKey_createdAt');
+      const keys = candidateCommentTargetKeysFromUrl(canonicalUrl);
+      const rows: any[] = [];
+      for (const key of keys) {
+        const range = globalThis.IDBKeyRange?.bound
+          ? globalThis.IDBKeyRange.bound([key, -Infinity] as any, [key, Infinity] as any)
+          : null;
+        if (!range) continue;
+        const batch = (await reqToPromise<any[]>(idx.getAll(range) as any)) || [];
+        if (Array.isArray(batch)) rows.push(...batch);
+      }
+      (item as any).commentThreadCount = computeArticleCommentThreadCount(rows);
+      continue;
+    }
+
+    const articleCommentIndex = commentsStore.index('by_canonicalUrl_createdAt');
     const range = globalThis.IDBKeyRange?.bound
       ? globalThis.IDBKeyRange.bound([canonicalUrl, -Infinity] as any, [canonicalUrl, Infinity] as any)
       : null;
@@ -974,10 +1004,12 @@ async function readConversationListPage(input: {
   const statsKey = `${normalizeListKey(query.sourceKey, LIST_SOURCE_KEY_ALL)}::${normalizeConversationListSiteFilterKey(query.siteKey)}`;
 
   const db = await openDb();
-  const { t, stores } = tx(db, ['conversations', 'article_comments'], 'readonly');
+  const commentsStoreName = db.objectStoreNames.contains('comments') ? 'comments' : 'article_comments';
+  const { t, stores } = tx(db, ['conversations', commentsStoreName], 'readonly');
   const pagePromise = readConversationListPageItems({
     store: stores.conversations,
-    articleCommentsStore: stores.article_comments,
+    commentsStore: stores[commentsStoreName],
+    commentsStoreName,
     query,
     cursor,
   });
