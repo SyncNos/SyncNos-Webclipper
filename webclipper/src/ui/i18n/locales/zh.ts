@@ -177,7 +177,8 @@ export const zh: { [K in TranslationKey]: string } = {
   modelIndex: '模型序号',
   save: '保存',
   reset: '重置',
-  notionAiModelNote: '仅在 Notion AI 模型设置为自动时有效。Notion 中的菜单顺序可能会变化。',
+  notionAiModelNote:
+    '仅在 Notion AI 模型设置为自动时有效。1 表示禁用（不触发自动选择）。Notion 中的菜单顺序可能会变化。',
 
   // ObsidianSettingsSection
   obsidianLocalRestApi: 'Obsidian 本地 REST API',

@@ -97,5 +97,33 @@ describe('notionai model picker', () => {
     expect(clicked).toContain('pm-3');
     expect(clicked).not.toContain('sb-3');
   });
-});
 
+  it('treats model index 1 as disabled (no clicks)', async () => {
+    const clicked: string[] = [];
+
+    const modelBtn = document.querySelector('div[role="button"][data-testid="unified-chat-model-button"]');
+    const popupDialog = document.querySelector('#popup-dialog');
+    const popupMenu = document.querySelector('#popup-menu');
+
+    // Make it "collapsed" to ensure it would otherwise click to open.
+    modelBtn?.setAttribute('aria-expanded', 'false');
+
+    markVisible(modelBtn);
+    markVisible(popupDialog, { top: 10, bottom: 200 });
+    markVisible(popupMenu, { top: 20, bottom: 180 });
+
+    modelBtn?.addEventListener('click', () => clicked.push('model-button'));
+    for (const el of Array.from(document.querySelectorAll('[role="menuitem"]'))) {
+      el.addEventListener('click', () => clicked.push(String(el.id)));
+    }
+
+    vi.doMock('@platform/storage/local', () => ({
+      storageGet: vi.fn(async () => ({ notion_ai_preferred_model_index: 1 })),
+    }));
+
+    const picker = await import('../../src/services/integrations/notionai-auto-picker/notionai-model-picker');
+    await picker.maybeApply();
+
+    expect(clicked).toEqual([]);
+  });
+});

@@ -249,6 +249,8 @@ async function maybeApply() {
   lastAppliedAt = t;
   try {
     const index1Based = await loadPreferredIndex1Based();
+    // 1 means disabled (do not auto-select any model).
+    if (Number(index1Based) <= 1) return;
     await ensurePreferredModel({ index1Based });
   } catch (e) {
     if (t - lastErrorAt > 15000) {

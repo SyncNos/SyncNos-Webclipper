@@ -181,7 +181,7 @@ export const en = {
   save: 'Save',
   reset: 'Reset',
   notionAiModelNote:
-    'Applies only when Notion AI model is set to Auto. Menu order may change in Notion.',
+    'Applies only when Notion AI model is set to Auto. Use 1 to disable (no auto-selection). Menu order may change in Notion.',
 
   // ObsidianSettingsSection
   obsidianLocalRestApi: 'Obsidian Local REST API',
