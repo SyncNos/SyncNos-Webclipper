@@ -117,7 +117,7 @@ export function createInpageCommentsPanelController(runtime: RuntimeClient | nul
     }
 
     lastTabId = normalizePositiveInt(input?.tabId) || lastTabId;
-    const ensureArticle = input?.ensureArticle !== false;
+    const ensureArticle = input?.ensureArticle === true;
 
     await controller.open({
       focusComposer: input?.focusComposer === true,
@@ -148,7 +148,7 @@ export function registerInpageCommentsPanelContentHandlers(runtime: RuntimeClien
       .open({
         tabId: normalizePositiveInt(msg?.payload?.tabId) || null,
         focusComposer: true,
-        ensureArticle: true,
+        ensureArticle: msg?.payload?.ensureArticle === true,
       })
       .finally(() => {
         sendResponse?.({ ok: true });

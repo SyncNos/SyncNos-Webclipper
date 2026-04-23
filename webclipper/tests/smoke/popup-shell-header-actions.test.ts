@@ -289,7 +289,7 @@ describe('PopupShell header actions', () => {
       if (type === UI_MESSAGE_TYPES.GET_ACTIVE_TAB_CAPTURE_STATE) {
         return {
           ok: true,
-          data: { available: true, kind: 'article', label: 'Fetch Article', collectorId: 'web' },
+          data: { available: true, kind: 'article', label: 'Fetch Article', collectorId: 'web', tabHttpOk: true },
           error: null,
         };
       }

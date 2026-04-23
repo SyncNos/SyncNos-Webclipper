@@ -16,6 +16,8 @@ type CaptureState = {
   label: string;
   collectorId: string | null;
   reason?: string;
+  tabUrl?: string | null;
+  tabHttpOk?: boolean;
 };
 
 function unwrap<T>(response: ApiResponse<T>): T {
@@ -58,17 +60,10 @@ export function usePopupOpenCurrentTabInpageCommentsSidebar() {
       const response = await send<ApiResponse<CaptureState>>(UI_MESSAGE_TYPES.GET_ACTIVE_TAB_CAPTURE_STATE, {});
       const state = unwrap(response);
 
-      if (!state.available) {
+      if (!state.tabHttpOk) {
         if (!mountedRef.current) return;
         setEligible(false);
         setDisabledReason(t('commentsSidebarUnavailableHint'));
-        return;
-      }
-
-      if (state.kind !== 'article') {
-        if (!mountedRef.current) return;
-        setEligible(false);
-        setDisabledReason(t('commentsSidebarArticleOnlyHint'));
         return;
       }
 

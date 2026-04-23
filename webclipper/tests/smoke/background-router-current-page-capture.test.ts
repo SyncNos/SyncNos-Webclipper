@@ -35,6 +35,8 @@ describe('background-router current page capture relay', () => {
       kind: 'chat',
       label: 'Fetch AI Chat',
       collectorId: 'chatgpt',
+      tabUrl: 'https://chatgpt.com/c/123',
+      tabHttpOk: true,
     });
     expect(tabsSendMessage).toHaveBeenCalledWith(7, { type: 'getCurrentPageCaptureState' });
   });

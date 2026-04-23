@@ -63,12 +63,12 @@ export function registerUiMessageHandlers(router: AnyRouter) {
 
   router.register(UI_MESSAGE_TYPES.GET_ACTIVE_TAB_CAPTURE_STATE, async () => {
     const activeTab = await getActiveTab();
-    if (!activeTab.ok) return router.ok(activeTab.state);
+    if (!activeTab.ok) return router.ok({ ...activeTab.state, tabUrl: null, tabHttpOk: false });
 
     const relayed = await relayToActiveTab(activeTab.tab.id, CURRENT_PAGE_MESSAGE_TYPES.GET_CAPTURE_STATE);
-    if (!relayed.ok) return router.ok(relayed.state);
+    if (!relayed.ok) return router.ok({ ...relayed.state, tabUrl: activeTab.tab.url || null, tabHttpOk: true });
 
-    return router.ok(relayed.data);
+    return router.ok({ ...(relayed.data as any), tabUrl: activeTab.tab.url || null, tabHttpOk: true });
   });
 
   router.register(UI_MESSAGE_TYPES.CAPTURE_ACTIVE_TAB_CURRENT_PAGE, async () => {
