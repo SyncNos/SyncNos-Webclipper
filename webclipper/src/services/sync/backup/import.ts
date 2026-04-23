@@ -13,6 +13,8 @@ import {
   validateStorageLocalDocument,
 } from '@services/sync/backup/backup-utils';
 import { openDb, reqToPromise, tx, txDone } from '@services/sync/backup/idb';
+import { canonicalizeCommentTargetUrl } from '@services/url-cleaning/comment-target-url';
+import { canonicalizeArticleUrl as canonicalizeArticleUrlForComments } from '@services/url-cleaning/http-url';
 
 type AnyRecord = Record<string, any>;
 
@@ -127,6 +129,28 @@ function normalizeHttpUrl(raw: unknown): string {
   } catch (_e) {
     return '';
   }
+}
+
+function candidateCommentTargetKeysFromCanonicalUrl(canonicalUrl: string): string[] {
+  const raw = safeString(canonicalUrl);
+  if (!raw) return [];
+  const keys = new Set<string>();
+  const n = normalizeHttpUrl(raw);
+  const a = canonicalizeArticleUrlForComments(raw);
+  const c = canonicalizeCommentTargetUrl(raw);
+  if (c) keys.add(`url:${c}`);
+  if (a) keys.add(`url:${a}`);
+  if (n) keys.add(`url:${n}`);
+  return Array.from(keys);
+}
+
+function targetKeyFromCanonicalUrl(canonicalUrl: string): string {
+  const raw = safeString(canonicalUrl);
+  if (!raw) return '';
+  const canonical = canonicalizeCommentTargetUrl(raw);
+  const normalized = normalizeHttpUrl(raw);
+  const url = canonical || normalized || raw;
+  return url ? `url:${url}` : '';
 }
 
 function deriveConversationListSourceKey(record: AnyRecord): string {
@@ -664,25 +688,51 @@ export async function importBackupZipV2Merge(
     const baseKeyByExistingId = new Map<number, string>();
     const existingRows: AnyRecord[] = [];
 
-    const { t, stores: s } = tx(db, ['article_comments'], 'readwrite');
-    const store = s.article_comments;
-    const idx = store.index('by_canonicalUrl_createdAt');
+    const commentsStoreName = db.objectStoreNames.contains('comments') ? 'comments' : 'article_comments';
+    const { t, stores: s } = tx(db, [commentsStoreName], 'readwrite');
+    const store = (s as any)[commentsStoreName] as IDBObjectStore;
+    const idx =
+      commentsStoreName === 'comments'
+        ? store.index('by_targetKey_createdAt')
+        : store.index('by_canonicalUrl_createdAt');
 
     progress.stage = 'Comments';
     report();
 
     for (const canonicalUrl of canonicalUrls) {
       if (!canonicalUrl) continue;
-      const range = globalThis.IDBKeyRange?.bound
-        ? globalThis.IDBKeyRange.bound([canonicalUrl, -Infinity] as any, [canonicalUrl, Infinity] as any)
-        : null;
-      const rows = range ? (await reqToPromise<any[]>(idx.getAll(range) as any)) || [] : [];
+
+      const rows: any[] = [];
+      if (commentsStoreName === 'comments') {
+        const keys = candidateCommentTargetKeysFromCanonicalUrl(canonicalUrl);
+        for (const key of keys) {
+          const range = globalThis.IDBKeyRange?.bound
+            ? globalThis.IDBKeyRange.bound([key, -Infinity] as any, [key, Infinity] as any)
+            : null;
+          if (!range) continue;
+          const batch = (await reqToPromise<any[]>(idx.getAll(range) as any)) || [];
+          if (Array.isArray(batch)) rows.push(...batch);
+        }
+      } else {
+        const range = globalThis.IDBKeyRange?.bound
+          ? globalThis.IDBKeyRange.bound([canonicalUrl, -Infinity] as any, [canonicalUrl, Infinity] as any)
+          : null;
+        const batch = range ? (await reqToPromise<any[]>(idx.getAll(range) as any)) || [] : [];
+        if (Array.isArray(batch)) rows.push(...batch);
+      }
+
+      const byId = new Map<number, any>();
       for (const row of rows) {
         if (!row || typeof row !== 'object') continue;
         const id = Number((row as any).id);
         if (!Number.isFinite(id) || id <= 0) continue;
+        if (!byId.has(id)) byId.set(id, row);
+      }
 
-        const url = normalizeHttpUrl((row as any).canonicalUrl);
+      for (const row of byId.values()) {
+        const targetKey = safeString((row as any).targetKey);
+        const urlFromTarget = targetKey.startsWith('url:') ? targetKey.slice('url:'.length) : '';
+        const url = normalizeHttpUrl(urlFromTarget || (row as any).canonicalUrl);
         if (!url) continue;
 
         const createdAt = Number((row as any).createdAt) || 0;
@@ -760,6 +810,7 @@ export async function importBackupZipV2Merge(
         if (shouldUpdateText || shouldAttachConversation || shouldAttachParent) {
           const next = {
             ...existing,
+            ...(commentsStoreName === 'comments' ? { targetKey: targetKeyFromCanonicalUrl(item.canonicalUrl) } : {}),
             canonicalUrl: item.canonicalUrl,
             quoteText: String(item.quoteText || ''),
             commentText: item.commentText,
@@ -785,6 +836,7 @@ export async function importBackupZipV2Merge(
       const record = {
         parentId,
         conversationId: mappedConversationId,
+        ...(commentsStoreName === 'comments' ? { targetKey: targetKeyFromCanonicalUrl(item.canonicalUrl) } : {}),
         canonicalUrl: item.canonicalUrl,
         quoteText: String(item.quoteText || ''),
         commentText: item.commentText,

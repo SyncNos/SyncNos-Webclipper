@@ -10,6 +10,7 @@ import { openDb, reqToPromise, tx, txDone } from '@services/sync/backup/idb';
 import { createZipBlob } from '@services/sync/backup/zip-utils';
 import { DB_NAME, DB_VERSION } from '@platform/idb/schema';
 import { buildLocalTimestampForFilename } from '@services/shared/file-timestamp';
+import { normalizeHttpUrl } from '@services/url-cleaning/http-url';
 
 type AnyRecord = Record<string, any>;
 
@@ -173,16 +174,17 @@ export type BackupZipV2ExportResult = {
 
 export async function exportBackupZipV2(): Promise<BackupZipV2ExportResult> {
   const db = await openDb();
+  const commentsStoreName = db.objectStoreNames.contains('comments') ? 'comments' : 'article_comments';
   const { t, stores } = tx(
     db,
-    ['conversations', 'messages', 'sync_mappings', 'image_cache', 'article_comments'],
+    ['conversations', 'messages', 'sync_mappings', 'image_cache', commentsStoreName],
     'readonly',
   );
   const conversations = (await reqToPromise(stores.conversations.getAll() as any)) as AnyRecord[];
   const messages = (await reqToPromise(stores.messages.getAll() as any)) as AnyRecord[];
   const syncMappings = (await reqToPromise(stores.sync_mappings.getAll() as any)) as AnyRecord[];
   const imageCache = (await reqToPromise(stores.image_cache.getAll() as any)) as AnyRecord[];
-  const articleComments = (await reqToPromise(stores.article_comments.getAll() as any)) as AnyRecord[];
+  const rawComments = (await reqToPromise((stores as any)[commentsStoreName].getAll() as any)) as AnyRecord[];
   await txDone(t);
 
   const rawStorage = await storageGetAll();
@@ -195,7 +197,7 @@ export async function exportBackupZipV2(): Promise<BackupZipV2ExportResult> {
   const allMessages = Array.isArray(messages) ? messages : [];
   const allMappings = Array.isArray(syncMappings) ? syncMappings : [];
   const allImageCache = Array.isArray(imageCache) ? imageCache : [];
-  const allArticleComments = Array.isArray(articleComments) ? articleComments : [];
+  const allComments = Array.isArray(rawComments) ? rawComments : [];
 
   const messagesByConversationId = new Map<number, AnyRecord[]>();
   for (const m of allMessages) {
@@ -388,7 +390,7 @@ export async function exportBackupZipV2(): Promise<BackupZipV2ExportResult> {
   });
 
   const articleCommentItems: AnyRecord[] = [];
-  for (const row of allArticleComments) {
+  for (const row of allComments) {
     const commentId = Number(row && (row as any).id);
     if (!Number.isFinite(commentId) || commentId <= 0) continue;
     const parentRaw = Number(row && (row as any).parentId);
@@ -400,7 +402,10 @@ export async function exportBackupZipV2(): Promise<BackupZipV2ExportResult> {
         ? uniqueKeyByConversationId.get(conversationIdRaw) || ''
         : '';
 
-    const canonicalUrl = row && (row as any).canonicalUrl ? String((row as any).canonicalUrl).trim() : '';
+    const targetKey = row && (row as any).targetKey ? String((row as any).targetKey).trim() : '';
+    const canonicalFromTarget = targetKey.startsWith('url:') ? targetKey.slice('url:'.length) : '';
+    const canonicalUrlRaw = canonicalFromTarget || (row && (row as any).canonicalUrl ? String((row as any).canonicalUrl).trim() : '');
+    const canonicalUrl = normalizeHttpUrl(canonicalUrlRaw) || canonicalUrlRaw;
     if (!canonicalUrl) continue;
 
     const quoteText = row && (row as any).quoteText ? String((row as any).quoteText) : '';
