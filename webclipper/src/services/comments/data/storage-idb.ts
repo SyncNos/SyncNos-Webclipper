@@ -165,9 +165,9 @@ export async function addArticleComment(
   input: AddArticleCommentInput & { commentTargetKey?: string | null },
 ): Promise<ArticleComment> {
   const db = await openDb();
-  const storeName = hasCommentsStore(db) ? 'comments' : 'article_comments';
-  const { t, stores } = tx(db, [storeName], 'readwrite');
-  const store = stores[storeName];
+  if (!hasCommentsStore(db)) throw new Error('legacy article_comments writes disabled (missing comments store)');
+  const { t, stores } = tx(db, ['comments'], 'readwrite');
+  const store = stores.comments;
 
   const now = Date.now();
   const canonicalUrl = normalizeCanonicalUrl(input?.canonicalUrl);
@@ -175,8 +175,7 @@ export async function addArticleComment(
   const commentTargetKey = normalizeTargetKey(input?.commentTargetKey) || canonicalUrlTargetKey;
   const commentText = normalizeCommentText(input?.commentText);
   const quoteText = safeString(input?.quoteText);
-  if (storeName === 'article_comments' && !canonicalUrl) throw new Error('canonicalUrl required');
-  if (storeName === 'comments' && !commentTargetKey) throw new Error('commentTargetKey required');
+  if (!commentTargetKey) throw new Error('commentTargetKey required');
   if (!commentText) throw new Error('commentText required');
 
   const createdAt = normalizeTimestamp(input?.createdAt, now);
@@ -185,7 +184,8 @@ export async function addArticleComment(
   const row: any = {
     parentId: normalizeParentId(input?.parentId),
     conversationId: normalizeConversationId(input?.conversationId),
-    ...(storeName === 'comments' ? { targetKey: commentTargetKey, canonicalUrl: canonicalUrl || '' } : { canonicalUrl }),
+    targetKey: commentTargetKey,
+    canonicalUrl: canonicalUrl || '',
     authorName: safeString(input?.authorName) || '',
     quoteText,
     commentText,
@@ -349,9 +349,9 @@ export async function deleteArticleCommentById(id: number): Promise<boolean> {
   if (!Number.isFinite(commentId) || commentId <= 0) return false;
 
   const db = await openDb();
-  const storeName = hasCommentsStore(db) ? 'comments' : 'article_comments';
-  const { t, stores } = tx(db, [storeName], 'readwrite');
-  const store = stores[storeName];
+  if (!hasCommentsStore(db)) return false;
+  const { t, stores } = tx(db, ['comments'], 'readwrite');
+  const store = stores.comments;
 
   await new Promise<void>((resolve, reject) => {
     try {
@@ -428,51 +428,20 @@ export async function attachOrphanCommentsToConversation(
   if (!normalizedUrl || !normalizedConversationId) return { updated: 0 };
 
   const db = await openDb();
-  if (hasCommentsStore(db)) {
-    const { t, stores } = tx(db, ['comments'], 'readwrite');
-    const store = stores.comments;
-    const idx = store.index('by_targetKey_createdAt');
-    const keys = candidateUrlTargetKeysFromUrl(canonicalUrl);
-    const rows: any[] = [];
-    for (const key of keys) {
-      const range = globalThis.IDBKeyRange?.bound
-        ? globalThis.IDBKeyRange.bound([key, -Infinity] as any, [key, Infinity] as any)
-        : null;
-      if (!range) continue;
-      const batch = await reqToPromise<any[]>(idx.getAll(range) as any);
-      if (Array.isArray(batch)) rows.push(...batch);
-    }
-    let updated = 0;
-    const now = Date.now();
-
-    for (const row of rows) {
-      if (!row) continue;
-      const current = normalizeConversationId(row?.conversationId);
-      if (current) continue;
-      row.conversationId = normalizedConversationId;
-      row.updatedAt = now;
-
-      await reqToPromise(store.put(row));
-      updated += 1;
-    }
-
-    await txDone(t);
-    return { updated };
+  if (!hasCommentsStore(db)) return { updated: 0 };
+  const { t, stores } = tx(db, ['comments'], 'readwrite');
+  const store = stores.comments;
+  const idx = store.index('by_targetKey_createdAt');
+  const keys = candidateUrlTargetKeysFromUrl(canonicalUrl);
+  const rows: any[] = [];
+  for (const key of keys) {
+    const range = globalThis.IDBKeyRange?.bound
+      ? globalThis.IDBKeyRange.bound([key, -Infinity] as any, [key, Infinity] as any)
+      : null;
+    if (!range) continue;
+    const batch = await reqToPromise<any[]>(idx.getAll(range) as any);
+    if (Array.isArray(batch)) rows.push(...batch);
   }
-
-  if (!hasLegacyArticleCommentsStore(db)) return { updated: 0 };
-  const { t, stores } = tx(db, ['article_comments'], 'readwrite');
-  const store = stores.article_comments;
-  const idx = store.index('by_canonicalUrl_createdAt');
-  const range = globalThis.IDBKeyRange?.bound
-    ? globalThis.IDBKeyRange.bound([normalizedUrl, -Infinity] as any, [normalizedUrl, Infinity] as any)
-    : null;
-  if (!range) {
-    await txDone(t);
-    return { updated: 0 };
-  }
-
-  const rows = (await reqToPromise<any[]>(idx.getAll(range) as any)) || [];
   let updated = 0;
   const now = Date.now();
 
@@ -502,63 +471,31 @@ export async function migrateArticleCommentsCanonicalUrl(
   if (from === to) return { updated: 0 };
 
   const db = await openDb();
-  if (hasCommentsStore(db)) {
-    const { t, stores } = tx(db, ['comments'], 'readwrite');
-    const store = stores.comments;
-    const idx = store.index('by_targetKey_createdAt');
-    const toKey = `url:${canonicalizeCommentTargetUrl(to) || to}`;
-    const keys = candidateUrlTargetKeysFromUrl(fromCanonicalUrl);
-    const rows: any[] = [];
-    for (const fromKey of keys) {
-      const range = globalThis.IDBKeyRange?.bound
-        ? globalThis.IDBKeyRange.bound([fromKey, -Infinity] as any, [fromKey, Infinity] as any)
-        : null;
-      if (!range) continue;
-      const batch = await reqToPromise<any[]>(idx.getAll(range) as any);
-      if (Array.isArray(batch)) rows.push(...batch);
-    }
-    const now = Date.now();
-    let updated = 0;
-    for (const row of rows) {
-      if (!row) continue;
-      row.targetKey = toKey;
-      if (typeof row.canonicalUrl === 'string' && row.canonicalUrl) row.canonicalUrl = to;
-      row.updatedAt = now;
-      await reqToPromise(store.put(row));
-      updated += 1;
-    }
-    await txDone(t);
-    return { updated };
+  if (!hasCommentsStore(db)) return { updated: 0 };
+  const { t, stores } = tx(db, ['comments'], 'readwrite');
+  const store = stores.comments;
+  const idx = store.index('by_targetKey_createdAt');
+  const toKey = `url:${canonicalizeCommentTargetUrl(to) || to}`;
+  const keys = candidateUrlTargetKeysFromUrl(fromCanonicalUrl);
+  const rows: any[] = [];
+  for (const fromKey of keys) {
+    const range = globalThis.IDBKeyRange?.bound
+      ? globalThis.IDBKeyRange.bound([fromKey, -Infinity] as any, [fromKey, Infinity] as any)
+      : null;
+    if (!range) continue;
+    const batch = await reqToPromise<any[]>(idx.getAll(range) as any);
+    if (Array.isArray(batch)) rows.push(...batch);
   }
-
-  if (!hasLegacyArticleCommentsStore(db)) return { updated: 0 };
-  const { t, stores } = tx(db, ['article_comments'], 'readwrite');
-  const store = stores.article_comments;
-  const idx = store.index('by_canonicalUrl_createdAt');
-  const range = globalThis.IDBKeyRange?.bound
-    ? globalThis.IDBKeyRange.bound([from, -Infinity] as any, [from, Infinity] as any)
-    : null;
-  if (!range) {
-    await txDone(t);
-    return { updated: 0 };
-  }
-
-  const rows = (await reqToPromise<any[]>(idx.getAll(range) as any)) || [];
-  if (!rows.length) {
-    await txDone(t);
-    return { updated: 0 };
-  }
-
   const now = Date.now();
   let updated = 0;
   for (const row of rows) {
     if (!row) continue;
-    row.canonicalUrl = to;
+    row.targetKey = toKey;
+    if (typeof row.canonicalUrl === 'string' && row.canonicalUrl) row.canonicalUrl = to;
     row.updatedAt = now;
     await reqToPromise(store.put(row));
     updated += 1;
   }
-
   await txDone(t);
   return { updated };
 }
