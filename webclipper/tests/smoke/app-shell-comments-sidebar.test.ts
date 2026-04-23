@@ -319,6 +319,36 @@ describe('AppShell comments sidebar', () => {
     });
   });
 
+  it('enables the docked comments sidebar for video conversations', async () => {
+    currentState.selectedConversation = {
+      id: 91,
+      title: 'Video',
+      source: 'video',
+      sourceType: 'video',
+      conversationKey: 'video-91',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=12s',
+    };
+
+    act(() => {
+      root!.render(createElement(AppShell));
+    });
+
+    const openBtn = document.querySelector('[aria-label="Comment"]') as HTMLButtonElement | null;
+    expect(openBtn).toBeTruthy();
+    expect(openBtn?.getAttribute('data-can-trigger')).toBe('1');
+
+    act(() => {
+      openBtn!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(
+      () => {
+        expect(document.querySelector('webclipper-threaded-comments-panel')).toBeTruthy();
+      },
+      { timeout: 3000 },
+    );
+  });
+
   it('attaches selected text on pointerup commit and ignores reply interactions', async () => {
     commentsByUrl.set('https://example.com/article', [{ id: 101, parentId: null, commentText: 'Root comment' }]);
 

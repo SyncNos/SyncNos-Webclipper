@@ -6,6 +6,7 @@ import { useNarrowListDetailCommentsRoute } from '@ui/shared/hooks/useNarrowList
 import type { ArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
 
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
 import type { ThreadedCommentsPanelChatWithAction, ThreadedCommentsPanelCommentChatWithConfig } from '@ui/comments';
 import { ConversationDetailPane } from '@ui/conversations/ConversationDetailPane';
 import { ConversationListPane } from '@ui/conversations/ConversationListPane';
@@ -55,6 +56,23 @@ function isArticleConversationLike(conversation: any): boolean {
   return Boolean(canonicalizeArticleUrl(conversation?.url));
 }
 
+function isVideoConversationLike(conversation: any): boolean {
+  const sourceType = String(conversation?.sourceType || '')
+    .trim()
+    .toLowerCase();
+  if (sourceType === 'video') return true;
+  const source = String(conversation?.source || '')
+    .trim()
+    .toLowerCase();
+  return source === 'video';
+}
+
+function resolveCommentsSidebarCanonicalUrl(conversation: any): string {
+  if (isVideoConversationLike(conversation)) return canonicalizeVideoUrl(conversation?.url);
+  if (isArticleConversationLike(conversation)) return canonicalizeArticleUrl(conversation?.url);
+  return '';
+}
+
 export function ConversationsScene({
   defaultNarrowRoute = 'list',
   inlineNarrowDetailHeader = false,
@@ -87,10 +105,9 @@ export function ConversationsScene({
     isNarrow,
     defaultRoute: defaultNarrowRoute,
   });
-  const selectedConversationCanonicalUrl = canonicalizeArticleUrl((selectedConversation as any)?.url);
+  const selectedConversationCanonicalUrl = resolveCommentsSidebarCanonicalUrl(selectedConversation);
   const canOpenCommentsFromDetail =
     (typeof onOpenCommentsExternally === 'function' || Boolean(commentsSidebarRuntime)) &&
-    isArticleConversationLike(selectedConversation) &&
     Boolean(selectedConversationCanonicalUrl);
 
   useEffect(() => {
@@ -98,7 +115,7 @@ export function ConversationsScene({
     const controller = commentsSidebarRuntime.sidebarController;
     if (!controller || typeof controller.setContext !== 'function') return;
 
-    if (isArticleConversationLike(selectedConversation) && selectedConversationCanonicalUrl) {
+    if (selectedConversationCanonicalUrl) {
       controller.setContext({
         canonicalUrl: selectedConversationCanonicalUrl,
         conversationId: Number((selectedConversation as any)?.id || 0) || null,

@@ -13,6 +13,7 @@ import { useResponsiveTier } from '@ui/shared/hooks/useResponsiveTier';
 import { useArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
 import { decodeConversationLoc, encodeConversationLoc } from '@services/shared/conversation-loc';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
 import { createThreadedCommentChatWithConfig } from '@ui/comments';
 import type { ThreadedCommentsPanelChatWithAction } from '@ui/comments';
 import { defaultDetailHeaderActionPort, type DetailHeaderAction } from '@services/integrations/detail-header-actions';
@@ -27,17 +28,32 @@ import { createRuntimeClient } from '@services/shared/runtime-client';
 const SIDEBAR_COLLAPSED_KEY = 'webclipper_app_sidebar_collapsed';
 const COMMENTS_SIDEBAR_COLLAPSED_KEY = 'webclipper_app_comments_sidebar_collapsed';
 
-function isArticleConversationLike(conversation: any): boolean {
-  const sourceType = String(conversation?.sourceType || '')
+function normalizeSourceType(value: unknown): string {
+  return String(value || '')
     .trim()
     .toLowerCase();
+}
+
+function isArticleConversationLike(conversation: any): boolean {
+  const sourceType = normalizeSourceType(conversation?.sourceType);
   if (sourceType === 'article') return true;
 
-  const source = String(conversation?.source || '')
-    .trim()
-    .toLowerCase();
+  const source = normalizeSourceType(conversation?.source);
   if (source !== 'web') return false;
   return Boolean(canonicalizeArticleUrl(conversation?.url));
+}
+
+function isVideoConversationLike(conversation: any): boolean {
+  const sourceType = normalizeSourceType(conversation?.sourceType);
+  if (sourceType === 'video') return true;
+  const source = normalizeSourceType(conversation?.source);
+  return source === 'video';
+}
+
+function resolveCommentsSidebarCanonicalUrl(conversation: any): string {
+  if (isVideoConversationLike(conversation)) return canonicalizeVideoUrl(conversation?.url);
+  if (isArticleConversationLike(conversation)) return canonicalizeArticleUrl(conversation?.url);
+  return '';
 }
 
 function safeString(value: unknown): string {
@@ -194,9 +210,8 @@ export default function AppShell() {
     const lastInternalLocRef = useRef<string | null>(null);
     const processedLocRef = useRef<string | null>(null);
     const locMountedRef = useRef(false);
-    const isArticleConversation = isArticleConversationLike(selectedConversation);
-    const canonicalUrl = canonicalizeArticleUrl((selectedConversation as any)?.url);
-    const canToggleCommentsSidebar = !isNarrow && isArticleConversation && Boolean(canonicalUrl);
+    const commentsSidebarCanonicalUrl = resolveCommentsSidebarCanonicalUrl(selectedConversation);
+    const canToggleCommentsSidebar = !isNarrow && Boolean(commentsSidebarCanonicalUrl);
     const commentsSidebarCollapsed = isMedium ? mediumCommentsSidebarCollapsed : wideCommentsSidebarCollapsed;
     const canAutoOpenCommentsSidebarInWide = isWide && canToggleCommentsSidebar;
 
@@ -281,7 +296,7 @@ export default function AppShell() {
       showCommentsSidebar,
       hasConversation: Boolean(selectedConversation),
       articleTitle: String((selectedConversation as any)?.title || '').trim(),
-      canonicalUrl: canonicalUrl || '',
+      canonicalUrl: commentsSidebarCanonicalUrl || '',
       openPort: appCommentChatWithOpenPort,
     };
 
@@ -397,9 +412,9 @@ export default function AppShell() {
     }, [commentsSidebarSession, setMediumCommentsCollapsed, tier]);
 
     useEffect(() => {
-      if (isArticleConversation && canonicalUrl) {
+      if (commentsSidebarCanonicalUrl) {
         commentsSidebarController.setContext({
-          canonicalUrl,
+          canonicalUrl: commentsSidebarCanonicalUrl,
           conversationId: Number((selectedConversation as any)?.id || 0) || null,
         });
         return;
@@ -413,7 +428,13 @@ export default function AppShell() {
         suppressCommentsSidebarCollapseRef.current = false;
       }
       commentsSidebarSession.setQuoteText('');
-    }, [canonicalUrl, commentsSidebarController, commentsSidebarSession, isArticleConversation, selectedConversation]);
+    }, [
+      commentsSidebarCanonicalUrl,
+      commentsSidebarController,
+      commentsSidebarSession,
+      selectedConversation,
+      suppressCommentsSidebarCollapseRef,
+    ]);
 
     useEffect(() => {
       if (showSettingsSheet) return;

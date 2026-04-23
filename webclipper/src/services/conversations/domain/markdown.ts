@@ -56,18 +56,60 @@ function formatChatMarkdown(conversation: Conversation, messages: ConversationMe
   }
   lines.push('');
   for (const m of messages || []) {
-    const role = (m as any).role || 'assistant';
-    const authorName = role === 'user' && isNonEmptyString((m as any).authorName) ? String((m as any).authorName) : '';
-    lines.push(`## ${role === 'user' ? authorName || 'You' : role}`);
+    const role = String((m as any).role || '')
+      .trim()
+      .toLowerCase();
+    const normalizedRole = role || 'assistant';
+    const content = String((m as any).contentMarkdown || (m as any).contentText || '');
+
+    const authorName =
+      normalizedRole === 'user' && isNonEmptyString((m as any).authorName) ? String((m as any).authorName) : '';
+    lines.push(`## ${normalizedRole === 'user' ? authorName || 'You' : normalizedRole}`);
     lines.push('');
-    lines.push(String((m as any).contentMarkdown || (m as any).contentText || ''));
+    lines.push(content);
     lines.push('');
   }
+  return lines.join('\n');
+}
+
+function formatVideoMarkdown(conversation: Conversation, messages: ConversationMessage[]) {
+  const c = conversation || ({} as any);
+  const lines: string[] = [];
+  lines.push(`# ${c.title || 'Video'}`);
+  lines.push('');
+
+  if (isNonEmptyString(c.author)) lines.push(`- Author: ${String(c.author)}`);
+  if (isNonEmptyString((c as any).platform)) lines.push(`- Platform: ${String((c as any).platform)}`);
+  if (typeof (c as any).durationSeconds === 'number' && Number.isFinite((c as any).durationSeconds)) {
+    lines.push(`- DurationSeconds: ${String((c as any).durationSeconds)}`);
+  }
+  if (isNonEmptyString(c.url)) lines.push(`- URL: ${String(c.url)}`);
+  if (c.lastCapturedAt) lines.push(`- CapturedAt: ${formatIso(c.lastCapturedAt)}`);
+  if (Array.isArray(c.warningFlags) && c.warningFlags.length) {
+    lines.push(`- Warnings: ${c.warningFlags.map(String).join(', ')}`);
+  }
+  lines.push('');
+
+  const transcriptMessages = (messages || []).filter((m) => {
+    const role = String((m as any).role || '')
+      .trim()
+      .toLowerCase();
+    return role === 'transcript';
+  });
+  const picked = transcriptMessages.length ? transcriptMessages : messages || [];
+  for (const m of picked) {
+    const content = String((m as any).contentMarkdown || (m as any).contentText || '');
+    if (!content.trim()) continue;
+    lines.push(content);
+    lines.push('');
+  }
+
   return lines.join('\n');
 }
 
 export function formatConversationMarkdown(conversation: Conversation, messages: ConversationMessage[]) {
   const sourceType = conversation?.sourceType ? String(conversation.sourceType) : '';
   if (sourceType === 'article') return formatArticleMarkdown(conversation, messages);
+  if (sourceType === 'video') return formatVideoMarkdown(conversation, messages);
   return formatChatMarkdown(conversation, messages);
 }
