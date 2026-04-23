@@ -1,10 +1,4 @@
-import type {
-  CommentSidebarHandlers,
-  CommentSidebarComposerSelectionRequest,
-  CommentSidebarSession,
-} from '@services/comments/sidebar/comment-sidebar-contract';
-import { normalizeCommentSidebarQuoteText } from '@services/comments/sidebar/comment-sidebar-session';
-import type { ArticleCommentLocator } from '@services/comments/domain/models';
+import type { CommentSidebarComposerSelectionRequest, CommentSidebarSession } from '@services/comments/sidebar/comment-sidebar-contract';
 import { normalizePositiveInt } from '@services/shared/numbers';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 
@@ -13,6 +7,16 @@ import type {
   ArticleCommentsSidebarContext,
   ArticleCommentsSidebarEnsureContextInput,
 } from '@services/comments/sidebar/article-comments-sidebar-adapter';
+import type {
+  CommentsSidebarAdapter,
+  CommentsSidebarContext,
+  CommentsSidebarEnsureContextInput,
+} from '@services/comments/sidebar/comments-sidebar-adapter';
+import {
+  createCommentsSidebarController,
+  type CommentsSidebarController,
+  type CommentsSidebarControllerOpenInput,
+} from '@services/comments/sidebar/comments-sidebar-controller';
 
 export type ArticleCommentsSidebarControllerOpenInput = {
   selectionText?: string | null;
@@ -43,24 +47,10 @@ function normalizeConversationId(value: unknown): number | null {
   return normalizePositiveInt(value);
 }
 
-function normalizeContext(next: ArticleCommentsSidebarContext): ArticleCommentsSidebarContext {
-  return {
-    canonicalUrl: canonicalizeArticleUrl(next.canonicalUrl),
-    conversationId: normalizeConversationId(next.conversationId),
-  };
-}
-
-function buildContextKey(context: ArticleCommentsSidebarContext | null): string {
-  if (!context) return '';
-  const canonicalUrl = canonicalizeArticleUrl(context.canonicalUrl);
-  if (!canonicalUrl) return '';
-  const conversationId = normalizeConversationId(context.conversationId);
-  return `${canonicalUrl}#${conversationId ?? ''}`;
-}
-
-function normalizeLocator(locator: unknown): ArticleCommentLocator | null {
-  if (!locator || typeof locator !== 'object') return null;
-  return locator as ArticleCommentLocator;
+function urlFromTargetKey(key: string): string {
+  const text = safeString(key);
+  if (!text.startsWith('url:')) return '';
+  return text.slice('url:'.length);
 }
 
 export function createArticleCommentsSidebarController(input: {
@@ -75,233 +65,96 @@ export function createArticleCommentsSidebarController(input: {
     | undefined
     | Promise<ArticleCommentsSidebarControllerComposerSelectionPayload | null | undefined>;
 }): ArticleCommentsSidebarController {
-  const session = input.session;
-  const adapter = input.adapter;
-  const onClose = input.onClose;
-
-  let activeContext: ArticleCommentsSidebarContext | null = null;
-  let lastEnsureContextInput: ArticleCommentsSidebarEnsureContextInput | undefined;
-  let pendingRootLocator: ArticleCommentLocator | null = null;
-  let refreshRunId = 0;
-  let composerSelectionRequestSeq = 0;
-
-  const applyComposerSelection = (payload?: ArticleCommentsSidebarControllerComposerSelectionPayload | null) => {
-    const quoteText = normalizeCommentSidebarQuoteText(payload?.selectionText);
-    if (!quoteText) return;
-    session.setQuoteText(quoteText);
-    pendingRootLocator = normalizeLocator(payload?.locator);
-  };
-
-  const ensureContext = async (
-    ensure: boolean,
-    ensureInput?: ArticleCommentsSidebarEnsureContextInput,
-  ): Promise<ArticleCommentsSidebarContext | null> => {
-    if (ensureInput) lastEnsureContextInput = ensureInput;
-    if (!ensure || typeof adapter.ensureContext !== 'function') return activeContext;
-    const resolved = await adapter.ensureContext(lastEnsureContextInput);
-    activeContext = normalizeContext(resolved);
-    return activeContext;
-  };
-
-  const getCanonicalUrl = () => canonicalizeArticleUrl(activeContext?.canonicalUrl);
-  const getContextKey = () => buildContextKey(activeContext);
-
-  const refresh = async (options?: { manageBusy?: boolean }) => {
-    const manageBusy = options?.manageBusy !== false;
-    const runId = ++refreshRunId;
-    const contextKeyAtStart = getContextKey();
-    const canonicalUrl = getCanonicalUrl();
-    if (!canonicalUrl) {
-      session.setComments([]);
-      return;
-    }
-    if (manageBusy) session.setBusy(true);
-    try {
-      const items = await adapter.list({ canonicalUrl });
-      if (runId !== refreshRunId || contextKeyAtStart !== getContextKey()) return;
-      session.setComments(Array.isArray(items) ? items : []);
-    } catch (_e) {
-      if (runId !== refreshRunId || contextKeyAtStart !== getContextKey()) return;
-      session.setComments([]);
-    } finally {
-      if (manageBusy && runId === refreshRunId) session.setBusy(false);
-    }
-  };
-
-  const ensureContextForAction = async () => {
-    const canonicalUrl = getCanonicalUrl();
-    if (canonicalUrl) return activeContext;
-    await ensureContext(true);
-    return activeContext;
-  };
-
-  const installHandlers = () => {
-    const handlers: CommentSidebarHandlers = {
-      onClose: () => {
-        try {
-          onClose?.();
-        } catch (_e) {
-          // ignore
+  const adapter: CommentsSidebarAdapter = {
+    list: async ({ commentTargetKey, canonicalUrlFallback }) => {
+      const canonicalUrl = urlFromTargetKey(commentTargetKey) || safeString(canonicalUrlFallback);
+      if (!canonicalUrl) return [];
+      return input.adapter.list({ canonicalUrl });
+    },
+    addRoot: async ({ canonicalUrl, conversationId, quoteText, commentText, locator }) => {
+      return input.adapter.addRoot({ canonicalUrl, conversationId, quoteText, commentText, locator });
+    },
+    addReply: async ({ canonicalUrl, conversationId, parentId, commentText }) => {
+      return input.adapter.addReply({ canonicalUrl, conversationId, parentId, commentText });
+    },
+    delete: async ({ id }) => {
+      return input.adapter.delete({ id });
+    },
+    migrateTargetKey: input.adapter.migrateCanonicalUrl
+      ? async ({ fromTargetKey, toTargetKey, conversationId }) => {
+          const fromCanonicalUrl = urlFromTargetKey(fromTargetKey);
+          const toCanonicalUrl = urlFromTargetKey(toTargetKey);
+          if (!fromCanonicalUrl || !toCanonicalUrl) return;
+          return input.adapter.migrateCanonicalUrl?.({ fromCanonicalUrl, toCanonicalUrl, conversationId });
         }
-      },
-      onSave: async (text) => {
-        const value = safeString(text);
-        if (!value) return false;
-
-        const ctx = await ensureContextForAction();
-        const canonicalUrl = canonicalizeArticleUrl(ctx?.canonicalUrl);
-        if (!canonicalUrl) throw new Error('missing canonicalUrl for article comment save');
-
-        const quoteText = normalizeCommentSidebarQuoteText(session.getSnapshot().quoteText);
-        const created = await adapter.addRoot({
-          canonicalUrl,
-          conversationId: normalizeConversationId(ctx?.conversationId),
-          quoteText,
-          commentText: value,
-          locator: quoteText && pendingRootLocator ? pendingRootLocator : null,
-        });
-        composerSelectionRequestSeq += 1;
-        session.setQuoteText('');
-        pendingRootLocator = null;
-        await refresh();
-        const createdRootId = Number(created?.id);
-        return { ok: true, createdRootId: Number.isFinite(createdRootId) && createdRootId > 0 ? createdRootId : null };
-      },
-      onReply: async (parentId, text) => {
-        const value = safeString(text);
-        if (!value) return;
-        const id = Number(parentId);
-        if (!Number.isFinite(id) || id <= 0) return;
-
-        const ctx = await ensureContextForAction();
-        const canonicalUrl = canonicalizeArticleUrl(ctx?.canonicalUrl);
-        if (!canonicalUrl) throw new Error('missing canonicalUrl for article comment reply');
-
-        await adapter.addReply({
-          canonicalUrl,
-          conversationId: normalizeConversationId(ctx?.conversationId),
-          parentId: id,
-          commentText: value,
-        });
-        await refresh();
-      },
-      onDelete: async (id) => {
-        const commentId = Number(id);
-        if (!Number.isFinite(commentId) || commentId <= 0) return;
-        await adapter.delete({ id: commentId });
-        await refresh();
-      },
-      onComposerSelectionRequest: async (request) => {
-        const resolveComposerSelection = input.resolveComposerSelection;
-        if (typeof resolveComposerSelection !== 'function') return;
-        const requestSeq = ++composerSelectionRequestSeq;
-        const applyIfLatest = (
-          payload: ArticleCommentsSidebarControllerComposerSelectionPayload | null | undefined,
-        ) => {
-          if (requestSeq !== composerSelectionRequestSeq) return;
-          applyComposerSelection(payload);
-        };
-        try {
-          const resolved = resolveComposerSelection(request);
-          if (resolved && typeof (resolved as PromiseLike<unknown>).then === 'function') {
-            void Promise.resolve(resolved)
-              .then((payload) => {
-                applyIfLatest(payload as ArticleCommentsSidebarControllerComposerSelectionPayload | null | undefined);
-              })
-              .catch(() => {
-                applyIfLatest(null);
-              });
-            return;
-          }
-          applyIfLatest(resolved as ArticleCommentsSidebarControllerComposerSelectionPayload | null | undefined);
-        } catch (_error) {
-          applyIfLatest(null);
+      : undefined,
+    ensureContext: input.adapter.ensureContext
+      ? async (ctxInput?: CommentsSidebarEnsureContextInput): Promise<CommentsSidebarContext> => {
+          const mapped: ArticleCommentsSidebarEnsureContextInput = {
+            tabId: ctxInput?.tabId ?? null,
+            canonicalUrlFallback: urlFromTargetKey(safeString(ctxInput?.commentTargetKeyFallback)) || ctxInput?.canonicalUrlFallback,
+            ensureArticle: ctxInput?.ensureConversationForTarget === true,
+          };
+          const resolved = await input.adapter.ensureContext?.(mapped);
+          const canonicalUrl = canonicalizeArticleUrl(resolved?.canonicalUrl);
+          return {
+            commentTargetKey: canonicalUrl ? `url:${canonicalUrl}` : '',
+            conversationId: normalizeConversationId(resolved?.conversationId),
+            canonicalUrl,
+          };
         }
-      },
-      onComposerQuoteClearRequest: () => {
-        composerSelectionRequestSeq += 1;
-        session.setQuoteText('');
-        pendingRootLocator = null;
-      },
-    };
-
-    session.setHandlers(handlers);
+      : undefined,
   };
 
-  installHandlers();
-
-  const open = async (openInput?: ArticleCommentsSidebarControllerOpenInput) => {
-    const selectionText = openInput?.selectionText;
-    if (selectionText != null) {
-      applyComposerSelection({ selectionText, locator: openInput?.locator });
-    }
-    session.requestOpen({ focusComposer: openInput?.focusComposer === true, source: openInput?.source });
-
-    const shouldEnsureContext = openInput?.ensureContext !== false;
-    session.setBusy(true);
-    try {
-      await ensureContext(shouldEnsureContext, openInput?.ensureContextInput);
-      await refresh({ manageBusy: false });
-    } finally {
-      session.setBusy(false);
-    }
-  };
-
-  const getContext = () => (activeContext ? { ...activeContext } : null);
-
-  const setContext = (next: ArticleCommentsSidebarContext | null) => {
-    const normalized = next ? normalizeContext(next) : null;
-    if (buildContextKey(activeContext) === buildContextKey(normalized)) return;
-
-    const previousCanonicalUrl = canonicalizeArticleUrl(activeContext?.canonicalUrl);
-    const previousConversationId = normalizeConversationId(activeContext?.conversationId);
-    const nextCanonicalUrl = canonicalizeArticleUrl(normalized?.canonicalUrl);
-    const nextConversationId = normalizeConversationId(normalized?.conversationId);
-
-    if (
-      previousCanonicalUrl &&
-      nextCanonicalUrl &&
-      previousCanonicalUrl !== nextCanonicalUrl &&
-      previousConversationId &&
-      nextConversationId &&
-      previousConversationId === nextConversationId &&
-      typeof adapter.migrateCanonicalUrl === 'function'
-    ) {
-      void adapter
-        .migrateCanonicalUrl({
-          fromCanonicalUrl: previousCanonicalUrl,
-          toCanonicalUrl: nextCanonicalUrl,
-          conversationId: nextConversationId,
-        })
-        .catch((error) => {
-          console.warn('[CommentsSidebar] canonical migration failed', {
-            fromCanonicalUrl: previousCanonicalUrl,
-            toCanonicalUrl: nextCanonicalUrl,
-            conversationId: nextConversationId,
-            error: error instanceof Error ? error.message : String(error || ''),
-          });
-        });
-    }
-
-    activeContext = normalized;
-    pendingRootLocator = null;
-    session.setQuoteText('');
-    refreshRunId += 1;
-
-    const canonicalUrl = getCanonicalUrl();
-    if (!canonicalUrl) {
-      session.setBusy(false);
-      session.setComments([]);
-      return;
-    }
-
-    void refresh();
-  };
+  const base: CommentsSidebarController = createCommentsSidebarController({
+    session: input.session,
+    adapter,
+    onClose: input.onClose,
+    resolveComposerSelection: input.resolveComposerSelection,
+  });
 
   return {
-    open,
-    refresh: () => refresh(),
-    getContext,
-    setContext,
+    open: async (openInput?: ArticleCommentsSidebarControllerOpenInput) => {
+      const ensureInput = openInput?.ensureContextInput;
+      const canonicalUrlFallback = canonicalizeArticleUrl(ensureInput?.canonicalUrlFallback);
+      const mappedEnsureInput: CommentsSidebarEnsureContextInput | undefined = ensureInput
+        ? {
+            tabId: ensureInput?.tabId ?? null,
+            commentTargetKeyFallback: canonicalUrlFallback ? `url:${canonicalUrlFallback}` : '',
+            canonicalUrlFallback,
+            ensureConversationForTarget: ensureInput?.ensureArticle === true,
+          }
+        : undefined;
+
+      const mappedOpen: CommentsSidebarControllerOpenInput = {
+        selectionText: openInput?.selectionText,
+        locator: openInput?.locator,
+        focusComposer: openInput?.focusComposer,
+        source: openInput?.source,
+        ensureContext: openInput?.ensureContext,
+        ensureContextInput: mappedEnsureInput,
+      };
+
+      return base.open(mappedOpen);
+    },
+    refresh: () => base.refresh(),
+    getContext: () => {
+      const ctx = base.getContext();
+      if (!ctx) return null;
+      const canonicalUrl = canonicalizeArticleUrl(urlFromTargetKey(ctx.commentTargetKey) || ctx.canonicalUrl);
+      return {
+        canonicalUrl: canonicalUrl || '',
+        conversationId: normalizeConversationId(ctx.conversationId),
+      };
+    },
+    setContext: (context: ArticleCommentsSidebarContext | null) => {
+      if (!context) return base.setContext(null);
+      const canonicalUrl = canonicalizeArticleUrl(context.canonicalUrl);
+      base.setContext({
+        commentTargetKey: canonicalUrl ? `url:${canonicalUrl}` : '',
+        conversationId: normalizeConversationId(context.conversationId),
+        canonicalUrl,
+      });
+    },
   };
 }

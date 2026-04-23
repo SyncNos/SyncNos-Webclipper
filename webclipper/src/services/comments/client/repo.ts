@@ -42,6 +42,16 @@ export async function listArticleCommentsByCanonicalUrl(canonicalUrl: string): P
   return unwrap(res);
 }
 
+export async function listArticleCommentsByConversationId(conversationId: number): Promise<ArticleCommentDto[]> {
+  const id = Number(conversationId);
+  if (!Number.isFinite(id) || id <= 0) return [];
+  const res = await send<ApiResponse<ArticleCommentDto[]>>(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, {
+    canonicalUrl: '',
+    conversationId: id,
+  } as any);
+  return unwrap(res);
+}
+
 export async function deleteArticleCommentById(id: number): Promise<boolean> {
   const res = await send<ApiResponse<{ ok: boolean }>>(COMMENTS_MESSAGE_TYPES.DELETE_ARTICLE_COMMENT, { id });
   return unwrap(res).ok === true;
