@@ -1,4 +1,4 @@
-import type { ArticleCommentLocator } from '@services/comments/domain/models';
+import type { CommentLocator } from '@services/comments/domain/models';
 
 export type CommentSidebarOpenInput = {
   focusComposer?: boolean;
@@ -12,7 +12,7 @@ export type CommentSidebarItem = {
   createdAt?: number | null;
   quoteText?: string | null;
   commentText: string;
-  locator?: ArticleCommentLocator | null;
+  locator?: CommentLocator | null;
 };
 
 export type CommentSaveResult = void | boolean | { ok: boolean; createdRootId?: number | null };

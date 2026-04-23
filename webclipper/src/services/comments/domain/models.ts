@@ -1,56 +1,51 @@
-export type ArticleComment = {
-  id: number;
-  parentId: number | null;
-  conversationId: number | null;
-  canonicalUrl: string;
-  authorName?: string | null;
-  quoteText: string;
-  commentText: string;
-  locator?: ArticleCommentLocator | null;
-  createdAt: number;
-  updatedAt: number;
-};
+export type CommentLocatorEnv = 'inpage' | 'app';
 
-export type Comment = Omit<ArticleComment, 'canonicalUrl'> & {
-  targetKey: string;
-};
-
-export type ArticleCommentLocatorEnv = 'inpage' | 'app';
-
-export type ArticleCommentTextQuoteSelector = {
+export type CommentTextQuoteSelector = {
   type: 'TextQuoteSelector';
   exact: string;
   prefix?: string;
   suffix?: string;
 };
 
-export type ArticleCommentTextPositionSelector = {
+export type CommentTextPositionSelector = {
   type: 'TextPositionSelector';
   start: number;
   end: number;
 };
 
-export type ArticleCommentLocatorV1 = {
+export type CommentLocatorV1 = {
   v: 1;
-  env: ArticleCommentLocatorEnv;
-  quote: ArticleCommentTextQuoteSelector;
-  position: ArticleCommentTextPositionSelector;
+  env: CommentLocatorEnv;
+  quote: CommentTextQuoteSelector;
+  position: CommentTextPositionSelector;
 };
 
-export type ArticleCommentLocator = ArticleCommentLocatorV1;
+export type CommentLocator = CommentLocatorV1;
 
-export type AddArticleCommentInput = {
+export type Comment = {
+  id: number;
+  parentId: number | null;
+  conversationId: number | null;
+  targetKey: string;
+  canonicalUrl: string;
+  authorName?: string | null;
+  quoteText: string;
+  commentText: string;
+  locator?: CommentLocator | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type AddCommentInput = {
   parentId?: number | null;
   conversationId: number | null;
-  canonicalUrl: string;
+  targetKey: string;
+  canonicalUrl?: string | null;
   authorName?: string | null;
   quoteText?: string | null;
   commentText: string;
-  locator?: ArticleCommentLocator | null;
+  locator?: CommentLocator | null;
   createdAt?: number | null;
   updatedAt?: number | null;
 };
 
-export type AddCommentInput = Omit<AddArticleCommentInput, 'canonicalUrl'> & {
-  targetKey: string;
-};

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { JSDOM } from 'jsdom';
 
 import {
-  buildArticleCommentLocatorFromRange,
-  restoreRangeFromArticleCommentLocator,
+  buildCommentLocatorFromRange,
+  restoreRangeFromCommentLocator,
 } from '../../src/services/comments/locator';
 
 function setupDom() {
@@ -29,7 +29,7 @@ function cleanupDom() {
   // Keep the minimal NodeFilter polyfill from setup-nodefilter.ts.
 }
 
-describe('article-comment-locator', () => {
+describe('comment-locator', () => {
   beforeEach(() => setupDom());
   afterEach(() => cleanupDom());
 
@@ -42,7 +42,7 @@ describe('article-comment-locator', () => {
     range.setStart(textNode, 6);
     range.setEnd(textNode, 11);
 
-    const locator = buildArticleCommentLocatorFromRange({
+    const locator = buildCommentLocatorFromRange({
       env: 'inpage',
       root,
       range,
@@ -55,7 +55,7 @@ describe('article-comment-locator', () => {
     expect(typeof (locator as any)?.position?.end).toBe('number');
     expect(Number((locator as any).position.end)).toBeGreaterThan(Number((locator as any).position.start));
 
-    const restored = locator ? restoreRangeFromArticleCommentLocator({ root, locator }) : null;
+    const restored = locator ? restoreRangeFromCommentLocator({ root, locator }) : null;
     expect(restored?.toString()).toBe('world');
   });
 });

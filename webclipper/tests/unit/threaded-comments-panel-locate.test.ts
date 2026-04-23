@@ -9,11 +9,11 @@ vi.mock('@services/comments/locator', async () => {
   const actual = await vi.importActual<typeof import('@services/comments/locator')>('@services/comments/locator');
   return {
     ...actual,
-    restoreRangeFromArticleCommentLocator: vi.fn(),
+    restoreRangeFromCommentLocator: vi.fn(),
   };
 });
 
-import { restoreRangeFromArticleCommentLocator } from '@services/comments/locator';
+import { restoreRangeFromCommentLocator } from '@services/comments/locator';
 import { mountThreadedCommentsPanel } from '@ui/comments';
 
 function setupDom() {
@@ -60,7 +60,7 @@ describe('Threaded comments panel locate', () => {
   beforeEach(() => {
     setupDom();
     vi.useFakeTimers();
-    (restoreRangeFromArticleCommentLocator as any).mockReset?.();
+    (restoreRangeFromCommentLocator as any).mockReset?.();
   });
 
   afterEach(async () => {
@@ -81,7 +81,7 @@ describe('Threaded comments panel locate', () => {
     range.setStart(textNode, 6);
     range.setEnd(textNode, 11);
 
-    (restoreRangeFromArticleCommentLocator as any).mockReturnValue(range);
+    (restoreRangeFromCommentLocator as any).mockReturnValue(range);
 
     const host = document.createElement('div');
     document.body.appendChild(host);
@@ -119,7 +119,7 @@ describe('Threaded comments panel locate', () => {
     expect(rootComment).toBeTruthy();
     rootComment!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
 
-    expect(restoreRangeFromArticleCommentLocator).toHaveBeenCalledTimes(1);
+    expect(restoreRangeFromCommentLocator).toHaveBeenCalledTimes(1);
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
     expect(article.getAttribute('data-webclipper-locate-highlight')).toBe('1');
 
@@ -132,7 +132,7 @@ describe('Threaded comments panel locate', () => {
     expect(replyBody).toBeTruthy();
     replyBody!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
 
-    expect(restoreRangeFromArticleCommentLocator).toHaveBeenCalledTimes(1);
+    expect(restoreRangeFromCommentLocator).toHaveBeenCalledTimes(1);
 
     mounted.cleanup();
   });
@@ -170,7 +170,7 @@ describe('Threaded comments panel locate', () => {
 
     rootComment!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
 
-    expect(restoreRangeFromArticleCommentLocator).not.toHaveBeenCalled();
+    expect(restoreRangeFromCommentLocator).not.toHaveBeenCalled();
 
     mounted.cleanup();
   });

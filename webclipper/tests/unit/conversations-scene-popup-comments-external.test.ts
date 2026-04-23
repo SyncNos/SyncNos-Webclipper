@@ -41,8 +41,8 @@ vi.mock('../../src/ui/conversations/ConversationListPane', () => ({
   ConversationListPane: () => createElement('div', { 'data-list': '1' }),
 }));
 
-vi.mock('../../src/ui/conversations/ArticleCommentsSection', () => ({
-  ArticleCommentsSection: () => createElement('div', { 'data-comments': '1' }),
+vi.mock('../../src/ui/conversations/CommentsSection', () => ({
+  CommentsSection: () => createElement('div', { 'data-comments': '1' }),
 }));
 
 vi.mock('../../src/ui/conversations/ConversationDetailPane', () => ({

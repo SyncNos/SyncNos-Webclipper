@@ -1,5 +1,5 @@
 import type { CommentSidebarItem } from '@services/comments/sidebar/comment-sidebar-contract';
-import type { ArticleCommentLocator } from '@services/comments/domain/models';
+import type { CommentLocator } from '@services/comments/domain/models';
 
 export type CommentsSidebarContext = {
   commentTargetKey: string;
@@ -30,7 +30,7 @@ export type CommentsSidebarAdapter = {
     conversationId: number | null;
     quoteText: string;
     commentText: string;
-    locator?: ArticleCommentLocator | null;
+    locator?: CommentLocator | null;
   }) => Promise<CommentsSidebarAddRootResult>;
   addReply: (input: {
     commentTargetKey: string;
@@ -47,4 +47,3 @@ export type CommentsSidebarAdapter = {
   }) => Promise<void | { updated: number }>;
   ensureContext?: (input?: CommentsSidebarEnsureContextInput) => Promise<CommentsSidebarContext>;
 };
-

@@ -1,5 +1,5 @@
-import { restoreRangeFromArticleCommentLocator } from '@services/comments/locator';
-import type { ArticleCommentLocator } from '@services/comments/domain/models';
+import { restoreRangeFromCommentLocator } from '@services/comments/locator';
+import type { CommentLocator } from '@services/comments/domain/models';
 import type { ThreadedCommentItem } from './types';
 
 const LOCATE_HIGHLIGHT_ATTR = 'data-webclipper-locate-highlight';
@@ -31,7 +31,7 @@ function readLocatorEnv(value: unknown): string {
   return String(readLocator(value)?.env || '').trim();
 }
 
-function isArticleCommentLocator(value: unknown): value is ArticleCommentLocator {
+function isCommentLocator(value: unknown): value is CommentLocator {
   const locator = readLocator(value);
   if (!locator) return false;
   return typeof locator.env === 'string' && !!locator.quote && typeof locator.quote === 'object';
@@ -197,14 +197,14 @@ export function createThreadLocateController(options: ThreadLocateControllerOpti
 
   function locateThreadRootOnce(rootItem: ThreadedCommentItem, rootEl: Element): boolean {
     const locator = rootItem?.locator;
-    if (!isArticleCommentLocator(locator)) return false;
+    if (!isCommentLocator(locator)) return false;
 
     const env = readLocatorEnv(locator);
     const expectedEnv = String(options.locatorEnv || '').trim();
     if (!expectedEnv || env !== expectedEnv) return false;
 
     try {
-      const range = restoreRangeFromArticleCommentLocator({ root: rootEl, locator });
+      const range = restoreRangeFromCommentLocator({ root: rootEl, locator });
       if (!range) return false;
       return scrollRangeIntoView(range, locateHighlighter);
     } catch (_e) {
@@ -214,7 +214,7 @@ export function createThreadLocateController(options: ThreadLocateControllerOpti
 
   const locateThreadRootWithRetry = async (rootItem: ThreadedCommentItem): Promise<boolean> => {
     const locator = rootItem?.locator;
-    if (!isArticleCommentLocator(locator)) return false;
+    if (!isCommentLocator(locator)) return false;
 
     const env = readLocatorEnv(locator);
     const expectedEnv = String(options.locatorEnv || '').trim();

@@ -4,7 +4,7 @@ import {
   createCommentsSidebarController,
   type CommentsSidebarController,
 } from '@services/comments/sidebar/comments-sidebar-controller';
-import { buildArticleCommentLocatorFromRange } from '@services/comments/locator';
+import { buildCommentLocatorFromRange } from '@services/comments/locator';
 import type {
   CommentSidebarSession,
   CommentSidebarSessionSnapshot,
@@ -90,7 +90,7 @@ export function useCommentsSidebarRuntime(input: { onClose?: () => void } = {}):
       const payload = {
         selectionText: text,
         locator:
-          buildArticleCommentLocatorFromRange({
+          buildCommentLocatorFromRange({
             env: 'app',
             root,
             range,

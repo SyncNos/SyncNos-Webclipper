@@ -62,11 +62,11 @@ export const CONTENT_MESSAGE_TYPES = {
 } as const;
 
 export const COMMENTS_MESSAGE_TYPES = {
-  LIST_ARTICLE_COMMENTS: 'listArticleComments',
-  ADD_ARTICLE_COMMENT: 'addArticleComment',
-  DELETE_ARTICLE_COMMENT: 'deleteArticleComment',
-  ATTACH_ORPHAN_ARTICLE_COMMENTS: 'attachOrphanArticleComments',
-  MIGRATE_ARTICLE_COMMENTS_CANONICAL_URL: 'migrateArticleCommentsCanonicalUrl',
+  LIST_COMMENTS: 'listComments',
+  ADD_COMMENT: 'addComment',
+  DELETE_COMMENT: 'deleteComment',
+  ATTACH_ORPHAN_COMMENTS: 'attachOrphanComments',
+  MIGRATE_COMMENTS_CANONICAL_URL: 'migrateCommentsCanonicalUrl',
 } as const;
 
 export const UI_MESSAGE_TYPES = {

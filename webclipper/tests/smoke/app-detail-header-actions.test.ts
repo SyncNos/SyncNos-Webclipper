@@ -36,8 +36,8 @@ vi.mock('../../src/ui/shared/ChatMessageBubble', () => ({
   ChatMessageBubble: ({ markdown }: { markdown?: string }) => createElement('div', null, String(markdown || 'message')),
 }));
 
-vi.mock('../../src/ui/conversations/ArticleCommentsSection', () => ({
-  ArticleCommentsSection: () => createElement('div', null, 'comments-section'),
+vi.mock('../../src/ui/conversations/CommentsSection', () => ({
+  CommentsSection: () => createElement('div', null, 'comments-section'),
 }));
 
 vi.mock('../../src/ui/i18n', () => ({

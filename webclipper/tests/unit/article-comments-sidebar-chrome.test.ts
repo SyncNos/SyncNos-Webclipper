@@ -37,7 +37,7 @@ vi.mock('../../src/platform/runtime/ports', () => ({
   }),
 }));
 
-import { ArticleCommentsSection } from '../../src/ui/conversations/ArticleCommentsSection';
+import { CommentsSection } from '../../src/ui/conversations/CommentsSection';
 import { createCommentSidebarSession } from '../../src/services/comments/sidebar/comment-sidebar-session';
 
 function setupDom() {
@@ -73,7 +73,7 @@ function cleanupDom() {
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
 }
 
-describe('ArticleCommentsSection shared chrome', () => {
+describe('CommentsSection shared chrome', () => {
   let root: ReactDOM.Root | null = null;
 
   beforeEach(() => {
@@ -92,7 +92,7 @@ describe('ArticleCommentsSection shared chrome', () => {
   it('renders the shared panel header in embedded mode', async () => {
     await act(async () => {
       root!.render(
-        createElement(ArticleCommentsSection, {
+        createElement(CommentsSection, {
           conversationId: 21,
           canonicalUrl: 'https://example.com/article',
         }),
@@ -115,7 +115,7 @@ describe('ArticleCommentsSection shared chrome', () => {
     const resolveCommentChatWithActions = vi.fn(async () => []);
     await act(async () => {
       root!.render(
-        createElement(ArticleCommentsSection, {
+        createElement(CommentsSection, {
           sidebarSession: session,
           commentChatWith: {
             resolveActions: resolveCommentChatWithActions,
@@ -156,7 +156,7 @@ describe('ArticleCommentsSection shared chrome', () => {
 
     await act(async () => {
       root!.render(
-        createElement(ArticleCommentsSection, {
+        createElement(CommentsSection, {
           sidebarSession: session,
           commentChatWith: {
             resolveActions: firstResolveActions,
@@ -185,7 +185,7 @@ describe('ArticleCommentsSection shared chrome', () => {
 
     await act(async () => {
       root!.render(
-        createElement(ArticleCommentsSection, {
+        createElement(CommentsSection, {
           sidebarSession: session,
           commentChatWith: {
             resolveActions: secondResolveActions,
@@ -220,7 +220,7 @@ describe('ArticleCommentsSection shared chrome', () => {
 
     await act(async () => {
       root!.render(
-        createElement(ArticleCommentsSection, {
+        createElement(CommentsSection, {
           sidebarSession: session,
           getLocatorRoot,
         }),

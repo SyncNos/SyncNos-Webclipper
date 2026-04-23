@@ -2,7 +2,7 @@ import { CONTENT_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { createCommentSidebarSession } from '@services/comments/sidebar/comment-sidebar-session';
 import { createArticleCommentsSidebarController } from '@services/comments/sidebar/article-comments-sidebar-controller';
 import { createArticleCommentsSidebarInpageAdapter } from '@services/comments/sidebar/article-comments-sidebar-inpage-adapter';
-import { buildArticleCommentLocatorFromRange } from '@services/comments/locator';
+import { buildCommentLocatorFromRange } from '@services/comments/locator';
 import { normalizePositiveInt } from '@services/shared/numbers';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 import { getInpageCommentsPanelApi } from '@ui/inpage/inpage-comments-panel-shadow';
@@ -63,7 +63,7 @@ function pickLocatorFromSelection(): any | null {
     const range = selection.getRangeAt(0);
     const text = String(selection.toString() || '').trim();
     if (!text) return null;
-    return buildArticleCommentLocatorFromRange({
+    return buildCommentLocatorFromRange({
       env: 'inpage',
       root: locatorRoot,
       range,

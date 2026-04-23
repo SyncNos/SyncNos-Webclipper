@@ -1,9 +1,9 @@
 import {
-  addArticleComment,
-  deleteArticleCommentById,
-  listArticleCommentsByCanonicalUrl,
-  listArticleCommentsByConversationId,
-  migrateArticleCommentsCanonicalUrl,
+  addComment,
+  deleteCommentById,
+  listCommentsByCanonicalUrl,
+  listCommentsByConversationId,
+  migrateCommentsCanonicalUrl,
 } from '@services/comments/client/repo';
 
 import type {
@@ -44,7 +44,7 @@ export function createCommentsSidebarAppAdapter(): CommentsSidebarAdapter {
     async list({ commentTargetKey, conversationId, canonicalUrlFallback }) {
       const id = normalizeConversationId(conversationId);
       if (isConvoTargetKey(commentTargetKey) && id) {
-        const items = await listArticleCommentsByConversationId(id);
+        const items = await listCommentsByConversationId(id);
         return (Array.isArray(items) ? items : []).map((c: any) => ({
           id: Number(c?.id),
           parentId: c?.parentId != null ? Number(c.parentId) : null,
@@ -58,7 +58,7 @@ export function createCommentsSidebarAppAdapter(): CommentsSidebarAdapter {
 
       const canonicalUrl = canonicalUrlFromContext({ commentTargetKey, canonicalUrlFallback });
       if (!canonicalUrl) return [];
-      const items = await listArticleCommentsByCanonicalUrl(canonicalUrl);
+      const items = await listCommentsByCanonicalUrl(canonicalUrl);
       return (Array.isArray(items) ? items : []).map((c: any) => ({
         id: Number(c?.id),
         parentId: c?.parentId != null ? Number(c.parentId) : null,
@@ -70,7 +70,7 @@ export function createCommentsSidebarAppAdapter(): CommentsSidebarAdapter {
       }));
     },
     async addRoot({ canonicalUrl, conversationId, quoteText, commentText, locator }) {
-      const res = await addArticleComment({
+      const res = await addComment({
         canonicalUrl,
         conversationId: normalizeConversationId(conversationId),
         quoteText,
@@ -80,7 +80,7 @@ export function createCommentsSidebarAppAdapter(): CommentsSidebarAdapter {
       return { id: Number(res?.id) };
     },
     async addReply({ canonicalUrl, conversationId, parentId, commentText }) {
-      await addArticleComment({
+      await addComment({
         canonicalUrl,
         conversationId: normalizeConversationId(conversationId),
         parentId,
@@ -90,14 +90,14 @@ export function createCommentsSidebarAppAdapter(): CommentsSidebarAdapter {
       });
     },
     async delete({ id }) {
-      const ok = await deleteArticleCommentById(id);
+      const ok = await deleteCommentById(id);
       if (!ok) throw new Error('failed to delete comment');
     },
     async migrateTargetKey({ fromTargetKey, toTargetKey, conversationId }) {
       const fromCanonicalUrl = urlFromTargetKey(fromTargetKey);
       const toCanonicalUrl = urlFromTargetKey(toTargetKey);
       if (!fromCanonicalUrl || !toCanonicalUrl || fromCanonicalUrl === toCanonicalUrl) return;
-      return migrateArticleCommentsCanonicalUrl({
+      return migrateCommentsCanonicalUrl({
         fromCanonicalUrl,
         toCanonicalUrl,
         conversationId: normalizeConversationId(conversationId),

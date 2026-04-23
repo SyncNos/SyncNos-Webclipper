@@ -730,6 +730,8 @@ export async function importBackupZipV2Merge(
       }
 
       for (const row of byId.values()) {
+        const existingId = Number((row as any).id);
+        if (!Number.isFinite(existingId) || existingId <= 0) continue;
         const targetKey = safeString((row as any).targetKey);
         const urlFromTarget = targetKey.startsWith('url:') ? targetKey.slice('url:'.length) : '';
         const url = normalizeHttpUrl(urlFromTarget || (row as any).canonicalUrl);
@@ -741,7 +743,7 @@ export async function importBackupZipV2Merge(
         if (!commentText) continue;
 
         const baseKey = commentBaseKey({ canonicalUrl: url, createdAt, quoteText, commentText });
-        baseKeyByExistingId.set(id, baseKey);
+        baseKeyByExistingId.set(existingId, baseKey);
         existingRows.push(row);
       }
     }

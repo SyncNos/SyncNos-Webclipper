@@ -11,7 +11,7 @@ function unwrap<T>(res: ApiResponse<T>): T {
   throw new Error(message);
 }
 
-export type ArticleCommentDto = {
+export type CommentDto = {
   id: number;
   parentId: number | null;
   conversationId: number | null;
@@ -23,41 +23,41 @@ export type ArticleCommentDto = {
   updatedAt: number;
 };
 
-export async function addArticleComment(input: {
+export async function addComment(input: {
   canonicalUrl: string;
   conversationId: number | null;
   parentId?: number | null;
   quoteText?: string | null;
   commentText: string;
   locator?: any;
-}): Promise<ArticleCommentDto> {
-  const res = await send<ApiResponse<ArticleCommentDto>>(COMMENTS_MESSAGE_TYPES.ADD_ARTICLE_COMMENT, input as any);
+}): Promise<CommentDto> {
+  const res = await send<ApiResponse<CommentDto>>(COMMENTS_MESSAGE_TYPES.ADD_COMMENT, input as any);
   return unwrap(res);
 }
 
-export async function listArticleCommentsByCanonicalUrl(canonicalUrl: string): Promise<ArticleCommentDto[]> {
-  const res = await send<ApiResponse<ArticleCommentDto[]>>(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, {
+export async function listCommentsByCanonicalUrl(canonicalUrl: string): Promise<CommentDto[]> {
+  const res = await send<ApiResponse<CommentDto[]>>(COMMENTS_MESSAGE_TYPES.LIST_COMMENTS, {
     canonicalUrl,
   });
   return unwrap(res);
 }
 
-export async function listArticleCommentsByConversationId(conversationId: number): Promise<ArticleCommentDto[]> {
+export async function listCommentsByConversationId(conversationId: number): Promise<CommentDto[]> {
   const id = Number(conversationId);
   if (!Number.isFinite(id) || id <= 0) return [];
-  const res = await send<ApiResponse<ArticleCommentDto[]>>(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, {
+  const res = await send<ApiResponse<CommentDto[]>>(COMMENTS_MESSAGE_TYPES.LIST_COMMENTS, {
     canonicalUrl: '',
     conversationId: id,
   } as any);
   return unwrap(res);
 }
 
-export async function deleteArticleCommentById(id: number): Promise<boolean> {
-  const res = await send<ApiResponse<{ ok: boolean }>>(COMMENTS_MESSAGE_TYPES.DELETE_ARTICLE_COMMENT, { id });
+export async function deleteCommentById(id: number): Promise<boolean> {
+  const res = await send<ApiResponse<{ ok: boolean }>>(COMMENTS_MESSAGE_TYPES.DELETE_COMMENT, { id });
   return unwrap(res).ok === true;
 }
 
-export async function migrateArticleCommentsCanonicalUrl(input: {
+export async function migrateCommentsCanonicalUrl(input: {
   fromCanonicalUrl: string;
   toCanonicalUrl: string;
   conversationId?: number | null;
@@ -67,9 +67,6 @@ export async function migrateArticleCommentsCanonicalUrl(input: {
     toCanonicalUrl: String(input?.toCanonicalUrl || ''),
     conversationId: input?.conversationId != null ? Number(input.conversationId) : null,
   };
-  const res = await send<ApiResponse<{ updated: number }>>(
-    COMMENTS_MESSAGE_TYPES.MIGRATE_ARTICLE_COMMENTS_CANONICAL_URL,
-    payload as any,
-  );
+  const res = await send<ApiResponse<{ updated: number }>>(COMMENTS_MESSAGE_TYPES.MIGRATE_COMMENTS_CANONICAL_URL, payload as any);
   return unwrap(res);
 }

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { useIsNarrowScreen } from '@ui/shared/hooks/useIsNarrowScreen';
 import { useNarrowListDetailCommentsRoute } from '@ui/shared/hooks/useNarrowListDetailCommentsRoute';
-import type { ArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
+import type { CommentsSidebarRuntime } from '@viewmodels/comments/useCommentsSidebarRuntime';
 
 import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
 import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
@@ -14,7 +14,7 @@ import {
 import type { ThreadedCommentsPanelChatWithAction, ThreadedCommentsPanelCommentChatWithConfig } from '@ui/comments';
 import { ConversationDetailPane } from '@ui/conversations/ConversationDetailPane';
 import { ConversationListPane } from '@ui/conversations/ConversationListPane';
-import { ArticleCommentsSection } from '@ui/conversations/ArticleCommentsSection';
+import { CommentsSection } from '@ui/conversations/CommentsSection';
 import { useConversationsApp } from '@viewmodels/conversations/conversations-context';
 import { consumePendingOpenConversation } from '@ui/conversations/pending-open';
 import { columnDividerRightClassName } from '@ui/shared/column-styles';
@@ -36,7 +36,7 @@ export type ConversationsSceneProps = {
   onOpenInsightsSection?: () => void;
   onOpenSettingsSection?: (section: string) => void;
   onOpenCommentsExternally?: () => void;
-  commentsSidebarRuntime?: ArticleCommentsSidebarRuntime;
+  commentsSidebarRuntime?: CommentsSidebarRuntime;
   narrowCommentsOpenSource?: 'popup' | 'app';
   resolveCommentsSidebarChatWithActions?: () => Promise<ThreadedCommentsPanelChatWithAction[]>;
   resolveCommentsSidebarSingleChatWithLabel?: () => Promise<string | null>;
@@ -202,7 +202,7 @@ export function ConversationsScene({
     if (narrowRoute === 'comments' && commentsSidebarRuntime) {
       return (
         <div className="tw-flex tw-h-full tw-min-h-0 tw-w-full tw-min-w-0 tw-flex-col tw-bg-[var(--bg-card)] tw-text-[var(--text-primary)]">
-          <ArticleCommentsSection
+          <CommentsSection
             sidebarSession={commentsSidebarRuntime.sidebarSession}
             containerClassName="tw-h-full tw-min-h-0"
             getLocatorRoot={commentsSidebarRuntime.getLocatorRoot}

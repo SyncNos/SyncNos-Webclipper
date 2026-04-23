@@ -1,13 +1,13 @@
 import TextPositionAnchor from 'dom-anchor-text-position';
 import TextQuoteAnchor from 'dom-anchor-text-quote';
 
-import type { ArticleCommentLocator, ArticleCommentLocatorEnv } from '@services/comments/domain/models';
+import type { CommentLocator, CommentLocatorEnv } from '@services/comments/domain/models';
 
-export function buildArticleCommentLocatorFromRange(input: {
-  env: ArticleCommentLocatorEnv;
+export function buildCommentLocatorFromRange(input: {
+  env: CommentLocatorEnv;
   root: Element;
   range: Range;
-}): ArticleCommentLocator | null {
+}): CommentLocator | null {
   const env = input.env;
   const root = input.root;
   const range = input.range;
@@ -35,9 +35,10 @@ export function buildArticleCommentLocatorFromRange(input: {
   }
 }
 
-export function restoreRangeFromArticleCommentLocator(input: {
+
+export function restoreRangeFromCommentLocator(input: {
   root: Element;
-  locator: ArticleCommentLocator;
+  locator: CommentLocator;
 }): Range | null {
   const root = input.root;
   const locator = input.locator;

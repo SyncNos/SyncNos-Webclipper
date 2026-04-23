@@ -6,11 +6,11 @@ import Settings from '@ui/app/Settings';
 import { ConversationsProvider, useConversationsApp } from '@viewmodels/conversations/conversations-context';
 import { ConversationsScene } from '@ui/conversations/ConversationsScene';
 import { ConversationDetailPane } from '@ui/conversations/ConversationDetailPane';
-import { ArticleCommentsSection } from '@ui/conversations/ArticleCommentsSection';
+import { CommentsSection } from '@ui/conversations/CommentsSection';
 import { buttonIconCircleGhostClassName, headerButtonClassName } from '@ui/shared/button-styles';
 import { AppTooltipHost, tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useResponsiveTier } from '@ui/shared/hooks/useResponsiveTier';
-import { useArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
+import { useCommentsSidebarRuntime } from '@viewmodels/comments/useCommentsSidebarRuntime';
 import { decodeConversationLoc, encodeConversationLoc } from '@services/shared/conversation-loc';
 import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
 import { canonicalizeVideoUrl } from '@services/url-cleaning/video-url';
@@ -177,7 +177,7 @@ export default function AppShell() {
       setLocatorRoot: setCommentsLocatorRoot,
       getLocatorRoot: getCommentsLocatorRoot,
       subscribeSidebarClose,
-    } = useArticleCommentsSidebarRuntime({
+    } = useCommentsSidebarRuntime({
       onClose: () => {
         if (suppressCommentsSidebarCollapseRef.current) return;
         if (isMedium) {
@@ -730,7 +730,7 @@ export default function AppShell() {
 
               {showCommentsSidebar ? (
                 <div className="tw-h-full tw-min-h-0 tw-shrink-0">
-                  <ArticleCommentsSection
+                  <CommentsSection
                     sidebarSession={commentsSidebarSession}
                     containerClassName="tw-h-full tw-min-h-0"
                     getLocatorRoot={getCommentsLocatorRoot}

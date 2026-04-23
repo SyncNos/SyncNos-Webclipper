@@ -30,10 +30,10 @@ type EmbeddedModeProps = {
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
 };
 
-export function ArticleCommentsSection(props: SidebarModeProps | EmbeddedModeProps) {
+export function CommentsSection(props: SidebarModeProps | EmbeddedModeProps) {
   if ('sidebarSession' in props && props.sidebarSession) {
     return (
-      <ArticleCommentsPanelMount
+      <CommentsPanelMount
         sidebarSession={props.sidebarSession}
         containerClassName={props.containerClassName}
         getLocatorRoot={props.getLocatorRoot}
@@ -47,7 +47,7 @@ export function ArticleCommentsSection(props: SidebarModeProps | EmbeddedModePro
   }
 
   return (
-    <ArticleCommentsEmbedded
+    <CommentsEmbedded
       conversationId={props.conversationId}
       canonicalUrl={props.canonicalUrl}
       containerClassName={props.containerClassName}
@@ -57,7 +57,7 @@ export function ArticleCommentsSection(props: SidebarModeProps | EmbeddedModePro
   );
 }
 
-function ArticleCommentsPanelMount({
+function CommentsPanelMount({
   sidebarSession,
   containerClassName,
   getLocatorRoot,
@@ -173,7 +173,7 @@ function ArticleCommentsPanelMount({
   );
 }
 
-function ArticleCommentsEmbedded({
+function CommentsEmbedded({
   conversationId,
   canonicalUrl,
   containerClassName,
@@ -208,7 +208,7 @@ function ArticleCommentsEmbedded({
   }, [canonicalUrl, conversationId, controller]);
 
   return (
-    <ArticleCommentsPanelMount
+    <CommentsPanelMount
       sidebarSession={session}
       containerClassName={containerClassName}
       commentChatWith={commentChatWith}
@@ -216,3 +216,4 @@ function ArticleCommentsEmbedded({
     />
   );
 }
+

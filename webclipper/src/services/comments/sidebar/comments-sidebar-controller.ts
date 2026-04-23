@@ -4,7 +4,7 @@ import type {
   CommentSidebarSession,
 } from '@services/comments/sidebar/comment-sidebar-contract';
 import { normalizeCommentSidebarQuoteText } from '@services/comments/sidebar/comment-sidebar-session';
-import type { ArticleCommentLocator } from '@services/comments/domain/models';
+import type { CommentLocator } from '@services/comments/domain/models';
 import { normalizePositiveInt } from '@services/shared/numbers';
 
 import type {
@@ -42,9 +42,9 @@ function normalizeConversationId(value: unknown): number | null {
   return normalizePositiveInt(value);
 }
 
-function normalizeLocator(locator: unknown): ArticleCommentLocator | null {
+function normalizeLocator(locator: unknown): CommentLocator | null {
   if (!locator || typeof locator !== 'object') return null;
-  return locator as ArticleCommentLocator;
+  return locator as CommentLocator;
 }
 
 function normalizeContext(next: CommentsSidebarContext): CommentsSidebarContext {
@@ -91,7 +91,7 @@ export function createCommentsSidebarController(input: {
 
   let activeContext: CommentsSidebarContext | null = null;
   let lastEnsureContextInput: CommentsSidebarEnsureContextInput | undefined;
-  let pendingRootLocator: ArticleCommentLocator | null = null;
+  let pendingRootLocator: CommentLocator | null = null;
   let refreshRunId = 0;
   let composerSelectionRequestSeq = 0;
 
@@ -325,4 +325,3 @@ export function createCommentsSidebarController(input: {
     setContext,
   };
 }
-
