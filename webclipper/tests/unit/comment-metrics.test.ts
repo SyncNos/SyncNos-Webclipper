@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeArticleCommentThreadCount } from '@services/comments/domain/comment-metrics';
+import { computeCommentThreadCount } from '@services/comments/domain/comment-metrics';
 
-describe('computeArticleCommentThreadCount', () => {
+describe('computeCommentThreadCount', () => {
   it('returns 0 for empty list', () => {
-    expect(computeArticleCommentThreadCount([])).toBe(0);
+    expect(computeCommentThreadCount([])).toBe(0);
   });
 
   it('counts only root comments when parent exists', () => {
@@ -14,7 +14,7 @@ describe('computeArticleCommentThreadCount', () => {
       { id: 3, parentId: 1 },
       { id: 4, parentId: null },
     ];
-    expect(computeArticleCommentThreadCount(comments)).toBe(2);
+    expect(computeCommentThreadCount(comments)).toBe(2);
   });
 
   it('treats orphan replies as roots', () => {
@@ -23,7 +23,7 @@ describe('computeArticleCommentThreadCount', () => {
       { id: 2, parentId: 1 },
       { id: 3, parentId: null },
     ];
-    expect(computeArticleCommentThreadCount(comments)).toBe(2);
+    expect(computeCommentThreadCount(comments)).toBe(2);
   });
 
   it('deduplicates by id', () => {
@@ -33,7 +33,7 @@ describe('computeArticleCommentThreadCount', () => {
       { id: 2, parentId: 1 },
       { id: 2, parentId: 1 },
     ];
-    expect(computeArticleCommentThreadCount(comments)).toBe(1);
+    expect(computeCommentThreadCount(comments)).toBe(1);
   });
 
   it('keeps stable output for invalid id/parentId values', () => {
@@ -43,6 +43,6 @@ describe('computeArticleCommentThreadCount', () => {
       { id: Number.POSITIVE_INFINITY, parentId: 123 },
       { id: -1, parentId: -2 },
     ];
-    expect(computeArticleCommentThreadCount(comments)).toBe(4);
+    expect(computeCommentThreadCount(comments)).toBe(4);
   });
 });

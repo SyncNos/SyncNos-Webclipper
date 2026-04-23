@@ -98,7 +98,7 @@ describe('notion-sync-orchestrator kind routing', () => {
       getMessagesByConversationId: async () => [
         { messageKey: 'm1', role: 'assistant', contentText: 'hi', sequence: 1, updatedAt: 1 },
       ],
-      getArticleCommentsByConversationId: async (conversationId: number) => {
+      getCommentsByConversationId: async (conversationId: number) => {
         if (conversationId !== 1) return [];
         return [
           { id: 1, parentId: null, createdAt: 1, updatedAt: 1, quoteText: 'q', commentText: 'root' },

@@ -9,7 +9,7 @@ import {
   getConversationListPage,
   upsertConversation,
 } from '@services/conversations/data/storage-idb';
-import { addArticleComment } from '@services/comments/data/storage-idb';
+import { addComment } from '@services/comments/data/storage-idb';
 
 function reqToPromise<T = unknown>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -229,21 +229,21 @@ describe('conversations pagination storage-idb', () => {
       lastCapturedAt: Date.now() - 1,
     });
 
-    const root = await addArticleComment({
+    const root = await addComment({
       conversationId: Number(article.id),
       canonicalUrl: 'https://example.com/thread?utm_source=x',
       commentText: 'root',
       parentId: null,
       createdAt: 1,
     });
-    await addArticleComment({
+    await addComment({
       conversationId: Number(article.id),
       canonicalUrl: 'https://example.com/thread?utm_source=x',
       commentText: 'reply',
       parentId: root.id,
       createdAt: 2,
     });
-    await addArticleComment({
+    await addComment({
       conversationId: Number(article.id),
       canonicalUrl: 'https://example.com/thread?utm_source=x',
       commentText: 'orphan',

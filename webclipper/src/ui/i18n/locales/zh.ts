@@ -272,7 +272,7 @@ export const zh: { [K in TranslationKey]: string } = {
   noMessages: '暂无消息。',
   selectAConversation: '请选择一个对话。',
 
-  // ArticleCommentsSection
+  // CommentsSection
   articleCommentsHeading: '评论',
   articleCommentsEmpty: '暂无评论。',
   openCommentsSidebar: '评论',

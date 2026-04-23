@@ -9,11 +9,11 @@ vi.mock('../../src/services/conversations/data/write', () => ({
 }));
 
 const attachOrphanCommentsToConversation = vi.fn(async () => ({ updated: 0 }));
-const migrateArticleCommentsCanonicalUrl = vi.fn(async () => ({ updated: 0 }));
+const migrateCommentsCanonicalUrl = vi.fn(async () => ({ updated: 0 }));
 
 vi.mock('../../src/services/comments/data/storage', () => ({
   attachOrphanCommentsToConversation: (...args: any[]) => attachOrphanCommentsToConversation(...args),
-  migrateArticleCommentsCanonicalUrl: (...args: any[]) => migrateArticleCommentsCanonicalUrl(...args),
+  migrateCommentsCanonicalUrl: (...args: any[]) => migrateCommentsCanonicalUrl(...args),
 }));
 
 import { registerConversationHandlers } from '../../src/services/conversations/background/handlers';
@@ -48,7 +48,7 @@ describe('upsertConversation orphan comments attach', () => {
     });
 
     expect(attachOrphanCommentsToConversation).toHaveBeenCalled();
-    expect(migrateArticleCommentsCanonicalUrl).toHaveBeenCalled();
+    expect(migrateCommentsCanonicalUrl).toHaveBeenCalled();
 
     const calledUrls = attachOrphanCommentsToConversation.mock.calls.map((c) => String(c?.[0] || ''));
     expect(calledUrls.some((u) => u.includes('youtube.com/watch'))).toBe(true);
@@ -56,7 +56,7 @@ describe('upsertConversation orphan comments attach', () => {
 
   it('attaches orphans for chat conversations by normalized url', async () => {
     attachOrphanCommentsToConversation.mockClear();
-    migrateArticleCommentsCanonicalUrl.mockClear();
+    migrateCommentsCanonicalUrl.mockClear();
 
     const router = createTestRouter();
     registerConversationHandlers(router as any);
@@ -76,4 +76,3 @@ describe('upsertConversation orphan comments attach', () => {
     expect(attachOrphanCommentsToConversation).toHaveBeenCalledWith('https://chatgpt.com/c/1', 123);
   });
 });
-

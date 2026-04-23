@@ -277,7 +277,7 @@ export const en = {
   noMessages: 'No messages.',
   selectAConversation: 'Select a conversation.',
 
-  // ArticleCommentsSection
+  // CommentsSection
   articleCommentsHeading: 'Comments',
   articleCommentsEmpty: 'No comments yet.',
   openCommentsSidebar: 'Comment',

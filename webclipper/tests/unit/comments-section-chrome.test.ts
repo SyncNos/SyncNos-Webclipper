@@ -14,7 +14,7 @@ vi.mock('../../src/ui/i18n', () => ({
 }));
 
 vi.mock('@services/comments/client/repo', () => ({
-  addArticleComment: vi.fn(async () => ({
+  addComment: vi.fn(async () => ({
     id: 1,
     parentId: null,
     conversationId: 21,
@@ -24,9 +24,10 @@ vi.mock('@services/comments/client/repo', () => ({
     createdAt: Date.now(),
     updatedAt: Date.now(),
   })),
-  deleteArticleCommentById: vi.fn(async () => true),
-  listArticleCommentsByCanonicalUrl: vi.fn(async () => []),
-  listArticleCommentsByConversationId: vi.fn(async () => []),
+  deleteCommentById: vi.fn(async () => true),
+  listCommentsByCanonicalUrl: vi.fn(async () => []),
+  listCommentsByConversationId: vi.fn(async () => []),
+  migrateCommentsCanonicalUrl: vi.fn(async () => ({ updated: 0 })),
 }));
 
 vi.mock('../../src/platform/runtime/ports', () => ({

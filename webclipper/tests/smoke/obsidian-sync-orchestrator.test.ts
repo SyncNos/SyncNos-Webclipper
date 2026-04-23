@@ -3,16 +3,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const backgroundStorageMocks = vi.hoisted(() => ({
   getConversationById: vi.fn(),
   getMessagesByConversationId: vi.fn(),
-  getArticleCommentsByConversationId: vi.fn(),
-  attachOrphanArticleCommentsToConversation: vi.fn(),
+  getCommentsByConversationId: vi.fn(),
+  attachOrphanCommentsToConversation: vi.fn(),
 }));
 
 vi.mock('@services/conversations/background/storage', () => ({
   backgroundStorage: {
     getConversationById: backgroundStorageMocks.getConversationById,
     getMessagesByConversationId: backgroundStorageMocks.getMessagesByConversationId,
-    getArticleCommentsByConversationId: backgroundStorageMocks.getArticleCommentsByConversationId,
-    attachOrphanArticleCommentsToConversation: backgroundStorageMocks.attachOrphanArticleCommentsToConversation,
+    getCommentsByConversationId: backgroundStorageMocks.getCommentsByConversationId,
+    attachOrphanCommentsToConversation: backgroundStorageMocks.attachOrphanCommentsToConversation,
   },
 }));
 
@@ -212,8 +212,8 @@ describe('obsidian-sync-orchestrator', () => {
     backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([
       { messageKey: 'article_body', sequence: 1, contentMarkdown: 'Body', updatedAt: 1 },
     ]);
-    backgroundStorageMocks.attachOrphanArticleCommentsToConversation.mockResolvedValue({ ok: true });
-    backgroundStorageMocks.getArticleCommentsByConversationId.mockResolvedValue([
+    backgroundStorageMocks.attachOrphanCommentsToConversation.mockResolvedValue({ ok: true });
+    backgroundStorageMocks.getCommentsByConversationId.mockResolvedValue([
       {
         id: 1,
         parentId: null,
@@ -290,7 +290,7 @@ describe('obsidian-sync-orchestrator', () => {
     backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([
       { messageKey: 'transcript', sequence: 1, contentMarkdown: 'Line 1', updatedAt: 1 },
     ]);
-    backgroundStorageMocks.getArticleCommentsByConversationId.mockResolvedValue([
+    backgroundStorageMocks.getCommentsByConversationId.mockResolvedValue([
       {
         id: 1,
         parentId: null,
@@ -571,8 +571,8 @@ describe('obsidian-sync-orchestrator', () => {
 afterEach(() => {
   backgroundStorageMocks.getConversationById.mockReset();
   backgroundStorageMocks.getMessagesByConversationId.mockReset();
-  backgroundStorageMocks.getArticleCommentsByConversationId.mockReset();
-  backgroundStorageMocks.attachOrphanArticleCommentsToConversation.mockReset();
+  backgroundStorageMocks.getCommentsByConversationId.mockReset();
+  backgroundStorageMocks.attachOrphanCommentsToConversation.mockReset();
   // @ts-expect-error test cleanup
   delete globalThis.fetch;
   // @ts-expect-error test cleanup

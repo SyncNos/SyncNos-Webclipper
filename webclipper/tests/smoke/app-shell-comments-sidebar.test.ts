@@ -4,15 +4,15 @@ import ReactDOM from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 import type { ReactNode } from 'react';
 
-const { commentsByUrl, listArticleCommentsByCanonicalUrlMock, responsiveTierState, detailPaneMockState } = vi.hoisted(
+const { commentsByUrl, listCommentsByCanonicalUrlMock, responsiveTierState, detailPaneMockState } = vi.hoisted(
   () => {
     const commentsByUrl = new Map<string, Array<{ id: number; parentId: number | null; commentText: string }>>();
-    const listArticleCommentsByCanonicalUrlMock = vi.fn(async (canonicalUrl: string) => {
+    const listCommentsByCanonicalUrlMock = vi.fn(async (canonicalUrl: string) => {
       return commentsByUrl.get(String(canonicalUrl || '')) || [];
     });
     const responsiveTierState = { value: 'wide' as 'narrow' | 'medium' | 'wide' };
     const detailPaneMockState = { provideLocatorRoot: true };
-    return { commentsByUrl, listArticleCommentsByCanonicalUrlMock, responsiveTierState, detailPaneMockState };
+    return { commentsByUrl, listCommentsByCanonicalUrlMock, responsiveTierState, detailPaneMockState };
   },
 );
 
@@ -108,7 +108,7 @@ vi.mock('../../src/viewmodels/conversations/conversations-context', () => ({
 }));
 
 vi.mock('@services/comments/client/repo', () => ({
-  addArticleComment: vi.fn(async () => ({
+  addComment: vi.fn(async () => ({
     id: 1,
     parentId: null,
     conversationId: 21,
@@ -118,11 +118,12 @@ vi.mock('@services/comments/client/repo', () => ({
     createdAt: Date.now(),
     updatedAt: Date.now(),
   })),
-  deleteArticleCommentById: vi.fn(async () => true),
-  listArticleCommentsByCanonicalUrl: listArticleCommentsByCanonicalUrlMock,
-  listArticleCommentsByConversationId: vi.fn(async (conversationId: number) => {
+  deleteCommentById: vi.fn(async () => true),
+  listCommentsByCanonicalUrl: listCommentsByCanonicalUrlMock,
+  listCommentsByConversationId: vi.fn(async (conversationId: number) => {
     return commentsByUrl.get(`convo:${Number(conversationId)}`) || [];
   }),
+  migrateCommentsCanonicalUrl: vi.fn(async () => ({ updated: 0 })),
 }));
 
 vi.mock('../../src/ui/conversations/ConversationDetailPane', () => ({
@@ -252,7 +253,7 @@ describe('AppShell comments sidebar', () => {
 
   beforeEach(() => {
     commentsByUrl.clear();
-    listArticleCommentsByCanonicalUrlMock.mockClear();
+    listCommentsByCanonicalUrlMock.mockClear();
     responsiveTierState.value = 'wide';
     detailPaneMockState.provideLocatorRoot = true;
     currentState.selectedConversation = {
@@ -603,8 +604,8 @@ describe('AppShell comments sidebar', () => {
       expect(body?.textContent).toBe('Comment B');
     });
 
-    expect(listArticleCommentsByCanonicalUrlMock).toHaveBeenCalledWith('https://example.com/a');
-    expect(listArticleCommentsByCanonicalUrlMock).toHaveBeenCalledWith('https://example.com/b');
+    expect(listCommentsByCanonicalUrlMock).toHaveBeenCalledWith('https://example.com/a');
+    expect(listCommentsByCanonicalUrlMock).toHaveBeenCalledWith('https://example.com/b');
   });
 
   it('keeps medium tier comments sidebar closed by default', () => {

@@ -437,7 +437,7 @@ describe('background-router notion sync', () => {
           getMessagesByConversationId: async () => [
             { messageKey: 'article_body', role: 'article', contentMarkdown: '# Hello', sequence: 1, updatedAt: 1 },
           ],
-          getArticleCommentsByConversationId: async () => [
+          getCommentsByConversationId: async () => [
             {
               id: 11,
               parentId: null,
@@ -459,7 +459,7 @@ describe('background-router notion sync', () => {
               updatedAt: 110,
             },
           ],
-          attachOrphanArticleCommentsToConversation: async () => true,
+          attachOrphanCommentsToConversation: async () => true,
           setSyncCursor: async (_id: number, cursor: any) => calls.push({ op: 'setCursor', cursor }),
         },
         syncService: {
@@ -569,7 +569,7 @@ describe('background-router notion sync', () => {
           getMessagesByConversationId: async () => [
             { messageKey: 'article_body', role: 'article', contentMarkdown: '# Hello', sequence: 1, updatedAt: 1 },
           ],
-          getArticleCommentsByConversationId: async () => [
+          getCommentsByConversationId: async () => [
             {
               id: 11,
               parentId: null,
@@ -581,7 +581,7 @@ describe('background-router notion sync', () => {
               updatedAt: 100,
             },
           ],
-          attachOrphanArticleCommentsToConversation: async () => true,
+          attachOrphanCommentsToConversation: async () => true,
           setSyncCursor: async (_id: number, cursor: any) => calls.push({ op: 'setCursor', cursor }),
         },
         syncService: {

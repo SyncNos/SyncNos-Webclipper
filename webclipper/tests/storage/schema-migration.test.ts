@@ -71,7 +71,7 @@ async function openV7DbWithoutPaginationIndexes() {
   return reqToPromise(req);
 }
 
-async function openV8DbWithArticleComments() {
+async function openV8DbWithLegacyCommentsStore() {
   const req = indexedDB.open('webclipper', 8);
   req.onupgradeneeded = () => {
     const db = req.result;
@@ -311,7 +311,7 @@ describe('storage schema migration (v8 list pagination indexes)', () => {
 
 describe('storage schema migration (v9 comments store)', () => {
   it('creates comments store and migrates legacy article_comments rows', async () => {
-    const db1 = await openV8DbWithArticleComments();
+    const db1 = await openV8DbWithLegacyCommentsStore();
     const t1 = db1.transaction(['article_comments'], 'readwrite');
     const legacy = t1.objectStore('article_comments');
 

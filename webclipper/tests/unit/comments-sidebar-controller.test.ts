@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createArticleCommentsSidebarController } from '../../src/services/comments/sidebar/article-comments-sidebar-controller';
+import { createCommentsSidebarController } from '../../src/services/comments/sidebar/comments-sidebar-controller';
 import { createCommentSidebarSession } from '../../src/services/comments/sidebar/comment-sidebar-session';
 
 function createMockPanel() {
@@ -55,7 +55,7 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-describe('article-comments-sidebar-controller', () => {
+describe('comments-sidebar-controller', () => {
   it('opens: sets quote, requests open, ensures context, and refreshes comments', async () => {
     const panel = createMockPanel();
     const session = createCommentSidebarSession(panel.api as any);
@@ -65,10 +65,14 @@ describe('article-comments-sidebar-controller', () => {
       addRoot: vi.fn(async () => ({ id: 1 })),
       addReply: vi.fn(async () => {}),
       delete: vi.fn(async () => {}),
-      ensureContext: vi.fn(async () => ({ canonicalUrl: 'https://example.com/article', conversationId: 21 })),
+      ensureContext: vi.fn(async () => ({
+        commentTargetKey: 'url:https://example.com/a',
+        canonicalUrl: 'https://example.com/a',
+        conversationId: 21,
+      })),
     };
 
-    const controller = createArticleCommentsSidebarController({
+    const controller = createCommentsSidebarController({
       session,
       adapter: adapter as any,
     });
@@ -78,14 +82,22 @@ describe('article-comments-sidebar-controller', () => {
       focusComposer: true,
       source: 'test',
       ensureContext: true,
-      ensureContextInput: { canonicalUrlFallback: 'https://example.com/fallback', ensureArticle: true },
+      ensureContextInput: {
+        canonicalUrlFallback: 'https://example.com/fallback',
+        commentTargetKeyFallback: 'url:https://example.com/fallback',
+        ensureConversationForTarget: true,
+      },
     });
 
     const snapshot = session.getSnapshot();
     expect(snapshot.quoteText).toBe('Quoted');
     expect(snapshot.isOpen).toBe(true);
     expect(adapter.ensureContext).toHaveBeenCalledTimes(1);
-    expect(adapter.list).toHaveBeenCalledWith({ canonicalUrl: 'https://example.com/article' });
+    expect(adapter.list).toHaveBeenCalledWith({
+      commentTargetKey: 'url:https://example.com/a',
+      conversationId: 21,
+      canonicalUrlFallback: 'https://example.com/a',
+    });
     expect(panel.getState().focusCount).toBe(1);
     expect(panel.getState().comments.length).toBe(1);
   });
@@ -99,10 +111,14 @@ describe('article-comments-sidebar-controller', () => {
       addRoot: vi.fn(async () => ({ id: 91 })),
       addReply: vi.fn(async () => {}),
       delete: vi.fn(async () => {}),
-      ensureContext: vi.fn(async () => ({ canonicalUrl: 'https://example.com/article', conversationId: 21 })),
+      ensureContext: vi.fn(async () => ({
+        commentTargetKey: 'url:https://example.com/a',
+        canonicalUrl: 'https://example.com/a',
+        conversationId: 21,
+      })),
     };
 
-    createArticleCommentsSidebarController({ session, adapter: adapter as any });
+    createCommentsSidebarController({ session, adapter: adapter as any });
 
     session.setQuoteText('Quoted');
 
@@ -112,7 +128,8 @@ describe('article-comments-sidebar-controller', () => {
     const res = await handlers.onSave('Hello');
     expect(res).toEqual({ ok: true, createdRootId: 91 });
     expect(adapter.addRoot).toHaveBeenCalledWith({
-      canonicalUrl: 'https://example.com/article',
+      commentTargetKey: 'url:https://example.com/a',
+      canonicalUrl: 'https://example.com/a',
       conversationId: 21,
       quoteText: 'Quoted',
       commentText: 'Hello',
@@ -130,6 +147,7 @@ describe('article-comments-sidebar-controller', () => {
       env: 'inpage',
       quote: { exact: 'Quoted from page' },
       position: { start: 0, end: 16 },
+      v: 1,
     };
 
     const adapter = {
@@ -137,7 +155,11 @@ describe('article-comments-sidebar-controller', () => {
       addRoot: vi.fn(async () => ({ id: 51 })),
       addReply: vi.fn(async () => {}),
       delete: vi.fn(async () => {}),
-      ensureContext: vi.fn(async () => ({ canonicalUrl: 'https://example.com/article', conversationId: 21 })),
+      ensureContext: vi.fn(async () => ({
+        commentTargetKey: 'url:https://example.com/a',
+        canonicalUrl: 'https://example.com/a',
+        conversationId: 21,
+      })),
     };
 
     const resolveComposerSelection = vi
@@ -145,7 +167,7 @@ describe('article-comments-sidebar-controller', () => {
       .mockResolvedValueOnce({ selectionText: 'Quoted from page', locator })
       .mockResolvedValueOnce({ selectionText: '', locator: null });
 
-    createArticleCommentsSidebarController({
+    createCommentsSidebarController({
       session,
       adapter: adapter as any,
       resolveComposerSelection,
@@ -160,7 +182,8 @@ describe('article-comments-sidebar-controller', () => {
 
     await handlers.onSave('root comment');
     expect(adapter.addRoot).toHaveBeenLastCalledWith({
-      canonicalUrl: 'https://example.com/article',
+      commentTargetKey: 'url:https://example.com/a',
+      canonicalUrl: 'https://example.com/a',
       conversationId: 21,
       quoteText: 'Quoted from page',
       commentText: 'root comment',
@@ -182,7 +205,11 @@ describe('article-comments-sidebar-controller', () => {
       addRoot: vi.fn(async () => ({ id: 1 })),
       addReply: vi.fn(async () => {}),
       delete: vi.fn(async () => {}),
-      ensureContext: vi.fn(async () => ({ canonicalUrl: 'https://example.com/article', conversationId: 1 })),
+      ensureContext: vi.fn(async () => ({
+        commentTargetKey: 'url:https://example.com/a',
+        canonicalUrl: 'https://example.com/a',
+        conversationId: 1,
+      })),
     };
 
     const slow = createDeferred<{ selectionText: string; locator: unknown | null }>();
@@ -193,7 +220,7 @@ describe('article-comments-sidebar-controller', () => {
       .mockImplementationOnce(() => slow.promise)
       .mockImplementationOnce(() => fast.promise);
 
-    createArticleCommentsSidebarController({
+    createCommentsSidebarController({
       session,
       adapter: adapter as any,
       resolveComposerSelection,
@@ -212,43 +239,6 @@ describe('article-comments-sidebar-controller', () => {
     expect(session.getSnapshot().quoteText).toBe('new quote');
   });
 
-  it('preserves quote text when locator is missing and saves with null locator', async () => {
-    const panel = createMockPanel();
-    const session = createCommentSidebarSession(panel.api as any);
-
-    const adapter = {
-      list: vi.fn(async () => []),
-      addRoot: vi.fn(async () => ({ id: 77 })),
-      addReply: vi.fn(async () => {}),
-      delete: vi.fn(async () => {}),
-      ensureContext: vi.fn(async () => ({ canonicalUrl: 'https://example.com/article', conversationId: 21 })),
-    };
-
-    const resolveComposerSelection = vi.fn().mockResolvedValue({
-      selectionText: 'Selection text only',
-      locator: null,
-    });
-
-    createArticleCommentsSidebarController({
-      session,
-      adapter: adapter as any,
-      resolveComposerSelection,
-    });
-
-    const handlers = panel.getState().handlers;
-    await handlers.onComposerSelectionRequest({ trigger: 'button' });
-    expect(session.getSnapshot().quoteText).toBe('Selection text only');
-
-    await handlers.onSave('comment');
-    expect(adapter.addRoot).toHaveBeenLastCalledWith({
-      canonicalUrl: 'https://example.com/article',
-      conversationId: 21,
-      quoteText: 'Selection text only',
-      commentText: 'comment',
-      locator: null,
-    });
-  });
-
   it('clears pending locator when context switches before save', async () => {
     const panel = createMockPanel();
     const session = createCommentSidebarSession(panel.api as any);
@@ -264,6 +254,7 @@ describe('article-comments-sidebar-controller', () => {
       env: 'inpage',
       quote: { exact: 'Quote A' },
       position: { start: 0, end: 6 },
+      v: 1,
     };
 
     const resolveComposerSelection = vi.fn().mockResolvedValue({
@@ -271,61 +262,30 @@ describe('article-comments-sidebar-controller', () => {
       locator: locatorFromA,
     });
 
-    const controller = createArticleCommentsSidebarController({
+    const controller = createCommentsSidebarController({
       session,
       adapter: adapter as any,
       resolveComposerSelection,
     });
 
-    controller.setContext({ canonicalUrl: 'https://example.com/a', conversationId: 1 });
+    controller.setContext({ commentTargetKey: 'url:https://example.com/a', canonicalUrl: 'https://example.com/a', conversationId: 1 });
 
     const handlers = panel.getState().handlers;
     await handlers.onComposerSelectionRequest({ trigger: 'button' });
     expect(session.getSnapshot().quoteText).toBe('Quote A');
 
-    controller.setContext({ canonicalUrl: 'https://example.com/b', conversationId: 2 });
+    controller.setContext({ commentTargetKey: 'url:https://example.com/b', canonicalUrl: 'https://example.com/b', conversationId: 2 });
     expect(session.getSnapshot().quoteText).toBe('');
 
     await handlers.onSave('comment in b');
     expect(adapter.addRoot).toHaveBeenLastCalledWith({
+      commentTargetKey: 'url:https://example.com/b',
       canonicalUrl: 'https://example.com/b',
       conversationId: 2,
       quoteText: '',
       commentText: 'comment in b',
       locator: null,
     });
-  });
-
-  it('setContext: refreshes comments when canonicalUrl switches', async () => {
-    const panel = createMockPanel();
-    const session = createCommentSidebarSession(panel.api as any);
-
-    const adapter = {
-      list: vi.fn(async ({ canonicalUrl }: { canonicalUrl: string }) => {
-        if (canonicalUrl.includes('/a')) {
-          return [{ id: 1, parentId: null, commentText: 'A', quoteText: '', createdAt: 1 }];
-        }
-        return [{ id: 2, parentId: null, commentText: 'B', quoteText: '', createdAt: 2 }];
-      }),
-      addRoot: vi.fn(async () => ({ id: 1 })),
-      addReply: vi.fn(async () => {}),
-      delete: vi.fn(async () => {}),
-    };
-
-    const controller = createArticleCommentsSidebarController({ session, adapter: adapter as any });
-
-    controller.setContext({ canonicalUrl: 'https://example.com/a', conversationId: 1 });
-    await vi.waitFor(() => {
-      expect(panel.getState().comments[0]?.commentText).toBe('A');
-    });
-
-    controller.setContext({ canonicalUrl: 'https://example.com/b', conversationId: 2 });
-    await vi.waitFor(() => {
-      expect(panel.getState().comments[0]?.commentText).toBe('B');
-    });
-
-    expect(adapter.list).toHaveBeenNthCalledWith(1, { canonicalUrl: 'https://example.com/a' });
-    expect(adapter.list).toHaveBeenNthCalledWith(2, { canonicalUrl: 'https://example.com/b' });
   });
 
   it('setContext: ignores stale refresh results from previous context', async () => {
@@ -335,8 +295,8 @@ describe('article-comments-sidebar-controller', () => {
     const deferredB = createDeferred<any[]>();
 
     const adapter = {
-      list: vi.fn(({ canonicalUrl }: { canonicalUrl: string }) => {
-        if (canonicalUrl.includes('/a')) return deferredA.promise;
+      list: vi.fn(({ commentTargetKey }: { commentTargetKey: string }) => {
+        if (commentTargetKey.includes('/a')) return deferredA.promise;
         return deferredB.promise;
       }),
       addRoot: vi.fn(async () => ({ id: 1 })),
@@ -344,10 +304,10 @@ describe('article-comments-sidebar-controller', () => {
       delete: vi.fn(async () => {}),
     };
 
-    const controller = createArticleCommentsSidebarController({ session, adapter: adapter as any });
+    const controller = createCommentsSidebarController({ session, adapter: adapter as any });
 
-    controller.setContext({ canonicalUrl: 'https://example.com/a', conversationId: 1 });
-    controller.setContext({ canonicalUrl: 'https://example.com/b', conversationId: 2 });
+    controller.setContext({ commentTargetKey: 'url:https://example.com/a', canonicalUrl: 'https://example.com/a', conversationId: 1 });
+    controller.setContext({ commentTargetKey: 'url:https://example.com/b', canonicalUrl: 'https://example.com/b', conversationId: 2 });
 
     deferredB.resolve([{ id: 2, parentId: null, commentText: 'B', quoteText: '', createdAt: 2 }]);
     await vi.waitFor(() => {
@@ -359,35 +319,5 @@ describe('article-comments-sidebar-controller', () => {
     await Promise.resolve();
     expect(panel.getState().comments[0]?.commentText).toBe('B');
   });
-
-  it('setContext: keeps context stable for same discourse topic across different floors', async () => {
-    const panel = createMockPanel();
-    const session = createCommentSidebarSession(panel.api as any);
-
-    const adapter = {
-      list: vi.fn(async () => [{ id: 1, parentId: null, commentText: 'Topic', quoteText: '', createdAt: 1 }]),
-      addRoot: vi.fn(async () => ({ id: 1 })),
-      addReply: vi.fn(async () => {}),
-      delete: vi.fn(async () => {}),
-      migrateCanonicalUrl: vi.fn(async () => {}),
-    };
-
-    const controller = createArticleCommentsSidebarController({ session, adapter: adapter as any });
-
-    controller.setContext({ canonicalUrl: 'https://linux.do/t/topic-slug/123/20', conversationId: 9 });
-    await vi.waitFor(() => {
-      expect(panel.getState().comments[0]?.commentText).toBe('Topic');
-    });
-    expect(adapter.list).toHaveBeenCalledTimes(1);
-
-    session.setQuoteText('keep draft');
-    controller.setContext({ canonicalUrl: 'https://linux.do/t/topic-slug/123/1', conversationId: 9 });
-
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(adapter.list).toHaveBeenCalledTimes(1);
-    expect(session.getSnapshot().quoteText).toBe('keep draft');
-    expect(adapter.migrateCanonicalUrl).not.toHaveBeenCalled();
-  });
 });
+

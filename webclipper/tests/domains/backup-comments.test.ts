@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BACKUP_ZIP_SCHEMA_VERSION,
-  validateArticleCommentsIndexDocument,
+  validateCommentsIndexDocument,
   validateBackupManifest,
 } from '@services/sync/backup/backup-utils';
 
-describe('backup article comments', () => {
-  it('validates article comments index documents', () => {
+describe('backup comments', () => {
+  it('validates comments index documents', () => {
     const doc = {
       schemaVersion: 1,
       comments: [
@@ -33,8 +33,8 @@ describe('backup article comments', () => {
         },
       ],
     };
-    expect(validateArticleCommentsIndexDocument(doc).ok).toBe(true);
-    expect(validateArticleCommentsIndexDocument({ schemaVersion: 1, comments: [{ commentId: 1 }] }).ok).toBe(false);
+    expect(validateCommentsIndexDocument(doc).ok).toBe(true);
+    expect(validateCommentsIndexDocument({ schemaVersion: 1, comments: [{ commentId: 1 }] }).ok).toBe(false);
   });
 
   it('accepts manifests with articleCommentsIndexPath', () => {
