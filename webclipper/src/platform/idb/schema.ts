@@ -1,5 +1,5 @@
 export const DB_NAME = 'webclipper';
-export const DB_VERSION = 8;
+export const DB_VERSION = 9;
 
 type MigrationContext = {
   db: IDBDatabase;
@@ -946,6 +946,74 @@ function ensureArticleCommentsStore(db: IDBDatabase, tx: IDBTransaction | null):
   }
 }
 
+function ensureCommentsStore(db: IDBDatabase, tx: IDBTransaction | null): void {
+  if (!db.objectStoreNames.contains('comments')) {
+    const store = db.createObjectStore('comments', { keyPath: 'id', autoIncrement: true });
+    store.createIndex('by_targetKey_createdAt', ['targetKey', 'createdAt'], { unique: false });
+    store.createIndex('by_conversationId_createdAt', ['conversationId', 'createdAt'], { unique: false });
+    return;
+  }
+
+  if (!tx) return;
+  const store = tx.objectStore('comments');
+  if (!store.indexNames.contains('by_targetKey_createdAt')) {
+    store.createIndex('by_targetKey_createdAt', ['targetKey', 'createdAt'], { unique: false });
+  }
+  if (!store.indexNames.contains('by_conversationId_createdAt')) {
+    store.createIndex('by_conversationId_createdAt', ['conversationId', 'createdAt'], { unique: false });
+  }
+}
+
+function migrateArticleCommentsToCommentsStore({ db, tx }: MigrationContext): void {
+  if (!db.objectStoreNames.contains('article_comments')) return;
+  if (!db.objectStoreNames.contains('comments')) return;
+
+  const legacy = tx.objectStore('article_comments');
+  const next = tx.objectStore('comments');
+
+  let cursorReq: IDBRequest<IDBCursorWithValue | null>;
+  try {
+    cursorReq = legacy.openCursor();
+  } catch (_e) {
+    return;
+  }
+
+  cursorReq.onsuccess = () => {
+    const cursor = cursorReq.result;
+    if (!cursor) return;
+
+    const row = cursor.value as Record<string, unknown> | undefined;
+    const canonicalUrl = safeString(row?.canonicalUrl);
+    const normalizedUrl = normalizeHttpUrl(canonicalUrl) || canonicalUrl;
+    if (!normalizedUrl) {
+      cursor.continue();
+      return;
+    }
+
+    const migrated: Record<string, unknown> = {
+      id: row?.id,
+      parentId: row?.parentId ?? null,
+      conversationId: row?.conversationId ?? null,
+      targetKey: `url:${normalizedUrl}`,
+      authorName: row?.authorName ?? '',
+      quoteText: row?.quoteText ?? '',
+      commentText: row?.commentText ?? '',
+      locator: row?.locator ?? null,
+      createdAt: row?.createdAt ?? 0,
+      updatedAt: row?.updatedAt ?? row?.createdAt ?? 0,
+    };
+
+    try {
+      next.put(migrated as any);
+    } catch (_e) {
+      // ignore
+    }
+
+    cursor.continue();
+  };
+  cursorReq.onerror = () => {};
+}
+
 function runUpgrades(request: IDBOpenDBRequest, oldVersion: number): void {
   const db = request.result;
   const tx = request.transaction;
@@ -955,6 +1023,7 @@ function runUpgrades(request: IDBOpenDBRequest, oldVersion: number): void {
   ensureSyncMappingsStore(db, tx);
   ensureImageCacheStore(db, tx);
   ensureArticleCommentsStore(db, tx);
+  ensureCommentsStore(db, tx);
 
   if (tx && oldVersion < 2) {
     try {
@@ -981,6 +1050,9 @@ function runUpgrades(request: IDBOpenDBRequest, oldVersion: number): void {
     // Consistency-critical migration for list pagination/filter keys.
     // Do not swallow failures here, otherwise list indexes and record keys may drift.
     backfillConversationListDerivedKeys({ db, tx });
+  }
+  if (tx && oldVersion < 9) {
+    migrateArticleCommentsToCommentsStore({ db, tx });
   }
 }
 

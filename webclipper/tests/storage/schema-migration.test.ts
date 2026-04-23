@@ -71,6 +71,46 @@ async function openV7DbWithoutPaginationIndexes() {
   return reqToPromise(req);
 }
 
+async function openV8DbWithArticleComments() {
+  const req = indexedDB.open('webclipper', 8);
+  req.onupgradeneeded = () => {
+    const db = req.result;
+
+    const conversations = db.createObjectStore('conversations', { keyPath: 'id', autoIncrement: true });
+    conversations.createIndex('by_source_conversationKey', ['source', 'conversationKey'], { unique: true });
+    conversations.createIndex('by_lastCapturedAt', 'lastCapturedAt', { unique: false });
+    conversations.createIndex('by_lastCapturedAt_id', ['lastCapturedAt', 'id'], { unique: false });
+    conversations.createIndex('by_listSourceKey_lastCapturedAt_id', ['listSourceKey', 'lastCapturedAt', 'id'], {
+      unique: false,
+    });
+    conversations.createIndex(
+      'by_listSourceKey_listSiteKey_lastCapturedAt_id',
+      ['listSourceKey', 'listSiteKey', 'lastCapturedAt', 'id'],
+      { unique: false },
+    );
+    conversations.createIndex('by_listSiteKey_lastCapturedAt_id', ['listSiteKey', 'lastCapturedAt', 'id'], {
+      unique: false,
+    });
+
+    const messages = db.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
+    messages.createIndex('by_conversationId_sequence', ['conversationId', 'sequence'], { unique: false });
+    messages.createIndex('by_conversationId_messageKey', ['conversationId', 'messageKey'], { unique: true });
+
+    const mappings = db.createObjectStore('sync_mappings', { keyPath: 'id', autoIncrement: true });
+    mappings.createIndex('by_source_conversationKey', ['source', 'conversationKey'], { unique: true });
+    mappings.createIndex('by_notionPageId', 'notionPageId', { unique: false });
+
+    const imageCache = db.createObjectStore('image_cache', { keyPath: 'id', autoIncrement: true });
+    imageCache.createIndex('by_conversationId_url', ['conversationId', 'url'], { unique: true });
+    imageCache.createIndex('by_conversationId', 'conversationId', { unique: false });
+
+    const comments = db.createObjectStore('article_comments', { keyPath: 'id', autoIncrement: true });
+    comments.createIndex('by_canonicalUrl_createdAt', ['canonicalUrl', 'createdAt'], { unique: false });
+    comments.createIndex('by_conversationId_createdAt', ['conversationId', 'createdAt'], { unique: false });
+  };
+  return reqToPromise(req);
+}
+
 beforeEach(async () => {
   // @ts-expect-error test global
   globalThis.indexedDB = indexedDB;
@@ -266,6 +306,43 @@ describe('storage schema migration (v8 list pagination indexes)', () => {
     expect(article.listSiteKey).toBe('domain:example.com');
 
     db8.close();
+  });
+});
+
+describe('storage schema migration (v9 comments store)', () => {
+  it('creates comments store and migrates legacy article_comments rows', async () => {
+    const db1 = await openV8DbWithArticleComments();
+    const t1 = db1.transaction(['article_comments'], 'readwrite');
+    const legacy = t1.objectStore('article_comments');
+
+    await reqToPromise(
+      legacy.add({
+        canonicalUrl: 'https://example.com/article#hash',
+        conversationId: null,
+        parentId: null,
+        authorName: 'me',
+        quoteText: 'q',
+        commentText: 'c',
+        locator: null,
+        createdAt: 10,
+        updatedAt: 10,
+      }),
+    );
+    await txDone(t1);
+    db1.close();
+
+    const db2 = await openDb();
+    expect(db2.objectStoreNames.contains('comments')).toBe(true);
+
+    const t2 = db2.transaction(['comments'], 'readonly');
+    const items = await reqToPromise<any[]>(t2.objectStore('comments').getAll());
+    await txDone(t2);
+    db2.close();
+
+    expect(Array.isArray(items)).toBe(true);
+    expect(items.length).toBe(1);
+    expect(String(items[0].targetKey)).toBe('url:https://example.com/article');
+    expect(String(items[0].commentText)).toBe('c');
   });
 });
 
