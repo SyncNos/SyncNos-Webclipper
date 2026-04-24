@@ -15,6 +15,8 @@ const STORAGE_BACKUP_DENYLIST_EXACT = new Set<string>([
   'notion_oauth_token_v1',
   // Not used by default (ensureDefaultNotionOAuthClientId removes it), but keep it out of backups.
   'notion_oauth_client_secret',
+  // Obsidian Local REST API key is a secret even though base URL is safe to export.
+  'obsidian_api_key',
 ]);
 
 function shouldIncludeStorageKeyInBackup(key: string): boolean {
