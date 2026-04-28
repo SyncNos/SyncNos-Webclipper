@@ -17,7 +17,7 @@ describe('backup backup-utils', () => {
     expect(uniqueConversationKey({ source: '', conversationKey: 'c1' })).toBe('');
   });
 
-  it('filterStorageForBackup keeps all non-sensitive settings', () => {
+  it('filterStorageForBackup keeps non-sensitive settings and removes secrets', () => {
     const filtered = filterStorageForBackup({
       notion_oauth_client_id: 'abc',
       notion_oauth_client_secret: 'secret',
@@ -44,7 +44,6 @@ describe('backup backup-utils', () => {
       chat_with_prompt_template_v1: 'talk',
       chat_with_ai_platforms_v1: [{ id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', enabled: true }],
       obsidian_api_base_url: 'http://127.0.0.1:27123',
-      obsidian_api_key: 'obsidian-key',
     });
   });
 

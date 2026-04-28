@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as backupUtils from '@services/sync/backup/backup-utils.ts';
 
 describe('backup-utils', () => {
-  it('filterStorageForBackup keeps all non-sensitive settings', () => {
+  it('filterStorageForBackup keeps non-sensitive settings and removes secrets', () => {
     const filtered = backupUtils.filterStorageForBackup({
       notion_oauth_client_id: 'abc',
       notion_oauth_client_secret: 'secret',
@@ -14,6 +14,7 @@ describe('backup-utils', () => {
       notion_ai_preferred_model_index: 3,
       last_backup_export_at: 1700000000000,
       notion_oauth_token_v1: { accessToken: 'secret' },
+      obsidian_api_base_url: 'http://127.0.0.1:27123',
       obsidian_api_key: 'obsidian-key',
     });
     expect(filtered).toEqual({
@@ -25,7 +26,7 @@ describe('backup-utils', () => {
       popup_source_filter_key: 'all',
       notion_ai_preferred_model_index: 3,
       last_backup_export_at: 1700000000000,
-      obsidian_api_key: 'obsidian-key',
+      obsidian_api_base_url: 'http://127.0.0.1:27123',
     });
   });
 
