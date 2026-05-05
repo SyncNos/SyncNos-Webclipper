@@ -44,3 +44,5 @@ node_modules/
 stats.html
 stats-*.json
 web-ext.config.ts
+
+.codex/
