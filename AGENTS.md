@@ -4,13 +4,13 @@
 
 - iOS: `SyncNos/SyncNos-Health`
 - macOS: `SyncNos/SyncNos-booknotes`
+- CLI: `SyncNos/SyncNos-CLI`
 
 ## 项目结构
 
 ```
 SyncNos/
 ├── webclipper/                  # 当前活动的 Browser Extension (MV3)
-├── cli/                         # CLI / 工具
 ├── .github/                     # 开发指南、deepwiki 与 CI
 └── README.md
 ```
