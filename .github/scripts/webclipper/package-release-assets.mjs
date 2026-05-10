@@ -134,9 +134,9 @@ if (cli.zip) {
   rmSync(zipOut, { force: true });
 
   run("zip", ["-r", zipOut, "."], dist);
-  // eslint-disable-next-line no-console
+   
   console.log(`[build] packaged: ${zipOut}`);
 }
 
-// eslint-disable-next-line no-console
+ 
 console.log(`[build] dist: ${dist}`);

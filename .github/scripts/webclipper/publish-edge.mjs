@@ -99,7 +99,7 @@ async function waitOperation({ name, url, clientId, apiKey, maxRetries, retryAft
     const { json } = await edgeRequest({ method: "GET", url, clientId, apiKey });
     const status = json && json.status ? String(json.status) : "";
 
-    // eslint-disable-next-line no-console
+     
     console.log(`[edge] ${name} status: ${status || "unknown"} (attempt ${i}/${maxRetries})`);
 
     if (status === "Succeeded") return json;
@@ -131,17 +131,17 @@ async function main() {
   const tag = String(process.env.GITHUB_REF_NAME || "").trim();
   const notes = process.env.EDGE_ADDONS_PUBLISH_NOTES || `SyncNos WebClipper ${tag || "(no tag)"} (${sha ? sha.slice(0, 7) : "no-sha"})`;
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[edge] api base: ${baseUrl}`);
-  // eslint-disable-next-line no-console
+   
   console.log(`[edge] product id: ${productId}`);
-  // eslint-disable-next-line no-console
+   
   console.log(`[edge] zip: ${zipPath}`);
-  // eslint-disable-next-line no-console
+   
   console.log(`[edge] publish: ${publish}`);
 
   const uploadOp = await uploadPackage({ baseUrl, productId, clientId, apiKey, zipPath });
-  // eslint-disable-next-line no-console
+   
   console.log(`[edge] upload operation id: ${uploadOp}`);
 
   await waitOperation({
@@ -156,7 +156,7 @@ async function main() {
   if (!publish) return;
 
   const publishOp = await publishDraft({ baseUrl, productId, clientId, apiKey, notes });
-  // eslint-disable-next-line no-console
+   
   console.log(`[edge] publish operation id: ${publishOp}`);
 
   await waitOperation({
@@ -170,7 +170,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  // eslint-disable-next-line no-console
+   
   console.error(e && e.stack ? e.stack : String(e));
   process.exit(1);
 });

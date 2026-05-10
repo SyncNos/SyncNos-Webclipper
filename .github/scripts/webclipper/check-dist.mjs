@@ -29,7 +29,7 @@ function parseArgs(argv) {
 }
 
 function fail(message) {
-  // eslint-disable-next-line no-console
+   
   console.error(`[check] ${message}`);
   process.exit(1);
 }
@@ -66,5 +66,5 @@ for (const size of [16, 48, 128]) {
   if (!existsSync(p)) fail(`icon missing: ${manifest.icons[String(size)]}`);
 }
 
-// eslint-disable-next-line no-console
+ 
 console.log("[check] ok");

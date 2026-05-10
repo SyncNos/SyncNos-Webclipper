@@ -91,7 +91,7 @@ async function uploadZip({ extensionId, accessToken, zipPath }) {
   });
 
   const uploadState = json && json.uploadState ? String(json.uploadState) : "";
-  // eslint-disable-next-line no-console
+   
   console.log(`[cws] uploadState: ${uploadState || "unknown"}`);
 
   if (uploadState === "SUCCESS") return;
@@ -117,13 +117,13 @@ async function publishWithRetry({ extensionId, accessToken, target, maxRetries, 
   for (let i = 1; i <= maxRetries; i++) {
     try {
       const { ok, status, json } = await tryPublishItem({ extensionId, accessToken, target });
-      // eslint-disable-next-line no-console
+       
       console.log(`[cws] publish status: ${status.length ? status.join(", ") : "unknown"} (attempt ${i}/${maxRetries})`);
       if (ok) return;
-      // eslint-disable-next-line no-console
+       
       console.log(`[cws] publish not OK, response:\n${JSON.stringify(json, null, 2)}`);
     } catch (e) {
-      // eslint-disable-next-line no-console
+       
       console.log(`[cws] publish request failed (attempt ${i}/${maxRetries}): ${e && e.message ? e.message : String(e)}`);
     }
 
@@ -150,11 +150,11 @@ async function main() {
     process.env.CWS_ZIP_PATH ||
     join(webclipperRoot, "SyncNos-WebClipper-chrome.zip");
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[cws] extension id: ${extensionId}`);
-  // eslint-disable-next-line no-console
+   
   console.log(`[cws] zip: ${zipPath}`);
-  // eslint-disable-next-line no-console
+   
   console.log(`[cws] publish: ${publish} (target=${target})`);
 
   const accessToken = await fetchAccessToken({ clientId, clientSecret, refreshToken });
@@ -165,7 +165,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  // eslint-disable-next-line no-console
+   
   console.error(e && e.stack ? e.stack : String(e));
   process.exit(1);
 });

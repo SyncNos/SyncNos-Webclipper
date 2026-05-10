@@ -98,5 +98,5 @@ run("zip", ["-r", outZip, "."], staging);
 
 rmSync(staging, { recursive: true, force: true });
 
-// eslint-disable-next-line no-console
+ 
 console.log(`[package] amo source: ${outZip}`);

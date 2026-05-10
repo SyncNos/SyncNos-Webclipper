@@ -103,7 +103,7 @@ async function ensureListedAddonMetadata({ baseUrl, token, addonId, channel }) {
     : {};
   merged[locale] = summaryText;
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[amo] set add-on summary: locale=${locale}`);
 
   const updated = await amoRequest({
@@ -179,10 +179,10 @@ async function main() {
 
   await ensureListedAddonMetadata({ baseUrl, token, addonId, channel });
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[amo] upload xpi: ${xpiPath}`);
   const uuid = await uploadXpi({ baseUrl, token, xpiPath, channel });
-  // eslint-disable-next-line no-console
+   
   console.log(`[amo] upload uuid: ${uuid}`);
 
   const upload = await waitUpload({ baseUrl, token, uuid });
@@ -190,15 +190,15 @@ async function main() {
     throw new Error(`[amo] upload invalid:\n${JSON.stringify(upload.validation || upload, null, 2)}`);
   }
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[amo] create version: addon_id=${addonId}`);
   const version = await createVersion({ baseUrl, token, addonId, uploadUuid: uuid, sourceZipPath });
-  // eslint-disable-next-line no-console
+   
   console.log(`[amo] version created:\n${JSON.stringify(version, null, 2)}`);
 }
 
 main().catch((e) => {
-  // eslint-disable-next-line no-console
+   
   console.error(e && e.stack ? e.stack : String(e));
   process.exit(1);
 });
