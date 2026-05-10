@@ -29,7 +29,7 @@ function getNotionDisconnectStorageKeys(deps: Deps): string[] {
     } catch (_e) {
       // ignore
     }
-    return ['notion_db_id_syncnos_ai_chats', 'notion_db_id_syncnos_web_articles'];
+    return ['notion_db_id_syncnos_ai_chats', 'notion_db_id_syncnos_web_articles', 'notion_db_id_syncnos_videos'];
   })();
 
   const syncJobKey = deps.notionSyncJobStore?.NOTION_SYNC_JOB_KEY

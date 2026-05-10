@@ -16,8 +16,10 @@ export function NotionOAuthSection(props: {
   notionParentPageId: string;
   notionChatDatabaseId: string;
   notionArticleDatabaseId: string;
+  notionVideoDatabaseId: string;
   notionChatDatabaseLabel: string;
   notionArticleDatabaseLabel: string;
+  notionVideoDatabaseLabel: string;
   notionPageOptions: NotionPageOption[];
   notionLogoUrl: string;
   onToggleSyncEnabled: (enabled: boolean) => void;
@@ -26,8 +28,9 @@ export function NotionOAuthSection(props: {
   onSaveNotionParentPage: (id: string) => void;
   onChangeNotionChatDatabaseId: (id: string) => void;
   onChangeNotionArticleDatabaseId: (id: string) => void;
-  onSaveNotionDatabaseId: (kind: 'chat' | 'article') => void;
-  onResetNotionDatabaseId: (kind: 'chat' | 'article') => void;
+  onChangeNotionVideoDatabaseId: (id: string) => void;
+  onSaveNotionDatabaseId: (kind: 'chat' | 'article' | 'video') => void;
+  onResetNotionDatabaseId: (kind: 'chat' | 'article' | 'video') => void;
   onLoadNotionPages: () => void;
 }) {
   const {
@@ -41,8 +44,10 @@ export function NotionOAuthSection(props: {
     notionParentPageId,
     notionChatDatabaseId,
     notionArticleDatabaseId,
+    notionVideoDatabaseId,
     notionChatDatabaseLabel,
     notionArticleDatabaseLabel,
+    notionVideoDatabaseLabel,
     notionPageOptions,
     notionLogoUrl,
     onToggleSyncEnabled,
@@ -51,12 +56,13 @@ export function NotionOAuthSection(props: {
     onSaveNotionParentPage,
     onChangeNotionChatDatabaseId,
     onChangeNotionArticleDatabaseId,
+    onChangeNotionVideoDatabaseId,
     onSaveNotionDatabaseId,
     onResetNotionDatabaseId,
     onLoadNotionPages,
   } = props;
 
-  const onEnterToSaveDatabaseId = (e: KeyboardEvent<HTMLInputElement>, kind: 'chat' | 'article') => {
+  const onEnterToSaveDatabaseId = (e: KeyboardEvent<HTMLInputElement>, kind: 'chat' | 'article' | 'video') => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     onSaveNotionDatabaseId(kind);
@@ -196,6 +202,30 @@ export function NotionOAuthSection(props: {
                 type="button"
                 className={buttonClassName}
                 onClick={() => onResetNotionDatabaseId('article')}
+                disabled={busy || !notionConnected}
+              >
+                {t('reset')}
+              </button>
+            </div>
+          </SettingsFormRow>
+
+          <SettingsFormRow label={t('notionDbIdVideos')}>
+            <div className="tw-flex tw-min-w-0 tw-items-center tw-gap-2">
+              <input
+                value={notionVideoDatabaseId}
+                onChange={(e) => onChangeNotionVideoDatabaseId(e.target.value)}
+                onBlur={() => onSaveNotionDatabaseId('video')}
+                onKeyDown={(e) => onEnterToSaveDatabaseId(e, 'video')}
+                disabled={busy || !notionConnected}
+                spellCheck={false}
+                placeholder={notionVideoDatabaseLabel}
+                aria-label={t('notionDbIdVideos')}
+                className={`${textInputClassName} tw-min-w-0 tw-flex-1`}
+              />
+              <button
+                type="button"
+                className={buttonClassName}
+                onClick={() => onResetNotionDatabaseId('video')}
                 disabled={busy || !notionConnected}
               >
                 {t('reset')}

@@ -1,6 +1,6 @@
-name: "WebClipper 反馈 / Feedback"
-description: "用于 SyncNos WebClipper 的 bug / 功能需求 / 站点适配反馈"
-title: "[WebClipper] <一句话概述>"
+name: 'WebClipper 反馈 / Feedback'
+description: '用于 SyncNos WebClipper 的 bug / 功能需求 / 站点适配反馈'
+title: '[WebClipper] <一句话概述>'
 labels:
   - webclipper
 body:
@@ -55,7 +55,7 @@ body:
     attributes:
       label: 一句话总结
       description: 发生了什么？（尽量可复现、可验证）
-      placeholder: "例如：ChatGPT Projects 内的对话采集后标题被覆盖为 ChatGPT-<Project 名>。"
+      placeholder: '例如：ChatGPT Projects 内的对话采集后标题被覆盖为 ChatGPT-<Project 名>。'
     validations:
       required: true
 
@@ -75,7 +75,7 @@ body:
     id: actual
     attributes:
       label: 实际表现
-      placeholder: "实际保存成了什么？界面怎么显示？日志/错误是什么？"
+      placeholder: '实际保存成了什么？界面怎么显示？日志/错误是什么？'
     validations:
       required: true
 
@@ -83,7 +83,7 @@ body:
     id: expected
     attributes:
       label: 期望行为
-      placeholder: "你希望它怎么做？如果是新增开关：默认值/开启后的行为是什么？"
+      placeholder: '你希望它怎么做？如果是新增开关：默认值/开启后的行为是什么？'
     validations:
       required: true
 
@@ -100,7 +100,7 @@ body:
     attributes:
       label: 反馈来源（可选）
       description: 谁反馈的 + 日期（便于追踪）
-      placeholder: "例如：Enze，2026-04-19"
+      placeholder: '例如：Enze，2026-04-19'
     validations:
       required: false
 
@@ -115,4 +115,3 @@ body:
         - WebClipper version:
     validations:
       required: false
-

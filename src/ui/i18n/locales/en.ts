@@ -172,6 +172,7 @@ export const en = {
   advancedHide: 'Hide Advanced',
   notionDbIdAiChats: 'AI Chats DB ID',
   notionDbIdWebArticles: 'Web Articles DB ID',
+  notionDbIdVideos: 'Videos DB ID',
   notionAdvancedDbIdHint:
     'Optional override. When filled, SyncNos uses this database ID directly; clear to auto-discover/create under Parent Page.',
 

@@ -120,5 +120,22 @@ module.exports = [
     },
   },
 
+  {
+    files: ['.github/scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        fetch: 'readonly',
+        FormData: 'readonly',
+        Blob: 'readonly',
+        URLSearchParams: 'readonly',
+      },
+    },
+  },
+
   eslintConfigPrettier,
 ];

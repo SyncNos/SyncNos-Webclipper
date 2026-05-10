@@ -18,21 +18,21 @@ One-click sync to Notion / Obsidian, or export as Markdown / Zip.
 
 ## Why SyncNos WebClipper?
 
-| | |
-| --- | --- |
-| 🔒 **Your data stays in your browser** | No third-party servers, no data collection. Everything is stored in IndexedDB first — you decide where it goes next. |
+|                                        |                                                                                                                                    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 🔒 **Your data stays in your browser** | No third-party servers, no data collection. Everything is stored in IndexedDB first — you decide where it goes next.               |
 | 🔄 **Incremental sync, no duplicates** | Only new content gets synced. Precise cursor tracking picks up right where you left off. Your knowledge base grows while you chat. |
-| 🔓 **Fully open source** | Every line of code is in this repo. You can see exactly what runs in your browser. |
-| 📦 **Multi-target output** | Notion / Obsidian / Markdown / Zip — your data, your choice. No vendor lock-in. |
+| 🔓 **Fully open source**               | Every line of code is in this repo. You can see exactly what runs in your browser.                                                 |
+| 📦 **Multi-target output**             | Notion / Obsidian / Markdown / Zip — your data, your choice. No vendor lock-in.                                                    |
 
 ## Download & Install
 
-| Channel | Download |
-| --- | --- |
-| Chrome | [Chrome Web Store](https://chromewebstore.google.com/detail/syncnos-webclipper/hmgjflllphdffeocddjjcfllifhejpok) |
-| Edge | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/syncnosaiweb-clipper/ijkpghlfmkbjcgafapjcjahaikmnjncl) |
-| Firefox | [Firefox AMO](https://addons.mozilla.org/firefox/addon/syncnos-webclipper/) |
-| Arc / Brave / other Chromium | Use the Chrome Web Store link |
+| Channel                      | Download                                                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Chrome                       | [Chrome Web Store](https://chromewebstore.google.com/detail/syncnos-webclipper/hmgjflllphdffeocddjjcfllifhejpok)                  |
+| Edge                         | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/syncnosaiweb-clipper/ijkpghlfmkbjcgafapjcjahaikmnjncl) |
+| Firefox                      | [Firefox AMO](https://addons.mozilla.org/firefox/addon/syncnos-webclipper/)                                                       |
+| Arc / Brave / other Chromium | Use the Chrome Web Store link                                                                                                     |
 
 ## Get Started in 3 Steps
 
@@ -48,18 +48,18 @@ One-click sync to Notion / Obsidian, or export as Markdown / Zip.
 
 ### AI Conversations (11+ platforms)
 
-| Platform | Capture Mode |
-| --- | --- |
-| ChatGPT | Auto |
-| Claude | Auto |
-| Gemini | Auto |
-| DeepSeek | Auto |
-| Kimi | Auto |
-| Doubao (豆包) | Auto |
-| Yuanbao (元宝) | Auto |
-| Poe | Auto |
-| Notion AI | Auto |
-| z.ai | Auto |
+| Platform         | Capture Mode           |
+| ---------------- | ---------------------- |
+| ChatGPT          | Auto                   |
+| Claude           | Auto                   |
+| Gemini           | Auto                   |
+| DeepSeek         | Auto                   |
+| Kimi             | Auto                   |
+| Doubao (豆包)    | Auto                   |
+| Yuanbao (元宝)   | Auto                   |
+| Poe              | Auto                   |
+| Notion AI        | Auto                   |
+| z.ai             | Auto                   |
 | Google AI Studio | Manual save preferred¹ |
 
 ¹ Virtual list limitation: auto-capture may only detect currently visible turns. For full history, use inpage save or popup current-page capture.
@@ -74,11 +74,11 @@ YouTube and Bilibili video pages can capture already loaded subtitles/transcript
 
 ## Output Targets
 
-| Target | Details |
-| --- | --- |
-| **Notion** | One-click sync after OAuth. AI chats → `SyncNos-AI Chats` database; web articles → `SyncNos-Web Articles` database; video transcripts → `SyncNos-Videos` database. |
-| **Obsidian** | Writes directly to your vault via the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) plugin. Local-to-local, no network involved; video transcripts land in `SyncNos-Videos`. |
-| **Markdown / Zip** | Single file or bulk export. Zip v2 backups preserve article comment threads and cached images for full local recovery. |
+| Target             | Details                                                                                                                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Notion**         | One-click sync after OAuth. AI chats → `SyncNos-AI Chats` database; web articles → `SyncNos-Web Articles` database; video transcripts → `SyncNos-Videos` database.                                         |
+| **Obsidian**       | Writes directly to your vault via the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) plugin. Local-to-local, no network involved; video transcripts land in `SyncNos-Videos`. |
+| **Markdown / Zip** | Single file or bulk export. Zip v2 backups preserve article comment threads and cached images for full local recovery.                                                                                     |
 
 ## Core Capabilities
 
