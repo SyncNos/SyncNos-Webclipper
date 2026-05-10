@@ -300,6 +300,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         'notion_ai_preferred_model_index',
         chatDbSpec.storageKey,
         articleDbSpec.storageKey,
+        videoDbSpec.storageKey,
         NOTION_SYNC_PROVIDER_ENABLED_KEY,
         OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY,
         'inpage_display_mode',
