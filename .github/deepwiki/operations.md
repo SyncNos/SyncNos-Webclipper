@@ -72,22 +72,22 @@ flowchart LR
 - 仓库内已覆盖 WebClipper 的自动化发布与扩展运行面。
 
 ## 来源引用（Source References）
-- `webclipper/src/entrypoints/background.ts`
-- `webclipper/src/entrypoints/content.ts`
-- `webclipper/src/entrypoints/video-transcript-interceptor.content.ts`
-- `webclipper/src/entrypoints/video-transcript-bridge.content.ts`
-- `webclipper/src/services/bootstrap/content.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture-content-handlers.ts`
-- `webclipper/src/viewmodels/settings/useSettingsSceneController.ts`
-- `webclipper/src/ui/settings/sections/VideosSection.tsx`
-- `webclipper/src/services/conversations/background/handlers.ts`
-- `webclipper/src/services/conversations/background/image-backfill-job.ts`
-- `webclipper/src/services/sync/backup/export.ts`
-- `webclipper/src/services/sync/backup/import.ts`
-- `webclipper/src/services/sync/backup/backup-utils.ts`
-- `webclipper/src/services/sync/notion/auth/oauth.ts`
-- `webclipper/cloudflare-workers/syncnos-notion-oauth/index.ts`
+- `src/entrypoints/background.ts`
+- `src/entrypoints/content.ts`
+- `src/entrypoints/video-transcript-interceptor.content.ts`
+- `src/entrypoints/video-transcript-bridge.content.ts`
+- `src/services/bootstrap/content.ts`
+- `src/services/bootstrap/video-transcript-capture.ts`
+- `src/services/bootstrap/video-transcript-capture-content-handlers.ts`
+- `src/viewmodels/settings/useSettingsSceneController.ts`
+- `src/ui/settings/sections/VideosSection.tsx`
+- `src/services/conversations/background/handlers.ts`
+- `src/services/conversations/background/image-backfill-job.ts`
+- `src/services/sync/backup/export.ts`
+- `src/services/sync/backup/import.ts`
+- `src/services/sync/backup/backup-utils.ts`
+- `src/services/sync/notion/auth/oauth.ts`
+- `cloudflare-workers/syncnos-notion-oauth/index.ts`
 - `.github/workflows/webclipper-release.yml`
 - `.github/workflows/webclipper-amo-publish.yml`
 - `.github/workflows/webclipper-cws-publish.yml`

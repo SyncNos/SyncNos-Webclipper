@@ -64,20 +64,20 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: webclipper/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install WebClipper deps
-        run: npm ci --prefix webclipper
+        run: npm ci
 
       - name: WebClipper gate (lint/format/compile/test)
-        run: npm run --prefix webclipper gate:ci
+        run: npm run gate:ci
 
       - name: Verify manifest version matches tag
         run: |
           set -euo pipefail
           node - <<'NODE'
           const fs = require("fs");
-          const path = "webclipper/wxt.config.ts";
+          const path = "wxt.config.ts";
           const tagName = process.env.TAG_NAME;
           const tagVersion = String(tagName || "").replace(/^v/, "");
           const source = fs.readFileSync(path, "utf8");
@@ -112,6 +112,6 @@ jobs:
           CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-          CWS_ZIP_PATH: webclipper/SyncNos-WebClipper-chrome-${{ steps.tag.outputs.name }}.zip
+          CWS_ZIP_PATH: SyncNos-WebClipper-chrome-${{ steps.tag.outputs.name }}.zip
           CWS_PUBLISH: ${{ steps.publish.outputs.publish }}
           CWS_PUBLISH_TARGET: ${{ steps.publish.outputs.target }}

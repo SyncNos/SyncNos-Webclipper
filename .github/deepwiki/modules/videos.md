@@ -140,16 +140,16 @@ sequenceDiagram
 | 回归测试 | `tests/smoke/video-kind.test.ts` | `SyncNos-Videos` DB 规格不回退 |
 
 ## 来源引用（Source References）
-- `webclipper/src/ui/settings/sections/VideosSection.tsx`
-- `webclipper/src/platform/context-menus/clipper-context-menu.ts`
-- `webclipper/src/platform/messaging/message-contracts.ts`
-- `webclipper/src/entrypoints/content.ts`
-- `webclipper/src/entrypoints/video-transcript-interceptor.content.ts`
-- `webclipper/src/entrypoints/video-transcript-bridge.content.ts`
-- `webclipper/src/collectors/video/video-transcript-extract.ts`
-- `webclipper/src/collectors/video/video-transcript-parse.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture-content-handlers.ts`
-- `webclipper/src/services/url-cleaning/video-url.ts`
-- `webclipper/src/services/protocols/conversation-kinds.ts`
-- `webclipper/tests/smoke/video-kind.test.ts`
+- `src/ui/settings/sections/VideosSection.tsx`
+- `src/platform/context-menus/clipper-context-menu.ts`
+- `src/platform/messaging/message-contracts.ts`
+- `src/entrypoints/content.ts`
+- `src/entrypoints/video-transcript-interceptor.content.ts`
+- `src/entrypoints/video-transcript-bridge.content.ts`
+- `src/collectors/video/video-transcript-extract.ts`
+- `src/collectors/video/video-transcript-parse.ts`
+- `src/services/bootstrap/video-transcript-capture.ts`
+- `src/services/bootstrap/video-transcript-capture-content-handlers.ts`
+- `src/services/url-cleaning/video-url.ts`
+- `src/services/protocols/conversation-kinds.ts`
+- `tests/smoke/video-kind.test.ts`

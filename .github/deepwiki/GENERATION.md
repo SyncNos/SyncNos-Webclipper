@@ -107,7 +107,7 @@
 
 ### 9. 2026-04-18 视频字幕采集专题页与 deepwiki 路由补齐
 - 新增 `modules/videos.md` 作为视频字幕采集的专门路由页，单独承载 YouTube / Bilibili 字幕拦截、解析、会话落点与故障排查。
-- 扩展 `README.md` / `README.zh-CN.md`、`AGENTS.md`、`webclipper/AGENTS.md`、`webclipper/src/ui/AGENTS.md`，让视频字幕采集入口与仓库级约定保持一致。
+- 扩展 `README.md` / `README.zh-CN.md`、`AGENTS.md`、`AGENTS.webclipper.md`、`src/ui/AGENTS.md`，让视频字幕采集入口与仓库级约定保持一致。
 - 同步 `INDEX.md`、`business-context.md`、`overview.md`、`configuration.md`、`data-flow.md`、`modules/webclipper.md`、`architecture.md`、`testing.md`、`workflow.md`、`storage.md`、`api.md`、`troubleshooting.md`、`operations.md`、`dependencies.md`、`glossary.md`、`security.md`、`release.md`，确保视频字幕采集在 deepwiki 里有完整导航与验证路径。
 
 ### 更新的页面
@@ -127,16 +127,16 @@
 
 | 类别 | 主要来源 |
 | --- | --- |
-| 仓库入口与规范 | `AGENTS.md`, `README.md`, `README.zh-CN.md`, `webclipper/AGENTS.md` |
-| 评论 React 迁移 | `webclipper/src/ui/comments/react/ThreadedCommentsPanel.tsx`, `panel-store.ts`, `focus-rules.ts`, `comment-chatwith-menu.tsx` |
-| Settings 重构 | `webclipper/src/ui/settings/SettingsScene.tsx`, `SettingsTopTabsNav.tsx`, `useSettingsSceneController.ts` |
-| AppShell 重构 | `webclipper/src/ui/app/AppShell.tsx`, `PopupShell.tsx`, `ConversationsScene.tsx`, `CapturedListPaneShell.tsx` |
-| 评论数同步 | `webclipper/src/services/comments/domain/comment-metrics.ts`, `notion-sync-orchestrator.ts`, `obsidian-markdown-writer.ts` |
-| 文章提取 | `webclipper/src/collectors/web/article-fetch-sites/bilibili-opus.ts`, `article-extract/markdown.ts` |
-| 视频字幕采集 | `webclipper/src/entrypoints/video-transcript-interceptor.content.ts`, `webclipper/src/entrypoints/video-transcript-bridge.content.ts`, `webclipper/src/services/bootstrap/video-transcript-capture.ts`, `webclipper/src/services/bootstrap/video-transcript-capture-content-handlers.ts`, `webclipper/src/collectors/video/video-transcript-extract.ts`, `webclipper/src/collectors/video/video-transcript-parse.ts` |
-| Chat with AI | `webclipper/src/services/integrations/chatwith/chatwith-settings.ts`, `chatwith-comment-actions.ts` |
+| 仓库入口与规范 | `AGENTS.md`, `AGENTS.webclipper.md`, `README.md`, `README.zh-CN.md` |
+| 评论 React 迁移 | `src/ui/comments/react/ThreadedCommentsPanel.tsx`, `panel-store.ts`, `focus-rules.ts`, `comment-chatwith-menu.tsx` |
+| Settings 重构 | `src/ui/settings/SettingsScene.tsx`, `SettingsTopTabsNav.tsx`, `useSettingsSceneController.ts` |
+| AppShell 重构 | `src/ui/app/AppShell.tsx`, `PopupShell.tsx`, `ConversationsScene.tsx`, `CapturedListPaneShell.tsx` |
+| 评论数同步 | `src/services/comments/domain/comment-metrics.ts`, `notion-sync-orchestrator.ts`, `obsidian-markdown-writer.ts` |
+| 文章提取 | `src/collectors/web/article-fetch-sites/bilibili-opus.ts`, `article-extract/markdown.ts` |
+| 视频字幕采集 | `src/entrypoints/video-transcript-interceptor.content.ts`, `src/entrypoints/video-transcript-bridge.content.ts`, `src/services/bootstrap/video-transcript-capture.ts`, `src/services/bootstrap/video-transcript-capture-content-handlers.ts`, `src/collectors/video/video-transcript-extract.ts`, `src/collectors/video/video-transcript-parse.ts` |
+| Chat with AI | `src/services/integrations/chatwith/chatwith-settings.ts`, `chatwith-comment-actions.ts` |
 | Git 历史 | 85 commits since 2026-04-02 |
 
 ## Notes For Next Update
 - 若 manifest、DB schema 或发布 workflow 再次变更，优先更新 `configuration.md`、`storage.md`、`release.md`，再回写索引与元数据。
-- 如果后续继续演进 Inpage 规则或 markdown 阅读风格，优先同步 `webclipper/src/ui/AGENTS.md` 与 `webclipper/AGENTS.md`，再回写 deepwiki 相关页。
+- 如果后续继续演进 Inpage 规则或 markdown 阅读风格，优先同步 `src/ui/AGENTS.md` 与 `AGENTS.webclipper.md`，再回写 deepwiki 相关页。

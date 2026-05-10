@@ -386,7 +386,7 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   }
 
   function getChatTitleFromHistoryButton(): any {
-    // Observed DOM (see `webclipper/src/collectors/notionai/notionai.md`):
+    // Observed DOM (see `src/collectors/notionai/notionai.md`):
     // <div role="button" aria-label="history"> <div>Title...</div> ... </div>
     const btn = document.querySelector('div[role="button"][aria-label="history"]');
     if (!btn) return '';

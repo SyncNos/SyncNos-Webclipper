@@ -43,7 +43,7 @@ const root = cli.root
 
 const manifestPath = cli.manifest ? join(root, cli.manifest) : join(root, "manifest.json");
 if (!existsSync(manifestPath)) {
-  fail(`manifest.json missing: ${manifestPath} (run \`npm --prefix webclipper run build\` first)`);
+  fail(`manifest.json missing: ${manifestPath} (run \`npm run build\` first)`);
 }
 
 let manifest;

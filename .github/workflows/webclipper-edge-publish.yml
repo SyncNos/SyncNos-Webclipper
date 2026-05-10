@@ -53,20 +53,20 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: webclipper/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install WebClipper deps
-        run: npm ci --prefix webclipper
+        run: npm ci
 
       - name: WebClipper gate (lint/format/compile/test)
-        run: npm run --prefix webclipper gate:ci
+        run: npm run gate:ci
 
       - name: Verify manifest version matches tag
         run: |
           set -euo pipefail
           node - <<'NODE'
           const fs = require("fs");
-          const path = "webclipper/wxt.config.ts";
+          const path = "wxt.config.ts";
           const tagName = process.env.TAG_NAME;
           const tagVersion = String(tagName || "").replace(/^v/, "");
           const source = fs.readFileSync(path, "utf8");
@@ -100,5 +100,5 @@ jobs:
           EDGE_ADDONS_CLIENT_ID: ${{ secrets.EDGE_ADDONS_CLIENT_ID }}
           EDGE_ADDONS_API_KEY: ${{ secrets.EDGE_ADDONS_API_KEY }}
           EDGE_ADDONS_PRODUCT_ID: ${{ secrets.EDGE_ADDONS_PRODUCT_ID }}
-          EDGE_ZIP_PATH: webclipper/SyncNos-WebClipper-edge-${{ steps.tag.outputs.name }}.zip
+          EDGE_ZIP_PATH: SyncNos-WebClipper-edge-${{ steps.tag.outputs.name }}.zip
           EDGE_ADDONS_PUBLISH: ${{ steps.publish.outputs.publish }}

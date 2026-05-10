@@ -11,12 +11,12 @@
 
 | 命令 / 目录 | 覆盖点 | 说明 |
 | --- | --- | --- |
-| `npm --prefix webclipper run compile` | TypeScript 契约与调用面 | 默认验证顺序第一步 |
-| `npm --prefix webclipper run test` | Vitest 单测 | 覆盖游标、IndexedDB 迁移、Markdown 等关键逻辑 |
-| `npm --prefix webclipper run build` | Chrome / Edge 产物 | 验证 WXT 构建与入口配置 |
-| `npm --prefix webclipper run build:firefox` | Firefox 产物 | 涉及 Firefox / 发布打包时必须补跑 |
-| `npm --prefix webclipper run check` | dist 完整性 | build 后再调用 `check-dist.mjs` |
-| `webclipper/tests/` | 测试分层目录 | 当前至少分为 `collectors`, `domains`, `integrations`, `smoke`, `storage`, `unit` |
+| `npm run compile` | TypeScript 契约与调用面 | 默认验证顺序第一步 |
+| `npm run test` | Vitest 单测 | 覆盖游标、IndexedDB 迁移、Markdown 等关键逻辑 |
+| `npm run build` | Chrome / Edge 产物 | 验证 WXT 构建与入口配置 |
+| `npm run build:firefox` | Firefox 产物 | 涉及 Firefox / 发布打包时必须补跑 |
+| `npm run check` | dist 完整性 | build 后再调用 `check-dist.mjs` |
+| `tests/` | 测试分层目录 | 当前至少分为 `collectors`, `domains`, `integrations`, `smoke`, `storage`, `unit` |
 
 ## 代表性测试用例
 
@@ -80,43 +80,43 @@
 - 需要真的跑代码时，优先遵循仓库已有的命令，不新增新的 lint / test 系统。
 
 ## 来源引用（Source References）
-- `webclipper/package.json`
-- `webclipper/tests`
-- `webclipper/tests/unit/notion-sync-cursor.test.ts`
-- `webclipper/tests/storage/schema-migration.test.ts`
-- `webclipper/tests/storage/conversations-idb.test.ts`
-- `webclipper/tests/storage/article-comments-idb.test.ts`
-- `webclipper/tests/storage/insight-stats.test.ts`
-- `webclipper/tests/collectors/gemini-collector.test.ts`
-- `webclipper/tests/collectors/kimi-collector.test.ts`
-- `webclipper/tests/collectors/zai-collector.test.ts`
-- `webclipper/tests/unit/markdown-renderer.test.ts`
-- `webclipper/tests/smoke/background-router-current-page-capture.test.ts`
-- `webclipper/tests/smoke/detail-header-actions.test.ts`
-- `webclipper/tests/smoke/app-detail-header-actions.test.ts`
-- `webclipper/tests/smoke/video-kind.test.ts`
-- `webclipper/tests/unit/settings-sections.test.ts`
-- `webclipper/src/services/integrations/chatwith/chatwith-detail-header-actions.ts`
-- `webclipper/src/services/integrations/detail-header-action-types.ts`
-- `webclipper/src/viewmodels/conversations/conversations-context.tsx`
-- `webclipper/src/ui/conversations/DetailNavigationHeader.tsx`
-- `webclipper/src/services/conversations/background/handlers.ts`
-- `webclipper/src/services/conversations/background/image-backfill-job.ts`
-- `webclipper/src/services/comments/background/handlers.ts`
-- `webclipper/src/services/comments/client/repo.ts`
-- `webclipper/src/services/comments/data/storage-idb.ts`
-- `webclipper/src/ui/conversations/ArticleCommentsSection.tsx`
-- `webclipper/src/services/comments/threaded-comments-panel.ts`
-- `webclipper/src/ui/inpage/inpage-comments-panel-shadow.ts`
-- `webclipper/src/services/sync/backup/export.ts`
-- `webclipper/src/services/sync/backup/import.ts`
-- `webclipper/src/services/sync/backup/backup-utils.ts`
-- `webclipper/src/ui/settings/sections/BackupSection.tsx`
-- `webclipper/src/ui/styles/tokens.css`
-- `webclipper/src/ui/shared/SelectMenu.tsx`
-- `webclipper/src/ui/conversations/ConversationListPane.tsx`
-- `webclipper/src/ui/settings/sections/InsightSection.tsx`
-- `webclipper/src/viewmodels/settings/insight-stats.ts`
+- `package.json`
+- `tests`
+- `tests/unit/notion-sync-cursor.test.ts`
+- `tests/storage/schema-migration.test.ts`
+- `tests/storage/conversations-idb.test.ts`
+- `tests/storage/article-comments-idb.test.ts`
+- `tests/storage/insight-stats.test.ts`
+- `tests/collectors/gemini-collector.test.ts`
+- `tests/collectors/kimi-collector.test.ts`
+- `tests/collectors/zai-collector.test.ts`
+- `tests/unit/markdown-renderer.test.ts`
+- `tests/smoke/background-router-current-page-capture.test.ts`
+- `tests/smoke/detail-header-actions.test.ts`
+- `tests/smoke/app-detail-header-actions.test.ts`
+- `tests/smoke/video-kind.test.ts`
+- `tests/unit/settings-sections.test.ts`
+- `src/services/integrations/chatwith/chatwith-detail-header-actions.ts`
+- `src/services/integrations/detail-header-action-types.ts`
+- `src/viewmodels/conversations/conversations-context.tsx`
+- `src/ui/conversations/DetailNavigationHeader.tsx`
+- `src/services/conversations/background/handlers.ts`
+- `src/services/conversations/background/image-backfill-job.ts`
+- `src/services/comments/background/handlers.ts`
+- `src/services/comments/client/repo.ts`
+- `src/services/comments/data/storage-idb.ts`
+- `src/ui/conversations/ArticleCommentsSection.tsx`
+- `src/services/comments/threaded-comments-panel.ts`
+- `src/ui/inpage/inpage-comments-panel-shadow.ts`
+- `src/services/sync/backup/export.ts`
+- `src/services/sync/backup/import.ts`
+- `src/services/sync/backup/backup-utils.ts`
+- `src/ui/settings/sections/BackupSection.tsx`
+- `src/ui/styles/tokens.css`
+- `src/ui/shared/SelectMenu.tsx`
+- `src/ui/conversations/ConversationListPane.tsx`
+- `src/ui/settings/sections/InsightSection.tsx`
+- `src/viewmodels/settings/insight-stats.ts`
 - `.github/workflows/webclipper-amo-publish.yml`
 - `.github/workflows/webclipper-cws-publish.yml`
 

@@ -9,15 +9,14 @@ export function resolveRepoRoot(importMetaUrl) {
 }
 
 export function resolveWebclipperRoot(repoRoot) {
-  const webclipperRoot = join(repoRoot, "webclipper");
-  if (!existsSync(join(webclipperRoot, "package.json"))) {
-    throw new Error(`webclipper root not found: ${webclipperRoot}`);
+  const projectRoot = repoRoot;
+  if (!existsSync(join(projectRoot, "package.json"))) {
+    throw new Error(`project root not found: ${projectRoot}`);
   }
-  return webclipperRoot;
+  return projectRoot;
 }
 
 export function run(cmd, args, cwd) {
   const res = spawnSync(cmd, args, { cwd, stdio: "inherit" });
   if (res.status !== 0) throw new Error(`${cmd} ${args.join(" ")} failed`);
 }
-

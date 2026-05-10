@@ -116,7 +116,7 @@ SyncNos 是一个人用心做的项目。
 
 让我继续做下去的，不是钱，是知道有人在乎。把我们连在一起的，是情感，不是交易。
 
-<img src="webclipper/public/icons/buymeacoffee1.jpg" alt="Chii Magnus 的赞赏码" width="180" />
+<img src="public/icons/buymeacoffee1.jpg" alt="Chii Magnus 的赞赏码" width="180" />
 
 ## 致谢
 

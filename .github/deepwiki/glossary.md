@@ -63,36 +63,36 @@ macOS/ 历史资料已归档；本页仅保留 WebClipper 与同步 / 发布相�
 | Release Assets | GitHub Release 附带的 zip / xpi 产物 | `webclipper-release.yml` |
 
 ## 来源引用（Source References）
-- `webclipper/src/collectors/register-all.ts`
-- `webclipper/src/collectors/web/article-fetch.ts`
-- `webclipper/src/services/bootstrap/content.ts`
-- `webclipper/src/entrypoints/video-transcript-interceptor.content.ts`
-- `webclipper/src/entrypoints/video-transcript-bridge.content.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture-content-handlers.ts`
-- `webclipper/src/collectors/video/video-transcript-extract.ts`
-- `webclipper/src/collectors/video/video-transcript-parse.ts`
-- `webclipper/src/services/protocols/conversation-kinds.ts`
-- `webclipper/src/viewmodels/settings/useSettingsSceneController.ts`
-- `webclipper/src/services/conversations/background/handlers.ts`
-- `webclipper/src/services/conversations/background/image-backfill-job.ts`
-- `webclipper/src/viewmodels/conversations/conversations-context.tsx`
-- `webclipper/src/services/comments/background/handlers.ts`
-- `webclipper/src/services/comments/client/repo.ts`
-- `webclipper/src/services/comments/data/storage-idb.ts`
-- `webclipper/src/ui/conversations/ArticleCommentsSection.tsx`
-- `webclipper/src/services/comments/threaded-comments-panel.ts`
-- `webclipper/src/ui/inpage/inpage-comments-panel-shadow.ts`
-- `webclipper/src/services/sync/backup/export.ts`
-- `webclipper/src/services/sync/backup/import.ts`
-- `webclipper/src/services/sync/backup/backup-utils.ts`
-- `webclipper/src/services/bootstrap/inpage-comments-panel-content-handlers.ts`
-- `webclipper/src/services/comments/sidebar/comment-sidebar-session.ts`
-- `webclipper/src/services/integrations/detail-header-action-types.ts`
-- `webclipper/src/platform/messaging/message-contracts.ts`
-- `webclipper/src/ui/shared/SelectMenu.tsx`
-- `webclipper/src/ui/conversations/ConversationListPane.tsx`
-- `webclipper/src/platform/idb/schema.ts`
+- `src/collectors/register-all.ts`
+- `src/collectors/web/article-fetch.ts`
+- `src/services/bootstrap/content.ts`
+- `src/entrypoints/video-transcript-interceptor.content.ts`
+- `src/entrypoints/video-transcript-bridge.content.ts`
+- `src/services/bootstrap/video-transcript-capture.ts`
+- `src/services/bootstrap/video-transcript-capture-content-handlers.ts`
+- `src/collectors/video/video-transcript-extract.ts`
+- `src/collectors/video/video-transcript-parse.ts`
+- `src/services/protocols/conversation-kinds.ts`
+- `src/viewmodels/settings/useSettingsSceneController.ts`
+- `src/services/conversations/background/handlers.ts`
+- `src/services/conversations/background/image-backfill-job.ts`
+- `src/viewmodels/conversations/conversations-context.tsx`
+- `src/services/comments/background/handlers.ts`
+- `src/services/comments/client/repo.ts`
+- `src/services/comments/data/storage-idb.ts`
+- `src/ui/conversations/ArticleCommentsSection.tsx`
+- `src/services/comments/threaded-comments-panel.ts`
+- `src/ui/inpage/inpage-comments-panel-shadow.ts`
+- `src/services/sync/backup/export.ts`
+- `src/services/sync/backup/import.ts`
+- `src/services/sync/backup/backup-utils.ts`
+- `src/services/bootstrap/inpage-comments-panel-content-handlers.ts`
+- `src/services/comments/sidebar/comment-sidebar-session.ts`
+- `src/services/integrations/detail-header-action-types.ts`
+- `src/platform/messaging/message-contracts.ts`
+- `src/ui/shared/SelectMenu.tsx`
+- `src/ui/conversations/ConversationListPane.tsx`
+- `src/platform/idb/schema.ts`
 - `.github/workflows/webclipper-release.yml`
 
 ## 更新记录（Update Notes）

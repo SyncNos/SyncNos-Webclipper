@@ -117,7 +117,7 @@ Tell me why you use SyncNos, share a story, or simply say "keep going".
 What keeps me going isn't the money — it's knowing someone cares.
 What connects us is emotion, not a transaction.
 
-<img src="webclipper/public/icons/buymeacoffee1.jpg" alt="Chii Magnus tip jar QR" width="180" />
+<img src="public/icons/buymeacoffee1.jpg" alt="Chii Magnus tip jar QR" width="180" />
 
 ## Acknowledgements
 

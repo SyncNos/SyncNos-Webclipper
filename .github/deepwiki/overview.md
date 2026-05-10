@@ -7,14 +7,14 @@ SyncNos 现在围绕“异构内容 → 稳定知识资产”展开的是 WebCli
 
 | 产品线 | 主目录 | 运行时 | 主要输入 | 主要输出 |
 | --- | --- | --- | --- | --- |
-| WebClipper | `webclipper/` | MV3 service worker + content script + popup/app React UI | AI 站点 DOM、网页正文、视频字幕响应、浏览器本地设置、备份包 | IndexedDB、Settings Insight、主题/行为偏好、本地导出、Zip v2 备份（含 `article_comments`）、Notion 页面、Obsidian 文件、`SyncNos-Videos` |
+| WebClipper | `./` | MV3 service worker + content script + popup/app React UI | AI 站点 DOM、网页正文、视频字幕响应、浏览器本地设置、备份包 | IndexedDB、Settings Insight、主题/行为偏好、本地导出、Zip v2 备份（含 `article_comments`）、Notion 页面、Obsidian 文件、`SyncNos-Videos` |
 
 ## 顶层目录地图
 
 | 路径 | 角色 | 典型内容 | 阅读建议 |
 | --- | --- | --- | --- |
 | `macOS/` | 已归档历史资料 | `SyncNos/`, `SyncNos.xcodeproj/`, `Packages/`, `Resource/` | 如需查历史，仅参考归档说明。 |
-| `webclipper/` | 浏览器扩展 | `src/entrypoints/`, `src/collectors/`, `src/services/conversations/`, `src/services/comments/`, `src/services/sync/`, `src/ui/` | 先判断改动属于 background / content / popup / app / comments 哪一层；Inpage 设置（阅读风格 / anti-hotlink）落在 `src/ui/settings/sections/InpageSection.tsx`。 |
+| `./` | 浏览器扩展 | `src/entrypoints/`, `src/collectors/`, `src/services/conversations/`, `src/services/comments/`, `src/services/sync/`, `src/ui/` | 先判断改动属于 background / content / popup / app / comments 哪一层；Inpage 设置（阅读风格 / anti-hotlink）落在 `src/ui/settings/sections/InpageSection.tsx`。 |
 | `macOS/SyncNos/*.md` / `.github/guide/` | 已归档的专项文档与仓库指南 | 键盘焦点、OCR、Obsidian Local REST API 指南等 | 仅供历史查阅。 |
 | `.github/workflows/` | CI / Release / 商店发布入口 | `release.yml`, `webclipper-release.yml`, `webclipper-amo-publish.yml`, `webclipper-cws-publish.yml`, `webclipper-edge-publish.yml` | 看真实交付链路而不是猜测。 |
 | `.github/scripts/webclipper/` | WebClipper 打包 / 发布脚本 | 打包 release assets、AMO source、AMO 发布 | 与 workflow 配套理解渠道差异。 |
@@ -31,16 +31,16 @@ SyncNos 现在围绕“异构内容 → 稳定知识资产”展开的是 WebCli
 
 | 入口 | 路径 | 作用 | 为什么先看这里 |
 | --- | --- | --- | --- |
-| 扩展后台入口 | `webclipper/src/entrypoints/background.ts` | 注册消息处理、sync orchestrator、Notion OAuth 监听、清理孤儿 job；仅首次安装自动打开 About 分区 | 它决定所有后台能力如何挂接，以及安装/升级时是否主动打断用户 |
-| 扩展内容入口 | `webclipper/src/entrypoints/content.ts` | 注册 collectors、inpage UI、runtime observer、增量更新 | 它决定页面采集是如何启动的 |
-| 扩展设置入口 | `webclipper/src/ui/settings/SettingsScene.tsx` | 组织 `General / Chat with AI / Backup / Notion / Obsidian / Inpage / Insight / About` 分区；Inpage 里包含 `markdown_reading_profile_v1` 与 `anti_hotlink_rules_v1`，窄屏使用顶部标签导航，宽屏使用侧边栏导航，支持关闭按钮 | 它决定设置项如何被真正看见和进入 |
-| 视频字幕入口 | `webclipper/src/ui/settings/sections/VideosSection.tsx` | 提供 YouTube / Bilibili 视频字幕采集说明、右键菜单入口与失败提示 | 它决定视频字幕采集如何被看见和进入 |
-| 扩展共享下拉入口 | `webclipper/src/ui/shared/SelectMenu.tsx` | 统一菜单键盘行为与面板高度策略；`adaptiveMaxHeight` 会按最近可裁剪容器计算可视高度 | 它解释为什么底部 `source/site` 筛选菜单会随视口动态变高/变矮 |
-| 扩展主题入口 | `webclipper/src/ui/styles/tokens.css` | 仅依赖 `prefers-color-scheme` 驱动 token 亮暗切换 | 它解释"为什么 popup / app / inpage 会随系统暗色" |
-| 评论 React 入口 | `webclipper/src/ui/comments/react/ThreadedCommentsPanel.tsx` | 完整的 React 评论组件：composer、threads、replies、删除确认、Chat with AI 菜单、聚焦逻辑 | 评论模块已完成 React 迁移，不再是 DOM 直接操作 |
-| 评论 Panel Store | `webclipper/src/ui/comments/react/panel-store.ts` | 外部 store 实现 `getSnapshot/subscribe` 模式，桥接 background handlers 与 React 渲染 | 理解评论状态如何从 background 流向 React 组件 |
-| WXT / manifest 入口 | `webclipper/wxt.config.ts` | 版本号、权限、host permissions、entrypointsDir | 它是发布版本和能力边界的代码事实源 |
-| 脚本入口 | `webclipper/package.json` | `dev`, `compile`, `test`, `build`, `check` | 它定义扩展侧默认验证顺序 |
+| 扩展后台入口 | `src/entrypoints/background.ts` | 注册消息处理、sync orchestrator、Notion OAuth 监听、清理孤儿 job；仅首次安装自动打开 About 分区 | 它决定所有后台能力如何挂接，以及安装/升级时是否主动打断用户 |
+| 扩展内容入口 | `src/entrypoints/content.ts` | 注册 collectors、inpage UI、runtime observer、增量更新 | 它决定页面采集是如何启动的 |
+| 扩展设置入口 | `src/ui/settings/SettingsScene.tsx` | 组织 `General / Chat with AI / Backup / Notion / Obsidian / Inpage / Insight / About` 分区；Inpage 里包含 `markdown_reading_profile_v1` 与 `anti_hotlink_rules_v1`，窄屏使用顶部标签导航，宽屏使用侧边栏导航，支持关闭按钮 | 它决定设置项如何被真正看见和进入 |
+| 视频字幕入口 | `src/ui/settings/sections/VideosSection.tsx` | 提供 YouTube / Bilibili 视频字幕采集说明、右键菜单入口与失败提示 | 它决定视频字幕采集如何被看见和进入 |
+| 扩展共享下拉入口 | `src/ui/shared/SelectMenu.tsx` | 统一菜单键盘行为与面板高度策略；`adaptiveMaxHeight` 会按最近可裁剪容器计算可视高度 | 它解释为什么底部 `source/site` 筛选菜单会随视口动态变高/变矮 |
+| 扩展主题入口 | `src/ui/styles/tokens.css` | 仅依赖 `prefers-color-scheme` 驱动 token 亮暗切换 | 它解释"为什么 popup / app / inpage 会随系统暗色" |
+| 评论 React 入口 | `src/ui/comments/react/ThreadedCommentsPanel.tsx` | 完整的 React 评论组件：composer、threads、replies、删除确认、Chat with AI 菜单、聚焦逻辑 | 评论模块已完成 React 迁移，不再是 DOM 直接操作 |
+| 评论 Panel Store | `src/ui/comments/react/panel-store.ts` | 外部 store 实现 `getSnapshot/subscribe` 模式，桥接 background handlers 与 React 渲染 | 理解评论状态如何从 background 流向 React 组件 |
+| WXT / manifest 入口 | `wxt.config.ts` | 版本号、权限、host permissions、entrypointsDir | 它是发布版本和能力边界的代码事实源 |
+| 脚本入口 | `package.json` | `dev`, `compile`, `test`, `build`, `check` | 它定义扩展侧默认验证顺序 |
 
 ## 主要来源与主要产物
 
@@ -59,12 +59,12 @@ SyncNos 现在围绕“异构内容 → 稳定知识资产”展开的是 WebCli
 
 | 场景 | 命令 / 入口 | 结果 |
 | --- | --- | --- |
-| 扩展安装依赖 | `npm --prefix webclipper install` | 安装 WebClipper 依赖 |
-| 扩展类型检查 | `npm --prefix webclipper run compile` | 先发现 TS 类型 / 契约问题 |
-| 扩展单测 | `npm --prefix webclipper run test` | 覆盖游标、IndexedDB 迁移、Markdown 等关键逻辑 |
-| 扩展构建 | `npm --prefix webclipper run build` | 生成 Chrome / Edge 产物 |
-| 扩展 Firefox 构建 | `npm --prefix webclipper run build:firefox` | 生成 Firefox 产物 |
-| 扩展产物校验 | `npm --prefix webclipper run check` | build 后再跑 `check-dist.mjs` 做完整性检查 |
+| 扩展安装依赖 | `npm install` | 安装 WebClipper 依赖 |
+| 扩展类型检查 | `npm run compile` | 先发现 TS 类型 / 契约问题 |
+| 扩展单测 | `npm run test` | 覆盖游标、IndexedDB 迁移、Markdown 等关键逻辑 |
+| 扩展构建 | `npm run build` | 生成 Chrome / Edge 产物 |
+| 扩展 Firefox 构建 | `npm run build:firefox` | 生成 Firefox 产物 |
+| 扩展产物校验 | `npm run check` | build 后再跑 `check-dist.mjs` 做完整性检查 |
 
 ## 图表
 ![WebClipper 输出流程图](assets/repository-flow-01.svg)
@@ -93,34 +93,34 @@ flowchart LR
 ## 来源引用（Source References）
 - `README.md`
 - `AGENTS.md`
-- `webclipper/package.json`
-- `webclipper/wxt.config.ts`
-- `webclipper/src/entrypoints/background.ts`
-- `webclipper/src/entrypoints/content.ts`
-- `webclipper/src/entrypoints/video-transcript-interceptor.content.ts`
-- `webclipper/src/entrypoints/video-transcript-bridge.content.ts`
-- `webclipper/src/ui/comments/react/ThreadedCommentsPanel.tsx`
-- `webclipper/src/ui/comments/react/panel-store.ts`
-- `webclipper/src/ui/comments/react/focus-rules.ts`
-- `webclipper/src/services/comments/domain/comment-metrics.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture.ts`
-- `webclipper/src/ui/settings/sections/VideosSection.tsx`
-- `webclipper/src/ui/settings/SettingsScene.tsx`
-- `webclipper/src/ui/settings/SettingsTopTabsNav.tsx`
-- `webclipper/src/ui/conversations/CapturedListPaneShell.tsx`
-- `webclipper/src/ui/conversations/ConversationsScene.tsx`
-- `webclipper/src/ui/popup/PopupShell.tsx`
-- `webclipper/src/ui/app/AppShell.tsx`
-- `webclipper/src/services/comments/background/handlers.ts`
-- `webclipper/src/services/comments/data/storage-idb.ts`
-- `webclipper/src/services/sync/notion/notion-sync-orchestrator.ts`
-- `webclipper/src/services/sync/obsidian/obsidian-markdown-writer.ts`
-- `webclipper/src/services/sync/backup/export.ts`
-- `webclipper/src/services/sync/backup/import.ts`
-- `webclipper/src/services/sync/backup/backup-utils.ts`
-- `webclipper/src/ui/conversations/ConversationListPane.tsx`
-- `webclipper/src/ui/shared/SelectMenu.tsx`
-- `webclipper/src/viewmodels/settings/insight-stats.ts`
+- `package.json`
+- `wxt.config.ts`
+- `src/entrypoints/background.ts`
+- `src/entrypoints/content.ts`
+- `src/entrypoints/video-transcript-interceptor.content.ts`
+- `src/entrypoints/video-transcript-bridge.content.ts`
+- `src/ui/comments/react/ThreadedCommentsPanel.tsx`
+- `src/ui/comments/react/panel-store.ts`
+- `src/ui/comments/react/focus-rules.ts`
+- `src/services/comments/domain/comment-metrics.ts`
+- `src/services/bootstrap/video-transcript-capture.ts`
+- `src/ui/settings/sections/VideosSection.tsx`
+- `src/ui/settings/SettingsScene.tsx`
+- `src/ui/settings/SettingsTopTabsNav.tsx`
+- `src/ui/conversations/CapturedListPaneShell.tsx`
+- `src/ui/conversations/ConversationsScene.tsx`
+- `src/ui/popup/PopupShell.tsx`
+- `src/ui/app/AppShell.tsx`
+- `src/services/comments/background/handlers.ts`
+- `src/services/comments/data/storage-idb.ts`
+- `src/services/sync/notion/notion-sync-orchestrator.ts`
+- `src/services/sync/obsidian/obsidian-markdown-writer.ts`
+- `src/services/sync/backup/export.ts`
+- `src/services/sync/backup/import.ts`
+- `src/services/sync/backup/backup-utils.ts`
+- `src/ui/conversations/ConversationListPane.tsx`
+- `src/ui/shared/SelectMenu.tsx`
+- `src/viewmodels/settings/insight-stats.ts`
 - `.github/workflows/release.yml`
 - `.github/workflows/webclipper-release.yml`
 

@@ -128,25 +128,25 @@ sequenceDiagram
 | 视频字幕未加载或为空 | `CAPTURE_VIDEO_TRANSCRIPT` / `video-transcript-extract.ts` | 返回空结果或提示“未检测到字幕，未保存”；先确认视频页已开启字幕并等待轨道加载 |
 
 ## 来源引用（Source References）
-- `webclipper/src/platform/messaging/message-contracts.ts`
-- `webclipper/src/platform/messaging/background-router.ts`
-- `webclipper/src/services/conversations/background/handlers.ts`
-- `webclipper/src/services/bootstrap/content-controller.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture.ts`
-- `webclipper/src/services/bootstrap/video-transcript-capture-content-handlers.ts`
-- `webclipper/src/services/sync/background-handlers.ts`
-- `webclipper/src/services/integrations/item-mention/background-handlers.ts`
-- `webclipper/src/services/integrations/item-mention/mention-contract.ts`
-- `webclipper/src/services/integrations/item-mention/mention-search.ts`
-- `webclipper/src/services/sync/notion/auth/oauth.ts`
-- `webclipper/src/services/sync/notion/auth/token-store.ts`
-- `webclipper/src/services/sync/notion/settings-background-handlers.ts`
-- `webclipper/src/services/sync/notion/notion-parent-pages.ts`
-- `webclipper/src/services/sync/notion/notion-sync-orchestrator.ts`
-- `webclipper/src/services/sync/obsidian/obsidian-sync-orchestrator.ts`
-- `webclipper/cloudflare-workers/syncnos-notion-oauth/index.ts`
-- `webclipper/src/services/bootstrap/current-page-capture.ts`
-- `webclipper/src/platform/messaging/ui-background-handlers.ts`
+- `src/platform/messaging/message-contracts.ts`
+- `src/platform/messaging/background-router.ts`
+- `src/services/conversations/background/handlers.ts`
+- `src/services/bootstrap/content-controller.ts`
+- `src/services/bootstrap/video-transcript-capture.ts`
+- `src/services/bootstrap/video-transcript-capture-content-handlers.ts`
+- `src/services/sync/background-handlers.ts`
+- `src/services/integrations/item-mention/background-handlers.ts`
+- `src/services/integrations/item-mention/mention-contract.ts`
+- `src/services/integrations/item-mention/mention-search.ts`
+- `src/services/sync/notion/auth/oauth.ts`
+- `src/services/sync/notion/auth/token-store.ts`
+- `src/services/sync/notion/settings-background-handlers.ts`
+- `src/services/sync/notion/notion-parent-pages.ts`
+- `src/services/sync/notion/notion-sync-orchestrator.ts`
+- `src/services/sync/obsidian/obsidian-sync-orchestrator.ts`
+- `cloudflare-workers/syncnos-notion-oauth/index.ts`
+- `src/services/bootstrap/current-page-capture.ts`
+- `src/platform/messaging/ui-background-handlers.ts`
 
 ## 更新记录（Update Notes）
 - 2026-04-18：补充 `CONTENT_MESSAGE_TYPES.CAPTURE_VIDEO_TRANSCRIPT` 与字幕未加载时的失败模式，确保 API 页能解释视频字幕采集的 content 指令。

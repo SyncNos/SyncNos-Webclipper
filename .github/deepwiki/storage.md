@@ -116,36 +116,36 @@ export const DB_VERSION = 8;
 ```
 
 ## 来源引用（Source References）
-- `webclipper/src/platform/idb/schema.ts`
-- `webclipper/src/services/conversations/data/storage-idb.ts`
-- `webclipper/src/viewmodels/settings/useSettingsSceneController.ts`
-- `webclipper/src/viewmodels/settings/insight-stats.ts`
-- `webclipper/src/services/integrations/chatwith/chatwith-settings.ts`
-- `webclipper/src/services/conversations/background/handlers.ts`
-- `webclipper/src/services/conversations/background/image-backfill-job.ts`
-- `webclipper/src/services/comments/background/handlers.ts`
-- `webclipper/src/services/comments/client/repo.ts`
-- `webclipper/src/services/comments/data/storage-idb.ts`
-- `webclipper/src/viewmodels/conversations/conversations-context.tsx`
-- `webclipper/src/ui/conversations/ArticleCommentsSection.tsx`
-- `webclipper/src/services/comments/threaded-comments-panel.ts`
-- `webclipper/src/ui/inpage/inpage-comments-panel-shadow.ts`
-- `webclipper/src/platform/messaging/message-contracts.ts`
-- `webclipper/src/viewmodels/settings/types.ts`
-- `webclipper/src/ui/conversations/ConversationListPane.tsx`
-- `webclipper/src/ui/conversations/pending-open.ts`
-- `webclipper/src/ui/app/AppShell.tsx`
-- `webclipper/src/services/sync/backup/export.ts`
-- `webclipper/src/services/sync/backup/import.ts`
-- `webclipper/src/services/sync/backup/backup-utils.ts`
-- `webclipper/src/ui/settings/sections/BackupSection.tsx`
-- `webclipper/tests/domains/backup-article-comments.test.ts`
-- `webclipper/tests/storage/schema-migration.test.ts`
-- `webclipper/tests/storage/article-comments-idb.test.ts`
-- `webclipper/tests/storage/insight-stats.test.ts`
-- `webclipper/src/services/protocols/conversation-kinds.ts`
-- `webclipper/src/services/url-cleaning/video-url.ts`
-- `webclipper/tests/smoke/video-kind.test.ts`
+- `src/platform/idb/schema.ts`
+- `src/services/conversations/data/storage-idb.ts`
+- `src/viewmodels/settings/useSettingsSceneController.ts`
+- `src/viewmodels/settings/insight-stats.ts`
+- `src/services/integrations/chatwith/chatwith-settings.ts`
+- `src/services/conversations/background/handlers.ts`
+- `src/services/conversations/background/image-backfill-job.ts`
+- `src/services/comments/background/handlers.ts`
+- `src/services/comments/client/repo.ts`
+- `src/services/comments/data/storage-idb.ts`
+- `src/viewmodels/conversations/conversations-context.tsx`
+- `src/ui/conversations/ArticleCommentsSection.tsx`
+- `src/services/comments/threaded-comments-panel.ts`
+- `src/ui/inpage/inpage-comments-panel-shadow.ts`
+- `src/platform/messaging/message-contracts.ts`
+- `src/viewmodels/settings/types.ts`
+- `src/ui/conversations/ConversationListPane.tsx`
+- `src/ui/conversations/pending-open.ts`
+- `src/ui/app/AppShell.tsx`
+- `src/services/sync/backup/export.ts`
+- `src/services/sync/backup/import.ts`
+- `src/services/sync/backup/backup-utils.ts`
+- `src/ui/settings/sections/BackupSection.tsx`
+- `tests/domains/backup-article-comments.test.ts`
+- `tests/storage/schema-migration.test.ts`
+- `tests/storage/article-comments-idb.test.ts`
+- `tests/storage/insight-stats.test.ts`
+- `src/services/protocols/conversation-kinds.ts`
+- `src/services/url-cleaning/video-url.ts`
+- `tests/smoke/video-kind.test.ts`
 
 ## 更新记录（Update Notes）
 - 2026-04-18：补充 `video` conversation 的存储语义，明确 `sourceType='video'` 会落到 `SyncNos-Videos`，但不新增独立 `chrome.storage.local` 键。

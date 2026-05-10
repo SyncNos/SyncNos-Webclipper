@@ -2,8 +2,8 @@
 
 ## 摘要
 - **正式入口**：先读 [business-context.md](business-context.md)，先建立产品语义，再进入仓库结构与实现细节。
-- **仓库形态**：`macOS/` 仅保留历史资料；`webclipper/` 是当前活动的浏览器扩展，两者围绕“把异构内容整理为稳定知识资产”展开，但运行时、存储和用户动作完全不同。
-- **关键入口**：扩展入口是 `webclipper/src/entrypoints/background.ts` + `webclipper/src/entrypoints/content.ts`；发布入口是 `.github/workflows/*.yml` 与 `.github/scripts/webclipper/*.mjs`。
+- **仓库形态**：当前仓库根目录就是 WebClipper（浏览器扩展）；iOS/macOS/CLI 已拆分到独立仓库，本仓库只维护扩展与交付链路。
+- **关键入口**：扩展入口是 `src/entrypoints/background.ts` + `src/entrypoints/content.ts`；发布入口是 `.github/workflows/*.yml` 与 `.github/scripts/webclipper/*.mjs`。
 - **稳定事实源**：版本、权限、配置、迁移规则请以 `wxt.config.ts`、`schema.ts`、workflow 与脚本为准；本索引不再保留按日期堆叠的变更流水。
 - **如何使用本索引**：如果你先想理解“产品做什么”，走 business-first；如果你已经准备改代码，走 engineering-first；如果你要发版本，走 release-first。
 

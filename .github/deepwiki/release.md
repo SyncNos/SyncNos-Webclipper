@@ -60,7 +60,7 @@ macOS/ 历史资料已归档；本页仅保留 WebClipper 的发布主线。
 
 | 产物 | 典型名称 | 生成位置 | 去向 |
 | --- | --- | --- | --- |
-| Chrome zip | `syncnos-webclipper-chrome-<tag>.zip` / `SyncNos-WebClipper-chrome-<tag>.zip` | `webclipper/` 或 workflow 临时目录 | GitHub Release / Chrome Web Store |
+| Chrome zip | `syncnos-webclipper-chrome-<tag>.zip` / `SyncNos-WebClipper-chrome-<tag>.zip` | 仓库根目录或 workflow 临时目录 | GitHub Release / Chrome Web Store |
 | Edge zip | `syncnos-webclipper-edge-<tag>.zip` | 同上 | GitHub Release |
 | Firefox XPI | `syncnos-webclipper-firefox-<tag>.xpi` / `SyncNos-WebClipper-firefox.xpi` | 同上 | GitHub Release / AMO |
 | AMO Source zip | `SyncNos-WebClipper-amo-source.zip` | 同上 | AMO reviewer source |
@@ -86,8 +86,8 @@ macOS/ 历史资料已归档；本页仅保留 WebClipper 的发布主线。
 
 ## 来源引用（Source References）
 - `README.md`
-- `webclipper/package.json`
-- `webclipper/wxt.config.ts`
+- `package.json`
+- `wxt.config.ts`
 - `.github/workflows/release.yml`
 - `.github/workflows/webclipper-release.yml`
 - `.github/workflows/webclipper-amo-publish.yml`

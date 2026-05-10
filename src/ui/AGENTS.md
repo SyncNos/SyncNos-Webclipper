@@ -155,22 +155,22 @@
 
 ## B0 · UI 分层边界（强约束）
 
-`webclipper/src/ui/**` 只负责 UI（组件/样式/DOM 面板），不承载业务流程与平台交互。
+`src/ui/**` 只负责 UI（组件/样式/DOM 面板），不承载业务流程与平台交互。
 
 - **UI 允许：**
   - React 组件、样式、布局、交互事件绑定
   - 极薄的 UI glue（将事件/输入转发给 viewmodel）
 - **UI 禁止：**
-  - 直接 import `webclipper/src/platform/**`（例如 `runtime.send`、`connectPort`、`storageGet/storageSet`、`tabsCreate` 等）
+  - 直接 import `src/platform/**`（例如 `runtime.send`、`connectPort`、`storageGet/storageSet`、`tabsCreate` 等）
   - 在 UI 文件中做可复用业务逻辑（应下沉到 `src/services/**`）
 - **ViewModel 与 Service：**
-  - ViewModel 放在 `webclipper/src/viewmodels/**`：只做 UI 状态编排并调用 service
-  - Service 放在 `webclipper/src/services/**`：承接业务流程与平台交互
+  - ViewModel 放在 `src/viewmodels/**`：只做 UI 状态编排并调用 service
+  - Service 放在 `src/services/**`：承接业务流程与平台交互
 
 验证命令（手动）：
 
-- `rg -n "src/platform|/platform/" webclipper/src/ui`
-- `npm --prefix webclipper run compile`
+- `rg -n "src/platform|/platform/" src/ui`
+- `npm run compile`
 
 ## B1 · CSS Variables
 
@@ -267,9 +267,9 @@
 
 **规范：**
 
-1. **按钮 class 不手写**：优先复用 `webclipper/src/ui/shared/button-styles.ts` 的 `buttonTintClassName()` / `buttonFilledClassName()` / `buttonDanger*ClassName()`。
+1. **按钮 class 不手写**：优先复用 `src/ui/shared/button-styles.ts` 的 `buttonTintClassName()` / `buttonFilledClassName()` / `buttonDanger*ClassName()`。
 2. **默认按钮就是 `webclipper-btn`**：`buttonTintClassName()` 返回的就是 `webclipper-btn`（不再存在 `webclipper-btn--tint` 这类分叉）。
-3. **按钮真源**：`webclipper/src/ui/styles/buttons.css`（`webclipper-btn` + 少量 modifier；bevel 用两条 inset strokes；`:active` 时反转 + 下压，并包含统一过渡）。
+3. **按钮真源**：`src/ui/styles/buttons.css`（`webclipper-btn` + 少量 modifier；bevel 用两条 inset strokes；`:active` 时反转 + 下压，并包含统一过渡）。
 4. **按下态（active）**：把两条 inset 的颜色对调（反转），并 `translateY(1px)`。
 5. **主题兼容**：stroke 色值用 `color-mix()` 从当前 surface token（`--bg-card` / `--accent` / `--error`）派生，禁止硬编码亮暗色值。
 6. **选中态走 aria**：toggle 用 `aria-pressed='true'`；`SelectMenu` 的选中项用 `aria-checked='true'`（样式在 `buttons.css` 统一处理）。
@@ -277,7 +277,7 @@
 
 ### B2.2 · 同心圆角分级（Concentric Radius）
 
-WebClipper 圆角必须统一复用 `webclipper/src/ui/styles/tokens.css` 的半径 token，按“外层到内层递减”的同心关系落位：
+WebClipper 圆角必须统一复用 `src/ui/styles/tokens.css` 的半径 token，按“外层到内层递减”的同心关系落位：
 
 | Token              | 语义层级        | 典型组件                             |
 | ------------------ | --------------- | ------------------------------------ |
@@ -296,12 +296,12 @@ WebClipper 圆角必须统一复用 `webclipper/src/ui/styles/tokens.css` 的半
 4. 白名单仅允许：
 
 - `border-radius: 0`（用于 reset / 去圆角场景）
-- `webclipper/src/ui/example.html`（视觉示例页，不参与运行时 UI 契约）
+- `src/ui/example.html`（视觉示例页，不参与运行时 UI 契约）
 
 自检命令（手动）：
 
-- `rg -n "border-radius:\\s*[0-9]|tw-rounded-\\[" webclipper/src/ui webclipper/src/entrypoints`
-- `rg -n -- "--radius-" webclipper/src/ui/styles/tokens.css`
+- `rg -n "border-radius:\\s*[0-9]|tw-rounded-\\[" src/ui src/entrypoints`
+- `rg -n -- "--radius-" src/ui/styles/tokens.css`
 
 ## B3 · 插件 UI 与宣传图的差异
 
