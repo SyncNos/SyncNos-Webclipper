@@ -75,6 +75,10 @@ const FALLBACK_ARTICLE_DB_SPEC = {
   title: 'SyncNos-Web Articles',
   storageKey: 'notion_db_id_syncnos_web_articles',
 } as const;
+const FALLBACK_VIDEO_DB_SPEC = {
+  title: 'SyncNos-Videos',
+  storageKey: 'notion_db_id_syncnos_videos',
+} as const;
 
 function getKindDbSpec(kindId: string, fallback: { title: string; storageKey: string }) {
   try {
@@ -218,9 +222,11 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [notionAiModelIndex, setNotionAiModelIndex] = useState<string>('');
   const chatDbSpec = useMemo(() => getKindDbSpec('chat', FALLBACK_CHAT_DB_SPEC), []);
   const articleDbSpec = useMemo(() => getKindDbSpec('article', FALLBACK_ARTICLE_DB_SPEC), []);
+  const videoDbSpec = useMemo(() => getKindDbSpec('video', FALLBACK_VIDEO_DB_SPEC), []);
   const [notionAdvancedOpen, setNotionAdvancedOpen] = useState(false);
   const [notionChatDatabaseId, setNotionChatDatabaseId] = useState<string>('');
   const [notionArticleDatabaseId, setNotionArticleDatabaseId] = useState<string>('');
+  const [notionVideoDatabaseId, setNotionVideoDatabaseId] = useState<string>('');
 
   // Inpage
   const [inpageDisplayMode, setInpageDisplayMode] = useState<InpageDisplayMode>('all');
@@ -328,6 +334,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setNotionAiModelIndex(String(local?.notion_ai_preferred_model_index || ''));
     setNotionChatDatabaseId(String(local?.[chatDbSpec.storageKey] || ''));
     setNotionArticleDatabaseId(String(local?.[articleDbSpec.storageKey] || ''));
+    setNotionVideoDatabaseId(String(local?.[videoDbSpec.storageKey] || ''));
     setNotionSyncEnabled(local?.[NOTION_SYNC_PROVIDER_ENABLED_KEY] !== false);
     setObsidianSyncEnabled(local?.[OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY] !== false);
 
@@ -361,7 +368,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       Array.isArray(chatWith.platforms) ? (chatWith.platforms as any) : DEFAULT_CHAT_WITH_PLATFORMS.slice(),
     );
     chatWithHydratedRef.current = true;
-  }, [articleDbSpec.storageKey, chatDbSpec.storageKey]);
+  }, [articleDbSpec.storageKey, chatDbSpec.storageKey, videoDbSpec.storageKey]);
 
   const refresh = useCallback(async () => {
     await runTask(refreshInternal);
@@ -619,37 +626,40 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   }, []);
 
   const onSaveNotionDatabaseId = useCallback(
-    async (kind: 'chat' | 'article') => {
-      const spec = kind === 'chat' ? chatDbSpec : articleDbSpec;
-      const raw = kind === 'chat' ? notionChatDatabaseId : notionArticleDatabaseId;
+    async (kind: 'chat' | 'article' | 'video') => {
+      const spec = kind === 'chat' ? chatDbSpec : kind === 'article' ? articleDbSpec : videoDbSpec;
+      const raw =
+        kind === 'chat' ? notionChatDatabaseId : kind === 'article' ? notionArticleDatabaseId : notionVideoDatabaseId;
       const next = String(raw || '').trim();
 
       await runTask(
         async () => {
           await storageSet({ [spec.storageKey]: next });
           if (kind === 'chat') setNotionChatDatabaseId(next);
-          else setNotionArticleDatabaseId(next);
+          else if (kind === 'article') setNotionArticleDatabaseId(next);
+          else setNotionVideoDatabaseId(next);
         },
         { fallbackMessage: 'save notion database id failed' },
       );
     },
-    [articleDbSpec, chatDbSpec, notionArticleDatabaseId, notionChatDatabaseId, runTask],
+    [articleDbSpec, chatDbSpec, notionArticleDatabaseId, notionChatDatabaseId, notionVideoDatabaseId, runTask, videoDbSpec],
   );
 
   const onResetNotionDatabaseId = useCallback(
-    async (kind: 'chat' | 'article') => {
-      const spec = kind === 'chat' ? chatDbSpec : articleDbSpec;
+    async (kind: 'chat' | 'article' | 'video') => {
+      const spec = kind === 'chat' ? chatDbSpec : kind === 'article' ? articleDbSpec : videoDbSpec;
 
       await runTask(
         async () => {
           await storageRemove([spec.storageKey]);
           if (kind === 'chat') setNotionChatDatabaseId('');
-          else setNotionArticleDatabaseId('');
+          else if (kind === 'article') setNotionArticleDatabaseId('');
+          else setNotionVideoDatabaseId('');
         },
         { fallbackMessage: 'reset notion database id failed' },
       );
     },
-    [articleDbSpec, chatDbSpec, runTask],
+    [articleDbSpec, chatDbSpec, runTask, videoDbSpec],
   );
 
   const onSaveObsidianSettings = useCallback(
@@ -1095,8 +1105,11 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setNotionChatDatabaseId,
     notionArticleDatabaseId,
     setNotionArticleDatabaseId,
+    notionVideoDatabaseId,
+    setNotionVideoDatabaseId,
     notionChatDatabaseLabel: chatDbSpec.title,
     notionArticleDatabaseLabel: articleDbSpec.title,
+    notionVideoDatabaseLabel: videoDbSpec.title,
     onSaveNotionDatabaseId,
     onResetNotionDatabaseId,
     notionAiRef,

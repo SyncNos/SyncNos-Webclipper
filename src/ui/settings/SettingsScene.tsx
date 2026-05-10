@@ -53,8 +53,11 @@ export function SettingsScene(props: SettingsSceneProps) {
     setNotionChatDatabaseId,
     notionArticleDatabaseId,
     setNotionArticleDatabaseId,
+    notionVideoDatabaseId,
+    setNotionVideoDatabaseId,
     notionChatDatabaseLabel,
     notionArticleDatabaseLabel,
+    notionVideoDatabaseLabel,
     notionPageOptions,
     notionStatusText,
     onSaveNotionAiModelIndex,
@@ -155,8 +158,10 @@ export function SettingsScene(props: SettingsSceneProps) {
             notionParentPageId={notionParentPageId}
             notionChatDatabaseId={notionChatDatabaseId}
             notionArticleDatabaseId={notionArticleDatabaseId}
+            notionVideoDatabaseId={notionVideoDatabaseId}
             notionChatDatabaseLabel={notionChatDatabaseLabel}
             notionArticleDatabaseLabel={notionArticleDatabaseLabel}
+            notionVideoDatabaseLabel={notionVideoDatabaseLabel}
             notionPageOptions={notionPageOptions}
             notionLogoUrl={getURL('icons/notion.svg' as any)}
             onToggleSyncEnabled={(enabled) => {
@@ -173,6 +178,7 @@ export function SettingsScene(props: SettingsSceneProps) {
             }}
             onChangeNotionChatDatabaseId={setNotionChatDatabaseId}
             onChangeNotionArticleDatabaseId={setNotionArticleDatabaseId}
+            onChangeNotionVideoDatabaseId={setNotionVideoDatabaseId}
             onSaveNotionDatabaseId={(kind) => {
               void onSaveNotionDatabaseId(kind);
             }}
