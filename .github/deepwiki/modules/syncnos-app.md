@@ -1,1 +1,0 @@
-SyncNos 的 SwiftUI macOS App 已归档，历史说明仅供查阅，不再继续更新。
