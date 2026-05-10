@@ -1,13 +1,16 @@
 # 仓库指南
 
-SyncNos 目前以 `webclipper/` 为活动主线；`macOS/` 仅保留历史说明。
+本仓库以 `webclipper/` 为活动主线；Apple 客户端已拆分至独立仓库：
+
+- iOS: `SyncNos/SyncNos-Health`
+- macOS: `SyncNos/SyncNos-booknotes`
 
 ## 项目结构
 
 ```
 SyncNos/
-├── macOS/                       # 已归档历史代码
 ├── webclipper/                  # 当前活动的 Browser Extension (MV3)
+├── cli/                         # CLI / 工具
 ├── .github/                     # 开发指南、deepwiki 与 CI
 └── README.md
 ```
@@ -39,7 +42,7 @@ npm --prefix webclipper run check            # 产物校验
 - 开始任何仓库级理解、规划、评审或文档改动前，先读 `.github/deepwiki/business-context.md`；需要继续展开时，再从 `.github/deepwiki/INDEX.md` 进入对应专题页。
 - 一般情况下不需要全量通读 `.github/deepwiki/`；按 `.github/deepwiki/INDEX.md` 导航到最小必要页面即可。
 - 修改 `webclipper/` 时，优先查看 `.github/deepwiki/modules/webclipper.md`、`webclipper/AGENTS.md`，先确认变更属于 `background`、`content`、`popup` 还是 `app`。
-- `macOS/` 仅保留历史说明，不再作为当前代码更新目标。
+- iOS/macOS 相关内容已迁移到独立仓库，本仓库不再承载 Apple 客户端代码更新。
 - 若改动影响共享业务说明或仓库级入口文档，代码确认后同步更新相关 `AGENTS.md`、`.github/deepwiki/INDEX.md`、`.github/deepwiki/business-context.md` 与 `README.md`。
 
 ### WebClipper 工作流
