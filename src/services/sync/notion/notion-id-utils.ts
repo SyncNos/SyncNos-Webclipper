@@ -51,4 +51,3 @@ export function normalizeNotionDatabaseIdInput(input: string): string {
 
   return pickLastNotionIdFromText(raw);
 }
-

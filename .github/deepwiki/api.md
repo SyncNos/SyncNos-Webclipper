@@ -1,58 +1,60 @@
 # API 与消息契约
 
 ## 页面目标
+
 本页覆盖两类 API：
+
 1. **扩展内部消息 API**（content/popup/app 与 background 间的协议）
 2. **外部集成 API**（Notion、Obsidian Local REST、Cloudflare OAuth Worker）
 
 ## 内部消息契约总览
 
-| 契约组 | 常量定义 | 典型用途 | 调用方 |
-| --- | --- | --- | --- |
-| CORE | `CORE_MESSAGE_TYPES` | conversation CRUD、列表分页、消息同步、图片回填 | popup/app/content -> background |
-| NOTION | `NOTION_MESSAGE_TYPES` | 授权状态、Parent Page 列表、手动同步、job 状态、断开连接 | settings/conversations -> background |
-| OBSIDIAN | `OBSIDIAN_MESSAGE_TYPES` | 设置保存、连接测试、同步 | settings/conversations -> background |
-| ARTICLE | `ARTICLE_MESSAGE_TYPES` | 当前标签页正文抓取 | popup -> background |
-| CHATGPT | `CHATGPT_MESSAGE_TYPES` | 提取 deep research / 结构化内容 | content -> background |
-| CURRENT_PAGE | `CURRENT_PAGE_MESSAGE_TYPES` | 当前页捕获状态与触发 | popup/content |
-| ITEM_MENTION | `ITEM_MENTION_MESSAGE_TYPES` | `$ mention` 候选搜索、插入文本构建 | content -> background |
-| COMMENTS | `COMMENTS_MESSAGE_TYPES` | article comments 线程的 list/add/delete/migrate | detail/inpage panel -> background |
-| UI | `UI_MESSAGE_TYPES` + `UI_EVENT_TYPES` | 打开 popup、打开 inpage comments panel、状态广播 | background <-> UI |
-| CONTENT（非 router） | `CONTENT_MESSAGE_TYPES` | background -> content script 指令（例如打开 inpage comments panel） | background -> content |
-| CONTENT（非 router） | `CONTENT_MESSAGE_TYPES.CAPTURE_VIDEO_TRANSCRIPT` | 触发字幕拦截后的 video 会话写入 | background -> content |
+| 契约组               | 常量定义                                         | 典型用途                                                            | 调用方                               |
+| -------------------- | ------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------ |
+| CORE                 | `CORE_MESSAGE_TYPES`                             | conversation CRUD、列表分页、消息同步、图片回填                     | popup/app/content -> background      |
+| NOTION               | `NOTION_MESSAGE_TYPES`                           | 授权状态、Parent Page 列表、手动同步、job 状态、断开连接            | settings/conversations -> background |
+| OBSIDIAN             | `OBSIDIAN_MESSAGE_TYPES`                         | 设置保存、连接测试、同步                                            | settings/conversations -> background |
+| ARTICLE              | `ARTICLE_MESSAGE_TYPES`                          | 当前标签页正文抓取                                                  | popup -> background                  |
+| CHATGPT              | `CHATGPT_MESSAGE_TYPES`                          | 提取 deep research / 结构化内容                                     | content -> background                |
+| CURRENT_PAGE         | `CURRENT_PAGE_MESSAGE_TYPES`                     | 当前页捕获状态与触发                                                | popup/content                        |
+| ITEM_MENTION         | `ITEM_MENTION_MESSAGE_TYPES`                     | `$ mention` 候选搜索、插入文本构建                                  | content -> background                |
+| COMMENTS             | `COMMENTS_MESSAGE_TYPES`                         | article comments 线程的 list/add/delete/migrate                     | detail/inpage panel -> background    |
+| UI                   | `UI_MESSAGE_TYPES` + `UI_EVENT_TYPES`            | 打开 popup、打开 inpage comments panel、状态广播                    | background <-> UI                    |
+| CONTENT（非 router） | `CONTENT_MESSAGE_TYPES`                          | background -> content script 指令（例如打开 inpage comments panel） | background -> content                |
+| CONTENT（非 router） | `CONTENT_MESSAGE_TYPES.CAPTURE_VIDEO_TRANSCRIPT` | 触发字幕拦截后的 video 会话写入                                     | background -> content                |
 
 ## CORE 关键消息
 
-| 消息类型 | 入参关键字段 | 返回 | 说明 |
-| --- | --- | --- | --- |
-| `upsertConversation` | `payload.source`, `payload.conversationKey` | `conversation + __isNew` | 会话主记录 upsert |
-| `mergeConversations` | `keepConversationId`, `removeConversationId` | merge result | 合并两条会话（消息与缓存随之迁移） |
-| `syncConversationMessages` | `conversationId`, `messages`, `mode`, `diff` | 写入结果 | 可触发图片内联与增量写入 |
-| `backfillConversationImages` | `conversationId`, `conversationUrl` | `updatedMessages`, `downloadedCount` 等 | 历史消息图片回填 |
-| `getConversationListBootstrap` | `query{sourceKey,siteKey,limit?}` | 列表第一页 + cursor | 会话列表入口（bootstrap） |
-| `getConversationListPage` | `query`, `cursor{lastCapturedAt,id}`, `limit?` | 列表分页 + cursor | 会话列表分页 |
-| `findConversationBySourceAndKey` | `source`, `conversationKey` | conversation 或 `null` | 以“来源 + 会话 key”定位会话 |
-| `findConversationById` | `conversationId` | conversation 或 `null` | 以 id 定位会话 |
-| `getConversationDetail` | `conversationId` | 详情 + messages | 详情页入口 |
-| `deleteConversations` | `conversationIds[]` | 删除结果 | 同步删除会话、消息与 mapping |
+| 消息类型                         | 入参关键字段                                   | 返回                                    | 说明                               |
+| -------------------------------- | ---------------------------------------------- | --------------------------------------- | ---------------------------------- |
+| `upsertConversation`             | `payload.source`, `payload.conversationKey`    | `conversation + __isNew`                | 会话主记录 upsert                  |
+| `mergeConversations`             | `keepConversationId`, `removeConversationId`   | merge result                            | 合并两条会话（消息与缓存随之迁移） |
+| `syncConversationMessages`       | `conversationId`, `messages`, `mode`, `diff`   | 写入结果                                | 可触发图片内联与增量写入           |
+| `backfillConversationImages`     | `conversationId`, `conversationUrl`            | `updatedMessages`, `downloadedCount` 等 | 历史消息图片回填                   |
+| `getConversationListBootstrap`   | `query{sourceKey,siteKey,limit?}`              | 列表第一页 + cursor                     | 会话列表入口（bootstrap）          |
+| `getConversationListPage`        | `query`, `cursor{lastCapturedAt,id}`, `limit?` | 列表分页 + cursor                       | 会话列表分页                       |
+| `findConversationBySourceAndKey` | `source`, `conversationKey`                    | conversation 或 `null`                  | 以“来源 + 会话 key”定位会话        |
+| `findConversationById`           | `conversationId`                               | conversation 或 `null`                  | 以 id 定位会话                     |
+| `getConversationDetail`          | `conversationId`                               | 详情 + messages                         | 详情页入口                         |
+| `deleteConversations`            | `conversationIds[]`                            | 删除结果                                | 同步删除会话、消息与 mapping       |
 
 ## NOTION 关键消息
 
-| 消息类型 | 入参关键字段 | 返回 | 说明 |
-| --- | --- | --- | --- |
-| `getNotionAuthStatus` | 无 | `{ connected, workspaceName, token }` | 查询 Notion 连接状态；`token` 为完整 token（用于调试与 UI 展示 workspace 名），请避免在日志里输出 `accessToken` |
-| `listNotionParentPages` | 无 | `{ pages, resolvedSaved }` | 拉取可用 Parent Page 列表；`pages[]` 为 `{id,title}`，`resolvedSaved` 用于确保“已保存 page id”在当前列表中可展示（即使不在搜索结果里） |
-| `notionDisconnect` | 无 | `{ disconnected: true, clearedKeys: string[] }` | 断开连接：清理 token，并移除 Parent Page、OAuth 临时状态、Notion DB 缓存与 sync job 等相关存储键 |
-| `notionSyncConversations` | `conversationIds[]` | `{ started: true, provider: 'notion' }` | 手动同步指定会话；依赖已连接 token + 已选择 `notion_parent_page_id`；若 provider 被禁用会返回 extra `{code:'sync_provider_disabled',provider:'notion'}` |
-| `getNotionSyncJobStatus` | 无 | `{ provider: 'notion', job, instanceId }` | 查询后台同步 job 状态（running / done / error 等以 job store 为准） |
-| `clearNotionSyncJobStatus` | 无 | `{ provider: 'notion', job: null, instanceId }` | 清空同步状态，便于 UI 重置提示 |
+| 消息类型                   | 入参关键字段        | 返回                                            | 说明                                                                                                                                                    |
+| -------------------------- | ------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getNotionAuthStatus`      | 无                  | `{ connected, workspaceName, token }`           | 查询 Notion 连接状态；`token` 为完整 token（用于调试与 UI 展示 workspace 名），请避免在日志里输出 `accessToken`                                         |
+| `listNotionParentPages`    | 无                  | `{ pages, resolvedSaved }`                      | 拉取可用 Parent Page 列表；`pages[]` 为 `{id,title}`，`resolvedSaved` 用于确保“已保存 page id”在当前列表中可展示（即使不在搜索结果里）                  |
+| `notionDisconnect`         | 无                  | `{ disconnected: true, clearedKeys: string[] }` | 断开连接：清理 token，并移除 Parent Page、OAuth 临时状态、Notion DB 缓存与 sync job 等相关存储键                                                        |
+| `notionSyncConversations`  | `conversationIds[]` | `{ started: true, provider: 'notion' }`         | 手动同步指定会话；依赖已连接 token + 已选择 `notion_parent_page_id`；若 provider 被禁用会返回 extra `{code:'sync_provider_disabled',provider:'notion'}` |
+| `getNotionSyncJobStatus`   | 无                  | `{ provider: 'notion', job, instanceId }`       | 查询后台同步 job 状态（running / done / error 等以 job store 为准）                                                                                     |
+| `clearNotionSyncJobStatus` | 无                  | `{ provider: 'notion', job: null, instanceId }` | 清空同步状态，便于 UI 重置提示                                                                                                                          |
 
 ## ITEM_MENTION（$ mention）关键消息
 
-| 消息类型 | 入参关键字段 | 返回 | 说明 |
-| --- | --- | --- | --- |
-| `searchMentionCandidates` | `query`/`text`, `limit?` | `{query,candidates,scannedCount,truncatedByScanLimit}` | 从本地会话库检索候选并排序；为避免大库阻塞，background 侧会对扫描量与时间做上限 |
-| `buildMentionInsertText` | `conversationId` | `{conversationId,markdown}` | 从本地 conversation detail 构建可插入的 Markdown；常见错误码：`INVALID_ARGUMENT` / `NOT_FOUND` / `EMPTY_DETAIL` |
+| 消息类型                  | 入参关键字段             | 返回                                                   | 说明                                                                                                            |
+| ------------------------- | ------------------------ | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `searchMentionCandidates` | `query`/`text`, `limit?` | `{query,candidates,scannedCount,truncatedByScanLimit}` | 从本地会话库检索候选并排序；为避免大库阻塞，background 侧会对扫描量与时间做上限                                 |
+| `buildMentionInsertText`  | `conversationId`         | `{conversationId,markdown}`                            | 从本地 conversation detail 构建可插入的 Markdown；常见错误码：`INVALID_ARGUMENT` / `NOT_FOUND` / `EMPTY_DETAIL` |
 
 ## UI / CONTENT：打开页面内评论侧边栏（inpage comments panel）
 
@@ -66,28 +68,28 @@
 
 ## 外部 API 矩阵
 
-| API | 入口 | 方法 | 关键参数 | 关键响应 |
-| --- | --- | --- | --- | --- |
-| Notion OAuth authorize | `https://api.notion.com/v1/oauth/authorize` | GET | `client_id`, `redirect_uri`, `state` | 授权码回调 |
-| OAuth code exchange（worker） | `/notion/oauth/exchange` | POST JSON | `code`, `redirectUri` | `access_token` JSON |
-| Notion API | `https://api.notion.com/*` | HTTPS | token + Parent Page + DB/page payload | 数据库/页面/block 读写 |
-| Obsidian Local REST API | `http://127.0.0.1:27123/*`（可配置） | HTTP | API Key + path/body | 文件写入、patch、open |
+| API                           | 入口                                        | 方法      | 关键参数                              | 关键响应               |
+| ----------------------------- | ------------------------------------------- | --------- | ------------------------------------- | ---------------------- |
+| Notion OAuth authorize        | `https://api.notion.com/v1/oauth/authorize` | GET       | `client_id`, `redirect_uri`, `state`  | 授权码回调             |
+| OAuth code exchange（worker） | `/notion/oauth/exchange`                    | POST JSON | `code`, `redirectUri`                 | `access_token` JSON    |
+| Notion API                    | `https://api.notion.com/*`                  | HTTPS     | token + Parent Page + DB/page payload | 数据库/页面/block 读写 |
+| Obsidian Local REST API       | `http://127.0.0.1:27123/*`（可配置）        | HTTP      | API Key + path/body                   | 文件写入、patch、open  |
 
 ## Notion OAuth Worker 交换流程
 
-| 阶段 | 入口 / 文件 | 关键点 |
-| --- | --- | --- |
+| 阶段         | 入口 / 文件                                                                    | 关键点                                                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 用户发起授权 | `src/viewmodels/settings/useSettingsSceneController.ts` + Notion authorize URL | UI 生成随机 `state` 并写入 `notion_oauth_pending_state`，同时清空 `notion_oauth_last_error`；随后打开 `authorizationUrl=https://api.notion.com/v1/oauth/authorize` |
-| 回调拦截 | `handleNotionOAuthCallbackNavigation()` | background 仅处理 `redirectUri=https://chiimagnus.github.io/syncnos-oauth/callback`，并校验 `state` 一致；失败会写入 `notion_oauth_last_error` 并清理 pending key |
-| code 交换 | Worker `index.ts` | 扩展向 `/notion/oauth/exchange` 发送 `{ code, redirectUri }`；Worker 在服务端用 `NOTION_CLIENT_ID/SECRET` 调 Notion token endpoint |
-| token 入库 | `setNotionOAuthToken()` | 扩展仅持久化 `access_token` 与 workspace 信息，不落地 `client_secret`；code exchange 采用 `12s timeout + 2 次尝试`（仅对 transient 错误重试） |
+| 回调拦截     | `handleNotionOAuthCallbackNavigation()`                                        | background 仅处理 `redirectUri=https://chiimagnus.github.io/syncnos-oauth/callback`，并校验 `state` 一致；失败会写入 `notion_oauth_last_error` 并清理 pending key  |
+| code 交换    | Worker `index.ts`                                                              | 扩展向 `/notion/oauth/exchange` 发送 `{ code, redirectUri }`；Worker 在服务端用 `NOTION_CLIENT_ID/SECRET` 调 Notion token endpoint                                 |
+| token 入库   | `setNotionOAuthToken()`                                                        | 扩展仅持久化 `access_token` 与 workspace 信息，不落地 `client_secret`；code exchange 采用 `12s timeout + 2 次尝试`（仅对 transient 错误重试）                      |
 
-| 关键参数 | 位置 | 说明 |
-| --- | --- | --- |
-| `tokenExchangeProxyUrl` | `src/services/sync/notion/auth/oauth.ts` | `https://syncnos-notion-oauth.chiimagnus.workers.dev/notion/oauth/exchange` |
-| Worker `NOTION_CLIENT_ID` | Cloudflare Worker env | OAuth client id，仅 Worker 可见 |
-| Worker `NOTION_CLIENT_SECRET` | Cloudflare Worker env | OAuth client secret，仅 Worker 可见 |
-| `redirectUri` | `src/services/sync/notion/auth/oauth.ts` + Worker | 固定为 `https://chiimagnus.github.io/syncnos-oauth/callback`，用于 code exchange 对齐 |
+| 关键参数                      | 位置                                              | 说明                                                                                  |
+| ----------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `tokenExchangeProxyUrl`       | `src/services/sync/notion/auth/oauth.ts`          | `https://syncnos-notion-oauth.chiimagnus.workers.dev/notion/oauth/exchange`           |
+| Worker `NOTION_CLIENT_ID`     | Cloudflare Worker env                             | OAuth client id，仅 Worker 可见                                                       |
+| Worker `NOTION_CLIENT_SECRET` | Cloudflare Worker env                             | OAuth client secret，仅 Worker 可见                                                   |
+| `redirectUri`                 | `src/services/sync/notion/auth/oauth.ts` + Worker | 固定为 `https://chiimagnus.github.io/syncnos-oauth/callback`，用于 code exchange 对齐 |
 
 ## 典型调用时序
 
@@ -106,28 +108,29 @@ sequenceDiagram
 
 ## 契约稳定性规则
 
-| 规则 | 原因 | 实践建议 |
-| --- | --- | --- |
-| 消息 type 必须来自 `message-contracts.ts` | 避免字符串漂移 | 禁止在组件内硬编码 type 字符串 |
-| 返回结构统一 `{ok,data,error}` | 便于 UI 一致处理 | 扩展 handler 时保持 router 输出结构 |
-| 新增消息先补测试再接 UI | 降低协议回归 | 补 smoke/unit 覆盖 message path |
-| UI 只消费必要字段 | 减少耦合 | 不直接依赖 background 内部实现细节 |
+| 规则                                      | 原因             | 实践建议                            |
+| ----------------------------------------- | ---------------- | ----------------------------------- |
+| 消息 type 必须来自 `message-contracts.ts` | 避免字符串漂移   | 禁止在组件内硬编码 type 字符串      |
+| 返回结构统一 `{ok,data,error}`            | 便于 UI 一致处理 | 扩展 handler 时保持 router 输出结构 |
+| 新增消息先补测试再接 UI                   | 降低协议回归     | 补 smoke/unit 覆盖 message path     |
+| UI 只消费必要字段                         | 减少耦合         | 不直接依赖 background 内部实现细节  |
 
 ## 常见 API 失败模式
 
-| 失败场景 | 触发位置 | 处理策略 |
-| --- | --- | --- |
-| OAuth state 不匹配 | `handleNotionOAuthCallbackNavigation` | 拒绝写 token，保留错误信息 |
-| Notion API 429 限流 | `listNotionParentPages`（settings handlers） | message 会附加 `Retry in about Xs.` 提示，并在 extra 中附带 `status/code/requestId`；通常需要等待后重试或降低并发 |
-| worker 限流 429 | Cloudflare worker | 返回 `Retry-After`，前端重试或提示稍后 |
-| Obsidian PATCH 失败 | `obsidian-sync-orchestrator.ts` | 自动回退 full rebuild |
-| 消息 type 未注册 | background router fallback | 返回 `unknown message type` |
-| `$ mention` 插入失败（detail 为空） | `buildMentionInsertText` | 返回 `EMPTY_DETAIL`；通常需要重新采集该会话或先确认详情能正常打开 |
-| 无法打开 popup | `OPEN_EXTENSION_POPUP` | 返回 `OPEN_POPUP_UNSUPPORTED` / `OPEN_POPUP_FAILED`；提示用户通过工具栏图标或检查浏览器能力 |
-| 无法打开 inpage comments panel | `OPEN_CURRENT_TAB_INPAGE_COMMENTS_PANEL` | 返回 `OPEN_INPAGE_COMMENTS_PANEL_UNAVAILABLE/FAILED`；优先检查 sender tab、content script 是否仍在运行 |
-| 视频字幕未加载或为空 | `CAPTURE_VIDEO_TRANSCRIPT` / `video-transcript-extract.ts` | 返回空结果或提示“未检测到字幕，未保存”；先确认视频页已开启字幕并等待轨道加载 |
+| 失败场景                            | 触发位置                                                   | 处理策略                                                                                                          |
+| ----------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| OAuth state 不匹配                  | `handleNotionOAuthCallbackNavigation`                      | 拒绝写 token，保留错误信息                                                                                        |
+| Notion API 429 限流                 | `listNotionParentPages`（settings handlers）               | message 会附加 `Retry in about Xs.` 提示，并在 extra 中附带 `status/code/requestId`；通常需要等待后重试或降低并发 |
+| worker 限流 429                     | Cloudflare worker                                          | 返回 `Retry-After`，前端重试或提示稍后                                                                            |
+| Obsidian PATCH 失败                 | `obsidian-sync-orchestrator.ts`                            | 自动回退 full rebuild                                                                                             |
+| 消息 type 未注册                    | background router fallback                                 | 返回 `unknown message type`                                                                                       |
+| `$ mention` 插入失败（detail 为空） | `buildMentionInsertText`                                   | 返回 `EMPTY_DETAIL`；通常需要重新采集该会话或先确认详情能正常打开                                                 |
+| 无法打开 popup                      | `OPEN_EXTENSION_POPUP`                                     | 返回 `OPEN_POPUP_UNSUPPORTED` / `OPEN_POPUP_FAILED`；提示用户通过工具栏图标或检查浏览器能力                       |
+| 无法打开 inpage comments panel      | `OPEN_CURRENT_TAB_INPAGE_COMMENTS_PANEL`                   | 返回 `OPEN_INPAGE_COMMENTS_PANEL_UNAVAILABLE/FAILED`；优先检查 sender tab、content script 是否仍在运行            |
+| 视频字幕未加载或为空                | `CAPTURE_VIDEO_TRANSCRIPT` / `video-transcript-extract.ts` | 返回空结果或提示“未检测到字幕，未保存”；先确认视频页已开启字幕并等待轨道加载                                      |
 
 ## 来源引用（Source References）
+
 - `src/platform/messaging/message-contracts.ts`
 - `src/platform/messaging/background-router.ts`
 - `src/services/conversations/background/handlers.ts`
@@ -149,6 +152,7 @@ sequenceDiagram
 - `src/platform/messaging/ui-background-handlers.ts`
 
 ## 更新记录（Update Notes）
+
 - 2026-04-18：补充 `CONTENT_MESSAGE_TYPES.CAPTURE_VIDEO_TRANSCRIPT` 与字幕未加载时的失败模式，确保 API 页能解释视频字幕采集的 content 指令。
 - 2026-03-30：补齐 `NOTION_MESSAGE_TYPES` 的设置侧契约（`LIST_PARENT_PAGES/GET_AUTH_STATUS/DISCONNECT`）与返回结构，并同步 Notion OAuth 的 pending/error 状态键与 code exchange 重试边界。
 - 2026-03-29：同步内部消息契约组（补齐 `CHATGPT_MESSAGE_TYPES` / `ITEM_MENTION_MESSAGE_TYPES` / `COMMENTS_MESSAGE_TYPES` / `CONTENT_MESSAGE_TYPES`），并补充 `$ mention` 与“打开 inpage comments panel”的消息链路与失败模式。

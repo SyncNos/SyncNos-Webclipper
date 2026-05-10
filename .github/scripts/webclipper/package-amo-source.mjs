@@ -1,13 +1,13 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
-import { resolveRepoRoot, resolveWebclipperRoot, run } from "./script-utils.mjs";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
+import { resolveRepoRoot, resolveWebclipperRoot, run } from './script-utils.mjs';
 
 const repoRoot = resolveRepoRoot(import.meta.url);
 const webclipperRoot = resolveWebclipperRoot(repoRoot);
 
-const staging = join(webclipperRoot, ".tmp-amo-source");
-const outZip = join(webclipperRoot, "SyncNos-WebClipper-amo-source.zip");
-const repoLicense = join(repoRoot, "LICENSE");
+const staging = join(webclipperRoot, '.tmp-amo-source');
+const outZip = join(webclipperRoot, 'SyncNos-WebClipper-amo-source.zip');
+const repoLicense = join(repoRoot, 'LICENSE');
 
 rmSync(staging, { recursive: true, force: true });
 rmSync(outZip, { force: true });
@@ -19,7 +19,7 @@ function copyIntoStaging(relPath) {
   mkdirSync(dirname(dst), { recursive: true });
   cpSync(src, dst, {
     recursive: true,
-    filter: (srcPath) => basename(srcPath) !== ".DS_Store"
+    filter: (srcPath) => basename(srcPath) !== '.DS_Store',
   });
 }
 
@@ -28,7 +28,7 @@ function copyExternalIntoStaging(srcAbsPath, dstRelPath) {
   mkdirSync(dirname(dst), { recursive: true });
   cpSync(srcAbsPath, dst, {
     recursive: true,
-    filter: (srcPath) => basename(srcPath) !== ".DS_Store"
+    filter: (srcPath) => basename(srcPath) !== '.DS_Store',
   });
 }
 
@@ -44,7 +44,7 @@ function removeJunkFilesRecursively(rootDir) {
         continue;
       }
       if (!entry.isFile()) continue;
-      if (entry.name === ".DS_Store") {
+      if (entry.name === '.DS_Store') {
         rmSync(abs, { force: true });
       }
     }
@@ -54,20 +54,20 @@ function removeJunkFilesRecursively(rootDir) {
 // Minimal, reviewer-friendly source package contents.
 // Keep only what reviewers need to reproduce the XPI build.
 const requiredItems = [
-  "wxt.config.ts",
-  "tsconfig.json",
-  "postcss.config.cjs",
-  "tailwind.config.cjs",
-  "public",
-  "src",
-  "package.json",
-  "package-lock.json",
-  "AGENTS.md"
+  'wxt.config.ts',
+  'tsconfig.json',
+  'postcss.config.cjs',
+  'tailwind.config.cjs',
+  'public',
+  'src',
+  'package.json',
+  'package-lock.json',
+  'AGENTS.md',
 ];
 
 const optionalItems = [
   // Some setups may not have a top-level `scripts/` directory.
-  "scripts"
+  'scripts',
 ];
 
 for (const item of requiredItems) {
@@ -83,20 +83,19 @@ for (const item of optionalItems) {
 }
 
 if (existsSync(repoLicense)) {
-  copyExternalIntoStaging(repoLicense, "LICENSE");
+  copyExternalIntoStaging(repoLicense, 'LICENSE');
 }
 
-const ciScriptsDir = join(repoRoot, ".github", "scripts", "webclipper");
+const ciScriptsDir = join(repoRoot, '.github', 'scripts', 'webclipper');
 if (existsSync(ciScriptsDir)) {
-  copyExternalIntoStaging(ciScriptsDir, ".github/scripts/webclipper");
+  copyExternalIntoStaging(ciScriptsDir, '.github/scripts/webclipper');
 }
 
 removeJunkFilesRecursively(staging);
 
 // `.zip` is the required format for AMO "Source code".
-run("zip", ["-r", outZip, "."], staging);
+run('zip', ['-r', outZip, '.'], staging);
 
 rmSync(staging, { recursive: true, force: true });
 
- 
 console.log(`[package] amo source: ${outZip}`);

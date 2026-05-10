@@ -3,20 +3,20 @@ name: WebClipper Publish to Chrome Web Store
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag name (e.g. v0.14.5). Required for manual runs."
+        description: 'Tag name (e.g. v0.14.5). Required for manual runs.'
         required: true
         type: string
       publish:
-        description: "Whether to publish after upload (true/false)."
+        description: 'Whether to publish after upload (true/false).'
         required: false
         type: boolean
         default: true
       publish_target:
-        description: "Publish target: default (public) or trustedTesters."
+        description: 'Publish target: default (public) or trustedTesters.'
         required: false
         type: choice
         default: default

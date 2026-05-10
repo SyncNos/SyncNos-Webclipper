@@ -644,7 +644,15 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         { fallbackMessage: 'save notion database id failed' },
       );
     },
-    [articleDbSpec, chatDbSpec, notionArticleDatabaseId, notionChatDatabaseId, notionVideoDatabaseId, runTask, videoDbSpec],
+    [
+      articleDbSpec,
+      chatDbSpec,
+      notionArticleDatabaseId,
+      notionChatDatabaseId,
+      notionVideoDatabaseId,
+      runTask,
+      videoDbSpec,
+    ],
   );
 
   const onResetNotionDatabaseId = useCallback(

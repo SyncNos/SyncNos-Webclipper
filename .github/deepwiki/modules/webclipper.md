@@ -1,6 +1,7 @@
 # 模块：WebClipper
 
 ## 职责
+
 - 从支持 AI 站点采集对话、从普通网页抓正文，并把结果先写入本地浏览器数据库。
 - 从支持 AI 站点采集对话、从普通网页抓正文、从视频页采集字幕，并把结果先写入本地浏览器数据库。
 - 提供 popup / app / inpage / settings(videos) 四类用户入口，让用户进行保存、导出、备份、Notion 同步、Obsidian 同步与设置管理。
@@ -8,81 +9,81 @@
 
 ## 关键文件
 
-| 路径 | 作用 | 为什么重要 |
-| --- | --- | --- |
-| `src/entrypoints/background.ts` | 后台 service worker 入口 | 注册 router、handlers、OAuth listener、sync orchestrators |
-| `src/entrypoints/content.ts` | 内容脚本入口 | 组装 collectors registry、inpage UI、runtime observer |
-| `src/services/bootstrap/content.ts` | inpage runtime gating | 决定 `inpage_display_mode`（兼容旧 `inpage_supported_only`）与支持站点如何影响 UI 启动 |
-| `src/services/bootstrap/current-page-capture.ts` | 当前页抓取服务 | 统一判断当前标签页可否抓取，并区分 chat / article 两条手动抓取路径 |
-| `src/services/bootstrap/content-controller.ts` | 自动 / 手动保存控制器 | 单击保存、双击打开页面内评论侧边栏（inpage comments panel）、article fetch、Google AI Studio 手动保存都在这里 |
-| `src/services/bootstrap/video-transcript-capture.ts` | 视频字幕采集服务 | 把 YouTube / Bilibili 已加载字幕格式化为 video conversation |
-| `src/services/bootstrap/video-transcript-capture-content-handlers.ts` | 视频字幕消息处理器 | 连接右键菜单、空字幕提示与 capture service |
-| `src/platform/webext/anti-hotlink-rules-store.ts` | 反防盗链规则真值与 referer 映射 | 维护 `anti_hotlink_rules_v1`，为图片下载代理和 article fetch 提供 domain → referer 规则 |
-| `src/services/integrations/anti-hotlink/anti-hotlink-settings.ts` | 反防盗链设置读写与验证 | 把 Settings 面板里的规则编辑、校验、reset/restore 接到本地存储 |
-| `src/services/protocols/markdown-reading-profiles.ts` | Markdown 阅读风格协议 | 定义 Medium / Notion / Book 三档阅读样式的规范与回退 |
-| `src/ui/shared/markdown-reading-profile-presets.ts` | Markdown 阅读风格 preset | 为 popup / app 详情页提供 profile 预设与渲染入口 |
-| `src/entrypoints/video-transcript-interceptor.content.ts` | 视频字幕拦截器 | 在 MAIN world 下拦截字幕请求并收集页面 meta |
-| `src/entrypoints/video-transcript-bridge.content.ts` | 视频字幕桥接存储 | 暂存被拦截的字幕响应与 meta |
-| `src/collectors/video/` | 视频字幕解析器 | 解析 YouTube / Bilibili 字幕格式并生成 cue 列表 |
-| `src/services/integrations/chatwith/chatwith-settings.ts` | Chat with AI 配置与模板渲染 | 管理 prompt 模板、平台列表、最大字符数和复制载荷 |
-| `src/services/integrations/chatwith/chatwith-detail-header-actions.ts` | Chat with AI 详情头动作解析 | 决定哪些平台按钮出现、复制什么 payload、何时跳转 |
-| `src/services/integrations/item-mention/` | `$` mention 插入能力 | 在支持的 AI chat 输入框内通过 `$` 过滤本地 item 并插入同源 Markdown（站点门控真源：`src/collectors/ai-chat-sites.ts` 的 `features.dollarMention`） |
-| `src/ui/inpage/inpage-item-mention-shadow.ts` | `$` mention 候选窗壳 | 候选窗运行在独立 shadow root 中，支持键盘高亮与点击选中 |
-| `src/services/integrations/detail-header-action-types.ts` | 详情头动作槽位契约 | 定义 `open / tools` 两类槽位，约束 popup / app 的动作分发（Chat with AI 也复用 `tools`） |
-| `src/ui/i18n/index.ts` | 扩展内 UI 文案入口 | 按 `navigator.language` 在英文 / 中文翻译表间切换 |
-| `src/collectors/` | 站点采集适配器 | 新 AI 站点通常从这里扩展 |
-| `src/services/conversations/data/storage-idb.ts` | 本地会话数据层 | 承载 IndexedDB 事实源 |
-| `src/services/conversations/background/handlers.ts` | 会话消息与图片回填路由 | 控制 `SYNC_CONVERSATION_MESSAGES` 的图片内联与 `BACKFILL_CONVERSATION_IMAGES` 消息处理 |
-| `src/services/conversations/background/image-backfill-job.ts` | 历史消息图片补全任务 | 复扫 conversation 消息并按 diff 增量回写 `contentMarkdown` |
-| `src/services/comments/background/handlers.ts` | 文章评论消息路由 | 处理评论增删改、回复与 inpage panel 通信 |
-| `src/services/comments/data/storage-idb.ts` | 文章评论存储层 | 承载 `article_comments` 的本地读写与查询 |
-| `src/services/comments/client/repo.ts` | 文章评论客户端仓库 | 为 UI 提供 comments 读写 API |
-| `src/ui/conversations/ArticleCommentsSection.tsx` | 文章详情评论区 | 在 article detail 中展示本地评论线程 |
-| `src/services/comments/threaded-comments-panel.ts` | threaded comments 面板 | 负责 comments 的线程渲染与交互 |
-| `src/ui/inpage/inpage-comments-panel-shadow.ts` | inpage comments 面板壳 | 让页面内评论面板运行在独立 shadow root 中 |
-| `src/services/bootstrap/inpage-comments-panel-content-handlers.ts` | inpage comments 内容脚手架 | 连接 content script 与 comments panel 逻辑，并通过 shared session 统一状态 |
-| `src/services/comments/sidebar/comment-sidebar-session.ts` | 评论侧边栏共享会话 | 统一 open / close / quote / focus / busy 语义 |
-| `src/platform/idb/schema.ts` | DB schema 与迁移 | 处理 NotionAI stable key migration、`article_comments`（v7 引入）与 list pagination indexes（DB_VERSION = 8） |
-| `src/services/sync/notion/notion-sync-orchestrator.ts` | Notion 同步编排 | 控制 DB / page / cursor / rebuild |
-| `src/services/sync/notion/auth/oauth.ts` | Notion OAuth | 处理 code exchange、state 校验、timeout/retry，并维护 OAuth 连接中的本地状态 |
-| `src/services/sync/notion/auth/token-store.ts` | Notion token store | 统一读写 / 清理 `notion_oauth_token_v1`，供 background handlers 与 orchestrator 使用 |
-| `src/services/sync/notion/notion-parent-pages.ts` | Notion Parent Page 发现 | 通过 `/v1/search` 分页拉取可用 parent pages，并解析已保存 page id 的可用性 |
-| `src/services/sync/notion/settings-background-handlers.ts` | Notion 设置路由 | 实现 `GET_AUTH_STATUS / LIST_PARENT_PAGES / DISCONNECT`，将 UI 请求转换为 Notion API 调用并输出稳定错误形态 |
-| `src/services/sync/obsidian/obsidian-sync-orchestrator.ts` | Obsidian 同步编排 | 控制 append / rebuild / rename / fallback |
-| `src/ui/settings/SettingsScene.tsx` | 设置页总入口 | 管理 Notion、Notion AI、Obsidian、Backup、Chat with AI、Inpage、About You（含 Insight 统计）、About Me；Inpage 里包含阅读风格与 anti-hotlink 设置 |
-| `src/viewmodels/settings/useSettingsSceneController.ts` | 设置页状态控制器 | 统一管理存储读写、连接状态、备份动作，并按需懒加载 About You（Insight 统计） |
-| `src/viewmodels/settings/insight-stats.ts` | Insight 聚合引擎 | 从 IndexedDB 的 `conversations` + `messages` 现算本地 clip 统计 |
-| `src/ui/settings/sections/InsightSection.tsx` | Insight 状态容器 | 管理 loading / error / empty / populated 四类状态 |
-| `src/ui/settings/sections/InsightPanel.tsx` | Insight 统计视图 | 用 `recharts` 渲染来源分布、文章域名分布与 Top 3 conversation |
-| `src/ui/styles/tokens.css` | 主题 tokens | 用 `prefers-color-scheme` 统一驱动亮/暗 token，popup / app / inpage 一致 |
-| `src/ui/shared/SelectMenu.tsx` | 共享下拉菜单组件 | 统一选项菜单键盘行为，并在 `adaptiveMaxHeight` 打开时按可裁剪容器动态计算高度 |
-| `src/ui/settings/sections/VideosSection.tsx` | 视频字幕设置页 | 解释支持范围、抓取步骤和失败提示 |
-| `src/ui/conversations/ConversationListPane.tsx` | 列表筛选、批量动作与来源持久化 | 控制 `source filter`、today/total 统计、导出/同步/删除菜单 |
-| `src/ui/conversations/DetailNavigationHeader.tsx` | 窄屏详情头动作容器 | 让 popup / app 窄屏 detail header 与主详情页共用同一套动作槽位策略 |
-| `src/ui/conversations/pending-open.ts` | 窄屏待打开会话桥接 | 让 Insight / 列表 / 路由在 narrow 模式下也能准确落到 detail |
+| 路径                                                                   | 作用                            | 为什么重要                                                                                                                                         |
+| ---------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/entrypoints/background.ts`                                        | 后台 service worker 入口        | 注册 router、handlers、OAuth listener、sync orchestrators                                                                                          |
+| `src/entrypoints/content.ts`                                           | 内容脚本入口                    | 组装 collectors registry、inpage UI、runtime observer                                                                                              |
+| `src/services/bootstrap/content.ts`                                    | inpage runtime gating           | 决定 `inpage_display_mode`（兼容旧 `inpage_supported_only`）与支持站点如何影响 UI 启动                                                             |
+| `src/services/bootstrap/current-page-capture.ts`                       | 当前页抓取服务                  | 统一判断当前标签页可否抓取，并区分 chat / article 两条手动抓取路径                                                                                 |
+| `src/services/bootstrap/content-controller.ts`                         | 自动 / 手动保存控制器           | 单击保存、双击打开页面内评论侧边栏（inpage comments panel）、article fetch、Google AI Studio 手动保存都在这里                                      |
+| `src/services/bootstrap/video-transcript-capture.ts`                   | 视频字幕采集服务                | 把 YouTube / Bilibili 已加载字幕格式化为 video conversation                                                                                        |
+| `src/services/bootstrap/video-transcript-capture-content-handlers.ts`  | 视频字幕消息处理器              | 连接右键菜单、空字幕提示与 capture service                                                                                                         |
+| `src/platform/webext/anti-hotlink-rules-store.ts`                      | 反防盗链规则真值与 referer 映射 | 维护 `anti_hotlink_rules_v1`，为图片下载代理和 article fetch 提供 domain → referer 规则                                                            |
+| `src/services/integrations/anti-hotlink/anti-hotlink-settings.ts`      | 反防盗链设置读写与验证          | 把 Settings 面板里的规则编辑、校验、reset/restore 接到本地存储                                                                                     |
+| `src/services/protocols/markdown-reading-profiles.ts`                  | Markdown 阅读风格协议           | 定义 Medium / Notion / Book 三档阅读样式的规范与回退                                                                                               |
+| `src/ui/shared/markdown-reading-profile-presets.ts`                    | Markdown 阅读风格 preset        | 为 popup / app 详情页提供 profile 预设与渲染入口                                                                                                   |
+| `src/entrypoints/video-transcript-interceptor.content.ts`              | 视频字幕拦截器                  | 在 MAIN world 下拦截字幕请求并收集页面 meta                                                                                                        |
+| `src/entrypoints/video-transcript-bridge.content.ts`                   | 视频字幕桥接存储                | 暂存被拦截的字幕响应与 meta                                                                                                                        |
+| `src/collectors/video/`                                                | 视频字幕解析器                  | 解析 YouTube / Bilibili 字幕格式并生成 cue 列表                                                                                                    |
+| `src/services/integrations/chatwith/chatwith-settings.ts`              | Chat with AI 配置与模板渲染     | 管理 prompt 模板、平台列表、最大字符数和复制载荷                                                                                                   |
+| `src/services/integrations/chatwith/chatwith-detail-header-actions.ts` | Chat with AI 详情头动作解析     | 决定哪些平台按钮出现、复制什么 payload、何时跳转                                                                                                   |
+| `src/services/integrations/item-mention/`                              | `$` mention 插入能力            | 在支持的 AI chat 输入框内通过 `$` 过滤本地 item 并插入同源 Markdown（站点门控真源：`src/collectors/ai-chat-sites.ts` 的 `features.dollarMention`） |
+| `src/ui/inpage/inpage-item-mention-shadow.ts`                          | `$` mention 候选窗壳            | 候选窗运行在独立 shadow root 中，支持键盘高亮与点击选中                                                                                            |
+| `src/services/integrations/detail-header-action-types.ts`              | 详情头动作槽位契约              | 定义 `open / tools` 两类槽位，约束 popup / app 的动作分发（Chat with AI 也复用 `tools`）                                                           |
+| `src/ui/i18n/index.ts`                                                 | 扩展内 UI 文案入口              | 按 `navigator.language` 在英文 / 中文翻译表间切换                                                                                                  |
+| `src/collectors/`                                                      | 站点采集适配器                  | 新 AI 站点通常从这里扩展                                                                                                                           |
+| `src/services/conversations/data/storage-idb.ts`                       | 本地会话数据层                  | 承载 IndexedDB 事实源                                                                                                                              |
+| `src/services/conversations/background/handlers.ts`                    | 会话消息与图片回填路由          | 控制 `SYNC_CONVERSATION_MESSAGES` 的图片内联与 `BACKFILL_CONVERSATION_IMAGES` 消息处理                                                             |
+| `src/services/conversations/background/image-backfill-job.ts`          | 历史消息图片补全任务            | 复扫 conversation 消息并按 diff 增量回写 `contentMarkdown`                                                                                         |
+| `src/services/comments/background/handlers.ts`                         | 文章评论消息路由                | 处理评论增删改、回复与 inpage panel 通信                                                                                                           |
+| `src/services/comments/data/storage-idb.ts`                            | 文章评论存储层                  | 承载 `article_comments` 的本地读写与查询                                                                                                           |
+| `src/services/comments/client/repo.ts`                                 | 文章评论客户端仓库              | 为 UI 提供 comments 读写 API                                                                                                                       |
+| `src/ui/conversations/ArticleCommentsSection.tsx`                      | 文章详情评论区                  | 在 article detail 中展示本地评论线程                                                                                                               |
+| `src/services/comments/threaded-comments-panel.ts`                     | threaded comments 面板          | 负责 comments 的线程渲染与交互                                                                                                                     |
+| `src/ui/inpage/inpage-comments-panel-shadow.ts`                        | inpage comments 面板壳          | 让页面内评论面板运行在独立 shadow root 中                                                                                                          |
+| `src/services/bootstrap/inpage-comments-panel-content-handlers.ts`     | inpage comments 内容脚手架      | 连接 content script 与 comments panel 逻辑，并通过 shared session 统一状态                                                                         |
+| `src/services/comments/sidebar/comment-sidebar-session.ts`             | 评论侧边栏共享会话              | 统一 open / close / quote / focus / busy 语义                                                                                                      |
+| `src/platform/idb/schema.ts`                                           | DB schema 与迁移                | 处理 NotionAI stable key migration、`article_comments`（v7 引入）与 list pagination indexes（DB_VERSION = 8）                                      |
+| `src/services/sync/notion/notion-sync-orchestrator.ts`                 | Notion 同步编排                 | 控制 DB / page / cursor / rebuild                                                                                                                  |
+| `src/services/sync/notion/auth/oauth.ts`                               | Notion OAuth                    | 处理 code exchange、state 校验、timeout/retry，并维护 OAuth 连接中的本地状态                                                                       |
+| `src/services/sync/notion/auth/token-store.ts`                         | Notion token store              | 统一读写 / 清理 `notion_oauth_token_v1`，供 background handlers 与 orchestrator 使用                                                               |
+| `src/services/sync/notion/notion-parent-pages.ts`                      | Notion Parent Page 发现         | 通过 `/v1/search` 分页拉取可用 parent pages，并解析已保存 page id 的可用性                                                                         |
+| `src/services/sync/notion/settings-background-handlers.ts`             | Notion 设置路由                 | 实现 `GET_AUTH_STATUS / LIST_PARENT_PAGES / DISCONNECT`，将 UI 请求转换为 Notion API 调用并输出稳定错误形态                                        |
+| `src/services/sync/obsidian/obsidian-sync-orchestrator.ts`             | Obsidian 同步编排               | 控制 append / rebuild / rename / fallback                                                                                                          |
+| `src/ui/settings/SettingsScene.tsx`                                    | 设置页总入口                    | 管理 Notion、Notion AI、Obsidian、Backup、Chat with AI、Inpage、About You（含 Insight 统计）、About Me；Inpage 里包含阅读风格与 anti-hotlink 设置  |
+| `src/viewmodels/settings/useSettingsSceneController.ts`                | 设置页状态控制器                | 统一管理存储读写、连接状态、备份动作，并按需懒加载 About You（Insight 统计）                                                                       |
+| `src/viewmodels/settings/insight-stats.ts`                             | Insight 聚合引擎                | 从 IndexedDB 的 `conversations` + `messages` 现算本地 clip 统计                                                                                    |
+| `src/ui/settings/sections/InsightSection.tsx`                          | Insight 状态容器                | 管理 loading / error / empty / populated 四类状态                                                                                                  |
+| `src/ui/settings/sections/InsightPanel.tsx`                            | Insight 统计视图                | 用 `recharts` 渲染来源分布、文章域名分布与 Top 3 conversation                                                                                      |
+| `src/ui/styles/tokens.css`                                             | 主题 tokens                     | 用 `prefers-color-scheme` 统一驱动亮/暗 token，popup / app / inpage 一致                                                                           |
+| `src/ui/shared/SelectMenu.tsx`                                         | 共享下拉菜单组件                | 统一选项菜单键盘行为，并在 `adaptiveMaxHeight` 打开时按可裁剪容器动态计算高度                                                                      |
+| `src/ui/settings/sections/VideosSection.tsx`                           | 视频字幕设置页                  | 解释支持范围、抓取步骤和失败提示                                                                                                                   |
+| `src/ui/conversations/ConversationListPane.tsx`                        | 列表筛选、批量动作与来源持久化  | 控制 `source filter`、today/total 统计、导出/同步/删除菜单                                                                                         |
+| `src/ui/conversations/DetailNavigationHeader.tsx`                      | 窄屏详情头动作容器              | 让 popup / app 窄屏 detail header 与主详情页共用同一套动作槽位策略                                                                                 |
+| `src/ui/conversations/pending-open.ts`                                 | 窄屏待打开会话桥接              | 让 Insight / 列表 / 路由在 narrow 模式下也能准确落到 detail                                                                                        |
 
 ## 运行时结构
 
-| 运行时 | 主要职责 | 关键依赖 | 代表文件 |
-| --- | --- | --- | --- |
-| background | 消息路由、同步 job、设置处理、OAuth 监听 | router、sync orchestrators、settings handlers | `src/entrypoints/background.ts` |
-| content | 页面观察、collector 识别、inpage UI、自动 / 手动保存 | collectors registry、runtime observer、incremental updater | `src/entrypoints/content.ts`, `src/services/bootstrap/content-controller.ts` |
-| popup | 轻量会话 / 设置入口 | React 组件、ConversationsProvider | `src/entrypoints/popup/` |
-| app | 扩展完整页面 UI | React Router、ConversationsScene、SettingsScene | `src/entrypoints/app/` |
-| conversations | 本地事实源与 CRUD | IndexedDB、background handlers | `src/services/conversations/data/storage-idb.ts` |
-| comments | article 详情评论线程与本地注释层 | IndexedDB、comments background handlers、inpage panel | `src/services/comments/`, `ArticleCommentsSection.tsx` |
-| sync | Notion / Obsidian / backup 编排层 | `src/services/protocols/conversation-kinds.ts`, settings stores | `src/services/sync/` |
+| 运行时        | 主要职责                                             | 关键依赖                                                        | 代表文件                                                                     |
+| ------------- | ---------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| background    | 消息路由、同步 job、设置处理、OAuth 监听             | router、sync orchestrators、settings handlers                   | `src/entrypoints/background.ts`                                              |
+| content       | 页面观察、collector 识别、inpage UI、自动 / 手动保存 | collectors registry、runtime observer、incremental updater      | `src/entrypoints/content.ts`, `src/services/bootstrap/content-controller.ts` |
+| popup         | 轻量会话 / 设置入口                                  | React 组件、ConversationsProvider                               | `src/entrypoints/popup/`                                                     |
+| app           | 扩展完整页面 UI                                      | React Router、ConversationsScene、SettingsScene                 | `src/entrypoints/app/`                                                       |
+| conversations | 本地事实源与 CRUD                                    | IndexedDB、background handlers                                  | `src/services/conversations/data/storage-idb.ts`                             |
+| comments      | article 详情评论线程与本地注释层                     | IndexedDB、comments background handlers、inpage panel           | `src/services/comments/`, `ArticleCommentsSection.tsx`                       |
+| sync          | Notion / Obsidian / backup 编排层                    | `src/services/protocols/conversation-kinds.ts`, settings stores | `src/services/sync/`                                                         |
 
 ## 支持的采集面
 
-| 类型 | 当前覆盖 | 关键特点 |
-| --- | --- | --- |
-| AI 对话站点 | ChatGPT、Claude、Gemini、Google AI Studio、DeepSeek、Kimi、豆包、元宝、Poe、Notion AI、z.ai | 通过 collectors registry 统一注册 |
-| 普通网页文章 | 任意 `http(s)` 页面 | content 抽取首次失败时按需注入 `readability.js` 并重试一次 |
-| 视频字幕页 | YouTube / Bilibili 视频页 | 只采集页面已加载字幕，右键菜单触发保存 |
-| inpage 交互 | 支持站点默认启用；非支持站点受 `inpage_display_mode` 控制（兼容旧键） | 单击保存、双击打开页面内评论侧边栏（inpage comments panel）、多击彩蛋提示 |
-| Popup 当前页抓取 | `usePopupCurrentPageCapture.ts` + `current-page-capture.ts` | 先判断当前页可抓取，再用统一按钮触发 chat / article 抓取 |
-| 文章评论 / 注释线程 | article detail + inpage comments panel | 本地 threaded comments，支持回复、删除；不属于新的抓取站点 |
+| 类型                | 当前覆盖                                                                                    | 关键特点                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| AI 对话站点         | ChatGPT、Claude、Gemini、Google AI Studio、DeepSeek、Kimi、豆包、元宝、Poe、Notion AI、z.ai | 通过 collectors registry 统一注册                                         |
+| 普通网页文章        | 任意 `http(s)` 页面                                                                         | content 抽取首次失败时按需注入 `readability.js` 并重试一次                |
+| 视频字幕页          | YouTube / Bilibili 视频页                                                                   | 只采集页面已加载字幕，右键菜单触发保存                                    |
+| inpage 交互         | 支持站点默认启用；非支持站点受 `inpage_display_mode` 控制（兼容旧键）                       | 单击保存、双击打开页面内评论侧边栏（inpage comments panel）、多击彩蛋提示 |
+| Popup 当前页抓取    | `usePopupCurrentPageCapture.ts` + `current-page-capture.ts`                                 | 先判断当前页可抓取，再用统一按钮触发 chat / article 抓取                  |
+| 文章评论 / 注释线程 | article detail + inpage comments panel                                                      | 本地 threaded comments，支持回复、删除；不属于新的抓取站点                |
 
 - `content.ts` 在所有 `http(s)` 页面注入，但 **支持站点始终优先启动 controller**；非支持站点则在读取 `inpage_display_mode`（以及兼容旧 `inpage_supported_only`）后决定是否启动。
 - `content.ts` 还会注册视频字幕采集处理器；视频页右键菜单通过 `CAPTURE_VIDEO_TRANSCRIPT` 走独立采集链路，不会复用 article fetch。
@@ -118,14 +119,14 @@
 
 ### 手动验证清单（开发者）
 
-| 场景 | 期望结果 |
-| --- | --- |
+| 场景                          | 期望结果                                                              |
+| ----------------------------- | --------------------------------------------------------------------- |
 | Discourse（`linux.do` topic） | 首贴正文完整可见，不被 onebox 截断；列表/引用/代码块/details 结构可读 |
-| 普通网页（非 site spec） | Defuddle 或 Readability 路径可产出正文；链接和图片地址可用 |
-| WeChat share media | 图集图片被正确提取并清洗参数；输出是图片 blocks（非表格） |
-| 小红书 note | `#noteContainer` hydrated 后走 site spec；正文与图片都保留 |
-| Bilibili opus | 图片 URL 去除 `@...` 后缀，正文段落保留 |
-| GitHub README（含 table） | 表格转换为 GFM markdown table；对齐信息可保留（例如右对齐列） |
+| 普通网页（非 site spec）      | Defuddle 或 Readability 路径可产出正文；链接和图片地址可用            |
+| WeChat share media            | 图集图片被正确提取并清洗参数；输出是图片 blocks（非表格）             |
+| 小红书 note                   | `#noteContainer` hydrated 后走 site spec；正文与图片都保留            |
+| Bilibili opus                 | 图片 URL 去除 `@...` 后缀，正文段落保留                               |
+| GitHub README（含 table）     | 表格转换为 GFM markdown table；对齐信息可保留（例如右对齐列）         |
 
 ### 与 obsidian-clipper 的对标差异
 
@@ -138,15 +139,15 @@
 
 ## 本地数据与同步结构
 
-| 区域 | 主要实现 | 关键点 |
-| --- | --- | --- |
-| 本地会话库 | `src/services/conversations/data/storage-idb.ts` | `upsertConversation()` / `syncConversationMessages()` 负责 conversation + message 快照更新 |
-| Schema 与迁移 | `src/platform/idb/schema.ts` | `DB_NAME='webclipper'`, `DB_VERSION=8`，处理 NotionAI stable key、legacy article canonical key 迁移、legacy 字段清理、`article_comments` store 与 list pagination / filter 索引 |
-| 会话种类 | `src/services/protocols/conversation-kinds.ts` | `chat` 与 `article` 决定 Notion DB、Obsidian folder 与重建规则 |
-| 文章评论线程 | `src/services/comments/data/storage-idb.ts`, `src/services/comments/background/handlers.ts` | `article_comments` 负责 article 详情页的本地评论、回复与删除 |
-| Notion 同步 | `notion-sync-orchestrator.ts` | 需要 token + `notion_parent_page_id`，cursor 命中 append，否则 rebuild |
-| Obsidian 同步 | `obsidian-sync-orchestrator.ts` | 支持 `incremental_append`、`full_rebuild`、rename；PATCH 失败回退 `full_rebuild_fallback` |
-| 备份导入导出 | `src/services/sync/backup/export.ts`, `src/services/sync/backup/import.ts`, `src/services/sync/backup/backup-utils.ts` | Zip v2、敏感键排除、merge import；会把 `article_comments` 一并归档 / 恢复 |
+| 区域          | 主要实现                                                                                                               | 关键点                                                                                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 本地会话库    | `src/services/conversations/data/storage-idb.ts`                                                                       | `upsertConversation()` / `syncConversationMessages()` 负责 conversation + message 快照更新                                                                                      |
+| Schema 与迁移 | `src/platform/idb/schema.ts`                                                                                           | `DB_NAME='webclipper'`, `DB_VERSION=8`，处理 NotionAI stable key、legacy article canonical key 迁移、legacy 字段清理、`article_comments` store 与 list pagination / filter 索引 |
+| 会话种类      | `src/services/protocols/conversation-kinds.ts`                                                                         | `chat` 与 `article` 决定 Notion DB、Obsidian folder 与重建规则                                                                                                                  |
+| 文章评论线程  | `src/services/comments/data/storage-idb.ts`, `src/services/comments/background/handlers.ts`                            | `article_comments` 负责 article 详情页的本地评论、回复与删除                                                                                                                    |
+| Notion 同步   | `notion-sync-orchestrator.ts`                                                                                          | 需要 token + `notion_parent_page_id`，cursor 命中 append，否则 rebuild                                                                                                          |
+| Obsidian 同步 | `obsidian-sync-orchestrator.ts`                                                                                        | 支持 `incremental_append`、`full_rebuild`、rename；PATCH 失败回退 `full_rebuild_fallback`                                                                                       |
+| 备份导入导出  | `src/services/sync/backup/export.ts`, `src/services/sync/backup/import.ts`, `src/services/sync/backup/backup-utils.ts` | Zip v2、敏感键排除、merge import；会把 `article_comments` 一并归档 / 恢复                                                                                                       |
 
 - article 会话通过 `sourceType='article'` 标记，并保存单条 `article_body` 正文消息。
 - article 评论通过 `article_comments` 独立存储，并以 `canonicalUrl` + `conversationId` 组织线程；它是 article 会话的本地注释层，而不是新的远端同步目标。
@@ -156,17 +157,17 @@
 
 ## 设置与 UI 入口
 
-| UI 区域 | 主要实现 | 说明 |
-| --- | --- | --- |
-| 会话列表 / 详情 | `src/ui/conversations/ConversationsScene.tsx`, `src/ui/conversations/ConversationDetailPane.tsx`, `src/ui/conversations/DetailNavigationHeader.tsx`, `src/viewmodels/conversations/conversations-context.tsx`, `src/services/integrations/detail-header-actions.ts` | popup 与 app 共享同一套会话读取、选择与 detail header 动作解析逻辑（含窄屏头部） |
-| 文章评论区 | `src/ui/conversations/ConversationDetailPane.tsx`, `src/ui/conversations/ArticleCommentsSection.tsx`, `src/services/comments/threaded-comments-panel.ts`, `src/ui/inpage/inpage-comments-panel-shadow.ts` | article detail / inpage comments panel 共享本地 threaded comments 线程 |
-| 设置页 | `src/ui/settings/SettingsScene.tsx`, `src/ui/settings/SettingsTopTabsNav.tsx`, `src/ui/settings/SettingsSidebarNav.tsx`, `src/viewmodels/settings/types.ts` | 真实设置中枢：窄屏走顶部标签导航、宽屏走侧边栏导航；分组覆盖 `General`、`Chat with AI`、`Backup`、`Notion`、`Obsidian`、`About You`、`About Me`（section key：`aboutyou/aboutme`，兼容旧 `insight/about`） |
-| Markdown 渲染 | `src/ui/shared/markdown.ts`, `src/ui/shared/ChatMessageBubble.tsx` | 统一消息气泡与导出文本显示 |
-| Chat with AI | `src/ui/settings/sections/ChatWithAiSection.tsx`, `src/services/integrations/chatwith/chatwith-settings.ts`, `src/services/integrations/chatwith/chatwith-detail-header-actions.ts` | 管理 prompt 模板、平台列表、最大字符数，并把 article / conversation 渲染为可复制载荷，再从 detail header 触发复制 + 跳转 |
-| 详情工具动作 | `src/viewmodels/conversations/conversations-context.tsx`, `src/ui/conversations/DetailHeaderActionBar.tsx`, `src/ui/conversations/DetailNavigationHeader.tsx`, `src/services/conversations/background/image-backfill-job.ts` | detail 可注入 `cache-images`；触发后回填图片并刷新详情 |
-| Insight | `src/ui/settings/sections/InsightSection.tsx`, `src/ui/settings/sections/InsightPanel.tsx`, `src/viewmodels/settings/insight-stats.ts` | 只读统计本地会话库，展示总 clips、chat/article 概览、来源分布、Top 3 最长对话与文章域名分布 |
-| i18n | `src/ui/i18n/index.ts`, `src/ui/i18n/locales/*.ts` | UI 文案自动根据浏览器语言在 `en` / `zh` 间切换 |
-| 页面内评论侧边栏打开 | `src/platform/messaging/ui-background-handlers.ts` | 双击 inpage 按钮发送 `UI_MESSAGE_TYPES.OPEN_CURRENT_TAB_INPAGE_COMMENTS_PANEL`，background 转发 `CONTENT_MESSAGE_TYPES.OPEN_INPAGE_COMMENTS_PANEL` 打开 panel；失败会提示用户点击工具栏图标进行评论 |
+| UI 区域              | 主要实现                                                                                                                                                                                                                                                            | 说明                                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 会话列表 / 详情      | `src/ui/conversations/ConversationsScene.tsx`, `src/ui/conversations/ConversationDetailPane.tsx`, `src/ui/conversations/DetailNavigationHeader.tsx`, `src/viewmodels/conversations/conversations-context.tsx`, `src/services/integrations/detail-header-actions.ts` | popup 与 app 共享同一套会话读取、选择与 detail header 动作解析逻辑（含窄屏头部）                                                                                                                           |
+| 文章评论区           | `src/ui/conversations/ConversationDetailPane.tsx`, `src/ui/conversations/ArticleCommentsSection.tsx`, `src/services/comments/threaded-comments-panel.ts`, `src/ui/inpage/inpage-comments-panel-shadow.ts`                                                           | article detail / inpage comments panel 共享本地 threaded comments 线程                                                                                                                                     |
+| 设置页               | `src/ui/settings/SettingsScene.tsx`, `src/ui/settings/SettingsTopTabsNav.tsx`, `src/ui/settings/SettingsSidebarNav.tsx`, `src/viewmodels/settings/types.ts`                                                                                                         | 真实设置中枢：窄屏走顶部标签导航、宽屏走侧边栏导航；分组覆盖 `General`、`Chat with AI`、`Backup`、`Notion`、`Obsidian`、`About You`、`About Me`（section key：`aboutyou/aboutme`，兼容旧 `insight/about`） |
+| Markdown 渲染        | `src/ui/shared/markdown.ts`, `src/ui/shared/ChatMessageBubble.tsx`                                                                                                                                                                                                  | 统一消息气泡与导出文本显示                                                                                                                                                                                 |
+| Chat with AI         | `src/ui/settings/sections/ChatWithAiSection.tsx`, `src/services/integrations/chatwith/chatwith-settings.ts`, `src/services/integrations/chatwith/chatwith-detail-header-actions.ts`                                                                                 | 管理 prompt 模板、平台列表、最大字符数，并把 article / conversation 渲染为可复制载荷，再从 detail header 触发复制 + 跳转                                                                                   |
+| 详情工具动作         | `src/viewmodels/conversations/conversations-context.tsx`, `src/ui/conversations/DetailHeaderActionBar.tsx`, `src/ui/conversations/DetailNavigationHeader.tsx`, `src/services/conversations/background/image-backfill-job.ts`                                        | detail 可注入 `cache-images`；触发后回填图片并刷新详情                                                                                                                                                     |
+| Insight              | `src/ui/settings/sections/InsightSection.tsx`, `src/ui/settings/sections/InsightPanel.tsx`, `src/viewmodels/settings/insight-stats.ts`                                                                                                                              | 只读统计本地会话库，展示总 clips、chat/article 概览、来源分布、Top 3 最长对话与文章域名分布                                                                                                                |
+| i18n                 | `src/ui/i18n/index.ts`, `src/ui/i18n/locales/*.ts`                                                                                                                                                                                                                  | UI 文案自动根据浏览器语言在 `en` / `zh` 间切换                                                                                                                                                             |
+| 页面内评论侧边栏打开 | `src/platform/messaging/ui-background-handlers.ts`                                                                                                                                                                                                                  | 双击 inpage 按钮发送 `UI_MESSAGE_TYPES.OPEN_CURRENT_TAB_INPAGE_COMMENTS_PANEL`，background 转发 `CONTENT_MESSAGE_TYPES.OPEN_INPAGE_COMMENTS_PANEL` 打开 panel；失败会提示用户点击工具栏图标进行评论        |
 
 - Settings controller 会负责读取 / 保存 `notion_parent_page_id`, `notion_parent_page_title`, `notion_ai_preferred_model_index`, `ai_chat_cache_images_enabled`, `web_article_cache_images_enabled`, `anti_hotlink_rules_v1`, `markdown_reading_profile_v1`，以及 Obsidian 连接参数。
 - Notion Parent Page 的下拉刷新不由 UI 直接请求 Notion API：Settings controller 会通过 background router 调用 `NOTION_MESSAGE_TYPES.LIST_PARENT_PAGES`，由 `settings-background-handlers.ts` 读取 token + 已保存 page id，并调用 `notion-parent-pages.ts` 统一分页/过滤/已保存 page resolve；429 会返回带 retry 提示的 message，并在 extra 中附带 `status/code/requestId` 便于排障。
@@ -198,6 +199,7 @@
 - `background.ts` 现在只在首次安装时自动打开 About Me 分区（`/settings?section=aboutme`）；扩展更新后不再自动弹出设置页。
 
 ## 修改热点与扩展点
+
 - **新增支持站点**：先改 `src/collectors/` 和 `src/collectors/register-all.ts`，不要把站点判断散落到 popup 或 background。
 - **改 inpage 体验**：先看 `src/services/bootstrap/content-controller.ts`, `src/services/bootstrap/content.ts`, `src/ui/inpage/inpage-button-shadow.ts`, `src/ui/inpage/inpage-tip-shadow.ts`。
 - **改会话结构 / 本地持久化**：先看 `src/services/conversations/data/storage-idb.ts`, `src/platform/idb/schema.ts`, `tests/storage/*`。
@@ -213,20 +215,20 @@
 
 ## 测试与调试抓手
 
-| 场景 | 抓手 | 说明 |
-| --- | --- | --- |
-| TypeScript 契约回归 | `npm run compile` | 最先发现消息类型、collector 输出或 UI 调用问题 |
-| 会话 / mapping 迁移异常 | `schema.ts`, `schema-migration.test.ts` | 升级问题先看迁移逻辑 |
-| cursor / append / rebuild 异常 | `notion-sync-cursor.test.ts`, Notion / Obsidian orchestrators | 先判断是 mapping 问题还是目标系统问题 |
-| 当前页抓取异常 | `current-page-capture.ts`, `background-router-current-page-capture.test.ts`, `usePopupCurrentPageCapture.ts` | 看 capture state 判定、消息转发与按钮状态 |
-| inpage 行为异常 | `src/services/bootstrap/content.ts`, `src/services/bootstrap/content-controller.ts`, `src/ui/inpage/inpage-button-shadow.ts` | 看 gating、点击动作和 runtime invalidation |
-| `$ mention` 候选 / 插入异常 | `src/services/integrations/item-mention/**`, `src/platform/messaging/message-contracts.ts`, `tests/smoke/background-router-item-mention.test.ts` | 看站点门控（`features.dollarMention`）、设置开关、候选扫描限制与插入 markdown 构建 |
-| source/site 筛选下拉异常（高度、滚动、裁切） | `ConversationListPane.tsx`, `SelectMenu.tsx`, `MenuPopover.tsx` | 看 `adaptiveMaxHeight`、`findNearestClippingRect()` 与 `side` 设置是否一致 |
-| article 抓取失败 | `article-fetch.ts`, `article-fetch-background-handlers.ts`, `article-extract/engine.ts` | 先看 Defuddle/Readability 分支命中，再看 Turndown 清洗与 fallback |
-| article comments / 锚点异常 | `src/services/comments/data/storage-idb.ts`, `src/services/comments/background/handlers.ts`, `src/ui/conversations/ArticleCommentsSection.tsx`, `src/services/comments/threaded-comments-panel.ts`, `src/ui/inpage/inpage-comments-panel-shadow.ts` | 看 canonicalUrl 归一、reply / delete 路由与 shadow DOM 面板挂载 |
-| Chat with AI / 打开目标异常 | `chatwith-settings.ts`, `chatwith-detail-header-actions.ts`, `detail-header-actions.test.ts`, `app-detail-header-actions.test.ts` | 看模板变量、平台设置、槽位动作分发与 clipboard + 跳转行为 |
-| 详情工具动作异常（cache-images） | `src/viewmodels/conversations/conversations-context.tsx`, `src/services/conversations/background/handlers.ts`, `src/services/conversations/background/image-backfill-job.ts` | 看动作注入、`BACKFILL_CONVERSATION_IMAGES` 路由与回填计数是否一致 |
-| Insight 统计异常 | `insight-stats.ts`, `InsightSection.tsx`, `InsightPanel.tsx`, `insight-stats.test.ts`, `settings-sections.test.ts` | 先区分是 IndexedDB 读失败、聚合规则偏差、还是 Settings 导航 / 图表布局回归 |
+| 场景                                         | 抓手                                                                                                                                                                                                                                                | 说明                                                                               |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| TypeScript 契约回归                          | `npm run compile`                                                                                                                                                                                                                                   | 最先发现消息类型、collector 输出或 UI 调用问题                                     |
+| 会话 / mapping 迁移异常                      | `schema.ts`, `schema-migration.test.ts`                                                                                                                                                                                                             | 升级问题先看迁移逻辑                                                               |
+| cursor / append / rebuild 异常               | `notion-sync-cursor.test.ts`, Notion / Obsidian orchestrators                                                                                                                                                                                       | 先判断是 mapping 问题还是目标系统问题                                              |
+| 当前页抓取异常                               | `current-page-capture.ts`, `background-router-current-page-capture.test.ts`, `usePopupCurrentPageCapture.ts`                                                                                                                                        | 看 capture state 判定、消息转发与按钮状态                                          |
+| inpage 行为异常                              | `src/services/bootstrap/content.ts`, `src/services/bootstrap/content-controller.ts`, `src/ui/inpage/inpage-button-shadow.ts`                                                                                                                        | 看 gating、点击动作和 runtime invalidation                                         |
+| `$ mention` 候选 / 插入异常                  | `src/services/integrations/item-mention/**`, `src/platform/messaging/message-contracts.ts`, `tests/smoke/background-router-item-mention.test.ts`                                                                                                    | 看站点门控（`features.dollarMention`）、设置开关、候选扫描限制与插入 markdown 构建 |
+| source/site 筛选下拉异常（高度、滚动、裁切） | `ConversationListPane.tsx`, `SelectMenu.tsx`, `MenuPopover.tsx`                                                                                                                                                                                     | 看 `adaptiveMaxHeight`、`findNearestClippingRect()` 与 `side` 设置是否一致         |
+| article 抓取失败                             | `article-fetch.ts`, `article-fetch-background-handlers.ts`, `article-extract/engine.ts`                                                                                                                                                             | 先看 Defuddle/Readability 分支命中，再看 Turndown 清洗与 fallback                  |
+| article comments / 锚点异常                  | `src/services/comments/data/storage-idb.ts`, `src/services/comments/background/handlers.ts`, `src/ui/conversations/ArticleCommentsSection.tsx`, `src/services/comments/threaded-comments-panel.ts`, `src/ui/inpage/inpage-comments-panel-shadow.ts` | 看 canonicalUrl 归一、reply / delete 路由与 shadow DOM 面板挂载                    |
+| Chat with AI / 打开目标异常                  | `chatwith-settings.ts`, `chatwith-detail-header-actions.ts`, `detail-header-actions.test.ts`, `app-detail-header-actions.test.ts`                                                                                                                   | 看模板变量、平台设置、槽位动作分发与 clipboard + 跳转行为                          |
+| 详情工具动作异常（cache-images）             | `src/viewmodels/conversations/conversations-context.tsx`, `src/services/conversations/background/handlers.ts`, `src/services/conversations/background/image-backfill-job.ts`                                                                        | 看动作注入、`BACKFILL_CONVERSATION_IMAGES` 路由与回填计数是否一致                  |
+| Insight 统计异常                             | `insight-stats.ts`, `InsightSection.tsx`, `InsightPanel.tsx`, `insight-stats.test.ts`, `settings-sections.test.ts`                                                                                                                                  | 先区分是 IndexedDB 读失败、聚合规则偏差、还是 Settings 导航 / 图表布局回归         |
 
 ### AI Chat 目录面板手工验收清单
 
@@ -237,6 +239,7 @@
 5. 键盘可达：`Tab` 聚焦把手，`Enter/Space` 打开面板，`Esc` 关闭并把焦点还给把手。
 
 ## 来源引用（Source References）
+
 - `wxt.config.ts`
 - `package.json`
 - `src/entrypoints/background.ts`
@@ -344,5 +347,6 @@
 - `tests/smoke/content-controller-item-mention-setting.test.ts`
 
 ## 更新记录（Update Notes）
+
 - 2026-04-13：新增 fetch articles 架构章节（Defuddle + Turndown 主干、按需 Readability 注入）、手动验证清单与 obsidian-clipper 对标差异；同步 article 抓取调试入口与 source references。
 - 2026-03-29：同步 inpage 双击行为为“打开页面内评论侧边栏（inpage comments panel）”，并补齐 `$ mention` 开关键与调试抓手入口。

@@ -4,12 +4,8 @@ import { normalizeNotionDatabaseIdInput } from '@services/sync/notion/notion-id-
 
 describe('notion-id-utils', () => {
   it('keeps 32-hex id as-is (lowercased)', () => {
-    expect(normalizeNotionDatabaseIdInput('346be9d6386a81748c6af9b7db455770')).toBe(
-      '346be9d6386a81748c6af9b7db455770',
-    );
-    expect(normalizeNotionDatabaseIdInput('346BE9D6386A81748C6AF9B7DB455770')).toBe(
-      '346be9d6386a81748c6af9b7db455770',
-    );
+    expect(normalizeNotionDatabaseIdInput('346be9d6386a81748c6af9b7db455770')).toBe('346be9d6386a81748c6af9b7db455770');
+    expect(normalizeNotionDatabaseIdInput('346BE9D6386A81748C6AF9B7DB455770')).toBe('346be9d6386a81748c6af9b7db455770');
   });
 
   it('strips hyphens from UUID input', () => {
@@ -32,4 +28,3 @@ describe('notion-id-utils', () => {
     expect(normalizeNotionDatabaseIdInput('https://www.notion.so/')).toBe('');
   });
 });
-

@@ -3,11 +3,11 @@ name: WebClipper Publish to AMO (Firefox)
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag name (e.g. v0.14.5). Required for manual runs."
+        description: 'Tag name (e.g. v0.14.5). Required for manual runs.'
         required: true
         type: string
 

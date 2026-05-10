@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
-import { createHmac, randomUUID } from "node:crypto";
-import { join } from "node:path";
-import { resolveRepoRoot, resolveWebclipperRoot } from "./script-utils.mjs";
+import { readFileSync } from 'node:fs';
+import { createHmac, randomUUID } from 'node:crypto';
+import { join } from 'node:path';
+import { resolveRepoRoot, resolveWebclipperRoot } from './script-utils.mjs';
 
 function requiredEnv(name) {
   const v = process.env[name];
@@ -17,24 +17,30 @@ function optionalEnv(name) {
 }
 
 function base64Url(input) {
-  const b64 = Buffer.from(input).toString("base64");
-  return b64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const b64 = Buffer.from(input).toString('base64');
+  return b64.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
 function jwtHs256({ issuer, secret }) {
-  const header = base64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const header = base64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now = Math.floor(Date.now() / 1000);
-  const payload = base64Url(JSON.stringify({
-    iss: issuer,
-    jti: randomUUID(),
-    iat: now,
-    // The publish flow can spend minutes waiting for AMO validation to finish.
-    // Keep this short-lived, but long enough for the whole run.
-    exp: now + 300
-  }));
+  const payload = base64Url(
+    JSON.stringify({
+      iss: issuer,
+      jti: randomUUID(),
+      iat: now,
+      // The publish flow can spend minutes waiting for AMO validation to finish.
+      // Keep this short-lived, but long enough for the whole run.
+      exp: now + 300,
+    }),
+  );
   const msg = `${header}.${payload}`;
-  const sig = createHmac("sha256", secret).update(msg).digest("base64")
-    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const sig = createHmac('sha256', secret)
+    .update(msg)
+    .digest('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
   return `${msg}.${sig}`;
 }
 
@@ -47,14 +53,18 @@ async function amoRequest({ method, url, token, body, headers }) {
     method,
     headers: {
       Authorization: `JWT ${token}`,
-      ...(headers || {})
+      ...(headers || {}),
     },
-    body
+    body,
   });
 
   const text = await res.text();
   let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* ignore */ }
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    /* ignore */
+  }
 
   if (!res.ok) {
     const msg = json ? JSON.stringify(json, null, 2) : text;
@@ -66,10 +76,10 @@ async function amoRequest({ method, url, token, body, headers }) {
 
 function hasNonEmptySummary(summary) {
   if (!summary) return false;
-  if (typeof summary === "string") return !!summary.trim();
-  if (typeof summary === "object" && !Array.isArray(summary)) {
+  if (typeof summary === 'string') return !!summary.trim();
+  if (typeof summary === 'object' && !Array.isArray(summary)) {
     for (const v of Object.values(summary)) {
-      if (typeof v === "string" && v.trim()) return true;
+      if (typeof v === 'string' && v.trim()) return true;
     }
     return false;
   }
@@ -77,41 +87,41 @@ function hasNonEmptySummary(summary) {
 }
 
 async function ensureListedAddonMetadata({ baseUrl, token, addonId, channel }) {
-  if (channel !== "listed") return;
+  if (channel !== 'listed') return;
 
   const addon = await amoRequest({
-    method: "GET",
+    method: 'GET',
     url: `${baseUrl}/addons/addon/${addonId}/`,
-    token
+    token,
   });
 
   if (hasNonEmptySummary(addon && addon.summary)) return;
 
-  const summaryText = optionalEnv("AMO_ADDON_SUMMARY");
-  const locale = optionalEnv("AMO_ADDON_SUMMARY_LOCALE") || "en-US";
+  const summaryText = optionalEnv('AMO_ADDON_SUMMARY');
+  const locale = optionalEnv('AMO_ADDON_SUMMARY_LOCALE') || 'en-US';
 
   if (!summaryText) {
     throw new Error(
       `[amo] cannot create a listed version: add-on metadata "summary" is missing.\n` +
-      `Set it once in AMO Developer Hub (Edit listing information), or provide env AMO_ADDON_SUMMARY ` +
-      `(and optionally AMO_ADDON_SUMMARY_LOCALE, default: en-US) for CI.`
+        `Set it once in AMO Developer Hub (Edit listing information), or provide env AMO_ADDON_SUMMARY ` +
+        `(and optionally AMO_ADDON_SUMMARY_LOCALE, default: en-US) for CI.`,
     );
   }
 
-  const merged = (addon && addon.summary && typeof addon.summary === "object" && !Array.isArray(addon.summary))
-    ? { ...addon.summary }
-    : {};
+  const merged =
+    addon && addon.summary && typeof addon.summary === 'object' && !Array.isArray(addon.summary)
+      ? { ...addon.summary }
+      : {};
   merged[locale] = summaryText;
 
-   
   console.log(`[amo] set add-on summary: locale=${locale}`);
 
   const updated = await amoRequest({
-    method: "PATCH",
+    method: 'PATCH',
     url: `${baseUrl}/addons/addon/${addonId}/`,
     token,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ summary: merged })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ summary: merged }),
   });
 
   if (!hasNonEmptySummary(updated && updated.summary)) {
@@ -123,13 +133,13 @@ async function uploadXpi({ baseUrl, token, xpiPath, channel }) {
   const buf = readFileSync(xpiPath);
   const form = new FormData();
   // AMO expects "channel" as a multipart field (validator error: Missing "channel" arg).
-  form.append("channel", channel);
-  form.append("upload", new Blob([buf]), "SyncNos-WebClipper-firefox.xpi");
+  form.append('channel', channel);
+  form.append('upload', new Blob([buf]), 'SyncNos-WebClipper-firefox.xpi');
   const json = await amoRequest({
-    method: "POST",
+    method: 'POST',
     url: `${baseUrl}/addons/upload/`,
     token,
-    body: form
+    body: form,
   });
   if (!json || !json.uuid) throw new Error(`unexpected upload response: ${JSON.stringify(json)}`);
   return json.uuid;
@@ -138,9 +148,9 @@ async function uploadXpi({ baseUrl, token, xpiPath, channel }) {
 async function waitUpload({ baseUrl, token, uuid }) {
   for (let i = 0; i < 120; i++) {
     const json = await amoRequest({
-      method: "GET",
+      method: 'GET',
       url: `${baseUrl}/addons/upload/${uuid}/`,
-      token
+      token,
     });
     if (json && json.processed) return json;
     await sleep(2000);
@@ -151,38 +161,37 @@ async function waitUpload({ baseUrl, token, uuid }) {
 async function createVersion({ baseUrl, token, addonId, uploadUuid, sourceZipPath }) {
   const buf = readFileSync(sourceZipPath);
   const form = new FormData();
-  form.append("upload", uploadUuid);
-  form.append("source", new Blob([buf]), "SyncNos-WebClipper-amo-source.zip");
+  form.append('upload', uploadUuid);
+  form.append('source', new Blob([buf]), 'SyncNos-WebClipper-amo-source.zip');
 
   return await amoRequest({
-    method: "POST",
+    method: 'POST',
     url: `${baseUrl}/addons/addon/${addonId}/versions/`,
     token,
-    body: form
+    body: form,
   });
 }
 
 async function main() {
-  const issuer = requiredEnv("AMO_JWT_ISSUER");
-  const secret = requiredEnv("AMO_JWT_SECRET");
+  const issuer = requiredEnv('AMO_JWT_ISSUER');
+  const secret = requiredEnv('AMO_JWT_SECRET');
   // AMO API accepts add-on numeric id, slug, or GUID for this path parameter.
-  const addonId = requiredEnv("AMO_ADDON_ID");
+  const addonId = requiredEnv('AMO_ADDON_ID');
 
   const repoRoot = resolveRepoRoot(import.meta.url);
   const webclipperRoot = resolveWebclipperRoot(repoRoot);
-  const baseUrl = (process.env.AMO_BASE_URL || "https://addons.mozilla.org/api/v5").replace(/\/+$/g, "");
-  const channel = (process.env.AMO_CHANNEL || "listed").trim();
-  const xpiPath = process.env.AMO_XPI_PATH || join(webclipperRoot, "SyncNos-WebClipper-firefox.xpi");
-  const sourceZipPath = process.env.AMO_SOURCE_ZIP_PATH || join(webclipperRoot, "SyncNos-WebClipper-amo-source.zip");
+  const baseUrl = (process.env.AMO_BASE_URL || 'https://addons.mozilla.org/api/v5').replace(/\/+$/g, '');
+  const channel = (process.env.AMO_CHANNEL || 'listed').trim();
+  const xpiPath = process.env.AMO_XPI_PATH || join(webclipperRoot, 'SyncNos-WebClipper-firefox.xpi');
+  const sourceZipPath = process.env.AMO_SOURCE_ZIP_PATH || join(webclipperRoot, 'SyncNos-WebClipper-amo-source.zip');
 
   const token = jwtHs256({ issuer, secret });
 
   await ensureListedAddonMetadata({ baseUrl, token, addonId, channel });
 
-   
   console.log(`[amo] upload xpi: ${xpiPath}`);
   const uuid = await uploadXpi({ baseUrl, token, xpiPath, channel });
-   
+
   console.log(`[amo] upload uuid: ${uuid}`);
 
   const upload = await waitUpload({ baseUrl, token, uuid });
@@ -190,15 +199,13 @@ async function main() {
     throw new Error(`[amo] upload invalid:\n${JSON.stringify(upload.validation || upload, null, 2)}`);
   }
 
-   
   console.log(`[amo] create version: addon_id=${addonId}`);
   const version = await createVersion({ baseUrl, token, addonId, uploadUuid: uuid, sourceZipPath });
-   
+
   console.log(`[amo] version created:\n${JSON.stringify(version, null, 2)}`);
 }
 
 main().catch((e) => {
-   
   console.error(e && e.stack ? e.stack : String(e));
   process.exit(1);
 });
