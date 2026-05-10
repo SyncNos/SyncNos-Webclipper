@@ -11,6 +11,7 @@ import {
 import { extractZipEntries } from '@services/sync/backup/zip-utils';
 import { disconnectNotion } from '@services/sync/notion/auth/settings-client';
 import { getNotionOAuthDefaults } from '@services/sync/notion/auth/oauth';
+import { normalizeNotionDatabaseIdInput } from '@services/sync/notion/notion-id-utils';
 import { NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@services/protocols/message-contracts';
 import { conversationKinds } from '@services/protocols/conversation-kinds';
 import type { ConversationKindDbSpec } from '@services/protocols/conversation-kind-contract';
@@ -630,7 +631,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       const spec = kind === 'chat' ? chatDbSpec : kind === 'article' ? articleDbSpec : videoDbSpec;
       const raw =
         kind === 'chat' ? notionChatDatabaseId : kind === 'article' ? notionArticleDatabaseId : notionVideoDatabaseId;
-      const next = String(raw || '').trim();
+      const next = normalizeNotionDatabaseIdInput(String(raw || ''));
 
       await runTask(
         async () => {
