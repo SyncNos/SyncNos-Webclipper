@@ -2,8 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
 
 describe('feishu-api error normalization', () => {
+  const originalFetch = globalThis.fetch;
+
   afterEach(() => {
     vi.restoreAllMocks();
+    // @ts-expect-error test global
+    globalThis.fetch = originalFetch;
   });
 
   it('throws error with status/code/requestId/retryAfterMs on non-2xx responses', async () => {
@@ -52,4 +56,3 @@ describe('feishu-api error normalization', () => {
     });
   });
 });
-

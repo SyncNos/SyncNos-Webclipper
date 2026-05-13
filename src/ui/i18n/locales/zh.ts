@@ -487,10 +487,11 @@ export const zh: { [K in TranslationKey]: string } = {
   feishuOAuth: '飞书 OAuth',
   feishuSyncEnabledLabel: '同步到飞书',
   feishuSyncEnabledHint: '已关闭飞书同步，您可以随时在设置中重新开启。',
-  feishuOAuthClientIdLabel: 'OAuth Client ID',
+  feishuOAuthClientIdLabel: 'OAuth 客户端 ID',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange 代理 URL',
   feishuAdvancedHint:
     '连接前需配置 Client ID。代理 URL 仅允许 https；留空将使用内置官方 worker（无需在扩展中存储 app_secret）。',
+  feishuWaitingHint: '请在打开的飞书授权页完成授权，然后返回这里。',
   syncStopped: '同步已停止',
   syncTo: '同步到',
   syncAllProvidersDisabledMenuItem: '您已关闭所有同步选项，可以前往设置面板开启',

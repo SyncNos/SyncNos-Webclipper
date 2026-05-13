@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../src/platform/storage/local', () => {
+vi.mock('@platform/storage/local', () => {
   return {
     storageGet: async () => ({}),
     storageSet: async () => {},
@@ -38,4 +38,3 @@ describe('normalizeSyncJobSnapshot', () => {
     expect(snapshot!.updatedAt).toBe(2);
   });
 });
-

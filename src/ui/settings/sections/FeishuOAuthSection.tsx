@@ -9,6 +9,8 @@ export function FeishuOAuthSection(props: {
   feishuConnected: boolean;
   pollingFeishu: boolean;
   feishuAdvancedOpen: boolean;
+  feishuPendingState: string;
+  feishuLastError: string;
   feishuClientId: string;
   feishuTokenExchangeProxyUrl: string;
   onToggleSyncEnabled: (enabled: boolean) => void;
@@ -25,6 +27,8 @@ export function FeishuOAuthSection(props: {
     feishuConnected,
     pollingFeishu,
     feishuAdvancedOpen,
+    feishuPendingState,
+    feishuLastError,
     feishuClientId,
     feishuTokenExchangeProxyUrl,
     onToggleSyncEnabled,
@@ -49,6 +53,16 @@ export function FeishuOAuthSection(props: {
           {feishuConnected ? t('disconnect') : pollingFeishu ? t('connectingDots') : t('connect')}
         </button>
       </div>
+
+      {feishuLastError ? (
+        <div className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--error)]">
+          {t('statusError')}: {feishuLastError}
+        </div>
+      ) : !feishuConnected && (pollingFeishu || feishuPendingState) ? (
+        <div className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)] tw-opacity-90">
+          {t('feishuWaitingHint')}
+        </div>
+      ) : null}
 
       <div className="tw-mt-3" aria-label={t('feishuSyncEnabledLabel')}>
         <SettingsFormRow label={t('feishuSyncEnabledLabel')}>
@@ -124,4 +138,3 @@ export function FeishuOAuthSection(props: {
     </section>
   );
 }
-

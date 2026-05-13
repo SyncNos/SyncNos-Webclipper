@@ -301,6 +301,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     return run;
   }, []);
 
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
   const refreshInternal = useCallback(async () => {
     const [notionRes, feishuRes, local, obsidianRes, antiHotlinkRulesDraft] = await Promise.all([
       send<ApiResponse<any>>(NOTION_MESSAGE_TYPES.GET_AUTH_STATUS, {}),
@@ -668,7 +672,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       }
 
       const clientId = String(feishuClientId || '').trim();
-      if (!clientId) throw new Error('Feishu OAuth client id not configured');
+      if (!clientId) {
+        setFeishuAdvancedOpen(true);
+        throw new Error('Feishu OAuth client id not configured');
+      }
 
       const cfg = getFeishuOAuthDefaults();
       const state = `webclipper_${Math.random().toString(16).slice(2)}_${Date.now()}`;
@@ -1268,6 +1275,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   return {
     busy,
     error,
+    clearError,
 
     notionSyncEnabled,
     onToggleNotionSyncEnabled,
@@ -1307,6 +1315,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     pollingFeishu,
     feishuAdvancedOpen,
     onToggleFeishuAdvancedOpen,
+    feishuPendingState,
+    feishuLastError,
     feishuClientId,
     setFeishuClientId,
     feishuTokenExchangeProxyUrl,

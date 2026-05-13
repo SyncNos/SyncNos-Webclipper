@@ -4,7 +4,7 @@ type Store = Record<string, unknown>;
 
 let store: Store;
 
-vi.mock('../../src/platform/storage/local', () => {
+vi.mock('@platform/storage/local', () => {
   return {
     storageGet: async (keys: string[]) => {
       const out: Record<string, unknown> = {};

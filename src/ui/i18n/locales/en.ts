@@ -496,6 +496,7 @@ export const en = {
   feishuTokenExchangeProxyUrlLabel: 'Token exchange proxy URL',
   feishuAdvancedHint:
     'Client ID is required to connect. Proxy URL must be https; leave empty to use the built-in worker (no app_secret stored in extension).',
+  feishuWaitingHint: 'Complete Feishu authorization in the opened tab, then return here.',
   syncStopped: 'Sync stopped',
   syncTo: 'Sync to',
   syncAllProvidersDisabledMenuItem: 'All sync providers are disabled. Open Settings to enable.',
