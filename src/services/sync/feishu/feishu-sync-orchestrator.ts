@@ -10,6 +10,7 @@ import {
 } from '@services/sync/feishu/settings-store';
 import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
 import { convertContentToBlocks, isFeishuConvertPermissionDenied } from '@services/sync/feishu/docx/convert-api';
+import { materializeMarkdownImagesIntoDocx, parseMarkdownImages } from '@services/sync/feishu/docx/image-materializer';
 
 const SYNC_PROVIDER = 'feishu';
 const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
@@ -363,6 +364,16 @@ async function appendMarkdownWithConvertFallback({
   docId: string;
   markdown: string;
 }): Promise<number> {
+  const images = parseMarkdownImages(markdown);
+  if (images.length) {
+    try {
+      const res = await materializeMarkdownImagesIntoDocx({ accessToken, docId, markdown });
+      return res.appendedBlocks;
+    } catch (_e) {
+      return appendTextBlocks({ accessToken, docId, markdown });
+    }
+  }
+
   try {
     return await appendConvertedBlocks({ accessToken, docId, markdown });
   } catch (e) {
