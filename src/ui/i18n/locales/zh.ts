@@ -454,6 +454,7 @@ export const zh: { [K in TranslationKey]: string } = {
   detailHeaderOpenInMenuAria: '打开目标',
   detailHeaderOpenInNotion: '在 Notion 中打开',
   detailHeaderOpenInObsidian: '在 Obsidian 中打开',
+  detailHeaderOpenInFeishu: '在飞书中打开',
   detailHeaderObsidianApiNotConnected: 'Obsidian API 未连接',
   detailHeaderCacheImagesLabel: '缓存图片',
   detailHeaderCacheImagesSuccess: '图片已缓存。',

@@ -1,7 +1,9 @@
 import type { Conversation } from '@services/conversations/domain/models';
 import { t } from '@i18n';
 import type { DetailHeaderAction, DetailHeaderActionPort } from '@services/integrations/detail-header-action-types';
+import { getSyncMappingByConversation } from '@services/conversations/data/storage-idb';
 import { isSyncProviderEnabled } from '@services/sync/sync-provider-gate';
+import { buildFeishuOpenInAction } from '@services/integrations/openin/feishu-openin';
 import {
   buildNotionOpenInAction,
   buildNotionPageUrl,
@@ -12,10 +14,15 @@ import { openObsidianTarget, resolveObsidianOpenTarget } from '@services/integra
 export const DETAIL_HEADER_ACTION_LABELS = {
   openInNotion: t('detailHeaderOpenInNotion'),
   openInObsidian: t('detailHeaderOpenInObsidian'),
+  openInFeishu: t('detailHeaderOpenInFeishu'),
   obsidianApiNotConnected: t('detailHeaderObsidianApiNotConnected'),
 } as const;
 
 export { buildNotionPageUrl, normalizeNotionPageId };
+
+function safeString(value: unknown): string {
+  return String(value || '').trim();
+}
 
 async function buildObsidianOpenInAction({
   conversation,
@@ -68,14 +75,26 @@ export async function resolveOpenInDetailHeaderActions({
 }): Promise<DetailHeaderAction[]> {
   const actions: DetailHeaderAction[] = [];
 
-  const [notionEnabled, obsidianEnabled] = await Promise.all([
+  const [notionEnabled, obsidianEnabled, feishuEnabled] = await Promise.all([
     isSyncProviderEnabled('notion').catch(() => true),
     isSyncProviderEnabled('obsidian').catch(() => true),
+    isSyncProviderEnabled('feishu').catch(() => true),
   ]);
 
   if (notionEnabled) {
     const notionAction = buildNotionOpenInAction({ conversation, port, labels: DETAIL_HEADER_ACTION_LABELS });
     if (notionAction) actions.push(notionAction);
+  }
+
+  if (feishuEnabled) {
+    let convo = conversation;
+    if (convo && !safeString((convo as any).feishuDocId)) {
+      const mappingRes = await getSyncMappingByConversation(Number((convo as any).id) || 0).catch(() => null);
+      const docId = safeString(mappingRes?.mapping?.feishuDocId);
+      if (docId) convo = { ...(convo as any), feishuDocId: docId } as any;
+    }
+    const feishuAction = buildFeishuOpenInAction({ conversation: convo, port, labels: DETAIL_HEADER_ACTION_LABELS });
+    if (feishuAction) actions.push(feishuAction);
   }
 
   try {

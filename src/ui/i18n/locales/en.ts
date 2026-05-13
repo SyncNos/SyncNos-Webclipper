@@ -459,6 +459,7 @@ export const en = {
   detailHeaderOpenInMenuAria: 'Open destinations',
   detailHeaderOpenInNotion: 'Open in Notion',
   detailHeaderOpenInObsidian: 'Open in Obsidian',
+  detailHeaderOpenInFeishu: 'Open in Feishu',
   detailHeaderObsidianApiNotConnected: 'Obsidian API not connected',
   detailHeaderCacheImagesLabel: 'Cache images',
   detailHeaderCacheImagesInProgressLabel: 'Caching images...',
