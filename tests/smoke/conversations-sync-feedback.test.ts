@@ -12,10 +12,13 @@ const getConversationDetail = vi.fn();
 const deleteConversations = vi.fn();
 const syncNotionConversations = vi.fn();
 const syncObsidianConversations = vi.fn();
+const syncFeishuConversations = vi.fn();
 const clearNotionSyncJobStatus = vi.fn();
 const clearObsidianSyncStatus = vi.fn();
+const clearFeishuSyncStatus = vi.fn();
 const getNotionSyncJobStatus = vi.fn();
 const getObsidianSyncStatus = vi.fn();
+const getFeishuSyncStatus = vi.fn();
 
 vi.mock('../../src/ui/shared/hooks/useIsNarrowScreen', () => ({
   useIsNarrowScreen: () => true,
@@ -28,10 +31,13 @@ vi.mock('@services/conversations/client/repo', () => ({
 }));
 
 vi.mock('@services/sync/repo', () => ({
+  clearFeishuSyncStatus: (...args: any[]) => clearFeishuSyncStatus(...args),
   clearNotionSyncJobStatus: (...args: any[]) => clearNotionSyncJobStatus(...args),
   clearObsidianSyncStatus: (...args: any[]) => clearObsidianSyncStatus(...args),
+  syncFeishuConversations: (...args: any[]) => syncFeishuConversations(...args),
   syncNotionConversations: (...args: any[]) => syncNotionConversations(...args),
   syncObsidianConversations: (...args: any[]) => syncObsidianConversations(...args),
+  getFeishuSyncStatus: (...args: any[]) => getFeishuSyncStatus(...args),
   getNotionSyncJobStatus: (...args: any[]) => getNotionSyncJobStatus(...args),
   getObsidianSyncStatus: (...args: any[]) => getObsidianSyncStatus(...args),
 }));
@@ -111,10 +117,13 @@ describe('Conversations sync feedback', () => {
     deleteConversations.mockReset();
     syncNotionConversations.mockReset();
     syncObsidianConversations.mockReset();
+    syncFeishuConversations.mockReset();
     clearNotionSyncJobStatus.mockReset();
     clearObsidianSyncStatus.mockReset();
+    clearFeishuSyncStatus.mockReset();
     getNotionSyncJobStatus.mockReset();
     getObsidianSyncStatus.mockReset();
+    getFeishuSyncStatus.mockReset();
 
     getConversationListBootstrap.mockResolvedValue({
       items: [baseConversation],
@@ -130,8 +139,10 @@ describe('Conversations sync feedback', () => {
     deleteConversations.mockResolvedValue(null);
     clearNotionSyncJobStatus.mockResolvedValue({ provider: 'notion', job: null, instanceId: 'notion-test' });
     clearObsidianSyncStatus.mockResolvedValue({ provider: 'obsidian', job: null, instanceId: 'obsidian-test' });
+    clearFeishuSyncStatus.mockResolvedValue({ provider: 'feishu', job: null, instanceId: 'feishu-test' });
     getNotionSyncJobStatus.mockResolvedValue({ provider: 'notion', job: null, instanceId: 'notion-test' });
     getObsidianSyncStatus.mockResolvedValue({ provider: 'obsidian', job: null, instanceId: 'obsidian-test' });
+    getFeishuSyncStatus.mockResolvedValue({ provider: 'feishu', job: null, instanceId: 'feishu-test' });
   });
 
   afterEach(() => {

@@ -145,6 +145,8 @@ export function mergeSyncMappingRecord(existing: UnknownRecord, incoming: Unknow
 
   // notionPageId: only fill when missing locally.
   next.notionPageId = pickStringPreferExisting(a.notionPageId, b.notionPageId);
+  // feishuDocId: only fill when missing locally.
+  next.feishuDocId = pickStringPreferExisting(a.feishuDocId, b.feishuDocId);
 
   // cursor: prefer existing local value; only fill when missing locally.
   next.lastSyncedMessageKey = pickStringPreferExisting(a.lastSyncedMessageKey, b.lastSyncedMessageKey);
