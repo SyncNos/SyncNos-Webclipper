@@ -16,6 +16,7 @@ describe('settings section definitions', () => {
       'chat_with',
       'backup',
       'notion',
+      'feishu',
       'obsidian',
       'aboutyou',
       'aboutme',
@@ -30,7 +31,7 @@ describe('settings section definitions', () => {
       })),
     ).toEqual([
       { titleKey: 'settingsGroupFeatures', keys: ['general', 'articles', 'ai_chats', 'videos', 'chat_with'] },
-      { titleKey: 'settingsGroupData', keys: ['backup', 'notion', 'obsidian'] },
+      { titleKey: 'settingsGroupData', keys: ['backup', 'notion', 'feishu', 'obsidian'] },
       { titleKey: 'settingsGroupAbout', keys: ['aboutyou', 'aboutme'] },
     ]);
   });

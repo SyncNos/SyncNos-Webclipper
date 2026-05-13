@@ -16,6 +16,12 @@ import {
   testConnection as testObsidianConnection,
 } from '@services/sync/obsidian/obsidian-sync-orchestrator.ts';
 
+import {
+  clearSyncStatus as clearFeishuSyncStatus,
+  getSyncStatus as getFeishuSyncStatus,
+  syncConversations as feishuSyncConversations,
+} from '@services/sync/feishu/feishu-sync-orchestrator.ts';
+
 import { conversationKinds } from '@services/protocols/conversation-kinds.ts';
 
 export type NotionSyncOrchestrator = {
@@ -35,12 +41,19 @@ export type ObsidianSyncOrchestrator = {
   testConnection: (input: { instanceId: string }) => Promise<unknown>;
 };
 
+export type FeishuSyncOrchestrator = {
+  syncConversations: (input: { conversationIds?: unknown[]; instanceId: string }) => Promise<unknown>;
+  getSyncStatus: (input: { instanceId: string }) => Promise<unknown>;
+  clearSyncStatus: (input: { instanceId: string }) => Promise<unknown>;
+};
+
 export type BackgroundServices = {
   articleFetchService: typeof articleFetchService;
   conversationKinds: typeof conversationKinds;
   notionSyncJobStore: typeof notionSyncJobStore;
   notionSyncOrchestrator: NotionSyncOrchestrator;
   obsidianSyncOrchestrator: ObsidianSyncOrchestrator;
+  feishuSyncOrchestrator: FeishuSyncOrchestrator;
 };
 
 export function createBackgroundServices(): BackgroundServices {
@@ -65,6 +78,11 @@ export function createBackgroundServices(): BackgroundServices {
       getSyncStatus: async (input: { instanceId: string }) => getObsidianSyncStatus(input as any),
       clearSyncStatus: async (input: { instanceId: string }) => clearObsidianSyncStatus(input as any),
       testConnection: testObsidianConnection,
+    },
+    feishuSyncOrchestrator: {
+      syncConversations: feishuSyncConversations,
+      getSyncStatus: async (input: { instanceId: string }) => getFeishuSyncStatus(input as any),
+      clearSyncStatus: async (input: { instanceId: string }) => clearFeishuSyncStatus(input as any),
     },
   };
 }

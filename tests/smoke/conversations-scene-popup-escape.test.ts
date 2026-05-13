@@ -135,6 +135,10 @@ function cleanupDom() {
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
 }
 
+function flushImmediate(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 describe('ConversationsScene popup Escape behavior', () => {
   let root: ReactDOM.Root | null = null;
 
@@ -148,9 +152,10 @@ describe('ConversationsScene popup Escape behavior', () => {
     root = ReactDOM.createRoot(document.getElementById('root')!);
   });
 
-  afterEach(() => {
-    act(() => {
+  afterEach(async () => {
+    await act(async () => {
       root?.unmount();
+      await flushImmediate();
     });
     root = null;
     cleanupDom();

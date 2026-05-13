@@ -11,8 +11,10 @@ import {
 import { extractZipEntries } from '@services/sync/backup/zip-utils';
 import { disconnectNotion } from '@services/sync/notion/auth/settings-client';
 import { getNotionOAuthDefaults } from '@services/sync/notion/auth/oauth';
+import { disconnectFeishu } from '@services/sync/feishu/auth/settings-client';
+import { ensureDefaultFeishuOAuthProxyUrl, getFeishuOAuthDefaults } from '@services/sync/feishu/auth/oauth';
 import { normalizeNotionDatabaseIdInput } from '@services/sync/notion/notion-id-utils';
-import { NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@services/protocols/message-contracts';
+import { FEISHU_MESSAGE_TYPES, NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@services/protocols/message-contracts';
 import { conversationKinds } from '@services/protocols/conversation-kinds';
 import type { ConversationKindDbSpec } from '@services/protocols/conversation-kind-contract';
 import {
@@ -63,6 +65,7 @@ import { ABOUT_YOU_USER_NAME_STORAGE_KEY, normalizeUserName } from '@services/sh
 
 const NOTION_SYNC_PROVIDER_ENABLED_KEY = syncProviderEnabledStorageKey('notion');
 const OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY = syncProviderEnabledStorageKey('obsidian');
+const FEISHU_SYNC_PROVIDER_ENABLED_KEY = syncProviderEnabledStorageKey('feishu');
 const FALLBACK_NOTION_DB_STORAGE_KEYS = [
   'notion_db_id_syncnos_ai_chats',
   'notion_db_id_syncnos_web_articles',
@@ -198,6 +201,16 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const notionPagesAutoLoadRef = useRef(false);
   const [notionSyncEnabled, setNotionSyncEnabled] = useState(true);
 
+  // Feishu
+  const [feishuConnected, setFeishuConnected] = useState<boolean | null>(null);
+  const [feishuPendingState, setFeishuPendingState] = useState<string>('');
+  const [feishuLastError, setFeishuLastError] = useState<string>('');
+  const [feishuClientId, setFeishuClientId] = useState<string>('');
+  const [feishuTokenExchangeProxyUrl, setFeishuTokenExchangeProxyUrl] = useState<string>('');
+  const [feishuAdvancedOpen, setFeishuAdvancedOpen] = useState(false);
+  const [pollingFeishu, setPollingFeishu] = useState(false);
+  const [feishuSyncEnabled, setFeishuSyncEnabled] = useState(true);
+
   // Obsidian
   const [obsidianApiBaseUrl, setObsidianApiBaseUrl] = useState<string>('');
   const [obsidianAuthHeaderName, setObsidianAuthHeaderName] = useState<string>('');
@@ -288,20 +301,30 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     return run;
   }, []);
 
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
   const refreshInternal = useCallback(async () => {
-    const [notionRes, local, obsidianRes, antiHotlinkRulesDraft] = await Promise.all([
+    const [notionRes, feishuRes, local, obsidianRes, antiHotlinkRulesDraft] = await Promise.all([
       send<ApiResponse<any>>(NOTION_MESSAGE_TYPES.GET_AUTH_STATUS, {}),
+      send<ApiResponse<any>>(FEISHU_MESSAGE_TYPES.GET_AUTH_STATUS, {}),
       storageGet([
         'notion_oauth_client_id',
         'notion_oauth_pending_state',
         'notion_oauth_last_error',
         'notion_parent_page_id',
         'notion_parent_page_title',
+        'feishu_oauth_client_id',
+        'feishu_oauth_pending_state',
+        'feishu_oauth_last_error',
+        'feishu_oauth_token_exchange_proxy_url',
         'notion_ai_preferred_model_index',
         chatDbSpec.storageKey,
         articleDbSpec.storageKey,
         videoDbSpec.storageKey,
         NOTION_SYNC_PROVIDER_ENABLED_KEY,
+        FEISHU_SYNC_PROVIDER_ENABLED_KEY,
         OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY,
         'inpage_display_mode',
         'inpage_supported_only',
@@ -338,7 +361,19 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setNotionArticleDatabaseId(String(local?.[articleDbSpec.storageKey] || ''));
     setNotionVideoDatabaseId(String(local?.[videoDbSpec.storageKey] || ''));
     setNotionSyncEnabled(local?.[NOTION_SYNC_PROVIDER_ENABLED_KEY] !== false);
+    setFeishuSyncEnabled(local?.[FEISHU_SYNC_PROVIDER_ENABLED_KEY] !== false);
     setObsidianSyncEnabled(local?.[OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY] !== false);
+
+    const feishuStatus = unwrap(feishuRes);
+    const feishuIsConnected = !!feishuStatus?.connected;
+    setFeishuConnected(feishuIsConnected);
+    if (!feishuIsConnected) {
+      setPollingFeishu(false);
+    }
+    setFeishuClientId(String(local?.feishu_oauth_client_id || ''));
+    setFeishuPendingState(String(local?.feishu_oauth_pending_state || ''));
+    setFeishuLastError(String(local?.feishu_oauth_last_error || ''));
+    setFeishuTokenExchangeProxyUrl(String(local?.feishu_oauth_token_exchange_proxy_url || ''));
 
     const normalizedInpageMode = normalizeInpageDisplayMode(local?.inpage_display_mode);
     setInpageDisplayMode(
@@ -393,6 +428,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         const nextValue = changes[OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY]?.newValue;
         setObsidianSyncEnabled(nextValue !== false);
       }
+      if (Object.prototype.hasOwnProperty.call(changes, FEISHU_SYNC_PROVIDER_ENABLED_KEY)) {
+        const nextValue = changes[FEISHU_SYNC_PROVIDER_ENABLED_KEY]?.newValue;
+        setFeishuSyncEnabled(nextValue !== false);
+      }
       if (Object.prototype.hasOwnProperty.call(changes, MARKDOWN_READING_PROFILE_STORAGE_KEY)) {
         const nextValue = changes[MARKDOWN_READING_PROFILE_STORAGE_KEY]?.newValue;
         setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(nextValue));
@@ -405,6 +444,14 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         Object.prototype.hasOwnProperty.call(changes, 'notion_oauth_token_v1') ||
         Object.prototype.hasOwnProperty.call(changes, 'notion_oauth_pending_state') ||
         Object.prototype.hasOwnProperty.call(changes, 'notion_oauth_last_error')
+      ) {
+        void refresh();
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(changes, 'feishu_oauth_token_v1') ||
+        Object.prototype.hasOwnProperty.call(changes, 'feishu_oauth_pending_state') ||
+        Object.prototype.hasOwnProperty.call(changes, 'feishu_oauth_last_error')
       ) {
         void refresh();
       }
@@ -440,6 +487,36 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       setPollingNotion(false);
     }
   }, [notionConnected, notionLastError, notionPendingState, pollingNotion]);
+
+  useEffect(() => {
+    if (!pollingFeishu) return;
+
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      if (Date.now() - startedAt > 60_000) {
+        setPollingFeishu(false);
+        return;
+      }
+      void refresh();
+    }, 750);
+
+    return () => clearInterval(timer);
+  }, [pollingFeishu, refresh]);
+
+  useEffect(() => {
+    if (!pollingFeishu) return;
+    if (feishuConnected) {
+      setPollingFeishu(false);
+      return;
+    }
+    if (feishuLastError) {
+      setPollingFeishu(false);
+      return;
+    }
+    if (!feishuPendingState) {
+      setPollingFeishu(false);
+    }
+  }, [feishuConnected, feishuLastError, feishuPendingState, pollingFeishu]);
 
   const notionPageOptions = useMemo(() => {
     const list = Array.isArray(notionPages) ? notionPages.slice() : [];
@@ -525,6 +602,108 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     },
     [runTask],
   );
+
+  const onToggleFeishuSyncEnabled = useCallback(
+    async (enabled: boolean) => {
+      await runTask(
+        async () => {
+          await setSyncProviderEnabled('feishu', enabled);
+          setFeishuSyncEnabled(enabled);
+        },
+        { fallbackMessage: 'save feishu sync enabled failed' },
+      );
+    },
+    [runTask],
+  );
+
+  const onToggleFeishuAdvancedOpen = useCallback(() => {
+    setFeishuAdvancedOpen((v) => !v);
+  }, []);
+
+  const normalizeHttpsUrlOrEmpty = (raw: string) => {
+    const value = String(raw || '').trim();
+    if (!value) return '';
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'https:') return '';
+      return url.toString();
+    } catch (_e) {
+      return '';
+    }
+  };
+
+  const onSaveFeishuAdvancedSettings = useCallback(async () => {
+    await runTask(
+      async () => {
+        const clientId = String(feishuClientId || '').trim();
+        const proxyUrlRaw = String(feishuTokenExchangeProxyUrl || '').trim();
+        const proxyUrl = proxyUrlRaw ? normalizeHttpsUrlOrEmpty(proxyUrlRaw) : '';
+        if (proxyUrlRaw && !proxyUrl) throw new Error('Feishu token exchange proxy url must be https');
+
+        await storageSet({
+          feishu_oauth_client_id: clientId,
+          feishu_oauth_token_exchange_proxy_url: proxyUrl,
+        });
+        if (!proxyUrl) {
+          await ensureDefaultFeishuOAuthProxyUrl().catch(() => {});
+          const latest = await storageGet(['feishu_oauth_token_exchange_proxy_url']).catch(() => ({} as any));
+          const resolved = String((latest as any)?.feishu_oauth_token_exchange_proxy_url || '').trim();
+          setFeishuTokenExchangeProxyUrl(resolved);
+        } else {
+          setFeishuTokenExchangeProxyUrl(proxyUrl);
+        }
+        setFeishuClientId(clientId);
+      },
+      { fallbackMessage: 'save feishu settings failed' },
+    );
+  }, [feishuClientId, feishuTokenExchangeProxyUrl, runTask]);
+
+  const onFeishuConnectOrDisconnect = useCallback(async () => {
+    await runTask(async () => {
+      const status = unwrap(await send<ApiResponse<any>>(FEISHU_MESSAGE_TYPES.GET_AUTH_STATUS, {}));
+      if (status?.connected) {
+        await disconnectFeishu();
+        setFeishuConnected(false);
+        setFeishuPendingState('');
+        setFeishuLastError('');
+        setPollingFeishu(false);
+        await refreshInternal();
+        return;
+      }
+
+      const clientId = String(feishuClientId || '').trim();
+      if (!clientId) {
+        setFeishuAdvancedOpen(true);
+        throw new Error('Feishu OAuth client id not configured');
+      }
+
+      const cfg = getFeishuOAuthDefaults();
+      const state = `webclipper_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+      await storageSet({ feishu_oauth_pending_state: state, feishu_oauth_last_error: '' });
+      setFeishuPendingState(state);
+      setFeishuLastError('');
+
+      const url = new URL(cfg.authorizationUrl);
+      url.searchParams.set('client_id', clientId);
+      url.searchParams.set('app_id', clientId);
+      url.searchParams.set('redirect_uri', cfg.redirectUri);
+      url.searchParams.set('state', state);
+      url.searchParams.set('response_type', cfg.responseType);
+      url.searchParams.set('scope', cfg.scope);
+
+      const opened = openHttpUrl(url.toString());
+      if (!opened) throw new Error('Failed to open Feishu OAuth tab');
+      setPollingFeishu(true);
+    });
+  }, [feishuClientId, refreshInternal, runTask]);
+
+  const feishuStatusText = useMemo(() => {
+    if (feishuConnected == null) return t('statusUnknown');
+    if (feishuConnected) return `${t('statusConnected')} ✅`;
+    if (feishuLastError) return t('statusError');
+    if (feishuPendingState) return t('statusWaiting');
+    return t('statusNotConnected');
+  }, [feishuConnected, feishuLastError, feishuPendingState]);
 
   const onLoadNotionPages = useCallback(async () => {
     setLoadingNotionPages(true);
@@ -1098,6 +1277,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   return {
     busy,
     error,
+    clearError,
 
     notionSyncEnabled,
     onToggleNotionSyncEnabled,
@@ -1129,6 +1309,23 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     onNotionConnectOrDisconnect,
     onSaveNotionParentPage,
     onLoadNotionPages,
+
+    feishuSyncEnabled,
+    onToggleFeishuSyncEnabled,
+
+    feishuConnected,
+    pollingFeishu,
+    feishuAdvancedOpen,
+    onToggleFeishuAdvancedOpen,
+    feishuPendingState,
+    feishuLastError,
+    feishuClientId,
+    setFeishuClientId,
+    feishuTokenExchangeProxyUrl,
+    setFeishuTokenExchangeProxyUrl,
+    feishuStatusText,
+    onSaveFeishuAdvancedSettings,
+    onFeishuConnectOrDisconnect,
 
     obsidianSyncEnabled,
     onToggleObsidianSyncEnabled,

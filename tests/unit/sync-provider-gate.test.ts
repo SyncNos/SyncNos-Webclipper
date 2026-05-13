@@ -4,7 +4,7 @@ type Store = Record<string, unknown>;
 
 let store: Store;
 
-vi.mock('../../src/platform/storage/local', () => {
+vi.mock('@platform/storage/local', () => {
   return {
     storageGet: async (keys: string[]) => {
       const out: Record<string, unknown> = {};
@@ -31,7 +31,8 @@ describe('sync provider gate', () => {
     const { getEnabledSyncProviders, isSyncProviderEnabled } = await import('@services/sync/sync-provider-gate');
     expect(await isSyncProviderEnabled('notion')).toBe(true);
     expect(await isSyncProviderEnabled('obsidian')).toBe(true);
-    expect(await getEnabledSyncProviders()).toEqual(['obsidian', 'notion']);
+    expect(await isSyncProviderEnabled('feishu')).toBe(true);
+    expect(await getEnabledSyncProviders()).toEqual(['obsidian', 'notion', 'feishu']);
   });
 
   it('reads/writes disabled state via storage (explicit false only)', async () => {
@@ -46,5 +47,9 @@ describe('sync provider gate', () => {
     await setSyncProviderEnabled('notion', true);
     expect(await isSyncProviderEnabled('notion')).toBe(true);
     expect(await ensureSyncProviderEnabled('notion')).toBe(null);
+
+    await setSyncProviderEnabled('feishu', false);
+    expect(await isSyncProviderEnabled('feishu')).toBe(false);
+    expect(await ensureSyncProviderEnabled('feishu')).toEqual({ code: 'sync_provider_disabled', provider: 'feishu' });
   });
 });

@@ -16,6 +16,7 @@ import { InsightSection } from '@ui/settings/sections/InsightSection';
 import { InpageSection } from '@ui/settings/sections/InpageSection';
 import { NotionAISection } from '@ui/settings/sections/NotionAISection';
 import { NotionOAuthSection } from '@ui/settings/sections/NotionOAuthSection';
+import { FeishuOAuthSection } from '@ui/settings/sections/FeishuOAuthSection';
 import { ObsidianSettingsSection } from '@ui/settings/sections/ObsidianSettingsSection';
 import { WebArticlesSection } from '@ui/settings/sections/WebArticlesSection';
 import { VideosSection } from '@ui/settings/sections/VideosSection';
@@ -38,6 +39,8 @@ export function SettingsScene(props: SettingsSceneProps) {
 
   const {
     busy,
+    error,
+    clearError,
 
     notionSyncEnabled,
     onToggleNotionSyncEnabled,
@@ -69,6 +72,23 @@ export function SettingsScene(props: SettingsSceneProps) {
     onNotionConnectOrDisconnect,
     onSaveNotionParentPage,
     onLoadNotionPages,
+
+    feishuSyncEnabled,
+    onToggleFeishuSyncEnabled,
+
+    feishuConnected,
+    pollingFeishu,
+    feishuAdvancedOpen,
+    onToggleFeishuAdvancedOpen,
+    feishuPendingState,
+    feishuLastError,
+    feishuClientId,
+    setFeishuClientId,
+    feishuTokenExchangeProxyUrl,
+    setFeishuTokenExchangeProxyUrl,
+    feishuStatusText,
+    onSaveFeishuAdvancedSettings,
+    onFeishuConnectOrDisconnect,
 
     chatWithPromptTemplate,
     setChatWithPromptTemplate,
@@ -145,6 +165,27 @@ export function SettingsScene(props: SettingsSceneProps) {
 
   const renderDetailContent = () => (
     <section className={`route-scroll tw-mx-auto tw-grid tw-w-full ${detailMaxWidthClassName} tw-gap-4 tw-pr-1`}>
+      {error ? (
+        <section
+          className={[
+            'tw-rounded-[var(--radius-card)] tw-border tw-border-[var(--error)] tw-bg-[var(--bg-card)] tw-p-3',
+            'tw-text-[var(--text-primary)]',
+          ].join(' ')}
+          aria-label="settings-error"
+        >
+          <div className="tw-flex tw-items-start tw-gap-3">
+            <div className="tw-min-w-0 tw-flex-1">
+              <div className="tw-text-sm tw-font-black tw-text-[var(--error)]">{error}</div>
+            </div>
+            <button type="button" className={headerButtonClassName()} onClick={clearError} aria-label="dismiss error">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M4 4L12 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </section>
+      ) : null}
       {activeSection === 'notion' ? (
         <>
           <NotionOAuthSection
@@ -204,6 +245,33 @@ export function SettingsScene(props: SettingsSceneProps) {
             />
           </div>
         </>
+      ) : null}
+
+      {activeSection === 'feishu' ? (
+        <FeishuOAuthSection
+          busy={busy}
+          syncEnabled={feishuSyncEnabled}
+          feishuStatusText={feishuStatusText}
+          feishuConnected={!!feishuConnected}
+          pollingFeishu={pollingFeishu}
+          feishuAdvancedOpen={feishuAdvancedOpen}
+          feishuPendingState={feishuPendingState}
+          feishuLastError={feishuLastError}
+          feishuClientId={feishuClientId}
+          feishuTokenExchangeProxyUrl={feishuTokenExchangeProxyUrl}
+          onToggleSyncEnabled={(enabled) => {
+            void onToggleFeishuSyncEnabled(enabled);
+          }}
+          onToggleAdvancedOpen={onToggleFeishuAdvancedOpen}
+          onChangeClientId={setFeishuClientId}
+          onChangeTokenExchangeProxyUrl={setFeishuTokenExchangeProxyUrl}
+          onSaveAdvanced={() => {
+            void onSaveFeishuAdvancedSettings();
+          }}
+          onConnectOrDisconnect={() => {
+            void onFeishuConnectOrDisconnect();
+          }}
+        />
       ) : null}
 
       {activeSection === 'chat_with' ? (

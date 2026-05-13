@@ -391,6 +391,7 @@ type ConversationsAppState = {
   syncFeedback: ConversationSyncFeedbackState;
   syncingNotion: boolean;
   syncingObsidian: boolean;
+  syncingFeishu: boolean;
   deleting: boolean;
 
   listSourceFilterKey: string;
@@ -416,6 +417,7 @@ type ConversationsAppState = {
   exportSelectedMarkdown: (opts: { mergeSingle: boolean }) => Promise<void>;
   syncSelectedNotion: () => Promise<void>;
   syncSelectedObsidian: () => Promise<void>;
+  syncSelectedFeishu: () => Promise<void>;
   clearSyncFeedback: () => void;
   deleteSelected: () => Promise<void>;
 
@@ -484,6 +486,7 @@ export function ConversationsProvider({
     startSync,
     syncingNotion,
     syncingObsidian,
+    syncingFeishu,
   } = useConversationSyncFeedback();
 
   const selectedConversation = useMemo(() => {
@@ -1144,6 +1147,12 @@ export function ConversationsProvider({
     await startSync('obsidian', ids);
   }, [selectedIds, startSync]);
 
+  const syncSelectedFeishu = useCallback(async () => {
+    const ids = selectedIds.slice();
+    if (!ids.length) return;
+    await startSync('feishu', ids);
+  }, [selectedIds, startSync]);
+
   const deleteSelected = useCallback(async () => {
     const ids = selectedIds.slice();
     if (!ids.length) return;
@@ -1182,6 +1191,7 @@ export function ConversationsProvider({
     syncFeedback,
     syncingNotion,
     syncingObsidian,
+    syncingFeishu,
     deleting,
     listSourceFilterKey,
     listSiteFilterKey,
@@ -1203,6 +1213,7 @@ export function ConversationsProvider({
     exportSelectedMarkdown,
     syncSelectedNotion,
     syncSelectedObsidian,
+    syncSelectedFeishu,
     clearSyncFeedback,
     deleteSelected,
     updateSelectedConversationUrl,

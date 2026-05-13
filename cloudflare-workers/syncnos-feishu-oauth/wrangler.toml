@@ -1,0 +1,12 @@
+name = "syncnos-feishu-oauth"
+main = "index.ts"
+compatibility_date = "2024-06-27"
+
+[vars]
+# Public (safe to commit): Feishu OAuth Client ID (cli_*)
+FEISHU_CLIENT_ID = "cli_aa8e3c9970cb5cb5"
+
+# Secrets (DO NOT COMMIT):
+# - FEISHU_CLIENT_SECRET
+# Set via:
+#   wrangler secret put FEISHU_CLIENT_SECRET

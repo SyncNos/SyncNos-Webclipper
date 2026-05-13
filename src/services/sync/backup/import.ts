@@ -314,7 +314,7 @@ export async function importBackupLegacyJsonMerge(
     await txDone(t);
   }
 
-  // 3) Upsert sync mappings by (source, conversationKey) and fill missing convo.notionPageId.
+  // 3) Upsert sync mappings by (source, conversationKey) and fill missing convo.notionPageId (also preserves feishuDocId).
   {
     const { t, stores: s } = tx(db, ['sync_mappings', 'conversations'], 'readwrite');
     const idx = s.sync_mappings.index('by_source_conversationKey');
@@ -1012,7 +1012,7 @@ export async function importBackupZipV2Merge(
     await txDone(t);
   }
 
-  // 3) Upsert sync mappings by (source, conversationKey) and fill missing convo.notionPageId.
+  // 3) Upsert sync mappings by (source, conversationKey) and fill missing convo.notionPageId (also preserves feishuDocId).
   {
     const { t, stores: s } = tx(db, ['sync_mappings', 'conversations'], 'readwrite');
     const idx = s.sync_mappings.index('by_source_conversationKey');

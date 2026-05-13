@@ -39,6 +39,7 @@
 8. [security.md](security.md) — 确认权限边界、敏感信息保护与风险控制面。
 9. [testing.md](testing.md) — 确认验证顺序与现有测试覆盖。
 10. [workflow.md](workflow.md) — 确认协作方式、文档同步与发布边界。
+11. [feishu-setup.md](feishu-setup.md) — 维护者指南：方案 A（官方 Feishu 应用 + 官方 CF Worker）开箱即用配置。
 
 ### Release-first
 

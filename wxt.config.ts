@@ -47,6 +47,12 @@ export default defineConfig({
   entrypointsDir: 'src/entrypoints',
   webExt: chromeBinary ? { binaries: { chrome: chromeBinary } } : undefined,
   vite: () => ({
+    define: {
+      __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__: JSON.stringify(process.env.SYNCNOS_FEISHU_OAUTH_CLIENT_ID ?? ''),
+      __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__: JSON.stringify(
+        process.env.SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL ?? '',
+      ),
+    },
     resolve: {
       alias: viteAlias,
     },
@@ -90,6 +96,7 @@ export default defineConfig({
       'https://img.notionusercontent.com/*',
       'https://api.notion.com/*',
       'https://syncnos-notion-oauth.chiimagnus.workers.dev/*',
+      'https://syncnos-feishu-oauth.chiimagnus.workers.dev/*',
       'https://chiimagnus.github.io/*',
       'https://cdnfile.sspai.com/*',
       'http://*/*',

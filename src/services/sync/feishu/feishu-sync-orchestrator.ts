@@ -1,0 +1,443 @@
+import { storageGet, storageSet } from '@platform/storage/local';
+import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
+import { formatConversationMarkdownForExternalOutput } from '@services/integrations/chatwith/chatwith-settings';
+import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
+import { getFeishuOAuthToken, setFeishuOAuthToken } from '@services/sync/feishu/auth/token-store';
+import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
+
+const SYNC_PROVIDER = 'feishu';
+const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
+const DEFAULT_FOLDER_TOKEN_KEY = 'feishu_default_folder_token';
+
+function safeString(v: unknown) {
+  return String(v == null ? '' : v).trim();
+}
+
+function normalizeIds(list: unknown) {
+  const ids = Array.isArray(list) ? list : [];
+  return Array.from(new Set(ids.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0)));
+}
+
+function buildAlreadyRunningError() {
+  const error = new Error('sync already in progress') as Error & { code?: string };
+  error.code = 'sync_already_running';
+  return error;
+}
+
+function buildPerConversationResult({
+  conversationId,
+  conversationTitle,
+  ok,
+  mode,
+  appended,
+  error,
+  warnings,
+  at,
+}: {
+  conversationId: number;
+  conversationTitle?: unknown;
+  ok: unknown;
+  mode: unknown;
+  appended: unknown;
+  error: unknown;
+  warnings?: any[];
+  at: unknown;
+}) {
+  return {
+    conversationId,
+    conversationTitle: safeString(conversationTitle),
+    ok: !!ok,
+    mode: safeString(mode) || (ok ? 'ok' : 'failed'),
+    appended: Number.isFinite(Number(appended)) ? Number(appended) : 0,
+    error: safeString(error),
+    warnings: Array.isArray(warnings) ? warnings : [],
+    at: Number.isFinite(Number(at)) ? Number(at) : Date.now(),
+  };
+}
+
+function buildSyncSummary(results: any[], instanceId: unknown) {
+  const okCount = results.filter((r) => r.ok).length;
+  const failCount = results.length - okCount;
+  const failures = results
+    .filter((r) => !r.ok)
+    .map((r) => ({
+      conversationId: r.conversationId,
+      conversationTitle: safeString(r.conversationTitle),
+      error: r.error || 'unknown error',
+    }));
+  return {
+    provider: SYNC_PROVIDER,
+    okCount,
+    failCount,
+    failures,
+    results,
+    instanceId: safeString(instanceId),
+  };
+}
+
+async function resolveFeishuAccessToken(): Promise<string> {
+  const token = await getFeishuOAuthToken();
+  if (!token || !safeString(token.accessToken)) throw new Error('Feishu is not connected');
+  const now = Date.now();
+  const expiresAt = Number(token.expiresAt) || 0;
+  if (!expiresAt || expiresAt - now > 45_000) return safeString(token.accessToken);
+
+  const refreshed = await refreshFeishuOAuthToken(token);
+  return safeString(refreshed.accessToken);
+}
+
+function deriveRefreshProxyUrl(exchangeProxyUrl: string): string {
+  const raw = safeString(exchangeProxyUrl);
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    if (u.pathname.endsWith('/refresh')) return u.toString();
+    if (u.pathname.endsWith('/exchange')) {
+      u.pathname = u.pathname.replace(/\/exchange$/i, '/refresh');
+      return u.toString();
+    }
+    u.pathname = `${u.pathname.replace(/\/$/, '')}/refresh`;
+    return u.toString();
+  } catch (_e) {
+    return '';
+  }
+}
+
+async function refreshFeishuOAuthToken(current: { refreshToken: string; accessToken: string }) {
+  const refreshToken = safeString((current as any).refreshToken);
+  if (!refreshToken) throw new Error('Feishu refresh token missing');
+
+  const res = await storageGet([TOKEN_EXCHANGE_PROXY_URL_KEY]).catch(() => ({}));
+  const exchangeProxyUrl = safeString((res as any)?.[TOKEN_EXCHANGE_PROXY_URL_KEY]);
+  const refreshProxyUrl = deriveRefreshProxyUrl(exchangeProxyUrl);
+  if (!refreshProxyUrl) throw new Error('Feishu token refresh proxy url not configured');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  const resp = await fetch(refreshProxyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
+
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(text || `token refresh failed: HTTP ${resp.status}`);
+  const json = JSON.parse(text);
+  const accessToken = safeString(json?.access_token);
+  if (!accessToken) throw new Error('token refresh failed: missing access_token');
+  const now = Date.now();
+  const expiresInSeconds = Number(json?.expires_in) || 0;
+  const next = {
+    ...(await getFeishuOAuthToken()),
+    accessToken,
+    refreshToken: safeString(json?.refresh_token) || refreshToken,
+    expiresAt: expiresInSeconds > 0 ? now + expiresInSeconds * 1000 : now,
+    createdAt: now,
+  };
+  await setFeishuOAuthToken(next as any);
+  return next as any;
+}
+
+async function resolveDefaultFolderToken(accessToken: string): Promise<string> {
+  const cached = await storageGet([DEFAULT_FOLDER_TOKEN_KEY])
+    .then((res) => safeString((res as any)?.[DEFAULT_FOLDER_TOKEN_KEY]))
+    .catch(() => '');
+  if (cached) return cached;
+
+  const data = await fetchFeishuJson<any>('/drive/explorer/v2/root_folder/meta', { method: 'GET' }, { accessToken });
+  const token =
+    safeString(data?.token) ||
+    safeString(data?.folder_token) ||
+    safeString(data?.folderToken) ||
+    safeString(data?.data?.token) ||
+    safeString(data?.data?.folder_token);
+  if (token) {
+    await storageSet({ [DEFAULT_FOLDER_TOKEN_KEY]: token }).catch(() => {});
+  }
+  return token;
+}
+
+async function createDoc({ accessToken, title }: { accessToken: string; title: string }): Promise<string> {
+  const payloadBase = { title: safeString(title) || 'Untitled' };
+
+  const create = async (payload: Record<string, unknown>) => {
+    const data = await fetchFeishuJson<any>('/docx/v1/documents', { method: 'POST', body: JSON.stringify(payload) }, {
+      accessToken,
+    });
+    const docId =
+      safeString(data?.document?.document_id) ||
+      safeString(data?.document?.documentId) ||
+      safeString(data?.document_id) ||
+      safeString(data?.documentId);
+    if (!docId) throw new Error('Feishu doc create failed: missing document_id');
+    return docId;
+  };
+
+  try {
+    return await create(payloadBase);
+  } catch (error: any) {
+    const msg = safeString(error?.message).toLowerCase();
+    const mightNeedFolder = msg.includes('folder') || msg.includes('folder_token');
+    if (!mightNeedFolder) throw error;
+
+    const folderToken = await resolveDefaultFolderToken(accessToken).catch(() => '');
+    if (!folderToken) {
+      throw new Error('Feishu doc create failed: missing folder_token (MVP has no folder selector)');
+    }
+    return create({ ...payloadBase, folder_token: folderToken });
+  }
+}
+
+async function listRootChildren({ accessToken, docId }: { accessToken: string; docId: string }): Promise<any[]> {
+  const data = await fetchFeishuJson<any>(
+    `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children?page_size=500`,
+    { method: 'GET' },
+    { accessToken },
+  );
+  const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.children) ? data.children : [];
+  return items;
+}
+
+async function clearRootChildren({ accessToken, docId }: { accessToken: string; docId: string }): Promise<void> {
+  for (let round = 0; round < 80; round += 1) {
+    const items = await listRootChildren({ accessToken, docId }).catch(() => []);
+    if (!items.length) return;
+
+    await fetchFeishuJson<any>(
+      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children/batch_delete`,
+      { method: 'DELETE', body: JSON.stringify({ start_index: 0, end_index: items.length }) },
+      { accessToken },
+    );
+
+    // Best-effort throttle: the DocX block APIs are rate-limited.
+    await new Promise((r) => setTimeout(r, 350));
+  }
+
+  throw new Error('Feishu doc clear failed: too many blocks');
+}
+
+function splitMarkdownIntoChunks(markdown: string): string[] {
+  const text = String(markdown || '');
+  if (!text) return [];
+  const maxChunk = 8000;
+  const out: string[] = [];
+  let cursor = 0;
+  while (cursor < text.length) {
+    const next = Math.min(text.length, cursor + maxChunk);
+    out.push(text.slice(cursor, next));
+    cursor = next;
+  }
+  return out;
+}
+
+async function appendTextBlocks({
+  accessToken,
+  docId,
+  markdown,
+}: {
+  accessToken: string;
+  docId: string;
+  markdown: string;
+}): Promise<number> {
+  const chunks = splitMarkdownIntoChunks(markdown);
+  if (!chunks.length) return 0;
+  const blocks = chunks.map((content) => ({
+    block_type: 2,
+    text: { elements: [{ text_run: { content } }] },
+  }));
+
+  const batchSize = 20;
+  let appended = 0;
+  for (let i = 0; i < blocks.length; i += batchSize) {
+    const slice = blocks.slice(i, i + batchSize);
+    await fetchFeishuJson<any>(
+      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
+      { method: 'POST', body: JSON.stringify({ children: slice }) },
+      { accessToken },
+    );
+    appended += slice.length;
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  return appended;
+}
+
+async function getSyncStatus({ instanceId }: { instanceId?: string } = {}) {
+  return { provider: SYNC_PROVIDER, job: await feishuSyncJobStore.getJob(), instanceId: safeString(instanceId) };
+}
+
+async function clearSyncStatus({ instanceId }: { instanceId?: string } = {}) {
+  await feishuSyncJobStore.setJob(null);
+  return { provider: SYNC_PROVIDER, job: null, instanceId: safeString(instanceId) };
+}
+
+async function syncConversations({
+  conversationIds,
+  instanceId,
+}: {
+  conversationIds?: unknown[];
+  instanceId?: string;
+} = {}) {
+  const ids = normalizeIds(conversationIds);
+  if (!ids.length) {
+    return {
+      provider: SYNC_PROVIDER,
+      okCount: 0,
+      failCount: 0,
+      failures: [],
+      results: [],
+      instanceId: safeString(instanceId),
+    };
+  }
+
+  const safeInstanceId = safeString(instanceId);
+  const existingJob = await feishuSyncJobStore.abortRunningJobIfFromOtherInstance(safeInstanceId);
+  if (feishuSyncJobStore.isRunningJob(existingJob)) throw buildAlreadyRunningError();
+
+  const currentJob: any = {
+    id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    provider: SYNC_PROVIDER,
+    instanceId: safeInstanceId,
+    status: 'running',
+    startedAt: Date.now(),
+    updatedAt: Date.now(),
+    finishedAt: null,
+    conversationIds: ids,
+    okCount: 0,
+    failCount: 0,
+    perConversation: [],
+  };
+
+  async function persistCurrentJob(partial: Record<string, unknown> = {}) {
+    Object.assign(currentJob, partial, { updatedAt: Date.now() });
+    await feishuSyncJobStore.setJob({ ...(currentJob as any) });
+  }
+
+  await persistCurrentJob({
+    currentConversationId: ids[0] || undefined,
+    currentStage: ids.length ? 'preparing_queue' : '',
+  });
+
+  const results: any[] = [];
+  let accessToken = '';
+
+  for (const conversationId of ids) {
+    let row: any = null;
+    try {
+      await persistCurrentJob({
+        currentConversationId: conversationId,
+        currentConversationTitle: '',
+        currentStage: 'loading_conversation',
+      });
+
+      accessToken = accessToken || (await resolveFeishuAccessToken());
+
+      const mappingRes = await defaultBackgroundStorage.getSyncMappingByConversation(conversationId);
+      if (!mappingRes || !mappingRes.conversation) {
+        row = buildPerConversationResult({
+          conversationId,
+          conversationTitle: '',
+          ok: false,
+          mode: 'failed',
+          appended: 0,
+          error: 'conversation not found',
+          at: Date.now(),
+        });
+      } else {
+        const convo: any = mappingRes.conversation;
+        const currentTitle = safeString(convo.title) || `conversation#${conversationId}`;
+        const messages = await defaultBackgroundStorage.getMessagesByConversationId(conversationId);
+        const detail = { id: conversationId, messages: Array.isArray(messages) ? messages : [] } as any;
+
+        await persistCurrentJob({
+          currentConversationId: conversationId,
+          currentConversationTitle: currentTitle,
+          currentStage: 'preparing_sync',
+        });
+
+        const markdown = await formatConversationMarkdownForExternalOutput(convo as any, detail as any);
+        const existingDocId = safeString(mappingRes.mapping?.feishuDocId);
+        let docId = existingDocId;
+        let mode = existingDocId ? 'overwrite' : 'create';
+
+        if (docId) {
+          await persistCurrentJob({ currentStage: 'rebuilding_destination_page' });
+          try {
+            await clearRootChildren({ accessToken, docId });
+          } catch (_e) {
+            docId = '';
+            mode = 'create';
+          }
+        }
+
+        if (!docId) {
+          await persistCurrentJob({ currentStage: 'creating_destination_page' });
+          docId = await createDoc({ accessToken, title: currentTitle });
+        }
+
+        await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
+        let appended = 0;
+        try {
+          appended = await appendTextBlocks({ accessToken, docId, markdown });
+        } catch (e) {
+          if (existingDocId) {
+            mode = 'create';
+            await persistCurrentJob({ currentStage: 'creating_destination_page' });
+            docId = await createDoc({ accessToken, title: currentTitle });
+            await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
+            appended = await appendTextBlocks({ accessToken, docId, markdown });
+          } else {
+            throw e;
+          }
+        }
+
+        await defaultBackgroundStorage.patchSyncMapping(conversationId, { feishuDocId: docId });
+
+        row = buildPerConversationResult({
+          conversationId,
+          conversationTitle: currentTitle,
+          ok: true,
+          mode,
+          appended,
+          error: '',
+          at: Date.now(),
+        });
+      }
+    } catch (e: any) {
+      row = buildPerConversationResult({
+        conversationId,
+        conversationTitle: '',
+        ok: false,
+        mode: 'failed',
+        appended: 0,
+        error: e && e.message ? e.message : String(e || 'sync failed'),
+        at: Date.now(),
+      });
+    }
+
+    results.push(row);
+    currentJob.perConversation.push(row);
+    currentJob.okCount = results.filter((r) => r.ok).length;
+    currentJob.failCount = results.length - currentJob.okCount;
+    await persistCurrentJob({
+      currentConversationId: conversationId,
+      currentConversationTitle: undefined,
+      currentStage: 'finishing_current_item',
+    });
+  }
+
+  currentJob.status = 'done';
+  currentJob.finishedAt = Date.now();
+  await persistCurrentJob({
+    currentConversationId: undefined,
+    currentConversationTitle: undefined,
+    currentStage: undefined,
+  });
+
+  return buildSyncSummary(results, instanceId);
+}
+
+const api = { getSyncStatus, clearSyncStatus, syncConversations };
+
+export { getSyncStatus, clearSyncStatus, syncConversations };
+export default api;
