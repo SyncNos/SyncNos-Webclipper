@@ -84,7 +84,7 @@ https://chiimagnus.github.io/syncnos-oauth/callback
 | 批量删除子块 | `DELETE /open-apis/docx/v1/documents/{id}/blocks/{id}/children/batch_delete` | `docx:document` |
 | 创建子块（写入内容） | `POST /open-apis/docx/v1/documents/{id}/blocks/{id}/children` | `docx:document` |
 
-**当前默认配置**：`docx:document` + `drive:drive`（支持“默认同步目录路径”：目录不存在会自动创建）。如果你之前用的是 `drive:drive:readonly`，升级后需要 **Disconnect → Connect** 重新授权，否则旧 token 可能无创建目录权限。
+**当前默认配置**：`docx:document` + `drive:drive`（支持“默认同步目录路径”：目录不存在会自动创建；并会按类型自动分流到子目录 `SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`）。如果你之前用的是 `drive:drive:readonly`，升级后需要 **Disconnect → Connect** 重新授权，否则旧 token 可能无创建目录权限。
 
 ---
 

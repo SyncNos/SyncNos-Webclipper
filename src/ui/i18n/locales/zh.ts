@@ -489,7 +489,8 @@ export const zh: { [K in TranslationKey]: string } = {
   feishuSyncEnabledHint: '已关闭飞书同步，您可以随时在设置中重新开启。',
   feishuDefaultFolderPathLabel: '飞书默认同步目录',
   feishuDefaultFolderPathPlaceholder: 'SyncNos/WebClipper',
-  feishuDefaultFolderPathHint: '根目录下的路径；不存在会自动创建；修改后不影响已创建的文档。',
+  feishuDefaultFolderPathHint:
+    '根目录下的基础路径；会在其下自动创建/使用子目录：SyncNos-AIChats / SyncNos-WebArticles / SyncNos-Videos；修改后不影响已创建的文档。',
   feishuOAuthClientIdLabel: 'OAuth 客户端 ID',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange 代理 URL',
   feishuAdvancedHint:

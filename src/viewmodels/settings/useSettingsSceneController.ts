@@ -15,6 +15,7 @@ import { disconnectFeishu } from '@services/sync/feishu/auth/settings-client';
 import { ensureDefaultFeishuOAuthProxyUrl, getFeishuOAuthDefaults } from '@services/sync/feishu/auth/oauth';
 import {
   FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY,
+  FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT,
   normalizeFeishuDefaultSyncFolderPath,
   setFeishuDefaultSyncFolderPath,
 } from '@services/sync/feishu/settings-store';
@@ -381,7 +382,12 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setFeishuPendingState(String(local?.feishu_oauth_pending_state || ''));
     setFeishuLastError(String(local?.feishu_oauth_last_error || ''));
     setFeishuTokenExchangeProxyUrl(String(local?.feishu_oauth_token_exchange_proxy_url || ''));
-    setFeishuDefaultFolderPath(normalizeFeishuDefaultSyncFolderPath(local?.[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY]));
+    const rawFeishuFolderPath = local?.[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY];
+    setFeishuDefaultFolderPath(
+      rawFeishuFolderPath == null
+        ? FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT
+        : normalizeFeishuDefaultSyncFolderPath(rawFeishuFolderPath),
+    );
 
     const normalizedInpageMode = normalizeInpageDisplayMode(local?.inpage_display_mode);
     setInpageDisplayMode(
@@ -466,7 +472,9 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
 
       if (Object.prototype.hasOwnProperty.call(changes, FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY)) {
         const nextValue = changes[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY]?.newValue;
-        setFeishuDefaultFolderPath(normalizeFeishuDefaultSyncFolderPath(nextValue));
+        setFeishuDefaultFolderPath(
+          nextValue == null ? FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT : normalizeFeishuDefaultSyncFolderPath(nextValue),
+        );
       }
     });
   }, [refresh]);

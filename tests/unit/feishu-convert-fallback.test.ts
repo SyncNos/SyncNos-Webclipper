@@ -89,6 +89,21 @@ afterEach(() => {
   delete globalThis.chrome;
 });
 
+function mockDefaultFeishuFolderLayout(path: string, init?: RequestInit) {
+  if (path === '/drive/explorer/v2/root_folder/meta') return { token: 'root' };
+  if (path.startsWith('/drive/v1/files?')) return { files: [], has_more: false };
+  if (path === '/drive/v1/files/create_folder') {
+    const body = init?.body ? JSON.parse(String(init.body)) : {};
+    const parent = String(body.folder_token || '');
+    const name = String(body.name || '');
+    if (parent === 'root' && name === 'SyncNos') return { folder: { folder_token: 'fld_syncnos' } };
+    if (parent === 'fld_syncnos' && name === 'WebClipper') return { folder: { folder_token: 'fld_webclipper' } };
+    if (parent === 'fld_webclipper' && name === 'SyncNos-AIChats') return { folder: { folder_token: 'fld_ai_chats' } };
+    return { folder: { folder_token: `fld_${parent}_${name}` } };
+  }
+  return null;
+}
+
 describe('feishu convert fallback', () => {
   it('uses descendant insertion when convert succeeds', async () => {
     setupChromeStorage();
@@ -102,7 +117,9 @@ describe('feishu convert fallback', () => {
     });
     backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([]);
 
-    fetchFeishuJsonMock.mockImplementation(async (path: string) => {
+    fetchFeishuJsonMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const drive = mockDefaultFeishuFolderLayout(path, init);
+      if (drive) return drive;
       if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
       if (path.includes('/children?page_size=')) return { items: [] };
       if (path.endsWith('/descendant')) return { ok: true };
@@ -132,7 +149,9 @@ describe('feishu convert fallback', () => {
     });
     backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([]);
 
-    fetchFeishuJsonMock.mockImplementation(async (path: string) => {
+    fetchFeishuJsonMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const drive = mockDefaultFeishuFolderLayout(path, init);
+      if (drive) return drive;
       if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
       if (path.includes('/children?page_size=')) return { items: [] };
       if (path.endsWith('/children') && !path.includes('batch_delete')) return { ok: true };
@@ -169,7 +188,9 @@ describe('feishu convert fallback', () => {
     });
     backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([]);
 
-    fetchFeishuJsonMock.mockImplementation(async (path: string) => {
+    fetchFeishuJsonMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const drive = mockDefaultFeishuFolderLayout(path, init);
+      if (drive) return drive;
       if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
       if (path.includes('/children?page_size=')) return { items: [] };
       if (path === '/docx/v1/documents/blocks/convert')
@@ -200,7 +221,9 @@ describe('feishu convert fallback', () => {
     });
     backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([]);
 
-    fetchFeishuJsonMock.mockImplementation(async (path: string) => {
+    fetchFeishuJsonMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const drive = mockDefaultFeishuFolderLayout(path, init);
+      if (drive) return drive;
       if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
       if (path.includes('/children?page_size=')) return { items: [] };
       if (path === '/docx/v1/documents/blocks/convert') return { blocks: [], first_level_block_ids: [] };

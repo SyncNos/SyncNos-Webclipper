@@ -495,7 +495,7 @@ export const en = {
   feishuDefaultFolderPathLabel: 'Feishu default folder',
   feishuDefaultFolderPathPlaceholder: 'SyncNos/WebClipper',
   feishuDefaultFolderPathHint:
-    'Path under Drive root; missing folders will be created; changing it won’t move existing docs.',
+    'Base path under Drive root. Subfolders will be created/used: SyncNos-AIChats / SyncNos-WebArticles / SyncNos-Videos. Changing it won’t move existing docs.',
   feishuOAuthClientIdLabel: 'OAuth Client ID',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange proxy URL',
   feishuAdvancedHint:
