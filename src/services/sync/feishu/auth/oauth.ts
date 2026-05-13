@@ -3,9 +3,15 @@ import { tabsRemove } from '@platform/webext/tabs';
 import { webNavigationOnCommittedAddListener } from '@platform/webext/web-navigation';
 import { setFeishuOAuthToken, type FeishuOAuthTokenV1 } from '@services/sync/feishu/auth/token-store';
 
-const DEFAULT_FEISHU_OAUTH_CLIENT_ID = '';
+declare const __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__: string | undefined;
+declare const __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__: string | undefined;
+
+const DEFAULT_FEISHU_OAUTH_CLIENT_ID =
+  typeof __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__ === 'string' ? __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__ : '';
 const DEFAULT_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL =
-  'https://syncnos-feishu-oauth.chiimagnus.workers.dev/feishu/oauth/exchange';
+  (typeof __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__ === 'string'
+    ? __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__
+    : '') || 'https://syncnos-feishu-oauth.chiimagnus.workers.dev/feishu/oauth/exchange';
 
 const KEY_CLIENT_ID = 'feishu_oauth_client_id';
 const KEY_CLIENT_SECRET = 'feishu_oauth_client_secret';
@@ -207,4 +213,3 @@ export function setupFeishuOAuthNavigationListener(): void {
     }).catch(() => {});
   });
 }
-
