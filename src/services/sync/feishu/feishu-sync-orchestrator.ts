@@ -1,13 +1,19 @@
-import { storageGet, storageSet } from '@platform/storage/local';
+import { storageGet, storageRemove, storageSet } from '@platform/storage/local';
 import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
 import { formatConversationMarkdownForExternalOutput } from '@services/integrations/chatwith/chatwith-settings';
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
 import { getFeishuOAuthToken, setFeishuOAuthToken } from '@services/sync/feishu/auth/token-store';
 import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
+import {
+  FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY,
+  normalizeFeishuDefaultSyncFolderPath,
+} from '@services/sync/feishu/settings-store';
+import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
 
 const SYNC_PROVIDER = 'feishu';
 const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
-const DEFAULT_FOLDER_TOKEN_KEY = 'feishu_default_folder_token';
+const LEGACY_DEFAULT_FOLDER_TOKEN_KEY = 'feishu_default_folder_token';
+const ROOT_FOLDER_TOKEN_KEY = 'feishu_root_folder_token';
 
 function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
@@ -139,11 +145,21 @@ async function refreshFeishuOAuthToken(current: { refreshToken: string; accessTo
   return next as any;
 }
 
-async function resolveDefaultFolderToken(accessToken: string): Promise<string> {
-  const cached = await storageGet([DEFAULT_FOLDER_TOKEN_KEY])
-    .then((res) => safeString((res as any)?.[DEFAULT_FOLDER_TOKEN_KEY]))
+async function resolveRootFolderToken(accessToken: string): Promise<string> {
+  const cached = await storageGet([ROOT_FOLDER_TOKEN_KEY])
+    .then((res) => safeString((res as any)?.[ROOT_FOLDER_TOKEN_KEY]))
     .catch(() => '');
   if (cached) return cached;
+
+  // One-time migration from legacy cache key (best-effort).
+  const legacy = await storageGet([LEGACY_DEFAULT_FOLDER_TOKEN_KEY])
+    .then((res) => safeString((res as any)?.[LEGACY_DEFAULT_FOLDER_TOKEN_KEY]))
+    .catch(() => '');
+  if (legacy) {
+    await storageSet({ [ROOT_FOLDER_TOKEN_KEY]: legacy }).catch(() => {});
+    await storageRemove([LEGACY_DEFAULT_FOLDER_TOKEN_KEY]).catch(() => {});
+    return legacy;
+  }
 
   const data = await fetchFeishuJson<any>('/drive/explorer/v2/root_folder/meta', { method: 'GET' }, { accessToken });
   const token =
@@ -153,9 +169,42 @@ async function resolveDefaultFolderToken(accessToken: string): Promise<string> {
     safeString(data?.data?.token) ||
     safeString(data?.data?.folder_token);
   if (token) {
-    await storageSet({ [DEFAULT_FOLDER_TOKEN_KEY]: token }).catch(() => {});
+    await storageSet({ [ROOT_FOLDER_TOKEN_KEY]: token }).catch(() => {});
   }
   return token;
+}
+
+function toDrivePermissionHintError(error: unknown): Error {
+  const e: any = error;
+  const status = Number(e?.extra?.status || 0) || 0;
+  if (status === 401 || status === 403) {
+    return new Error('Feishu Drive permission denied. Please reconnect Feishu with scope "drive:drive".');
+  }
+  return e instanceof Error ? e : new Error(safeString(e) || 'Feishu Drive error');
+}
+
+async function resolveConfiguredTargetFolderToken(
+  accessToken: string,
+): Promise<{ folderToken: string; warnings: string[]; hasConfig: boolean }> {
+  const local = await storageGet([FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY]).catch(() => ({}));
+  const rawPath = (local as any)?.[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY];
+  const normalizedPath = normalizeFeishuDefaultSyncFolderPath(rawPath);
+  if (!normalizedPath) return { folderToken: '', warnings: [], hasConfig: false };
+
+  const segments = normalizedPath.split('/').map((s) => safeString(s)).filter(Boolean);
+  if (!segments.length) return { folderToken: '', warnings: [], hasConfig: false };
+
+  const rootToken = await resolveRootFolderToken(accessToken);
+  try {
+    const res = await resolveFeishuDriveFolderTokenByPath({
+      accessToken,
+      rootFolderToken: rootToken,
+      pathSegments: segments,
+    });
+    return { folderToken: res.folderToken, warnings: res.warnings, hasConfig: true };
+  } catch (e) {
+    throw toDrivePermissionHintError(e);
+  }
 }
 
 async function createDoc({ accessToken, title }: { accessToken: string; title: string }): Promise<string> {
@@ -181,7 +230,7 @@ async function createDoc({ accessToken, title }: { accessToken: string; title: s
     const mightNeedFolder = msg.includes('folder') || msg.includes('folder_token');
     if (!mightNeedFolder) throw error;
 
-    const folderToken = await resolveDefaultFolderToken(accessToken).catch(() => '');
+    const folderToken = await resolveRootFolderToken(accessToken).catch(() => '');
     if (!folderToken) {
       throw new Error('Feishu doc create failed: missing folder_token (MVP has no folder selector)');
     }
