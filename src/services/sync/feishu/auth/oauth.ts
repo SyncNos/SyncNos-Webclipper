@@ -24,13 +24,15 @@ export type FeishuOAuthDefaults = {
   authorizationUrl: string;
   redirectUri: string;
   responseType: 'code';
+  scope: string;
 };
 
 export function getFeishuOAuthDefaults(): FeishuOAuthDefaults {
   return {
-    authorizationUrl: 'https://open.feishu.cn/open-apis/authen/v1/index',
+    authorizationUrl: 'https://accounts.feishu.cn/open-apis/authen/v1/authorize',
     redirectUri: 'https://chiimagnus.github.io/syncnos-oauth/callback',
     responseType: 'code',
+    scope: 'docx:document drive:drive:readonly',
   };
 }
 

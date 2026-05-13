@@ -684,10 +684,12 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       setFeishuLastError('');
 
       const url = new URL(cfg.authorizationUrl);
+      url.searchParams.set('client_id', clientId);
       url.searchParams.set('app_id', clientId);
       url.searchParams.set('redirect_uri', cfg.redirectUri);
       url.searchParams.set('state', state);
       url.searchParams.set('response_type', cfg.responseType);
+      url.searchParams.set('scope', cfg.scope);
 
       const opened = openHttpUrl(url.toString());
       if (!opened) throw new Error('Failed to open Feishu OAuth tab');
