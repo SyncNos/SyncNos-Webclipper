@@ -30,105 +30,117 @@ It describes how to set up Feishu OAuth + DocX sync so end users don't need BYO 
 
 ## 1. 创建官方 Feishu 应用（飞书开放平台）
 
-> 下面步骤以飞书开放平台控制台为准。控制台 UI 可能会改版；如果你找不到某个入口，优先在应用详情页左侧菜单里搜索关键字：`凭证` / `安全设置` / `重定向 URL` / `网页应用` / `OAuth` / `权限`。
+> 以飞书开放平台控制台为准（`open.feishu.cn/app`）。找不到入口时，在应用详情页左侧菜单搜索：`凭证` / `安全设置` / `重定向 URL` / `网页应用` / `权限`。
+> 
 
-### 1.1 选择应用类型（非常重要）
+### 1.1 选择应用类型
 
-要做“方案 A（所有用户开箱即用）”，应用必须满足“非仅限单一企业内部”的可用性。
+- **企业自建应用**：仅限单一企业/租户内部使用。
+- **商店应用（公开应用）**：可面向多个企业/租户安装，适合面向公众的产品。
 
-飞书通常会区分（名称可能略有差异）：
+SyncNos WebClipper 要让任意飞书用户授权同步 → 选择 **商店应用** 路线，否则只有开发者/测试成员能授权。
 
-- **企业自建应用**：只面向某一个企业/租户内部使用（适合内部工具、公司 IT）。
-- **应用商店 / 第三方应用（公开应用）**：可以面向多个企业/租户安装（适合面向公众的产品）。
+### 1.2 创建应用
 
-如果 SyncNos WebClipper 目标是让任意飞书用户都能授权并同步，优先选择“公开/第三方/应用商店”路线；否则你会遇到“只有开发者/测试成员能授权”的限制。
+1. 打开 [开发者后台](https://open.feishu.cn/app)，点击「创建应用」。
+2. 选择应用类型（见 1.1），填写：
+    - 应用名称：`SyncNos WebClipper`
+    - 应用描述：用于把 WebClipper 的 conversation 同步到 Feishu DocX
+    - 应用图标（可后补）
+3. 创建完成后进入「应用详情页」。
 
-### 1.2 创建应用（控制台操作路径）
+### 1.3 获取 App ID / App Secret
 
-1) 打开飞书开放平台应用列表页（常见入口：`open.feishu.cn/app`）。
-2) 点击“创建应用”（或类似按钮）。
-3) 选择应用类型（见 1.1），填写：
-   - 应用名称（例如：`SyncNos WebClipper`）
-   - 应用描述（建议写清：用于把 WebClipper 的 conversation 同步到 Feishu DocX）
-   - 应用图标（可后补）
+在应用详情页 → **凭证与基础信息**：
 
-创建完成后进入“应用详情页”。
+- **App ID**（格式 `cli_xxx`）= 代码中的 `client_id`
+- **App Secret** = 代码中的 `client_secret`
 
-### 1.3 获取 `client_id / client_secret`（也可能叫 `App ID / App Secret`）
+### 1.4 配置重定向 URL
 
-在应用详情页找到“**凭证与基础信息**”（或类似页面），你会看到两类信息：
+**开发配置 → 安全设置** → **重定向 URL**，添加：
 
-- `client_id`（常见形态：`cli_xxx`）
-- `client_secret`
-
-飞书文档/控制台里有时用 `App ID / App Secret` 命名；在我们代码里：
-
-- `authorizationUrl` 用的是 `app_id=<client_id>`
-- token endpoint 用的是 `client_id / client_secret`
-
-所以你只要记住：**`cli_xxx` 就是我们要内置的 client id**。
-
-### 1.4 开启“网页应用 / OAuth 授权码模式（Authorization Code）”
-
-我们的授权 URL 是：
-
-- `https://open.feishu.cn/open-apis/authen/v1/index`
-
-这是“网页应用 OAuth”风格的授权入口（`response_type=code`）。因此你需要在飞书应用里开启或确保启用：
-
-- 网页应用能力（或“网页授权 / OAuth”相关能力）
-- 授权方式包含 `Authorization Code`（授权码模式）
-
-如果控制台要求填写“应用首页 / 网站 URL / 回调域名”等信息，按你的产品页面填写即可；但 **redirect URL 白名单**必须按下一节准确配置。
-
-### 1.5 配置 OAuth 重定向地址（Redirect URL 白名单）
-
-本仓库当前固定使用这个回调页（与 Notion OAuth 一致）：
-
-- `https://chiimagnus.github.io/syncnos-oauth/callback`
-
-把它加入飞书应用的“重定向 URL / Redirect URL / 回调地址白名单”里（常见位置：**安全设置 → 重定向 URL**）。
+```
+https://chiimagnus.github.io/syncnos-oauth/callback
+```
 
 注意：
 
 - 必须是 `https://`。
-- 必须和扩展里传的 `redirect_uri` **完全一致**（包括 path）。多一个 `/` 都可能导致 exchange 失败。
-- 先保存，再去做授权测试。
+- 必须和扩展传的 `redirect_uri` **完全一致**（包括 path，多一个 `/` 都会失败）。
+- 一个应用最多 300 个重定向 URL。
 
-### 1.6 配置权限（scopes / 权限点）
+### 1.5 配置权限（Scopes）
 
-MVP 的 Feishu DocX 同步需要这些能力：
+**开发配置** → **权限管理** → **API 权限**，搜索并开通以下 scope：
 
-1) 读根目录信息（用于拿默认 folder token）
+| 能力 | API 路径 | Scope Key |
+| --- | --- | --- |
+| 读取云盘根目录（拿 folder token） | `GET /open-apis/drive/explorer/v2/root_folder/meta` | `drive:drive` 或 `drive:drive:readonly` |
+| 创建 DocX 文档 | `POST /open-apis/docx/v1/documents` | `docx:document` 或 `docx:document:create` |
+| 获取文档子块列表 | `GET /open-apis/docx/v1/documents/{id}/blocks/{id}/children` | `docx:document` |
+| 批量删除子块 | `DELETE /open-apis/docx/v1/documents/{id}/blocks/{id}/children/batch_delete` | `docx:document` |
+| 创建子块（写入内容） | `POST /open-apis/docx/v1/documents/{id}/blocks/{id}/children` | `docx:document` |
 
-- `GET /drive/explorer/v2/root_folder/meta`
+**当前已配置**：`docx:document` + `drive:drive:readonly`（MVP 最小集合）。后续如需移动文件到指定文件夹等写操作，再升级为 `drive:drive`。报错 `99991679` 时查看响应中 `permission_violations` 字段按需补充。
 
-2) 创建 DocX 文档
+---
 
-- `POST /docx/v1/documents`
+### 1.6 OAuth 授权流程（代码实现参考）
 
-3) 清空并写入 DocX 文档 block 内容（覆盖写入）
+#### 构造授权链接
 
-- `GET /docx/v1/documents/{document_id}/blocks/{block_id}/children`
-- `DELETE /docx/v1/documents/{document_id}/blocks/{block_id}/children/batch_delete`
-- `POST /docx/v1/documents/{document_id}/blocks/{block_id}/children`
+**授权端点**：`https://accounts.feishu.cn/open-apis/authen/v1/authorize`
 
-在飞书控制台里通常需要你在“权限管理 / API 权限 / 权限点”里勾选与 **云文档（DocX）** 和 **云盘（Drive）** 相关的读写权限（名称会随平台调整）。
+完整示例：
 
-建议做法：
+```jsx
+https://accounts.feishu.cn/open-apis/authen/v1/authorize?client_id=cli_xxxxx&redirect_uri=https%3A%2F%2Fchiimagnus.github.io%2Fsyncnos-oauth%2Fcallback&response_type=code&scope=docx%3Adocument%20drive%3Adrive%3Areadonly&state=RANDOM_STATE
+```
 
-- 先只开通“创建/编辑 DocX 文档 + 访问云盘文件夹元信息”这类最小集合。
-- 如果你同步时报错（例如 403 / 权限不足 / 特定错误码），再按报错补充权限点，避免一次性开太大。
+**参数说明：**
 
-### 1.7 发布/可用性检查（决定用户能不能用）
+| 参数 | 必须 | 说明 |
+| --- | --- | --- |
+| `client_id` | ✅ | App ID（`cli_xxx`），在【凭证与基础信息】获取 |
+| `redirect_uri` | ✅ | 重定向地址，须在白名单内，需 URL 编码 |
+| `response_type` | ✅ | 固定为 `code` |
+| `scope` | 推荐 | 空格分隔的权限（如 `docx:document drive:drive:readonly`），须已在控制台开通，否则报错 20027 |
+| `state` | 可选 | 防 CSRF 随机字符串，回调时原样返回 |
 
-- 如果应用仅处于“开发态/测试态”，通常只有开发者/测试成员可授权；要让所有用户可用，需要按飞书的发布流程完成上线。
-- 一旦发布后，**client_id 不应该频繁变更**，否则扩展内置默认值会失效。
+#### 用授权码换取 user_access_token
 
-建议在发布前做一次“最小端到端冒烟”：
+用户授权后浏览器重定向到 `redirect_uri?code=xxx&state=xxx`。后端用 code 换 token：
 
-- 先用开发者账号完成一次 OAuth 授权，确认能拿到 token（扩展 `feishu_oauth_token_v1` 有值）
-- 再触发一次同步，确认能创建 DocX 并写入内容
+- **请求**：`POST https://open.feishu.cn/open-apis/authen/v2/oauth/token`
+- **请求体**：
+
+```json
+{
+  "grant_type": "authorization_code",
+  "client_id": "cli_xxxxx",
+  "client_secret": "你的 App Secret",
+  "code": "用户授权返回的 code",
+  "redirect_uri": "https://chiimagnus.github.io/syncnos-oauth/callback"
+}
+```
+
+- **返回**：`user_access_token`、`refresh_token`、`expires_in` 等。
+- **刷新 token**：同一端点，`grant_type` 改为 `refresh_token`，传 `refresh_token` 即可续期。
+- code 有效期 5 分钟，只能用一次。
+- `user_access_token` 的权限是累积的——用户历史授予的所有 scope 都会包含在最新 token 中。
+
+---
+
+### 1.7 发布与冒烟测试
+
+- 应用处于「开发态/测试态」时，只有开发者/测试成员可授权。要让所有用户可用，须完成发布上线流程。
+- 发布后 **App ID 不应频繁变更**，否则扩展内置默认值失效。
+
+发布前做一次最小端到端冒烟：
+
+1. 用开发者账号完成 OAuth 授权，确认拿到 token（扩展 `feishu_oauth_token_v1` 有值）。
+2. 触发一次同步，确认能创建 DocX 并写入内容。
 
 ## 2. 部署官方 Cloudflare Worker（token exchange / refresh）
 
