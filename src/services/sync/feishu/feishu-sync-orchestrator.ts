@@ -9,6 +9,7 @@ import {
   normalizeFeishuDefaultSyncFolderPath,
 } from '@services/sync/feishu/settings-store';
 import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
+import { convertContentToBlocks, isFeishuConvertPermissionDenied } from '@services/sync/feishu/docx/convert-api';
 
 const SYNC_PROVIDER = 'feishu';
 const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
@@ -291,6 +292,87 @@ function splitMarkdownIntoChunks(markdown: string): string[] {
   return out;
 }
 
+function sanitizeConvertedBlocksForInsert(blocks: any[]): any[] {
+  if (!Array.isArray(blocks) || !blocks.length) return [];
+
+  // The Convert API may include read-only fields for some block types (e.g. table merge_info).
+  // Strip known problematic fields best-effort to reduce schema mismatch errors.
+  return blocks.map((block) => {
+    const next = block && typeof block === 'object' ? JSON.parse(JSON.stringify(block)) : block;
+    try {
+      if (next?.block_type === 31 && next?.table?.property && typeof next.table.property === 'object') {
+        delete next.table.property.merge_info;
+      }
+    } catch (_e) {
+      // ignore
+    }
+    return next;
+  });
+}
+
+async function appendConvertedBlocks({
+  accessToken,
+  docId,
+  markdown,
+}: {
+  accessToken: string;
+  docId: string;
+  markdown: string;
+}): Promise<number> {
+  const converted = await convertContentToBlocks({ accessToken, content: markdown, contentType: 'markdown' });
+  const blocks = sanitizeConvertedBlocksForInsert(converted.blocks);
+  if (!blocks.length) throw new Error('Feishu Convert API: empty blocks');
+
+  // Prefer descendant insertion when Convert returns first-level block ids (needed for nested structures).
+  if (converted.firstLevelBlockIds.length) {
+    if (blocks.length > 1000) throw new Error('Feishu Convert blocks exceed 1000 limit for descendant insert');
+    await fetchFeishuJson<any>(
+      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/descendant`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ children_id: converted.firstLevelBlockIds, descendants: blocks, index: -1 }),
+      },
+      { accessToken },
+    );
+    await new Promise((r) => setTimeout(r, 350));
+    return converted.firstLevelBlockIds.length;
+  }
+
+  // Fallback to flat children insertion (max 50 blocks per request; keep small to avoid rate-limit).
+  const batchSize = 20;
+  let appended = 0;
+  for (let i = 0; i < blocks.length; i += batchSize) {
+    const slice = blocks.slice(i, i + batchSize);
+    await fetchFeishuJson<any>(
+      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
+      { method: 'POST', body: JSON.stringify({ children: slice, index: -1 }) },
+      { accessToken },
+    );
+    appended += slice.length;
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  return appended;
+}
+
+async function appendMarkdownWithConvertFallback({
+  accessToken,
+  docId,
+  markdown,
+}: {
+  accessToken: string;
+  docId: string;
+  markdown: string;
+}): Promise<number> {
+  try {
+    return await appendConvertedBlocks({ accessToken, docId, markdown });
+  } catch (e) {
+    if (isFeishuConvertPermissionDenied(e)) {
+      return appendTextBlocks({ accessToken, docId, markdown });
+    }
+    return appendTextBlocks({ accessToken, docId, markdown });
+  }
+}
+
 async function appendTextBlocks({
   accessToken,
   docId,
@@ -451,14 +533,14 @@ async function syncConversations({
         await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
         let appended = 0;
         try {
-          appended = await appendTextBlocks({ accessToken, docId, markdown });
+          appended = await appendMarkdownWithConvertFallback({ accessToken, docId, markdown });
         } catch (e) {
           if (existingDocId) {
             mode = 'create';
             await persistCurrentJob({ currentStage: 'creating_destination_page' });
             docId = await createDoc({ accessToken, title: currentTitle });
             await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
-            appended = await appendTextBlocks({ accessToken, docId, markdown });
+            appended = await appendMarkdownWithConvertFallback({ accessToken, docId, markdown });
           } else {
             throw e;
           }
