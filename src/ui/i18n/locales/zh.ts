@@ -529,6 +529,14 @@ export const zh: { [K in TranslationKey]: string } = {
   popupNotionSyncNudgeDontShowLabel: '后续不再弹出此提示弹窗',
   popupNotionSyncNudgeDismiss: '暂不前往',
   popupNotionSyncNudgeConfirm: '了解并前往',
+  popupFeishuSyncNudgeAria: '同步到飞书提示',
+  popupFeishuSyncNudgeTitle: '建议打开标签页版进行同步',
+  popupFeishuSyncNudgeBody:
+    '由于同步到飞书的时间可能会比较长，建议打开标签页视图版本，这样可以确保插件在后台持续运行，避免同步任务被中断。',
+  popupFeishuSyncNudgeDontShowAria: '后续不再弹出此提示',
+  popupFeishuSyncNudgeDontShowLabel: '后续不再弹出此提示弹窗',
+  popupFeishuSyncNudgeDismiss: '暂不前往',
+  popupFeishuSyncNudgeConfirm: '了解并前往',
 
   // AboutSection
   aboutSectionAria: '关于 SyncNos WebClipper',

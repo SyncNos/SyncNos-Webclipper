@@ -534,6 +534,14 @@ export const en = {
   popupNotionSyncNudgeDontShowLabel: 'Do not show this reminder again',
   popupNotionSyncNudgeDismiss: 'Not now',
   popupNotionSyncNudgeConfirm: 'Got it, open tab',
+  popupFeishuSyncNudgeAria: 'Sync to Feishu tip',
+  popupFeishuSyncNudgeTitle: 'Open the tab view for syncing',
+  popupFeishuSyncNudgeBody:
+    'Syncing to Feishu can take a while. Opening the tab view helps the extension keep running in the background and avoids interrupted sync jobs.',
+  popupFeishuSyncNudgeDontShowAria: 'Do not show this reminder again',
+  popupFeishuSyncNudgeDontShowLabel: 'Do not show this reminder again',
+  popupFeishuSyncNudgeDismiss: 'Not now',
+  popupFeishuSyncNudgeConfirm: 'Got it, open tab',
 
   // AboutSection
   aboutSectionAria: 'About SyncNos WebClipper',

@@ -120,6 +120,7 @@ export type ConversationListPaneProps = {
   onOpenSettingsSection?: (section: string) => void;
   activeRowId?: number | null;
   onPopupNotionSyncStarted?: () => void;
+  onPopupFeishuSyncStarted?: () => void;
   initialScrollTop?: number;
   scrollRestoreKey?: number;
   onListScrollTopChange?: (scrollTop: number) => void;
@@ -131,6 +132,7 @@ export function ConversationListPane({
   onOpenSettingsSection,
   activeRowId,
   onPopupNotionSyncStarted,
+  onPopupFeishuSyncStarted,
   initialScrollTop = 0,
   scrollRestoreKey = 0,
   onListScrollTopChange,
@@ -990,8 +992,10 @@ export function ConversationListPane({
                     }
                     onClick={() => {
                       if (singleSyncProvider === 'obsidian') void syncSelectedObsidian().catch(() => {});
-                      else if (singleSyncProvider === 'feishu') void syncSelectedFeishu().catch(() => {});
-                      else {
+                      else if (singleSyncProvider === 'feishu') {
+                        void syncSelectedFeishu().catch(() => {});
+                        onPopupFeishuSyncStarted?.();
+                      } else {
                         void syncSelectedNotion().catch(() => {});
                         onPopupNotionSyncStarted?.();
                       }
@@ -1065,6 +1069,7 @@ export function ConversationListPane({
                       onClick={() => {
                         setSyncOpen(false);
                         void syncSelectedFeishu().catch(() => {});
+                        onPopupFeishuSyncStarted?.();
                       }}
                       disabled={actionBusy || syncingFeishu}
                     >
