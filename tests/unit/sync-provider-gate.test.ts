@@ -47,5 +47,9 @@ describe('sync provider gate', () => {
     await setSyncProviderEnabled('notion', true);
     expect(await isSyncProviderEnabled('notion')).toBe(true);
     expect(await ensureSyncProviderEnabled('notion')).toBe(null);
+
+    await setSyncProviderEnabled('feishu', false);
+    expect(await isSyncProviderEnabled('feishu')).toBe(false);
+    expect(await ensureSyncProviderEnabled('feishu')).toEqual({ code: 'sync_provider_disabled', provider: 'feishu' });
   });
 });
