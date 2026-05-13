@@ -149,6 +149,7 @@ export function ConversationListPane({
     syncFeedback,
     syncingNotion,
     syncingObsidian,
+    syncingFeishu,
     deleting,
     listSourceFilterKey,
     listSiteFilterKey,
@@ -165,6 +166,7 @@ export function ConversationListPane({
     exportSelectedMarkdown,
     syncSelectedNotion,
     syncSelectedObsidian,
+    syncSelectedFeishu,
     clearSyncFeedback,
     deleteSelected,
     refreshList,
@@ -272,7 +274,7 @@ export function ConversationListPane({
 
   const hasSelection = selectedTotalCount > 0;
   const actionBusy = exporting || deleting;
-  const syncingAny = syncingNotion || syncingObsidian;
+  const syncingAny = syncingNotion || syncingObsidian || syncingFeishu;
 
   useEffect(() => {
     let disposed = false;
@@ -980,15 +982,19 @@ export function ConversationListPane({
                       exporting ||
                       deleting ||
                       actionBusy ||
-                      (singleSyncProvider === 'notion' ? syncingNotion : syncingObsidian)
+                      (singleSyncProvider === 'notion'
+                        ? syncingNotion
+                        : singleSyncProvider === 'obsidian'
+                          ? syncingObsidian
+                          : syncingFeishu)
                     }
                     onClick={() => {
-                      if (singleSyncProvider === 'obsidian') {
-                        void syncSelectedObsidian().catch(() => {});
-                        return;
+                      if (singleSyncProvider === 'obsidian') void syncSelectedObsidian().catch(() => {});
+                      else if (singleSyncProvider === 'feishu') void syncSelectedFeishu().catch(() => {});
+                      else {
+                        void syncSelectedNotion().catch(() => {});
+                        onPopupNotionSyncStarted?.();
                       }
-                      void syncSelectedNotion().catch(() => {});
-                      onPopupNotionSyncStarted?.();
                     }}
                   >
                     <span className="tw-leading-none">{singleSyncLabel}</span>
@@ -1050,6 +1056,21 @@ export function ConversationListPane({
                       {syncingNotion ? t('notionSyncing') : t('notionSync')}
                     </button>
                   ) : null}
+                  {enabledSyncProviders.includes('feishu') ? (
+                    <button
+                      id="menuSyncToFeishu"
+                      className={menuItemButtonClassName}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setSyncOpen(false);
+                        void syncSelectedFeishu().catch(() => {});
+                      }}
+                      disabled={actionBusy || syncingFeishu}
+                    >
+                      {syncingFeishu ? t('feishuSyncing') : t('feishuSync')}
+                    </button>
+                  ) : null}
                   {enabledSyncProviders.length === 0 ? (
                     <button
                       id="menuSyncProvidersDisabled"
@@ -1058,7 +1079,7 @@ export function ConversationListPane({
                       role="menuitem"
                       onClick={async () => {
                         setSyncOpen(false);
-                        const section = 'notion';
+                        const section = listSyncProviders()[0]?.settingsSectionKey || 'notion';
                         if (onOpenSettingsSection) {
                           onOpenSettingsSection(section);
                         } else {
