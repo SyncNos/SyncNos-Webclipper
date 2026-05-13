@@ -30,6 +30,14 @@ export const OBSIDIAN_MESSAGE_TYPES = {
   CLEAR_SYNC_STATUS: 'clearObsidianSyncStatus',
 } as const;
 
+export const FEISHU_MESSAGE_TYPES = {
+  GET_AUTH_STATUS: 'getFeishuAuthStatus',
+  DISCONNECT: 'feishuDisconnect',
+  SYNC_CONVERSATIONS: 'feishuSyncConversations',
+  GET_SYNC_STATUS: 'getFeishuSyncStatus',
+  CLEAR_SYNC_STATUS: 'clearFeishuSyncStatus',
+} as const;
+
 export const ARTICLE_MESSAGE_TYPES = {
   FETCH_ACTIVE_TAB: 'fetchActiveTabArticle',
   RESOLVE_OR_CAPTURE_ACTIVE_TAB: 'resolveOrCaptureActiveTabArticle',
@@ -88,6 +96,7 @@ export const messageContracts = {
   CORE_MESSAGE_TYPES,
   NOTION_MESSAGE_TYPES,
   OBSIDIAN_MESSAGE_TYPES,
+  FEISHU_MESSAGE_TYPES,
   ARTICLE_MESSAGE_TYPES,
   CHATGPT_MESSAGE_TYPES,
   CURRENT_PAGE_MESSAGE_TYPES,
@@ -102,6 +111,7 @@ export const messageContracts = {
 export type CoreMessageType = (typeof CORE_MESSAGE_TYPES)[keyof typeof CORE_MESSAGE_TYPES];
 export type NotionMessageType = (typeof NOTION_MESSAGE_TYPES)[keyof typeof NOTION_MESSAGE_TYPES];
 export type ObsidianMessageType = (typeof OBSIDIAN_MESSAGE_TYPES)[keyof typeof OBSIDIAN_MESSAGE_TYPES];
+export type FeishuMessageType = (typeof FEISHU_MESSAGE_TYPES)[keyof typeof FEISHU_MESSAGE_TYPES];
 export type ArticleMessageType = (typeof ARTICLE_MESSAGE_TYPES)[keyof typeof ARTICLE_MESSAGE_TYPES];
 export type ChatgptMessageType = (typeof CHATGPT_MESSAGE_TYPES)[keyof typeof CHATGPT_MESSAGE_TYPES];
 export type CurrentPageMessageType = (typeof CURRENT_PAGE_MESSAGE_TYPES)[keyof typeof CURRENT_PAGE_MESSAGE_TYPES];
@@ -116,6 +126,7 @@ export type MessageType =
   | CoreMessageType
   | NotionMessageType
   | ObsidianMessageType
+  | FeishuMessageType
   | ArticleMessageType
   | ChatgptMessageType
   | CurrentPageMessageType

@@ -1,6 +1,6 @@
-import { NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
+import { FEISHU_MESSAGE_TYPES, NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { send } from '@platform/runtime/runtime';
-import type { NotionSyncJobStatus, ObsidianSyncStatus, SyncProvider } from '@services/sync/models';
+import type { NotionSyncJobStatus, ObsidianSyncStatus, SyncJobStatusResponse, SyncProvider } from '@services/sync/models';
 
 export type SyncStartAck = {
   provider: SyncProvider;
@@ -39,6 +39,16 @@ export async function clearObsidianSyncStatus(): Promise<ObsidianSyncStatus> {
   return unwrap(res);
 }
 
+export async function getFeishuSyncStatus(): Promise<SyncJobStatusResponse> {
+  const res = await send<ApiResponse<SyncJobStatusResponse>>(FEISHU_MESSAGE_TYPES.GET_SYNC_STATUS);
+  return unwrap(res);
+}
+
+export async function clearFeishuSyncStatus(): Promise<SyncJobStatusResponse> {
+  const res = await send<ApiResponse<SyncJobStatusResponse>>(FEISHU_MESSAGE_TYPES.CLEAR_SYNC_STATUS);
+  return unwrap(res);
+}
+
 function normalizeIds(ids: unknown): number[] {
   return Array.isArray(ids)
     ? Array.from(new Set(ids.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0)))
@@ -63,5 +73,12 @@ export async function syncObsidianConversations(
     conversationIds: ids,
     forceFullConversationIds: forceFull.length ? forceFull : undefined,
   });
+  return unwrap(res);
+}
+
+export async function syncFeishuConversations(conversationIds: number[]): Promise<SyncStartAck> {
+  const ids = normalizeIds(conversationIds);
+  if (!ids.length) throw new Error('No conversations selected');
+  const res = await send<ApiResponse<SyncStartAck>>(FEISHU_MESSAGE_TYPES.SYNC_CONVERSATIONS, { conversationIds: ids });
   return unwrap(res);
 }
