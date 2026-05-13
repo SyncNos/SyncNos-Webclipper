@@ -101,7 +101,9 @@ export function FeishuOAuthSection(props: {
           {!syncEnabled ? (
             <div className="tw-mt-2">
               <SettingsFormRow label="" align="start">
-                <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('feishuSyncEnabledHint')}</div>
+                <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
+                  {t('feishuSyncEnabledHint')}
+                </div>
               </SettingsFormRow>
             </div>
           ) : null}
@@ -153,7 +155,9 @@ export function FeishuOAuthSection(props: {
             </div>
 
             <SettingsFormRow label={t('note')} align="start">
-              <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('feishuAdvancedHint')}</div>
+              <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
+                {t('feishuAdvancedHint')}
+              </div>
             </SettingsFormRow>
           </div>
         ) : null}

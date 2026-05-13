@@ -200,7 +200,10 @@ async function resolveConfiguredTargetFolderToken(
 ): Promise<{ folderToken: string; warnings: string[]; hasConfig: boolean }> {
   const config = await getFeishuPathConfig();
   const folderPath = pickFeishuFolderPathForConversation(conversation, config);
-  const segments = folderPath.split('/').map((s) => safeString(s)).filter(Boolean);
+  const segments = folderPath
+    .split('/')
+    .map((s) => safeString(s))
+    .filter(Boolean);
   if (!segments.length) return { folderToken: '', warnings: [], hasConfig: false };
 
   const rootToken = await resolveRootFolderToken(accessToken);
@@ -230,9 +233,13 @@ async function createDoc({
   if (explicitFolderToken) payloadBase.folder_token = explicitFolderToken;
 
   const create = async (payload: Record<string, unknown>) => {
-    const data = await fetchFeishuJson<any>('/docx/v1/documents', { method: 'POST', body: JSON.stringify(payload) }, {
-      accessToken,
-    });
+    const data = await fetchFeishuJson<any>(
+      '/docx/v1/documents',
+      { method: 'POST', body: JSON.stringify(payload) },
+      {
+        accessToken,
+      },
+    );
     const docId =
       safeString(data?.document?.document_id) ||
       safeString(data?.document?.documentId) ||
@@ -539,31 +546,31 @@ async function syncConversations({
             docId = '';
             mode = 'create';
           } else {
-          await defaultBackgroundStorage.patchSyncMapping(conversationId, {
-            feishuDocId: existingDocId,
-            feishuLastContentHash: contentHash,
-          });
+            await defaultBackgroundStorage.patchSyncMapping(conversationId, {
+              feishuDocId: existingDocId,
+              feishuLastContentHash: contentHash,
+            });
 
-          row = buildPerConversationResult({
-            conversationId,
-            conversationTitle: currentTitle,
-            ok: true,
-            mode: 'skipped_unchanged',
-            appended: 0,
-            error: '',
-            warnings: [],
-            at: Date.now(),
-          });
-          results.push(row);
-          currentJob.perConversation.push(row);
-          currentJob.okCount = results.filter((r) => r.ok).length;
-          currentJob.failCount = results.length - currentJob.okCount;
-          await persistCurrentJob({
-            currentConversationId: conversationId,
-            currentConversationTitle: undefined,
-            currentStage: 'finishing_current_item',
-          });
-          continue;
+            row = buildPerConversationResult({
+              conversationId,
+              conversationTitle: currentTitle,
+              ok: true,
+              mode: 'skipped_unchanged',
+              appended: 0,
+              error: '',
+              warnings: [],
+              at: Date.now(),
+            });
+            results.push(row);
+            currentJob.perConversation.push(row);
+            currentJob.okCount = results.filter((r) => r.ok).length;
+            currentJob.failCount = results.length - currentJob.okCount;
+            await persistCurrentJob({
+              currentConversationId: conversationId,
+              currentConversationTitle: undefined,
+              currentStage: 'finishing_current_item',
+            });
+            continue;
           }
         }
 
@@ -608,7 +615,10 @@ async function syncConversations({
           }
         }
 
-        await defaultBackgroundStorage.patchSyncMapping(conversationId, { feishuDocId: docId, feishuLastContentHash: contentHash });
+        await defaultBackgroundStorage.patchSyncMapping(conversationId, {
+          feishuDocId: docId,
+          feishuLastContentHash: contentHash,
+        });
 
         row = buildPerConversationResult({
           conversationId,

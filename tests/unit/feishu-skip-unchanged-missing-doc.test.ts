@@ -134,6 +134,9 @@ describe('feishu skip unchanged missing doc', () => {
 
     expect(res.okCount).toBe(1);
     expect(res.results?.[0]?.mode).toBe('create');
-    expect(backgroundStorageMocks.patchSyncMapping).toHaveBeenCalledWith(1, expect.objectContaining({ feishuDocId: 'doc_new' }));
+    expect(backgroundStorageMocks.patchSyncMapping).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ feishuDocId: 'doc_new' }),
+    );
   });
 });

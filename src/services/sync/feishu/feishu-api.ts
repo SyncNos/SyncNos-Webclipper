@@ -110,7 +110,12 @@ export async function fetchFeishuJson<T>(
           : String(text || '');
 
       if (!res.ok) {
-        const err = toApiError(msg || `HTTP ${status}`, { status, code, requestId: requestId || undefined, retryAfterMs });
+        const err = toApiError(msg || `HTTP ${status}`, {
+          status,
+          code,
+          requestId: requestId || undefined,
+          retryAfterMs,
+        });
         throw err;
       }
 

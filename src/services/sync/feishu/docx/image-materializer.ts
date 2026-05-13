@@ -97,7 +97,9 @@ async function uploadImageToFeishu({
 
     const text = await res.text().catch(() => '');
     if (!res.ok) {
-      const err = new Error(`Feishu upload_all failed (parent_type=${parentType}): HTTP ${res.status} ${text}`) as UploadAllError;
+      const err = new Error(
+        `Feishu upload_all failed (parent_type=${parentType}): HTTP ${res.status} ${text}`,
+      ) as UploadAllError;
       err.status = Number(res.status) || 0;
       throw err;
     }
@@ -130,7 +132,9 @@ async function uploadImageToFeishu({
     try {
       return await uploadOnce('doc_image');
     } catch (e2) {
-      throw new Error(`${String((e as any)?.message || 'Feishu upload_all failed')}; fallback doc_image failed: ${String((e2 as any)?.message || '')}`);
+      throw new Error(
+        `${String((e as any)?.message || 'Feishu upload_all failed')}; fallback doc_image failed: ${String((e2 as any)?.message || '')}`,
+      );
     }
   }
 }
@@ -153,13 +157,7 @@ async function bindImageBlockWithFileToken({
   );
 }
 
-async function createEmptyImageBlock({
-  accessToken,
-  docId,
-}: {
-  accessToken: string;
-  docId: string;
-}): Promise<string> {
+async function createEmptyImageBlock({ accessToken, docId }: { accessToken: string; docId: string }): Promise<string> {
   const data = await fetchFeishuJson<any>(
     `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
     { method: 'POST', body: JSON.stringify({ children: [{ block_type: 27, image: {} }], index: -1 }) },
@@ -251,7 +249,10 @@ export async function materializeMarkdownImagesIntoDocx({
     const url = safeString(part.url);
     if (!url) continue;
 
-    const dl = await downloadImageSmart({ url, maxBytes: MAX_IMAGE_BYTES }).catch(() => ({ ok: false as const, reason: 'fetch' as const }));
+    const dl = await downloadImageSmart({ url, maxBytes: MAX_IMAGE_BYTES }).catch(() => ({
+      ok: false as const,
+      reason: 'fetch' as const,
+    }));
     if (!dl.ok) {
       fallbackUrlCount += 1;
       warnings.push(`image download failed (${dl.reason}): ${url}`);

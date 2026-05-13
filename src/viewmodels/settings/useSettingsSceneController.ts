@@ -21,7 +21,11 @@ import {
   saveFeishuPathConfig,
 } from '@services/sync/feishu/settings-store';
 import { normalizeNotionDatabaseIdInput } from '@services/sync/notion/notion-id-utils';
-import { FEISHU_MESSAGE_TYPES, NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@services/protocols/message-contracts';
+import {
+  FEISHU_MESSAGE_TYPES,
+  NOTION_MESSAGE_TYPES,
+  OBSIDIAN_MESSAGE_TYPES,
+} from '@services/protocols/message-contracts';
 import { conversationKinds } from '@services/protocols/conversation-kinds';
 import type { ConversationKindDbSpec } from '@services/protocols/conversation-kind-contract';
 import {
@@ -693,7 +697,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         });
         if (!proxyUrl) {
           await ensureDefaultFeishuOAuthProxyUrl().catch(() => {});
-          const latest = await storageGet(['feishu_oauth_token_exchange_proxy_url']).catch(() => ({} as any));
+          const latest = await storageGet(['feishu_oauth_token_exchange_proxy_url']).catch(() => ({}) as any);
           const resolved = String((latest as any)?.feishu_oauth_token_exchange_proxy_url || '').trim();
           setFeishuTokenExchangeProxyUrl(resolved);
         } else {

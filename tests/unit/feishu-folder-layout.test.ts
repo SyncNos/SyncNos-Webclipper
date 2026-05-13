@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { FEISHU_DEFAULTS, pickFeishuFolderPathForConversation, type FeishuPathConfig } from '@services/sync/feishu/settings-store';
+import {
+  FEISHU_DEFAULTS,
+  pickFeishuFolderPathForConversation,
+  type FeishuPathConfig,
+} from '@services/sync/feishu/settings-store';
 
 describe('Feishu folder layout', () => {
   it('defaults to root-level SyncNos-* folders (aligned with Obsidian)', () => {

@@ -1,6 +1,15 @@
-import { FEISHU_MESSAGE_TYPES, NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
+import {
+  FEISHU_MESSAGE_TYPES,
+  NOTION_MESSAGE_TYPES,
+  OBSIDIAN_MESSAGE_TYPES,
+} from '@platform/messaging/message-contracts';
 import { send } from '@platform/runtime/runtime';
-import type { NotionSyncJobStatus, ObsidianSyncStatus, SyncJobStatusResponse, SyncProvider } from '@services/sync/models';
+import type {
+  NotionSyncJobStatus,
+  ObsidianSyncStatus,
+  SyncJobStatusResponse,
+  SyncProvider,
+} from '@services/sync/models';
 
 export type SyncStartAck = {
   provider: SyncProvider;

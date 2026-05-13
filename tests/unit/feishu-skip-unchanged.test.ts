@@ -109,7 +109,14 @@ describe('feishu skip unchanged', () => {
     expect(res.okCount).toBe(1);
     expect(res.results?.[0]?.mode).toBe('skipped_unchanged');
     expect(fetchFeishuJsonMock).toHaveBeenCalledTimes(1);
-    expect(fetchFeishuJsonMock).toHaveBeenCalledWith('/docx/v1/documents/doc1', { method: 'GET' }, { accessToken: 't' });
-    expect(backgroundStorageMocks.patchSyncMapping).toHaveBeenCalledWith(1, expect.objectContaining({ feishuDocId: 'doc1' }));
+    expect(fetchFeishuJsonMock).toHaveBeenCalledWith(
+      '/docx/v1/documents/doc1',
+      { method: 'GET' },
+      { accessToken: 't' },
+    );
+    expect(backgroundStorageMocks.patchSyncMapping).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ feishuDocId: 'doc1' }),
+    );
   });
 });

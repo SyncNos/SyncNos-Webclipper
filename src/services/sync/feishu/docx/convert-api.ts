@@ -31,7 +31,11 @@ export async function convertContentToBlocks({
     content_type: contentType,
   };
 
-  const data: any = await fetchFeishuJson('/docx/v1/documents/blocks/convert', { method: 'POST', body: JSON.stringify(payload) }, { accessToken });
+  const data: any = await fetchFeishuJson(
+    '/docx/v1/documents/blocks/convert',
+    { method: 'POST', body: JSON.stringify(payload) },
+    { accessToken },
+  );
 
   const blocks = Array.isArray(data?.blocks)
     ? data.blocks

@@ -33,7 +33,11 @@ describe('feishu-api retry', () => {
     // @ts-expect-error test global
     globalThis.fetch = fetchMock;
 
-    const promise = fetchFeishuJson('/retry-429', { method: 'GET' }, { accessToken: 't', baseUrl: 'https://example.com', retry: { attempts: 3 } });
+    const promise = fetchFeishuJson(
+      '/retry-429',
+      { method: 'GET' },
+      { accessToken: 't', baseUrl: 'https://example.com', retry: { attempts: 3 } },
+    );
 
     await vi.advanceTimersByTimeAsync(1000);
     await expect(promise).resolves.toEqual({ ok: true });
@@ -56,7 +60,11 @@ describe('feishu-api retry', () => {
     // @ts-expect-error test global
     globalThis.fetch = fetchMock;
 
-    const promise = fetchFeishuJson('/retry-network', { method: 'GET' }, { accessToken: 't', baseUrl: 'https://example.com', retry: { attempts: 2 } });
+    const promise = fetchFeishuJson(
+      '/retry-network',
+      { method: 'GET' },
+      { accessToken: 't', baseUrl: 'https://example.com', retry: { attempts: 2 } },
+    );
 
     await vi.advanceTimersByTimeAsync(300);
     await expect(promise).resolves.toEqual({ value: 1 });
@@ -74,9 +82,12 @@ describe('feishu-api retry', () => {
     globalThis.fetch = fetchMock;
 
     await expect(
-      fetchFeishuJson('/no-retry-post', { method: 'POST' }, { accessToken: 't', baseUrl: 'https://example.com', retry: { attempts: 3 } }),
+      fetchFeishuJson(
+        '/no-retry-post',
+        { method: 'POST' },
+        { accessToken: 't', baseUrl: 'https://example.com', retry: { attempts: 3 } },
+      ),
     ).rejects.toMatchObject({ extra: { status: 429 } });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
-

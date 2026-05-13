@@ -62,11 +62,13 @@ export async function getFeishuPathConfig(): Promise<FeishuPathConfig> {
   };
 }
 
-export async function saveFeishuPathConfig(input: {
-  chatFolder?: unknown;
-  articleFolder?: unknown;
-  videoFolder?: unknown;
-} = {}): Promise<FeishuPathConfig> {
+export async function saveFeishuPathConfig(
+  input: {
+    chatFolder?: unknown;
+    articleFolder?: unknown;
+    videoFolder?: unknown;
+  } = {},
+): Promise<FeishuPathConfig> {
   const payload: Record<string, unknown> = {};
   if (input.chatFolder != null) {
     payload[FEISHU_STORAGE_KEYS.chatFolder] = normalizeFeishuFolderPath(input.chatFolder, FEISHU_DEFAULTS.chatFolder);
@@ -78,7 +80,10 @@ export async function saveFeishuPathConfig(input: {
     );
   }
   if (input.videoFolder != null) {
-    payload[FEISHU_STORAGE_KEYS.videoFolder] = normalizeFeishuFolderPath(input.videoFolder, FEISHU_DEFAULTS.videoFolder);
+    payload[FEISHU_STORAGE_KEYS.videoFolder] = normalizeFeishuFolderPath(
+      input.videoFolder,
+      FEISHU_DEFAULTS.videoFolder,
+    );
   }
 
   if (Object.keys(payload).length > 0) await storageSet(payload);
@@ -87,13 +92,14 @@ export async function saveFeishuPathConfig(input: {
 
 export function pickFeishuFolderPathForConversation(conversation: any, config: FeishuPathConfig): string {
   try {
-    const kind = conversationKinds && typeof conversationKinds.pick === 'function' ? conversationKinds.pick(conversation) : null;
+    const kind =
+      conversationKinds && typeof conversationKinds.pick === 'function' ? conversationKinds.pick(conversation) : null;
     const kindId = kind && (kind as any).id ? safeString((kind as any).id) : '';
-    if (kindId === 'article') return safeString((config as any).articleFolder) || safeString(config.defaults.articleFolder);
+    if (kindId === 'article')
+      return safeString((config as any).articleFolder) || safeString(config.defaults.articleFolder);
     if (kindId === 'video') return safeString((config as any).videoFolder) || safeString(config.defaults.videoFolder);
     return safeString((config as any).chatFolder) || safeString(config.defaults.chatFolder);
   } catch (_e) {
     return safeString(config?.chatFolder) || safeString(config?.defaults?.chatFolder) || FEISHU_DEFAULTS.chatFolder;
   }
 }
-

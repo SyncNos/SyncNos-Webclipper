@@ -8,13 +8,13 @@
 - **稳定事实源**：版本、权限、配置、迁移规则请以 `wxt.config.ts`、`schema.ts`、workflow 与脚本为准；本索引不再保留按日期堆叠的变更流水。
 - **如何使用本索引**：如果你先想理解“产品做什么”，走 business-first；如果你已经准备改代码，走 engineering-first；如果你要发版本，走 release-first。
 
-| 维度     | 主入口页面                                 | 你会得到什么                                 |
-| -------- | ------------------------------------------ | -------------------------------------------- |
-| 业务入口 | [business-context.md](business-context.md) | 用户、产物、关键旅程、影响行为的业务规则     |
-| 仓库总览 | [overview.md](overview.md)                 | 目录地图、入口文件、主要产物、推荐阅读顺序   |
-| 技术总览 | [architecture.md](architecture.md)         | 运行时边界、关键契约、修改热点               |
+| 维度     | 主入口页面                                 | 你会得到什么                                          |
+| -------- | ------------------------------------------ | ----------------------------------------------------- |
+| 业务入口 | [business-context.md](business-context.md) | 用户、产物、关键旅程、影响行为的业务规则              |
+| 仓库总览 | [overview.md](overview.md)                 | 目录地图、入口文件、主要产物、推荐阅读顺序            |
+| 技术总览 | [architecture.md](architecture.md)         | 运行时边界、关键契约、修改热点                        |
 | 数据链路 | [data-flow.md](data-flow.md)               | 来源 → 本地事实源 → Notion / Obsidian / Feishu / 导出 |
-| 产品细节 | `modules/`                                 | WebClipper 的实现边界与扩展点                |
+| 产品细节 | `modules/`                                 | WebClipper 的实现边界与扩展点                         |
 
 ## 推荐阅读路径
 

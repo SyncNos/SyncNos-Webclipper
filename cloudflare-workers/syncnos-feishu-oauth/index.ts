@@ -137,7 +137,9 @@ async function refreshTokenViaGrant(opts: {
   });
 }
 
-function normalizeOAuthTokenResponse(json: any):
+function normalizeOAuthTokenResponse(
+  json: any,
+):
   | { ok: true; data: { access_token: string; refresh_token?: string; expires_in?: number } }
   | { ok: false; message: string } {
   if (!json || typeof json !== 'object') return { ok: false, message: 'Invalid token response' };
@@ -229,4 +231,3 @@ function handleOptions(request: Request) {
   }
   return new Response(null, { headers: { Allow: 'POST,OPTIONS' } });
 }
-

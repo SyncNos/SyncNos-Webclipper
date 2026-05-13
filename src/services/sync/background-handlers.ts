@@ -1,4 +1,9 @@
-import { FEISHU_MESSAGE_TYPES, NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES, UI_EVENT_TYPES } from '@platform/messaging/message-contracts';
+import {
+  FEISHU_MESSAGE_TYPES,
+  NOTION_MESSAGE_TYPES,
+  OBSIDIAN_MESSAGE_TYPES,
+  UI_EVENT_TYPES,
+} from '@platform/messaging/message-contracts';
 import { storageGet } from '@platform/storage/local';
 import { getNotionOAuthToken } from '@services/sync/notion/auth/token-store';
 import { getFeishuOAuthToken } from '@services/sync/feishu/auth/token-store';

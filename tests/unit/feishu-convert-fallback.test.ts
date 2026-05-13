@@ -124,7 +124,10 @@ describe('feishu convert fallback', () => {
       if (path.includes('/children?page_size=')) return { items: [] };
       if (path.endsWith('/descendant')) return { ok: true };
       if (path === '/docx/v1/documents/blocks/convert')
-        return { blocks: [{ block_type: 2, text: { elements: [{ text_run: { content: 'hi' } }] } }], first_level_block_ids: ['tmp1'] };
+        return {
+          blocks: [{ block_type: 2, text: { elements: [{ text_run: { content: 'hi' } }] } }],
+          first_level_block_ids: ['tmp1'],
+        };
       throw new Error(`unexpected path: ${path}`);
     });
 
@@ -171,9 +174,9 @@ describe('feishu convert fallback', () => {
     const paths = calls.map((c) => c.path);
     expect(paths).toContain('/docx/v1/documents/blocks/convert');
     expect(paths.some((p) => p.endsWith('/descendant'))).toBe(false);
-    expect(calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST')).toBe(
-      true,
-    );
+    expect(
+      calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST'),
+    ).toBe(true);
   });
 
   it('falls back to text blocks when descendant insertion fails', async () => {
@@ -194,7 +197,10 @@ describe('feishu convert fallback', () => {
       if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
       if (path.includes('/children?page_size=')) return { items: [] };
       if (path === '/docx/v1/documents/blocks/convert')
-        return { blocks: [{ block_type: 2, text: { elements: [{ text_run: { content: 'hi' } }] } }], first_level_block_ids: ['tmp1'] };
+        return {
+          blocks: [{ block_type: 2, text: { elements: [{ text_run: { content: 'hi' } }] } }],
+          first_level_block_ids: ['tmp1'],
+        };
       if (path.endsWith('/descendant')) throw new Error('schema mismatch');
       if (path.endsWith('/children') && !path.includes('batch_delete')) return { ok: true };
       throw new Error(`unexpected path: ${path}`);
@@ -206,7 +212,9 @@ describe('feishu convert fallback', () => {
 
     const calls = fetchFeishuJsonMock.mock.calls.map((c) => ({ path: String(c[0] || ''), init: c[1] as any }));
     expect(calls.some((c) => c.path.endsWith('/descendant'))).toBe(true);
-    expect(calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST')).toBe(true);
+    expect(
+      calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST'),
+    ).toBe(true);
   });
 
   it('falls back to text blocks when convert returns empty blocks', async () => {
@@ -237,6 +245,8 @@ describe('feishu convert fallback', () => {
 
     const calls = fetchFeishuJsonMock.mock.calls.map((c) => ({ path: String(c[0] || ''), init: c[1] as any }));
     expect(calls.some((c) => c.path === '/docx/v1/documents/blocks/convert')).toBe(true);
-    expect(calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST')).toBe(true);
+    expect(
+      calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST'),
+    ).toBe(true);
   });
 });

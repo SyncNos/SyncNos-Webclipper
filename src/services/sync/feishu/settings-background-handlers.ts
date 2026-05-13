@@ -32,4 +32,3 @@ export function registerFeishuSettingsHandlers(router: AnyRouter) {
     return router.ok({ disconnected: true, clearedKeys });
   });
 }
-
