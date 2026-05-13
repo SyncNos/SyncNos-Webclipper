@@ -9,6 +9,11 @@ import { registerArticleCommentsHandlers } from '@services/comments/background/h
 import { registerItemMentionHandlers } from '@services/integrations/item-mention/background-handlers';
 import { registerChatWithBackgroundHandlers } from '@services/integrations/chatwith/chatwith-background-handlers';
 import { ensureDefaultNotionOAuthClientId, setupNotionOAuthNavigationListener } from '@services/sync/notion/auth/oauth';
+import {
+  ensureDefaultFeishuOAuthClientId,
+  ensureDefaultFeishuOAuthProxyUrl,
+  setupFeishuOAuthNavigationListener,
+} from '@services/sync/feishu/auth/oauth';
 import obsidianSyncJobStore from '@services/sync/obsidian/obsidian-sync-job-store.ts';
 import { registerNotionSettingsHandlers } from '@services/sync/notion/settings-background-handlers';
 import { registerObsidianSettingsHandlers } from '@services/sync/obsidian/settings-background-handlers';
@@ -61,10 +66,15 @@ export default defineBackground(() => {
   // Keep legacy "start" side-effects that are not message handlers.
   try {
     ensureDefaultNotionOAuthClientId().catch(() => {});
+    ensureDefaultFeishuOAuthClientId().catch(() => {});
+    ensureDefaultFeishuOAuthProxyUrl().catch(() => {});
     setupNotionOAuthNavigationListener();
+    setupFeishuOAuthNavigationListener();
     registerClipperContextMenu();
     onInstalled((details) => {
       ensureDefaultNotionOAuthClientId().catch(() => {});
+      ensureDefaultFeishuOAuthClientId().catch(() => {});
+      ensureDefaultFeishuOAuthProxyUrl().catch(() => {});
       // Do not auto-open tabs after extension updates.
       if (details?.reason !== 'install') return;
       openAboutSectionAfterInstall().catch(() => {});
