@@ -77,12 +77,14 @@ https://chiimagnus.github.io/syncnos-oauth/callback
 | 能力 | API 路径 | Scope Key |
 | --- | --- | --- |
 | 读取云盘根目录（拿 folder token） | `GET /open-apis/drive/explorer/v2/root_folder/meta` | `drive:drive` 或 `drive:drive:readonly` |
+| 列出目录内容（按路径查找 folder） | `GET /open-apis/drive/v1/files` | `drive:drive`（建议） |
+| 创建目录（路径不存在时自动创建） | `POST /open-apis/drive/v1/files/create_folder` | `drive:drive` |
 | 创建 DocX 文档 | `POST /open-apis/docx/v1/documents` | `docx:document` 或 `docx:document:create` |
 | 获取文档子块列表 | `GET /open-apis/docx/v1/documents/{id}/blocks/{id}/children` | `docx:document` |
 | 批量删除子块 | `DELETE /open-apis/docx/v1/documents/{id}/blocks/{id}/children/batch_delete` | `docx:document` |
 | 创建子块（写入内容） | `POST /open-apis/docx/v1/documents/{id}/blocks/{id}/children` | `docx:document` |
 
-**当前已配置**：`docx:document` + `drive:drive:readonly`（MVP 最小集合）。后续如需移动文件到指定文件夹等写操作，再升级为 `drive:drive`。报错 `99991679` 时查看响应中 `permission_violations` 字段按需补充。
+**当前默认配置**：`docx:document` + `drive:drive`（支持“默认同步目录路径”：目录不存在会自动创建）。如果你之前用的是 `drive:drive:readonly`，升级后需要 **Disconnect → Connect** 重新授权，否则旧 token 可能无创建目录权限。
 
 ---
 
@@ -95,7 +97,7 @@ https://chiimagnus.github.io/syncnos-oauth/callback
 完整示例：
 
 ```jsx
-https://accounts.feishu.cn/open-apis/authen/v1/authorize?client_id=cli_xxxxx&redirect_uri=https%3A%2F%2Fchiimagnus.github.io%2Fsyncnos-oauth%2Fcallback&response_type=code&scope=docx%3Adocument%20drive%3Adrive%3Areadonly&state=RANDOM_STATE
+https://accounts.feishu.cn/open-apis/authen/v1/authorize?client_id=cli_xxxxx&redirect_uri=https%3A%2F%2Fchiimagnus.github.io%2Fsyncnos-oauth%2Fcallback&response_type=code&scope=docx%3Adocument%20drive%3Adrive&state=RANDOM_STATE
 ```
 
 **参数说明：**
@@ -105,7 +107,7 @@ https://accounts.feishu.cn/open-apis/authen/v1/authorize?client_id=cli_xxxxx&red
 | `client_id` | ✅ | App ID（`cli_xxx`），在【凭证与基础信息】获取 |
 | `redirect_uri` | ✅ | 重定向地址，须在白名单内，需 URL 编码 |
 | `response_type` | ✅ | 固定为 `code` |
-| `scope` | 推荐 | 空格分隔的权限（如 `docx:document drive:drive:readonly`），须已在控制台开通，否则报错 20027 |
+| `scope` | 推荐 | 空格分隔的权限（如 `docx:document drive:drive`），须已在控制台开通，否则报错 20027 |
 | `state` | 可选 | 防 CSRF 随机字符串，回调时原样返回 |
 
 #### 用授权码换取 user_access_token
