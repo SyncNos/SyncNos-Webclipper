@@ -31,7 +31,8 @@ describe('sync provider gate', () => {
     const { getEnabledSyncProviders, isSyncProviderEnabled } = await import('@services/sync/sync-provider-gate');
     expect(await isSyncProviderEnabled('notion')).toBe(true);
     expect(await isSyncProviderEnabled('obsidian')).toBe(true);
-    expect(await getEnabledSyncProviders()).toEqual(['obsidian', 'notion']);
+    expect(await isSyncProviderEnabled('feishu')).toBe(true);
+    expect(await getEnabledSyncProviders()).toEqual(['obsidian', 'notion', 'feishu']);
   });
 
   it('reads/writes disabled state via storage (explicit false only)', async () => {

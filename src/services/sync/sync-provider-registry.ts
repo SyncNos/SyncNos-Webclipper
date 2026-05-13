@@ -3,6 +3,7 @@ import type { SyncProviderId, SyncProviderDefinition } from '@services/protocols
 const REGISTRY: ReadonlyArray<SyncProviderDefinition> = [
   { id: 'obsidian', labelKey: 'providerObsidian', settingsSectionKey: 'obsidian' },
   { id: 'notion', labelKey: 'providerNotion', settingsSectionKey: 'notion' },
+  { id: 'feishu', labelKey: 'providerFeishu', settingsSectionKey: 'feishu' },
 ] as const;
 
 export function listSyncProviders(): SyncProviderDefinition[] {
