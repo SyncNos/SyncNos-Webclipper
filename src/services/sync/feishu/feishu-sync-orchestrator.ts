@@ -11,6 +11,7 @@ import {
 import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
 import { convertContentToBlocks, isFeishuConvertPermissionDenied } from '@services/sync/feishu/docx/convert-api';
 import { materializeMarkdownImagesIntoDocx, parseMarkdownImages } from '@services/sync/feishu/docx/image-materializer';
+import { sha256Hex } from '@services/sync/shared/content-hash';
 
 const SYNC_PROVIDER = 'feishu';
 const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
@@ -510,9 +511,39 @@ async function syncConversations({
 
         const markdown = await formatConversationMarkdownForExternalOutput(convo as any, detail as any);
         const existingDocId = safeString(mappingRes.mapping?.feishuDocId);
+        const existingContentHash = safeString(mappingRes.mapping?.feishuLastContentHash);
+        const contentHash = await sha256Hex(markdown).catch(() => '');
         let docId = existingDocId;
         let mode = existingDocId ? 'overwrite' : 'create';
         let createWarnings: string[] = [];
+
+        if (existingDocId && existingContentHash && contentHash && existingContentHash === contentHash) {
+          await defaultBackgroundStorage.patchSyncMapping(conversationId, {
+            feishuDocId: existingDocId,
+            feishuLastContentHash: contentHash,
+          });
+
+          row = buildPerConversationResult({
+            conversationId,
+            conversationTitle: currentTitle,
+            ok: true,
+            mode: 'skipped_unchanged',
+            appended: 0,
+            error: '',
+            warnings: [],
+            at: Date.now(),
+          });
+          results.push(row);
+          currentJob.perConversation.push(row);
+          currentJob.okCount = results.filter((r) => r.ok).length;
+          currentJob.failCount = results.length - currentJob.okCount;
+          await persistCurrentJob({
+            currentConversationId: conversationId,
+            currentConversationTitle: undefined,
+            currentStage: 'finishing_current_item',
+          });
+          continue;
+        }
 
         if (docId) {
           await persistCurrentJob({ currentStage: 'rebuilding_destination_page' });
@@ -557,7 +588,7 @@ async function syncConversations({
           }
         }
 
-        await defaultBackgroundStorage.patchSyncMapping(conversationId, { feishuDocId: docId });
+        await defaultBackgroundStorage.patchSyncMapping(conversationId, { feishuDocId: docId, feishuLastContentHash: contentHash });
 
         row = buildPerConversationResult({
           conversationId,
