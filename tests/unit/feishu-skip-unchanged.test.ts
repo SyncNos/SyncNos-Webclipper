@@ -94,6 +94,7 @@ describe('feishu skip unchanged', () => {
     tokenMocks.getFeishuOAuthToken.mockResolvedValue({ accessToken: 't', expiresAt: Date.now() + 60_000 });
     jobStoreMocks.abortRunningJobIfFromOtherInstance.mockResolvedValue(null);
     jobStoreMocks.isRunningJob.mockReturnValue(false);
+    fetchFeishuJsonMock.mockResolvedValue({ document: { document_id: 'doc1', revision_id: 1, title: 't' } });
 
     const hash = await sha256Hex('# same content');
     backgroundStorageMocks.getSyncMappingByConversation.mockResolvedValue({
@@ -107,8 +108,8 @@ describe('feishu skip unchanged', () => {
 
     expect(res.okCount).toBe(1);
     expect(res.results?.[0]?.mode).toBe('skipped_unchanged');
-    expect(fetchFeishuJsonMock).not.toHaveBeenCalled();
+    expect(fetchFeishuJsonMock).toHaveBeenCalledTimes(1);
+    expect(fetchFeishuJsonMock).toHaveBeenCalledWith('/docx/v1/documents/doc1', { method: 'GET' }, { accessToken: 't' });
     expect(backgroundStorageMocks.patchSyncMapping).toHaveBeenCalledWith(1, expect.objectContaining({ feishuDocId: 'doc1' }));
   });
 });
-

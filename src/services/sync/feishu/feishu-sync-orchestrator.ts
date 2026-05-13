@@ -176,6 +176,43 @@ function toDrivePermissionHintError(error: unknown): Error {
   return e instanceof Error ? e : new Error(safeString(e) || 'Feishu Drive error');
 }
 
+function isFeishuDocxGoneError(error: unknown): boolean {
+  const e: any = error;
+  const code = Number(e?.extra?.code || 0) || 0;
+  return code === 1770002 || code === 1770003;
+}
+
+async function canAccessDocx(accessToken: string, docId: string): Promise<boolean> {
+  const token = safeString(docId);
+  if (!token) return false;
+  try {
+    await fetchFeishuJson<any>(`/docx/v1/documents/${encodeURIComponent(token)}`, { method: 'GET' }, { accessToken });
+    return true;
+  } catch (e) {
+    if (isFeishuDocxGoneError(e)) return false;
+    throw e;
+  }
+}
+
+async function tryRestoreDocxIntoFolder({
+  accessToken,
+  docId,
+  folderToken,
+}: {
+  accessToken: string;
+  docId: string;
+  folderToken: string;
+}): Promise<void> {
+  const token = safeString(docId);
+  const folder = safeString(folderToken);
+  if (!token || !folder) return;
+  await fetchFeishuJson<any>(
+    `/drive/v1/files/${encodeURIComponent(token)}/move`,
+    { method: 'POST', body: JSON.stringify({ type: 'docx', folder_token: folder }) },
+    { accessToken },
+  );
+}
+
 async function resolveConfiguredTargetFolderToken(
   accessToken: string,
   conversation: any,
@@ -506,6 +543,40 @@ async function syncConversations({
         let createWarnings: string[] = [];
 
         if (existingDocId && existingContentHash && contentHash && existingContentHash === contentHash) {
+          // If the destination doc was deleted/moved to recycle bin, "skipped_unchanged" would make the user
+          // think the sync worked while the doc is still missing. We first verify the doc exists, and if it
+          // doesn't, try to restore it into the configured folder before falling back to creating a new doc.
+          let canSkip = true;
+          try {
+            canSkip = await canAccessDocx(accessToken, existingDocId);
+            if (!canSkip) {
+              const configured = await resolveConfiguredTargetFolderToken(accessToken, convo);
+              const targetFolderToken = configured.hasConfig
+                ? safeString(configured.folderToken)
+                : await resolveRootFolderToken(accessToken);
+              if (targetFolderToken) {
+                await tryRestoreDocxIntoFolder({ accessToken, docId: existingDocId, folderToken: targetFolderToken }).catch(
+                  () => undefined,
+                );
+              }
+              // Give the backend a short window to apply the restore.
+              for (let retry = 0; retry < 4; retry += 1) {
+                await new Promise((r) => setTimeout(r, 250 + retry * 250));
+                if (await canAccessDocx(accessToken, existingDocId).catch(() => false)) {
+                  canSkip = true;
+                  break;
+                }
+              }
+            }
+          } catch (_e) {
+            // If we can't verify status due to transient errors, fall back to normal overwrite flow.
+            canSkip = false;
+          }
+
+          if (!canSkip) {
+            docId = '';
+            mode = 'create';
+          } else {
           await defaultBackgroundStorage.patchSyncMapping(conversationId, {
             feishuDocId: existingDocId,
             feishuLastContentHash: contentHash,
@@ -531,6 +602,7 @@ async function syncConversations({
             currentStage: 'finishing_current_item',
           });
           continue;
+          }
         }
 
         if (docId) {
