@@ -156,4 +156,64 @@ describe('feishu convert fallback', () => {
       true,
     );
   });
+
+  it('falls back to text blocks when descendant insertion fails', async () => {
+    setupChromeStorage();
+    tokenMocks.getFeishuOAuthToken.mockResolvedValue({ accessToken: 't', expiresAt: Date.now() + 60_000 });
+    jobStoreMocks.abortRunningJobIfFromOtherInstance.mockResolvedValue(null);
+    jobStoreMocks.isRunningJob.mockReturnValue(false);
+
+    backgroundStorageMocks.getSyncMappingByConversation.mockResolvedValue({
+      conversation: { id: 1, title: 't' },
+      mapping: { feishuDocId: '' },
+    });
+    backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([]);
+
+    fetchFeishuJsonMock.mockImplementation(async (path: string) => {
+      if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
+      if (path.includes('/children?page_size=')) return { items: [] };
+      if (path === '/docx/v1/documents/blocks/convert')
+        return { blocks: [{ block_type: 2, text: { elements: [{ text_run: { content: 'hi' } }] } }], first_level_block_ids: ['tmp1'] };
+      if (path.endsWith('/descendant')) throw new Error('schema mismatch');
+      if (path.endsWith('/children') && !path.includes('batch_delete')) return { ok: true };
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const orch = await loadModule('@services/sync/feishu/feishu-sync-orchestrator.ts');
+    const res = await orch.syncConversations({ conversationIds: [1], instanceId: 'x' });
+    expect(res.okCount).toBe(1);
+
+    const calls = fetchFeishuJsonMock.mock.calls.map((c) => ({ path: String(c[0] || ''), init: c[1] as any }));
+    expect(calls.some((c) => c.path.endsWith('/descendant'))).toBe(true);
+    expect(calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST')).toBe(true);
+  });
+
+  it('falls back to text blocks when convert returns empty blocks', async () => {
+    setupChromeStorage();
+    tokenMocks.getFeishuOAuthToken.mockResolvedValue({ accessToken: 't', expiresAt: Date.now() + 60_000 });
+    jobStoreMocks.abortRunningJobIfFromOtherInstance.mockResolvedValue(null);
+    jobStoreMocks.isRunningJob.mockReturnValue(false);
+
+    backgroundStorageMocks.getSyncMappingByConversation.mockResolvedValue({
+      conversation: { id: 1, title: 't' },
+      mapping: { feishuDocId: '' },
+    });
+    backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([]);
+
+    fetchFeishuJsonMock.mockImplementation(async (path: string) => {
+      if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
+      if (path.includes('/children?page_size=')) return { items: [] };
+      if (path === '/docx/v1/documents/blocks/convert') return { blocks: [], first_level_block_ids: [] };
+      if (path.endsWith('/children') && !path.includes('batch_delete')) return { ok: true };
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const orch = await loadModule('@services/sync/feishu/feishu-sync-orchestrator.ts');
+    const res = await orch.syncConversations({ conversationIds: [1], instanceId: 'x' });
+    expect(res.okCount).toBe(1);
+
+    const calls = fetchFeishuJsonMock.mock.calls.map((c) => ({ path: String(c[0] || ''), init: c[1] as any }));
+    expect(calls.some((c) => c.path === '/docx/v1/documents/blocks/convert')).toBe(true);
+    expect(calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST')).toBe(true);
+  });
 });
