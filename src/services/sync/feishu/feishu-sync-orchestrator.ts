@@ -1,4 +1,4 @@
-import { storageGet, storageRemove, storageSet } from '@platform/storage/local';
+import { storageGet, storageSet } from '@platform/storage/local';
 import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
 import { formatConversationMarkdownForExternalOutput } from '@services/integrations/chatwith/chatwith-settings';
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
@@ -15,7 +15,6 @@ import { sha256Hex } from '@services/sync/shared/content-hash';
 
 const SYNC_PROVIDER = 'feishu';
 const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
-const LEGACY_DEFAULT_FOLDER_TOKEN_KEY = 'feishu_default_folder_token';
 const ROOT_FOLDER_TOKEN_KEY = 'feishu_root_folder_token';
 
 function safeString(v: unknown) {
@@ -153,16 +152,6 @@ async function resolveRootFolderToken(accessToken: string): Promise<string> {
     .then((res) => safeString((res as any)?.[ROOT_FOLDER_TOKEN_KEY]))
     .catch(() => '');
   if (cached) return cached;
-
-  // One-time migration from legacy cache key (best-effort).
-  const legacy = await storageGet([LEGACY_DEFAULT_FOLDER_TOKEN_KEY])
-    .then((res) => safeString((res as any)?.[LEGACY_DEFAULT_FOLDER_TOKEN_KEY]))
-    .catch(() => '');
-  if (legacy) {
-    await storageSet({ [ROOT_FOLDER_TOKEN_KEY]: legacy }).catch(() => {});
-    await storageRemove([LEGACY_DEFAULT_FOLDER_TOKEN_KEY]).catch(() => {});
-    return legacy;
-  }
 
   const data = await fetchFeishuJson<any>(
     '/drive/explorer/v2/root_folder/meta',
