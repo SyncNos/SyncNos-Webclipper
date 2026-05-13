@@ -457,6 +457,7 @@ export async function upsertConversation(payload: any): Promise<Conversation> {
         ? existing.warningFlags || []
         : [],
     notionPageId: payload.notionPageId || (existing ? existing.notionPageId || '' : ''),
+    feishuDocId: payload.feishuDocId || (existing ? existing.feishuDocId || '' : ''),
     lastCapturedAt: nextLastCapturedAt,
   });
 
@@ -535,6 +536,7 @@ export async function mergeConversationsByIds(input: {
     author: mergeStringFallback(keep.author, remove.author),
     publishedAt: mergeStringFallback(keep.publishedAt, remove.publishedAt),
     notionPageId: mergeStringFallback(keep.notionPageId, remove.notionPageId),
+    feishuDocId: mergeStringFallback(keep.feishuDocId, remove.feishuDocId),
     warningFlags: mergeWarningFlags(keep.warningFlags, remove.warningFlags),
     lastCapturedAt: pickMaxFiniteNumber(keep.lastCapturedAt, remove.lastCapturedAt) || Date.now(),
   });
@@ -1390,12 +1392,19 @@ export async function patchSyncMapping(conversationId: number, patch: Record<str
     source,
     conversationKey,
     notionPageId: String((patch as any)?.notionPageId || existing?.notionPageId || conversation.notionPageId || ''),
+    feishuDocId: String((patch as any)?.feishuDocId || existing?.feishuDocId || conversation.feishuDocId || ''),
     ...(mergedSections ? { notionSections: mergedSections } : null),
     updatedAt: now,
   } as any;
   const payload: any = withOptionalId(existing && existing.id, next);
   if (existing) await reqToPromise(stores.sync_mappings.put(payload));
   else await reqToPromise(stores.sync_mappings.add(payload));
+
+  const nextFeishuDocId = safeString(next.feishuDocId);
+  if (nextFeishuDocId && safeString(conversation.feishuDocId) !== nextFeishuDocId) {
+    conversation.feishuDocId = nextFeishuDocId;
+    await reqToPromise(stores.conversations.put(conversation));
+  }
 
   await txDone(t);
   return true;

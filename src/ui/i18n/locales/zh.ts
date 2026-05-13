@@ -196,6 +196,7 @@ export const zh: { [K in TranslationKey]: string } = {
   obsidianPaths: 'Obsidian 路径',
   aiChatsFolder: 'AI 对话文件夹',
   webClipperFolder: '网页剪藏文件夹',
+  videoScriptsFolder: '视频脚本文件夹',
   obsidianPathsNote: '相对于 Vault 的文件夹路径。支持嵌套文件夹，留空则使用默认路径。',
 
   // AboutSection
@@ -453,6 +454,7 @@ export const zh: { [K in TranslationKey]: string } = {
   detailHeaderOpenInMenuAria: '打开目标',
   detailHeaderOpenInNotion: '在 Notion 中打开',
   detailHeaderOpenInObsidian: '在 Obsidian 中打开',
+  detailHeaderOpenInFeishu: '在飞书中打开',
   detailHeaderObsidianApiNotConnected: 'Obsidian API 未连接',
   detailHeaderCacheImagesLabel: '缓存图片',
   detailHeaderCacheImagesSuccess: '图片已缓存。',
@@ -487,6 +489,8 @@ export const zh: { [K in TranslationKey]: string } = {
   feishuOAuth: '飞书 OAuth',
   feishuSyncEnabledLabel: '同步到飞书',
   feishuSyncEnabledHint: '已关闭飞书同步，您可以随时在设置中重新开启。',
+  feishuPaths: '飞书路径',
+  feishuPathsNote: '相对于云盘根目录的文件夹路径。支持嵌套文件夹，留空则使用默认路径。',
   feishuOAuthClientIdLabel: 'OAuth 客户端 ID',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange 代理 URL',
   feishuAdvancedHint:
@@ -526,6 +530,14 @@ export const zh: { [K in TranslationKey]: string } = {
   popupNotionSyncNudgeDontShowLabel: '后续不再弹出此提示弹窗',
   popupNotionSyncNudgeDismiss: '暂不前往',
   popupNotionSyncNudgeConfirm: '了解并前往',
+  popupFeishuSyncNudgeAria: '同步到飞书提示',
+  popupFeishuSyncNudgeTitle: '建议打开标签页版进行同步',
+  popupFeishuSyncNudgeBody:
+    '由于同步到飞书的时间可能会比较长，建议打开标签页视图版本，这样可以确保插件在后台持续运行，避免同步任务被中断。',
+  popupFeishuSyncNudgeDontShowAria: '后续不再弹出此提示',
+  popupFeishuSyncNudgeDontShowLabel: '后续不再弹出此提示弹窗',
+  popupFeishuSyncNudgeDismiss: '暂不前往',
+  popupFeishuSyncNudgeConfirm: '了解并前往',
 
   // AboutSection
   aboutSectionAria: '关于 SyncNos WebClipper',

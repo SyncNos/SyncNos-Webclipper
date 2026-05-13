@@ -21,4 +21,3 @@ export async function setFeishuOAuthToken(token: FeishuOAuthTokenV1 | null): Pro
 export async function clearFeishuOAuthToken(): Promise<void> {
   await storageRemove([FEISHU_OAUTH_TOKEN_KEY]);
 }
-

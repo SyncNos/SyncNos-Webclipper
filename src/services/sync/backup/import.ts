@@ -349,11 +349,25 @@ export async function importBackupLegacyJsonMerge(
       }
 
       const notionPageId = merged.notionPageId ? String(merged.notionPageId) : '';
+      const feishuDocId = merged.feishuDocId ? String(merged.feishuDocId) : '';
       if (notionPageId) {
         const convo: AnyRecord = await reqToPromise<AnyRecord>(convoIdx.get([source, conversationKey]) as any);
-        if (convo && convo.id && (!convo.notionPageId || !String(convo.notionPageId).trim())) {
-          convo.notionPageId = notionPageId;
-
+        if (convo && convo.id) {
+          let changed = false;
+          if (!convo.notionPageId || !String(convo.notionPageId).trim()) {
+            convo.notionPageId = notionPageId;
+            changed = true;
+          }
+          if (feishuDocId && (!convo.feishuDocId || !String(convo.feishuDocId).trim())) {
+            convo.feishuDocId = feishuDocId;
+            changed = true;
+          }
+          if (changed) await reqToPromise(s.conversations.put(convo));
+        }
+      } else if (feishuDocId) {
+        const convo: AnyRecord = await reqToPromise<AnyRecord>(convoIdx.get([source, conversationKey]) as any);
+        if (convo && convo.id && (!convo.feishuDocId || !String(convo.feishuDocId).trim())) {
+          convo.feishuDocId = feishuDocId;
           await reqToPromise(s.conversations.put(convo));
         }
       }

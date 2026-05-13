@@ -28,6 +28,7 @@ export type ConversationsSceneProps = {
   defaultNarrowRoute?: NarrowRoute;
   inlineNarrowDetailHeader?: boolean;
   onPopupNotionSyncStarted?: () => void;
+  onPopupFeishuSyncStarted?: () => void;
   onOpenInsightsSection?: () => void;
   onOpenSettingsSection?: (section: string) => void;
   onOpenCommentsExternally?: () => void;
@@ -59,6 +60,7 @@ export function ConversationsScene({
   defaultNarrowRoute = 'list',
   inlineNarrowDetailHeader = false,
   onPopupNotionSyncStarted,
+  onPopupFeishuSyncStarted,
   onOpenInsightsSection,
   onOpenSettingsSection,
   onOpenCommentsExternally,
@@ -139,6 +141,7 @@ export function ConversationsScene({
       scrollRestoreKey={listRestoreKey}
       onListScrollTopChange={setListScrollTop}
       onPopupNotionSyncStarted={onPopupNotionSyncStarted}
+      onPopupFeishuSyncStarted={onPopupFeishuSyncStarted}
       onOpenConversation={
         isNarrow
           ? () => {

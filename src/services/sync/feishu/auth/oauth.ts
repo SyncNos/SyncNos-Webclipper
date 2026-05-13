@@ -32,7 +32,7 @@ export function getFeishuOAuthDefaults(): FeishuOAuthDefaults {
     authorizationUrl: 'https://accounts.feishu.cn/open-apis/authen/v1/authorize',
     redirectUri: 'https://chiimagnus.github.io/syncnos-oauth/callback',
     responseType: 'code',
-    scope: 'docx:document drive:drive:readonly',
+    scope: 'docx:document drive:drive',
   };
 }
 

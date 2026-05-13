@@ -6,6 +6,7 @@ export const OBSIDIAN_STORAGE_KEYS = Object.freeze({
   authHeaderName: 'obsidian_api_auth_header_name',
   chatFolder: 'obsidian_chat_folder',
   articleFolder: 'obsidian_article_folder',
+  videoFolder: 'obsidian_video_folder',
 });
 
 export const OBSIDIAN_DEFAULTS = Object.freeze({
@@ -13,6 +14,7 @@ export const OBSIDIAN_DEFAULTS = Object.freeze({
   authHeaderName: 'Authorization',
   chatFolder: 'SyncNos-AIChats',
   articleFolder: 'SyncNos-WebArticles',
+  videoFolder: 'SyncNos-Videos',
 });
 
 type SaveSettingsInput = {
@@ -22,6 +24,7 @@ type SaveSettingsInput = {
   authHeaderName?: unknown;
   chatFolder?: unknown;
   articleFolder?: unknown;
+  videoFolder?: unknown;
 };
 
 function safeString(value: unknown): string {
@@ -60,6 +63,7 @@ export async function getObsidianSettings() {
     OBSIDIAN_STORAGE_KEYS.authHeaderName,
     OBSIDIAN_STORAGE_KEYS.chatFolder,
     OBSIDIAN_STORAGE_KEYS.articleFolder,
+    OBSIDIAN_STORAGE_KEYS.videoFolder,
   ]);
 
   const apiBaseUrl = normalizeBaseUrl(values[OBSIDIAN_STORAGE_KEYS.apiBaseUrl]);
@@ -67,6 +71,7 @@ export async function getObsidianSettings() {
   const authHeaderName = normalizeAuthHeaderName(values[OBSIDIAN_STORAGE_KEYS.authHeaderName]);
   const chatFolder = normalizeFolder(values[OBSIDIAN_STORAGE_KEYS.chatFolder], OBSIDIAN_DEFAULTS.chatFolder);
   const articleFolder = normalizeFolder(values[OBSIDIAN_STORAGE_KEYS.articleFolder], OBSIDIAN_DEFAULTS.articleFolder);
+  const videoFolder = normalizeFolder(values[OBSIDIAN_STORAGE_KEYS.videoFolder], OBSIDIAN_DEFAULTS.videoFolder);
 
   return {
     apiBaseUrl,
@@ -75,6 +80,7 @@ export async function getObsidianSettings() {
     apiKeyPresent: !!apiKey,
     chatFolder,
     articleFolder,
+    videoFolder,
     apiKeyMasked: apiKey ? '********************************' : '',
   };
 }
@@ -93,13 +99,19 @@ export async function getObsidianConnectionConfig() {
 }
 
 export async function getObsidianPathConfig() {
-  const values = await storageGet([OBSIDIAN_STORAGE_KEYS.chatFolder, OBSIDIAN_STORAGE_KEYS.articleFolder]);
+  const values = await storageGet([
+    OBSIDIAN_STORAGE_KEYS.chatFolder,
+    OBSIDIAN_STORAGE_KEYS.articleFolder,
+    OBSIDIAN_STORAGE_KEYS.videoFolder,
+  ]);
   return {
     chatFolder: normalizeFolder(values[OBSIDIAN_STORAGE_KEYS.chatFolder], OBSIDIAN_DEFAULTS.chatFolder),
     articleFolder: normalizeFolder(values[OBSIDIAN_STORAGE_KEYS.articleFolder], OBSIDIAN_DEFAULTS.articleFolder),
+    videoFolder: normalizeFolder(values[OBSIDIAN_STORAGE_KEYS.videoFolder], OBSIDIAN_DEFAULTS.videoFolder),
     defaults: {
       chatFolder: OBSIDIAN_DEFAULTS.chatFolder,
       articleFolder: OBSIDIAN_DEFAULTS.articleFolder,
+      videoFolder: OBSIDIAN_DEFAULTS.videoFolder,
     },
   };
 }
@@ -123,6 +135,9 @@ export async function saveObsidianSettings(input: SaveSettingsInput = {}) {
       input.articleFolder,
       OBSIDIAN_DEFAULTS.articleFolder,
     );
+  }
+  if (input.videoFolder != null) {
+    payload[OBSIDIAN_STORAGE_KEYS.videoFolder] = normalizeFolder(input.videoFolder, OBSIDIAN_DEFAULTS.videoFolder);
   }
 
   if (Object.keys(payload).length > 0) await storageSet(payload);

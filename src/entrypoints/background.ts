@@ -15,6 +15,7 @@ import {
   setupFeishuOAuthNavigationListener,
 } from '@services/sync/feishu/auth/oauth';
 import obsidianSyncJobStore from '@services/sync/obsidian/obsidian-sync-job-store.ts';
+import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
 import { registerNotionSettingsHandlers } from '@services/sync/notion/settings-background-handlers';
 import { registerObsidianSettingsHandlers } from '@services/sync/obsidian/settings-background-handlers';
 import { registerFeishuSettingsHandlers } from '@services/sync/feishu/settings-background-handlers';
@@ -90,6 +91,7 @@ export default defineBackground(() => {
     const id = getBackgroundInstanceId();
     services?.notionSyncJobStore?.abortRunningJobIfFromOtherInstance?.(id)?.catch?.(() => {});
     obsidianSyncJobStore.abortRunningJobIfFromOtherInstance(id).catch(() => {});
+    feishuSyncJobStore.abortRunningJobIfFromOtherInstance(id).catch(() => {});
   } catch (_e) {
     // ignore
   }

@@ -5,7 +5,7 @@
 Never lose an AI conversation, a great article, or a useful video transcript again.
 
 11+ AI platforms + any web article + YouTube/Bilibili subtitles — auto-captured in the background, stored locally first.
-One-click sync to Notion / Obsidian, or export as Markdown / Zip.
+One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 
 [SyncNos Angel Sponsors 😍](https://chiimagnus.notion.site/syncnos-angels) · **English** · [中文](README.zh-CN.md)
 
@@ -23,7 +23,7 @@ One-click sync to Notion / Obsidian, or export as Markdown / Zip.
 | 🔒 **Your data stays in your browser** | No third-party servers, no data collection. Everything is stored in IndexedDB first — you decide where it goes next.               |
 | 🔄 **Incremental sync, no duplicates** | Only new content gets synced. Precise cursor tracking picks up right where you left off. Your knowledge base grows while you chat. |
 | 🔓 **Fully open source**               | Every line of code is in this repo. You can see exactly what runs in your browser.                                                 |
-| 📦 **Multi-target output**             | Notion / Obsidian / Markdown / Zip — your data, your choice. No vendor lock-in.                                                    |
+| 📦 **Multi-target output**             | Notion / Obsidian / Feishu DocX / Markdown / Zip — your data, your choice. No vendor lock-in.                                      |
 
 ## Download & Install
 
@@ -78,6 +78,7 @@ YouTube and Bilibili video pages can capture already loaded subtitles/transcript
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Notion**         | One-click sync after OAuth. AI chats → `SyncNos-AI Chats` database; web articles → `SyncNos-Web Articles` database; video transcripts → `SyncNos-Videos` database.                                         |
 | **Obsidian**       | Writes directly to your vault via the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) plugin. Local-to-local, no network involved; video transcripts land in `SyncNos-Videos`. |
+| **Feishu (DocX)**  | Syncs conversations to Feishu DocX after OAuth. By default, docs land in `SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos` folders under your Drive root (paths are configurable).              |
 | **Markdown / Zip** | Single file or bulk export. Zip v2 backups preserve article comment threads and cached images for full local recovery.                                                                                     |
 
 ## Core Capabilities

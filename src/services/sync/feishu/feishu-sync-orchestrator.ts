@@ -4,10 +4,15 @@ import { formatConversationMarkdownForExternalOutput } from '@services/integrati
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
 import { getFeishuOAuthToken, setFeishuOAuthToken } from '@services/sync/feishu/auth/token-store';
 import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
+import { getFeishuPathConfig, pickFeishuFolderPathForConversation } from '@services/sync/feishu/settings-store';
+import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
+import { convertContentToBlocks, isFeishuConvertPermissionDenied } from '@services/sync/feishu/docx/convert-api';
+import { materializeMarkdownImagesIntoDocx, parseMarkdownImages } from '@services/sync/feishu/docx/image-materializer';
+import { sha256Hex } from '@services/sync/shared/content-hash';
 
 const SYNC_PROVIDER = 'feishu';
 const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
-const DEFAULT_FOLDER_TOKEN_KEY = 'feishu_default_folder_token';
+const ROOT_FOLDER_TOKEN_KEY = 'feishu_root_folder_token';
 
 function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
@@ -139,13 +144,17 @@ async function refreshFeishuOAuthToken(current: { refreshToken: string; accessTo
   return next as any;
 }
 
-async function resolveDefaultFolderToken(accessToken: string): Promise<string> {
-  const cached = await storageGet([DEFAULT_FOLDER_TOKEN_KEY])
-    .then((res) => safeString((res as any)?.[DEFAULT_FOLDER_TOKEN_KEY]))
+async function resolveRootFolderToken(accessToken: string): Promise<string> {
+  const cached = await storageGet([ROOT_FOLDER_TOKEN_KEY])
+    .then((res) => safeString((res as any)?.[ROOT_FOLDER_TOKEN_KEY]))
     .catch(() => '');
   if (cached) return cached;
 
-  const data = await fetchFeishuJson<any>('/drive/explorer/v2/root_folder/meta', { method: 'GET' }, { accessToken });
+  const data = await fetchFeishuJson<any>(
+    '/drive/explorer/v2/root_folder/meta',
+    { method: 'GET' },
+    { accessToken, retry: { attempts: 3 } },
+  );
   const token =
     safeString(data?.token) ||
     safeString(data?.folder_token) ||
@@ -153,18 +162,84 @@ async function resolveDefaultFolderToken(accessToken: string): Promise<string> {
     safeString(data?.data?.token) ||
     safeString(data?.data?.folder_token);
   if (token) {
-    await storageSet({ [DEFAULT_FOLDER_TOKEN_KEY]: token }).catch(() => {});
+    await storageSet({ [ROOT_FOLDER_TOKEN_KEY]: token }).catch(() => {});
   }
   return token;
 }
 
-async function createDoc({ accessToken, title }: { accessToken: string; title: string }): Promise<string> {
-  const payloadBase = { title: safeString(title) || 'Untitled' };
+function toDrivePermissionHintError(error: unknown): Error {
+  const e: any = error;
+  const status = Number(e?.extra?.status || 0) || 0;
+  if (status === 401 || status === 403) {
+    return new Error('Feishu Drive permission denied. Please reconnect Feishu with scope "drive:drive".');
+  }
+  return e instanceof Error ? e : new Error(safeString(e) || 'Feishu Drive error');
+}
+
+function isFeishuDocxGoneError(error: unknown): boolean {
+  const e: any = error;
+  const code = Number(e?.extra?.code || 0) || 0;
+  return code === 1770002 || code === 1770003;
+}
+
+async function canAccessDocx(accessToken: string, docId: string): Promise<boolean> {
+  const token = safeString(docId);
+  if (!token) return false;
+  try {
+    await fetchFeishuJson<any>(`/docx/v1/documents/${encodeURIComponent(token)}`, { method: 'GET' }, { accessToken });
+    return true;
+  } catch (e) {
+    if (isFeishuDocxGoneError(e)) return false;
+    throw e;
+  }
+}
+
+async function resolveConfiguredTargetFolderToken(
+  accessToken: string,
+  conversation: any,
+): Promise<{ folderToken: string; warnings: string[]; hasConfig: boolean }> {
+  const config = await getFeishuPathConfig();
+  const folderPath = pickFeishuFolderPathForConversation(conversation, config);
+  const segments = folderPath
+    .split('/')
+    .map((s) => safeString(s))
+    .filter(Boolean);
+  if (!segments.length) return { folderToken: '', warnings: [], hasConfig: false };
+
+  const rootToken = await resolveRootFolderToken(accessToken);
+  try {
+    const res = await resolveFeishuDriveFolderTokenByPath({
+      accessToken,
+      rootFolderToken: rootToken,
+      pathSegments: segments,
+    });
+    return { folderToken: res.folderToken, warnings: res.warnings, hasConfig: true };
+  } catch (e) {
+    throw toDrivePermissionHintError(e);
+  }
+}
+
+async function createDoc({
+  accessToken,
+  title,
+  folderToken,
+}: {
+  accessToken: string;
+  title: string;
+  folderToken?: string;
+}): Promise<string> {
+  const payloadBase: Record<string, unknown> = { title: safeString(title) || 'Untitled' };
+  const explicitFolderToken = safeString(folderToken);
+  if (explicitFolderToken) payloadBase.folder_token = explicitFolderToken;
 
   const create = async (payload: Record<string, unknown>) => {
-    const data = await fetchFeishuJson<any>('/docx/v1/documents', { method: 'POST', body: JSON.stringify(payload) }, {
-      accessToken,
-    });
+    const data = await fetchFeishuJson<any>(
+      '/docx/v1/documents',
+      { method: 'POST', body: JSON.stringify(payload) },
+      {
+        accessToken,
+      },
+    );
     const docId =
       safeString(data?.document?.document_id) ||
       safeString(data?.document?.documentId) ||
@@ -180,12 +255,13 @@ async function createDoc({ accessToken, title }: { accessToken: string; title: s
     const msg = safeString(error?.message).toLowerCase();
     const mightNeedFolder = msg.includes('folder') || msg.includes('folder_token');
     if (!mightNeedFolder) throw error;
+    if (explicitFolderToken) throw error;
 
-    const folderToken = await resolveDefaultFolderToken(accessToken).catch(() => '');
-    if (!folderToken) {
+    const rootFolderToken = await resolveRootFolderToken(accessToken).catch(() => '');
+    if (!rootFolderToken) {
       throw new Error('Feishu doc create failed: missing folder_token (MVP has no folder selector)');
     }
-    return create({ ...payloadBase, folder_token: folderToken });
+    return create({ ...payloadBase, folder_token: rootFolderToken });
   }
 }
 
@@ -193,7 +269,7 @@ async function listRootChildren({ accessToken, docId }: { accessToken: string; d
   const data = await fetchFeishuJson<any>(
     `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children?page_size=500`,
     { method: 'GET' },
-    { accessToken },
+    { accessToken, retry: { attempts: 3 } },
   );
   const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.children) ? data.children : [];
   return items;
@@ -229,6 +305,97 @@ function splitMarkdownIntoChunks(markdown: string): string[] {
     cursor = next;
   }
   return out;
+}
+
+function sanitizeConvertedBlocksForInsert(blocks: any[]): any[] {
+  if (!Array.isArray(blocks) || !blocks.length) return [];
+
+  // The Convert API may include read-only fields for some block types (e.g. table merge_info).
+  // Strip known problematic fields best-effort to reduce schema mismatch errors.
+  return blocks.map((block) => {
+    const next = block && typeof block === 'object' ? JSON.parse(JSON.stringify(block)) : block;
+    try {
+      if (next?.block_type === 31 && next?.table?.property && typeof next.table.property === 'object') {
+        delete next.table.property.merge_info;
+      }
+    } catch (_e) {
+      // ignore
+    }
+    return next;
+  });
+}
+
+async function appendConvertedBlocks({
+  accessToken,
+  docId,
+  markdown,
+}: {
+  accessToken: string;
+  docId: string;
+  markdown: string;
+}): Promise<number> {
+  const converted = await convertContentToBlocks({ accessToken, content: markdown, contentType: 'markdown' });
+  const blocks = sanitizeConvertedBlocksForInsert(converted.blocks);
+  if (!blocks.length) throw new Error('Feishu Convert API: empty blocks');
+
+  // Prefer descendant insertion when Convert returns first-level block ids (needed for nested structures).
+  if (converted.firstLevelBlockIds.length) {
+    if (blocks.length > 1000) throw new Error('Feishu Convert blocks exceed 1000 limit for descendant insert');
+    await fetchFeishuJson<any>(
+      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/descendant`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ children_id: converted.firstLevelBlockIds, descendants: blocks, index: -1 }),
+      },
+      { accessToken },
+    );
+    await new Promise((r) => setTimeout(r, 350));
+    return converted.firstLevelBlockIds.length;
+  }
+
+  // Fallback to flat children insertion (max 50 blocks per request; keep small to avoid rate-limit).
+  const batchSize = 20;
+  let appended = 0;
+  for (let i = 0; i < blocks.length; i += batchSize) {
+    const slice = blocks.slice(i, i + batchSize);
+    await fetchFeishuJson<any>(
+      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
+      { method: 'POST', body: JSON.stringify({ children: slice, index: -1 }) },
+      { accessToken },
+    );
+    appended += slice.length;
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  return appended;
+}
+
+async function appendMarkdownWithConvertFallback({
+  accessToken,
+  docId,
+  markdown,
+}: {
+  accessToken: string;
+  docId: string;
+  markdown: string;
+}): Promise<number> {
+  const images = parseMarkdownImages(markdown);
+  if (images.length) {
+    try {
+      const res = await materializeMarkdownImagesIntoDocx({ accessToken, docId, markdown });
+      return res.appendedBlocks;
+    } catch (_e) {
+      return appendTextBlocks({ accessToken, docId, markdown });
+    }
+  }
+
+  try {
+    return await appendConvertedBlocks({ accessToken, docId, markdown });
+  } catch (e) {
+    if (isFeishuConvertPermissionDenied(e)) {
+      return appendTextBlocks({ accessToken, docId, markdown });
+    }
+    return appendTextBlocks({ accessToken, docId, markdown });
+  }
 }
 
 async function appendTextBlocks({
@@ -357,8 +524,55 @@ async function syncConversations({
 
         const markdown = await formatConversationMarkdownForExternalOutput(convo as any, detail as any);
         const existingDocId = safeString(mappingRes.mapping?.feishuDocId);
+        const existingContentHash = safeString(mappingRes.mapping?.feishuLastContentHash);
+        const contentHash = await sha256Hex(markdown).catch(() => '');
         let docId = existingDocId;
         let mode = existingDocId ? 'overwrite' : 'create';
+        let createWarnings: string[] = [];
+
+        if (existingDocId && existingContentHash && contentHash && existingContentHash === contentHash) {
+          // If the destination doc was deleted/moved to recycle bin, "skipped_unchanged" would make the user
+          // think the sync worked while the doc is still missing. We first verify the doc exists; otherwise
+          // we fall back to creating a new destination doc.
+          let canSkip = true;
+          try {
+            canSkip = await canAccessDocx(accessToken, existingDocId);
+          } catch (_e) {
+            // If we can't verify status due to transient errors, fall back to normal overwrite flow.
+            canSkip = false;
+          }
+
+          if (!canSkip) {
+            docId = '';
+            mode = 'create';
+          } else {
+            await defaultBackgroundStorage.patchSyncMapping(conversationId, {
+              feishuDocId: existingDocId,
+              feishuLastContentHash: contentHash,
+            });
+
+            row = buildPerConversationResult({
+              conversationId,
+              conversationTitle: currentTitle,
+              ok: true,
+              mode: 'skipped_unchanged',
+              appended: 0,
+              error: '',
+              warnings: [],
+              at: Date.now(),
+            });
+            results.push(row);
+            currentJob.perConversation.push(row);
+            currentJob.okCount = results.filter((r) => r.ok).length;
+            currentJob.failCount = results.length - currentJob.okCount;
+            await persistCurrentJob({
+              currentConversationId: conversationId,
+              currentConversationTitle: undefined,
+              currentStage: 'finishing_current_item',
+            });
+            continue;
+          }
+        }
 
         if (docId) {
           await persistCurrentJob({ currentStage: 'rebuilding_destination_page' });
@@ -372,26 +586,39 @@ async function syncConversations({
 
         if (!docId) {
           await persistCurrentJob({ currentStage: 'creating_destination_page' });
-          docId = await createDoc({ accessToken, title: currentTitle });
+          let folderToken: string | undefined = undefined;
+          const resolved = await resolveConfiguredTargetFolderToken(accessToken, convo);
+          if (resolved.hasConfig) {
+            if (!resolved.folderToken) {
+              throw new Error('Feishu folder resolve failed: empty folder_token');
+            }
+            folderToken = resolved.folderToken;
+            createWarnings = resolved.warnings;
+          }
+
+          docId = await createDoc({ accessToken, title: currentTitle, folderToken });
         }
 
         await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
         let appended = 0;
         try {
-          appended = await appendTextBlocks({ accessToken, docId, markdown });
+          appended = await appendMarkdownWithConvertFallback({ accessToken, docId, markdown });
         } catch (e) {
           if (existingDocId) {
             mode = 'create';
             await persistCurrentJob({ currentStage: 'creating_destination_page' });
             docId = await createDoc({ accessToken, title: currentTitle });
             await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
-            appended = await appendTextBlocks({ accessToken, docId, markdown });
+            appended = await appendMarkdownWithConvertFallback({ accessToken, docId, markdown });
           } else {
             throw e;
           }
         }
 
-        await defaultBackgroundStorage.patchSyncMapping(conversationId, { feishuDocId: docId });
+        await defaultBackgroundStorage.patchSyncMapping(conversationId, {
+          feishuDocId: docId,
+          feishuLastContentHash: contentHash,
+        });
 
         row = buildPerConversationResult({
           conversationId,
@@ -400,6 +627,7 @@ async function syncConversations({
           mode,
           appended,
           error: '',
+          warnings: createWarnings,
           at: Date.now(),
         });
       }

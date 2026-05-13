@@ -21,4 +21,3 @@ export async function disconnectFeishu(): Promise<void> {
   const res = await send<ApiResponse<{ disconnected: boolean }>>(FEISHU_MESSAGE_TYPES.DISCONNECT);
   unwrap(res);
 }
-

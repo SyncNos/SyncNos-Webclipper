@@ -383,7 +383,11 @@ export function useConversationSyncFeedback(deps: UseConversationSyncFeedbackDep
     const token = activeRun.token;
     const provider = activeRun.provider;
     const getStatus =
-      provider === 'notion' ? getNotionSyncJobStatus : provider === 'obsidian' ? getObsidianSyncStatus : getFeishuSyncStatus;
+      provider === 'notion'
+        ? getNotionSyncJobStatus
+        : provider === 'obsidian'
+          ? getObsidianSyncStatus
+          : getFeishuSyncStatus;
     let disposed = false;
 
     const poll = async () => {

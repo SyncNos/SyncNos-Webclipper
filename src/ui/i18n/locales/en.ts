@@ -199,6 +199,7 @@ export const en = {
   obsidianPaths: 'Obsidian Paths',
   aiChatsFolder: 'AI Chats Folder',
   webClipperFolder: 'Web Clipper Folder',
+  videoScriptsFolder: 'Video Scripts Folder',
   obsidianPathsNote:
     'Vault-relative folder paths. Nested folders supported. Empty uses defaults.',
 
@@ -458,6 +459,7 @@ export const en = {
   detailHeaderOpenInMenuAria: 'Open destinations',
   detailHeaderOpenInNotion: 'Open in Notion',
   detailHeaderOpenInObsidian: 'Open in Obsidian',
+  detailHeaderOpenInFeishu: 'Open in Feishu',
   detailHeaderObsidianApiNotConnected: 'Obsidian API not connected',
   detailHeaderCacheImagesLabel: 'Cache images',
   detailHeaderCacheImagesInProgressLabel: 'Caching images...',
@@ -492,6 +494,8 @@ export const en = {
   feishuOAuth: 'Feishu OAuth',
   feishuSyncEnabledLabel: 'Sync to Feishu',
   feishuSyncEnabledHint: 'Feishu sync is disabled. You can re-enable it anytime in Settings.',
+  feishuPaths: 'Feishu Paths',
+  feishuPathsNote: 'Drive-root-relative folder paths. Nested folders supported. Empty uses defaults.',
   feishuOAuthClientIdLabel: 'OAuth Client ID',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange proxy URL',
   feishuAdvancedHint:
@@ -531,6 +535,14 @@ export const en = {
   popupNotionSyncNudgeDontShowLabel: 'Do not show this reminder again',
   popupNotionSyncNudgeDismiss: 'Not now',
   popupNotionSyncNudgeConfirm: 'Got it, open tab',
+  popupFeishuSyncNudgeAria: 'Sync to Feishu tip',
+  popupFeishuSyncNudgeTitle: 'Open the tab view for syncing',
+  popupFeishuSyncNudgeBody:
+    'Syncing to Feishu can take a while. Opening the tab view helps the extension keep running in the background and avoids interrupted sync jobs.',
+  popupFeishuSyncNudgeDontShowAria: 'Do not show this reminder again',
+  popupFeishuSyncNudgeDontShowLabel: 'Do not show this reminder again',
+  popupFeishuSyncNudgeDismiss: 'Not now',
+  popupFeishuSyncNudgeConfirm: 'Got it, open tab',
 
   // AboutSection
   aboutSectionAria: 'About SyncNos WebClipper',
