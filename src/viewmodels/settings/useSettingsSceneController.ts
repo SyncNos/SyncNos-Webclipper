@@ -13,6 +13,11 @@ import { disconnectNotion } from '@services/sync/notion/auth/settings-client';
 import { getNotionOAuthDefaults } from '@services/sync/notion/auth/oauth';
 import { disconnectFeishu } from '@services/sync/feishu/auth/settings-client';
 import { ensureDefaultFeishuOAuthProxyUrl, getFeishuOAuthDefaults } from '@services/sync/feishu/auth/oauth';
+import {
+  FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY,
+  normalizeFeishuDefaultSyncFolderPath,
+  setFeishuDefaultSyncFolderPath,
+} from '@services/sync/feishu/settings-store';
 import { normalizeNotionDatabaseIdInput } from '@services/sync/notion/notion-id-utils';
 import { FEISHU_MESSAGE_TYPES, NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@services/protocols/message-contracts';
 import { conversationKinds } from '@services/protocols/conversation-kinds';
@@ -210,6 +215,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [feishuAdvancedOpen, setFeishuAdvancedOpen] = useState(false);
   const [pollingFeishu, setPollingFeishu] = useState(false);
   const [feishuSyncEnabled, setFeishuSyncEnabled] = useState(true);
+  const [feishuDefaultFolderPath, setFeishuDefaultFolderPath] = useState<string>('');
 
   // Obsidian
   const [obsidianApiBaseUrl, setObsidianApiBaseUrl] = useState<string>('');
@@ -319,6 +325,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         'feishu_oauth_pending_state',
         'feishu_oauth_last_error',
         'feishu_oauth_token_exchange_proxy_url',
+        FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY,
         'notion_ai_preferred_model_index',
         chatDbSpec.storageKey,
         articleDbSpec.storageKey,
@@ -374,6 +381,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setFeishuPendingState(String(local?.feishu_oauth_pending_state || ''));
     setFeishuLastError(String(local?.feishu_oauth_last_error || ''));
     setFeishuTokenExchangeProxyUrl(String(local?.feishu_oauth_token_exchange_proxy_url || ''));
+    setFeishuDefaultFolderPath(normalizeFeishuDefaultSyncFolderPath(local?.[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY]));
 
     const normalizedInpageMode = normalizeInpageDisplayMode(local?.inpage_display_mode);
     setInpageDisplayMode(
@@ -455,8 +463,25 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       ) {
         void refresh();
       }
+
+      if (Object.prototype.hasOwnProperty.call(changes, FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY)) {
+        const nextValue = changes[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY]?.newValue;
+        setFeishuDefaultFolderPath(normalizeFeishuDefaultSyncFolderPath(nextValue));
+      }
     });
   }, [refresh]);
+
+  const onSaveFeishuFolderPath = useCallback(async () => {
+    if (busy) return;
+
+    await runTask(
+      async () => {
+        const normalized = await setFeishuDefaultSyncFolderPath(feishuDefaultFolderPath);
+        setFeishuDefaultFolderPath(normalized);
+      },
+      { fallbackMessage: 'save feishu folder path failed' },
+    );
+  }, [busy, feishuDefaultFolderPath, runTask]);
 
   useEffect(() => {
     if (!pollingNotion) return;
@@ -1323,7 +1348,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setFeishuClientId,
     feishuTokenExchangeProxyUrl,
     setFeishuTokenExchangeProxyUrl,
+    feishuDefaultFolderPath,
+    setFeishuDefaultFolderPath,
     feishuStatusText,
+    onSaveFeishuFolderPath,
     onSaveFeishuAdvancedSettings,
     onFeishuConnectOrDisconnect,
 

@@ -492,6 +492,10 @@ export const en = {
   feishuOAuth: 'Feishu OAuth',
   feishuSyncEnabledLabel: 'Sync to Feishu',
   feishuSyncEnabledHint: 'Feishu sync is disabled. You can re-enable it anytime in Settings.',
+  feishuDefaultFolderPathLabel: 'Feishu default folder',
+  feishuDefaultFolderPathPlaceholder: 'SyncNos/WebClipper',
+  feishuDefaultFolderPathHint:
+    'Path under Drive root; missing folders will be created; changing it won’t move existing docs.',
   feishuOAuthClientIdLabel: 'OAuth Client ID',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange proxy URL',
   feishuAdvancedHint:

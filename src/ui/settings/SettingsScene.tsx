@@ -86,7 +86,10 @@ export function SettingsScene(props: SettingsSceneProps) {
     setFeishuClientId,
     feishuTokenExchangeProxyUrl,
     setFeishuTokenExchangeProxyUrl,
+    feishuDefaultFolderPath,
+    setFeishuDefaultFolderPath,
     feishuStatusText,
+    onSaveFeishuFolderPath,
     onSaveFeishuAdvancedSettings,
     onFeishuConnectOrDisconnect,
 
@@ -259,12 +262,17 @@ export function SettingsScene(props: SettingsSceneProps) {
           feishuLastError={feishuLastError}
           feishuClientId={feishuClientId}
           feishuTokenExchangeProxyUrl={feishuTokenExchangeProxyUrl}
+          feishuDefaultFolderPath={feishuDefaultFolderPath}
           onToggleSyncEnabled={(enabled) => {
             void onToggleFeishuSyncEnabled(enabled);
           }}
           onToggleAdvancedOpen={onToggleFeishuAdvancedOpen}
           onChangeClientId={setFeishuClientId}
           onChangeTokenExchangeProxyUrl={setFeishuTokenExchangeProxyUrl}
+          onChangeDefaultFolderPath={setFeishuDefaultFolderPath}
+          onSaveDefaultFolderPath={() => {
+            void onSaveFeishuFolderPath();
+          }}
           onSaveAdvanced={() => {
             void onSaveFeishuAdvancedSettings();
           }}

@@ -1,4 +1,5 @@
 import { t } from '@i18n';
+import type { KeyboardEvent } from 'react';
 import { buttonClassName, cardClassName, checkboxClassName, textInputClassName } from '@ui/settings/ui';
 import { SettingsFormRow } from '@ui/settings/sections/SettingsFormRow';
 
@@ -13,11 +14,14 @@ export function FeishuOAuthSection(props: {
   feishuLastError: string;
   feishuClientId: string;
   feishuTokenExchangeProxyUrl: string;
+  feishuDefaultFolderPath: string;
   onToggleSyncEnabled: (enabled: boolean) => void;
   onToggleAdvancedOpen: () => void;
   onConnectOrDisconnect: () => void;
   onChangeClientId: (value: string) => void;
   onChangeTokenExchangeProxyUrl: (value: string) => void;
+  onChangeDefaultFolderPath: (value: string) => void;
+  onSaveDefaultFolderPath: () => void;
   onSaveAdvanced: () => void;
 }) {
   const {
@@ -31,13 +35,22 @@ export function FeishuOAuthSection(props: {
     feishuLastError,
     feishuClientId,
     feishuTokenExchangeProxyUrl,
+    feishuDefaultFolderPath,
     onToggleSyncEnabled,
     onToggleAdvancedOpen,
     onConnectOrDisconnect,
     onChangeClientId,
     onChangeTokenExchangeProxyUrl,
+    onChangeDefaultFolderPath,
+    onSaveDefaultFolderPath,
     onSaveAdvanced,
   } = props;
+
+  const onEnterToSaveFolderPath = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    onSaveDefaultFolderPath();
+  };
 
   return (
     <section className={cardClassName} aria-label={t('feishuOAuth')}>
@@ -63,6 +76,29 @@ export function FeishuOAuthSection(props: {
           {t('feishuWaitingHint')}
         </div>
       ) : null}
+
+      <div className="tw-mt-3" aria-label={t('feishuDefaultFolderPathLabel')}>
+        <SettingsFormRow label={t('feishuDefaultFolderPathLabel')}>
+          <input
+            value={feishuDefaultFolderPath}
+            onChange={(e) => onChangeDefaultFolderPath(e.target.value)}
+            onBlur={onSaveDefaultFolderPath}
+            onKeyDown={onEnterToSaveFolderPath}
+            disabled={busy}
+            spellCheck={false}
+            placeholder={t('feishuDefaultFolderPathPlaceholder')}
+            aria-label={t('feishuDefaultFolderPathLabel')}
+            className={`${textInputClassName} tw-w-full`}
+          />
+        </SettingsFormRow>
+        <div className="tw-mt-2">
+          <SettingsFormRow label="" align="start">
+            <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
+              {t('feishuDefaultFolderPathHint')}
+            </div>
+          </SettingsFormRow>
+        </div>
+      </div>
 
       <div className="tw-mt-3" aria-label={t('feishuSyncEnabledLabel')}>
         <SettingsFormRow label={t('feishuSyncEnabledLabel')}>
