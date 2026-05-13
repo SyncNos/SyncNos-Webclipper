@@ -8,7 +8,7 @@ SyncNos 现在围绕“异构内容 → 稳定知识资产”展开的是 WebCli
 
 | 产品线     | 主目录 | 运行时                                                   | 主要输入                                                    | 主要输出                                                                                                                                 |
 | ---------- | ------ | -------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| WebClipper | `./`   | MV3 service worker + content script + popup/app React UI | AI 站点 DOM、网页正文、视频字幕响应、浏览器本地设置、备份包 | IndexedDB、Settings Insight、主题/行为偏好、本地导出、Zip v2 备份（含 `article_comments`）、Notion 页面、Obsidian 文件、`SyncNos-Videos` |
+| WebClipper | `./`   | MV3 service worker + content script + popup/app React UI | AI 站点 DOM、网页正文、视频字幕响应、浏览器本地设置、备份包 | IndexedDB、Settings Insight、主题/行为偏好、本地导出、Zip v2 备份（含 `article_comments`）、Notion 页面、Obsidian 文件、Feishu DocX、`SyncNos-Videos` |
 
 ## 顶层目录地图
 
@@ -35,7 +35,7 @@ SyncNos 现在围绕“异构内容 → 稳定知识资产”展开的是 WebCli
 | ------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | 扩展后台入口        | `src/entrypoints/background.ts`                   | 注册消息处理、sync orchestrator、Notion OAuth 监听、清理孤儿 job；仅首次安装自动打开 About 分区                                                                                                                            | 它决定所有后台能力如何挂接，以及安装/升级时是否主动打断用户  |
 | 扩展内容入口        | `src/entrypoints/content.ts`                      | 注册 collectors、inpage UI、runtime observer、增量更新                                                                                                                                                                     | 它决定页面采集是如何启动的                                   |
-| 扩展设置入口        | `src/ui/settings/SettingsScene.tsx`               | 组织 `General / Chat with AI / Backup / Notion / Obsidian / Inpage / Insight / About` 分区；Inpage 里包含 `markdown_reading_profile_v1` 与 `anti_hotlink_rules_v1`，窄屏使用顶部标签导航，宽屏使用侧边栏导航，支持关闭按钮 | 它决定设置项如何被真正看见和进入                             |
+| 扩展设置入口        | `src/ui/settings/SettingsScene.tsx`               | 组织 `General / Chat with AI / Backup / Notion / Feishu / Obsidian / Inpage / Insight / About` 分区；Inpage 里包含 `markdown_reading_profile_v1` 与 `anti_hotlink_rules_v1`，窄屏使用顶部标签导航，宽屏使用侧边栏导航，支持关闭按钮 | 它决定设置项如何被真正看见和进入                             |
 | 视频字幕入口        | `src/ui/settings/sections/VideosSection.tsx`      | 提供 YouTube / Bilibili 视频字幕采集说明、右键菜单入口与失败提示                                                                                                                                                           | 它决定视频字幕采集如何被看见和进入                           |
 | 扩展共享下拉入口    | `src/ui/shared/SelectMenu.tsx`                    | 统一菜单键盘行为与面板高度策略；`adaptiveMaxHeight` 会按最近可裁剪容器计算可视高度                                                                                                                                         | 它解释为什么底部 `source/site` 筛选菜单会随视口动态变高/变矮 |
 | 扩展主题入口        | `src/ui/styles/tokens.css`                        | 仅依赖 `prefers-color-scheme` 驱动 token 亮暗切换                                                                                                                                                                          | 它解释"为什么 popup / app / inpage 会随系统暗色"             |
@@ -50,12 +50,12 @@ SyncNos 现在围绕“异构内容 → 稳定知识资产”展开的是 WebCli
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------- |
 | 页面来源   | ChatGPT、Claude、Gemini、Google AI Studio、DeepSeek、Kimi、豆包、元宝、Poe、Notion AI、z.ai、普通网页、YouTube / Bilibili 视频页 | WebClipper                  | 扩展先采集为本地会话，再派生到任意目标       |
 | 本地事实源 | IndexedDB / `chrome.storage.local` / `localStorage` / `sessionStorage`                                                           | WebClipper                  | 这是 debug、迁移、恢复、回归时最先要看的地方 |
-| 外部结果   | Notion 数据库 / 页面、Obsidian 文件、Markdown / Zip 导出、Release 附件                                                           | WebClipper + GitHub Actions | 对用户可见，但不是所有情况下都等于事实源     |
+| 外部结果   | Notion 数据库 / 页面、Obsidian 文件、Feishu DocX、Markdown / Zip 导出、Release 附件                                               | WebClipper + GitHub Actions | 对用户可见，但不是所有情况下都等于事实源     |
 
 - WebClipper 的 Insight 统计面板是**本地会话库的只读视图**：它不生成新的导出产物，也不改变同步链路，而是把 `conversations + messages` 的累计结果变成可见的仪表盘。
 - WebClipper 的 `Chat with AI` 是**本地会话库派生出的 UI 动作**：它复用 detail 数据生成 payload，并把结果复制到剪贴板后跳转外部站点。
 - WebClipper 的会话列表底部 `today / total` 统计在 popup 与 app 中都可作为快捷入口跳到 Insight 分区，便于把列表与统计面板连成同一条导航路径。
-- WebClipper 的视频字幕会话与 chat/article 共享同一份本地事实源：只要字幕已加载，就能写入 `SyncNos-Videos` 并继续走 Notion / Obsidian / Zip / Markdown 的后续链路。
+- WebClipper 的视频字幕会话与 chat/article 共享同一份本地事实源：只要字幕已加载，就能写入 `SyncNos-Videos` 并继续走 Notion / Obsidian / Feishu / Zip / Markdown 的后续链路。
 
 ## 常用命令与工程入口
 
@@ -77,6 +77,7 @@ flowchart LR
   C[AI 对话 / 网页正文] --> D[WebClipper]
   D --> E[Notion]
   D --> F[Markdown / Zip / Obsidian]
+  D --> G[Feishu DocX]
   D --> H[IndexedDB / chrome.storage.local]
 ```
 

@@ -230,15 +230,25 @@ rtk SYNCNOS_FEISHU_OAUTH_CLIENT_ID="cli_xxx" \
 - 授权后回到扩展，状态变为 Connected
 - `chrome.storage.local` 里出现 `feishu_oauth_token_v1`
 
-2) 同步验证（MVP）
+2) 同步验证（DocX）
 
 - 会话列表选择 1 条 conversation，触发 “Sync to Feishu”
-- 飞书侧出现 DocX 文档，内容为纯文本（markdown 原样写入分段）
+- 如在 popup 触发同步：会先弹出“建议打开标签页版进行同步”的提示（可勾选不再提示），确认后会打开 tab view 进行同步
+- 飞书侧出现 DocX 文档：
+  - 默认写入到云盘根目录下的三类文件夹之一（`SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`，也可在 Settings → Feishu Paths 自定义路径；不存在会自动创建）
+  - 优先尝试 Convert API（markdown→DocX blocks）；权限不足或转换失败时会回退为纯文本 blocks 写入
+  - markdown 内包含图片时会尝试上传并插入；失败时仍会回退为纯文本 blocks（以确保文档至少可生成）
+- 回到扩展 detail header，右上角 `Open in...` 菜单应出现 `Open in Feishu` 并可打开对应 DocX
 
 3) 刷新验证（token refresh）
 
 - 等待 token 接近过期或手动缩短 `expiresAt`（仅开发时），再次触发同步
 - 确认 worker `POST /feishu/oauth/refresh` 被调用且同步成功
+
+4) 删除文档回归（建议）
+
+- 在飞书端把刚创建的 DocX 移到回收站 / 删除
+- 回到扩展再次触发同步：应自动创建新 DocX 并更新 mapping（不会因为 `skipped_unchanged` 而无动作）
 
 ## 5. 常见问题
 
