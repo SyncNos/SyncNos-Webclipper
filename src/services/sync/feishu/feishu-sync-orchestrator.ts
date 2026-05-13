@@ -194,25 +194,6 @@ async function canAccessDocx(accessToken: string, docId: string): Promise<boolea
   }
 }
 
-async function tryRestoreDocxIntoFolder({
-  accessToken,
-  docId,
-  folderToken,
-}: {
-  accessToken: string;
-  docId: string;
-  folderToken: string;
-}): Promise<void> {
-  const token = safeString(docId);
-  const folder = safeString(folderToken);
-  if (!token || !folder) return;
-  await fetchFeishuJson<any>(
-    `/drive/v1/files/${encodeURIComponent(token)}/move`,
-    { method: 'POST', body: JSON.stringify({ type: 'docx', folder_token: folder }) },
-    { accessToken },
-  );
-}
-
 async function resolveConfiguredTargetFolderToken(
   accessToken: string,
   conversation: any,
@@ -544,30 +525,11 @@ async function syncConversations({
 
         if (existingDocId && existingContentHash && contentHash && existingContentHash === contentHash) {
           // If the destination doc was deleted/moved to recycle bin, "skipped_unchanged" would make the user
-          // think the sync worked while the doc is still missing. We first verify the doc exists, and if it
-          // doesn't, try to restore it into the configured folder before falling back to creating a new doc.
+          // think the sync worked while the doc is still missing. We first verify the doc exists; otherwise
+          // we fall back to creating a new destination doc.
           let canSkip = true;
           try {
             canSkip = await canAccessDocx(accessToken, existingDocId);
-            if (!canSkip) {
-              const configured = await resolveConfiguredTargetFolderToken(accessToken, convo);
-              const targetFolderToken = configured.hasConfig
-                ? safeString(configured.folderToken)
-                : await resolveRootFolderToken(accessToken);
-              if (targetFolderToken) {
-                await tryRestoreDocxIntoFolder({ accessToken, docId: existingDocId, folderToken: targetFolderToken }).catch(
-                  () => undefined,
-                );
-              }
-              // Give the backend a short window to apply the restore.
-              for (let retry = 0; retry < 4; retry += 1) {
-                await new Promise((r) => setTimeout(r, 250 + retry * 250));
-                if (await canAccessDocx(accessToken, existingDocId).catch(() => false)) {
-                  canSkip = true;
-                  break;
-                }
-              }
-            }
           } catch (_e) {
             // If we can't verify status due to transient errors, fall back to normal overwrite flow.
             canSkip = false;
