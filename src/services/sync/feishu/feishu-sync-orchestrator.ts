@@ -191,7 +191,7 @@ async function createDoc({ accessToken, title }: { accessToken: string; title: s
 
 async function listRootChildren({ accessToken, docId }: { accessToken: string; docId: string }): Promise<any[]> {
   const data = await fetchFeishuJson<any>(
-    `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children?page_size=200`,
+    `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children?page_size=500`,
     { method: 'GET' },
     { accessToken },
   );
@@ -200,15 +200,21 @@ async function listRootChildren({ accessToken, docId }: { accessToken: string; d
 }
 
 async function clearRootChildren({ accessToken, docId }: { accessToken: string; docId: string }): Promise<void> {
-  for (let round = 0; round < 8; round += 1) {
+  for (let round = 0; round < 80; round += 1) {
     const items = await listRootChildren({ accessToken, docId }).catch(() => []);
     if (!items.length) return;
+
     await fetchFeishuJson<any>(
       `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children/batch_delete`,
       { method: 'DELETE', body: JSON.stringify({ start_index: 0, end_index: items.length }) },
       { accessToken },
     );
+
+    // Best-effort throttle: the DocX block APIs are rate-limited.
+    await new Promise((r) => setTimeout(r, 350));
   }
+
+  throw new Error('Feishu doc clear failed: too many blocks');
 }
 
 function splitMarkdownIntoChunks(markdown: string): string[] {
