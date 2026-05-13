@@ -13,8 +13,10 @@ export const STORAGE_ALLOWLIST = Object.freeze([] as string[]);
 const STORAGE_BACKUP_DENYLIST_EXACT = new Set<string>([
   // Never export tokens (explicit product constraint).
   'notion_oauth_token_v1',
+  'feishu_oauth_token_v1',
   // Not used by default (ensureDefaultNotionOAuthClientId removes it), but keep it out of backups.
   'notion_oauth_client_secret',
+  'feishu_oauth_client_secret',
   // Obsidian Local REST API key is a secret even though base URL is safe to export.
   'obsidian_api_key',
 ]);
@@ -25,6 +27,7 @@ function shouldIncludeStorageKeyInBackup(key: string): boolean {
   if (STORAGE_BACKUP_DENYLIST_EXACT.has(k)) return false;
   // Forward-compat: if token key changes versions, keep excluding it.
   if (k.startsWith('notion_oauth_token')) return false;
+  if (k.startsWith('feishu_oauth_token')) return false;
   return true;
 }
 
