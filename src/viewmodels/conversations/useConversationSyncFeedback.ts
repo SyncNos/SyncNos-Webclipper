@@ -20,6 +20,7 @@ import type {
 } from '@services/sync/models';
 import type { SyncStartAck } from '@services/sync/repo';
 import { t } from '@i18n';
+import { getSyncProviderDefinition } from '@services/sync/sync-provider-registry';
 
 export type ConversationSyncFeedbackPhase = 'idle' | 'running' | 'success' | 'partial-failed' | 'failed';
 
@@ -68,7 +69,10 @@ const IDLE_FEEDBACK: ConversationSyncFeedbackState = {
 };
 
 function providerLabel(provider: SyncProvider) {
-  return provider === 'notion' ? t('providerNotion') : t('providerObsidian');
+  const definition = getSyncProviderDefinition(provider);
+  const labelKey = definition?.labelKey;
+  const label = labelKey ? t(labelKey as any) : '';
+  return label || String(provider || '');
 }
 
 function normalizeIds(ids: number[]) {

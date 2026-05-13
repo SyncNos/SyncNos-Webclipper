@@ -10,6 +10,7 @@ import { storageOnChanged } from '@services/shared/storage';
 import { t, formatConversationTitle } from '@i18n';
 import type { SyncProvider } from '@services/sync/models';
 import { getEnabledSyncProviders, syncProviderEnabledStorageKey } from '@services/sync/sync-provider-gate';
+import { getSyncProviderDefinition, listSyncProviders } from '@services/sync/sync-provider-registry';
 import {
   resolveConversationListTag,
   resolveConversationSourceOptionLabel,
@@ -67,7 +68,10 @@ function sanitizeHttpUrl(url: unknown) {
 }
 
 function providerButtonLabel(provider: SyncProvider) {
-  return provider === 'notion' ? t('providerNotion') : t('providerObsidian');
+  const definition = getSyncProviderDefinition(provider);
+  const labelKey = definition?.labelKey;
+  const label = labelKey ? t(labelKey as any) : '';
+  return label || String(provider || '');
 }
 
 function isPopupUi() {
@@ -100,6 +104,14 @@ async function copyTextToClipboard(text: string) {
   const ok = document.execCommand('copy');
   document.body.removeChild(el);
   if (!ok) throw new Error('copy failed');
+}
+
+function syncMenuItemLabel(provider: SyncProvider, syncing: boolean) {
+  if (provider === 'notion') return syncing ? t('notionSyncing') : t('notionSync');
+  if (provider === 'obsidian') return syncing ? t('obsidianSyncing') : t('obsidianSync');
+  if (provider === 'feishu') return syncing ? t('feishuSyncing') : t('feishuSync');
+  const label = providerButtonLabel(provider);
+  return syncing ? `${label}...` : label;
 }
 
 export type ConversationListPaneProps = {
@@ -275,16 +287,14 @@ export function ConversationListPane({
     };
     void load();
 
-    const notionKey = syncProviderEnabledStorageKey('notion');
-    const obsidianKey = syncProviderEnabledStorageKey('obsidian');
+    const enabledKeys = listSyncProviders().map((provider) => syncProviderEnabledStorageKey(provider.id));
     const unsubscribe = storageOnChanged((changes: any, areaName: string) => {
       if (areaName !== 'local') return;
       if (!changes || typeof changes !== 'object') return;
-      if (
-        Object.prototype.hasOwnProperty.call(changes, notionKey) ||
-        Object.prototype.hasOwnProperty.call(changes, obsidianKey)
-      ) {
+      for (const key of enabledKeys) {
+        if (!Object.prototype.hasOwnProperty.call(changes, key)) continue;
         void load();
+        break;
       }
     });
     return () => {
@@ -531,28 +541,17 @@ export function ConversationListPane({
   const dangerSurfaceButton = buttonDangerTintClassName();
   const menuItemButtonClassName = buttonMenuItemClassName();
 
-  const syncMenuBaseLabel = (() => {
-    const prefix = commonPrefix(String(t('obsidianSync') || ''), String(t('notionSync') || ''));
-    const normalized = normalizeSyncMenuLabel(prefix);
-    if (normalized.length >= 2) return normalized;
-    return t('syncTo');
-  })();
-
-  const syncMenuButtonLabel = syncingNotion
-    ? t('notionSyncing')
-    : syncingObsidian
-      ? t('obsidianSyncing')
+  const syncMenuBaseLabel = t('syncTo');
+  const syncMenuButtonLabel =
+    syncFeedback.phase === 'running' && syncFeedback.provider
+      ? syncMenuItemLabel(syncFeedback.provider, true)
       : syncMenuBaseLabel;
 
   const singleSyncProvider = enabledSyncProviders.length === 1 ? enabledSyncProviders[0] : null;
   const singleSyncLabel = singleSyncProvider
-    ? singleSyncProvider === 'notion'
-      ? syncingNotion
-        ? t('notionSyncing')
-        : providerButtonLabel(singleSyncProvider)
-      : syncingObsidian
-        ? t('obsidianSyncing')
-        : providerButtonLabel(singleSyncProvider)
+    ? syncFeedback.phase === 'running' && syncFeedback.provider === singleSyncProvider
+      ? syncMenuItemLabel(singleSyncProvider, true)
+      : providerButtonLabel(singleSyncProvider)
     : '';
 
   const onNoticeJumpToConversation = (conversationId: number) => {
