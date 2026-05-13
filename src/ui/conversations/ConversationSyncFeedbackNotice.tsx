@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { t } from '@i18n';
+import { getSyncProviderDefinition } from '@services/sync/sync-provider-registry';
 import type { ConversationSyncFeedbackState } from '@viewmodels/conversations/useConversationSyncFeedback';
 import { buttonIconCircleCardClassName } from '@ui/shared/button-styles';
 import type { TranslationKey } from '@i18n/locales/en';
@@ -284,7 +285,9 @@ export function ConversationSyncFeedbackNotice(props: ConversationSyncFeedbackNo
   if (feedback.phase === 'idle' || !feedback.provider) return null;
 
   const tones = toneClasses(feedback.phase);
-  const provider = feedback.provider === 'notion' ? t('providerNotion') : t('providerObsidian');
+  const providerDefinition = getSyncProviderDefinition(feedback.provider);
+  const providerLabel = providerDefinition ? t(providerDefinition.labelKey as any) : String(feedback.provider || '');
+  const provider = providerLabel || String(feedback.provider || '');
   const canDismiss = feedback.phase !== 'running';
   const iconCircleButtonClassName = buttonIconCircleCardClassName();
   const liveMode = feedback.phase === 'failed' || feedback.phase === 'partial-failed' ? 'assertive' : 'polite';
