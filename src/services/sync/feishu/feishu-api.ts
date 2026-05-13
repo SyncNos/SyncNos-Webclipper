@@ -38,7 +38,11 @@ function parseRetryAfterMs(headers: Headers): number | undefined {
 }
 
 function toApiError(message: string, extra: FeishuApiErrorExtra): FeishuApiError {
-  const error = new Error(String(message || 'Feishu API error')) as FeishuApiError;
+  const requestId = extra && extra.requestId ? String(extra.requestId) : '';
+  const code = extra && extra.code != null ? String(extra.code) : '';
+  const suffix = [code ? `code=${code}` : '', requestId ? `requestId=${requestId}` : ''].filter(Boolean).join(' ');
+  const full = suffix ? `${String(message || 'Feishu API error')} (${suffix})` : String(message || 'Feishu API error');
+  const error = new Error(full) as FeishuApiError;
   error.extra = extra;
   return error;
 }
