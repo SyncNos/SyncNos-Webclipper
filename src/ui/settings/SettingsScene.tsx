@@ -16,6 +16,7 @@ import { InsightSection } from '@ui/settings/sections/InsightSection';
 import { InpageSection } from '@ui/settings/sections/InpageSection';
 import { NotionAISection } from '@ui/settings/sections/NotionAISection';
 import { NotionOAuthSection } from '@ui/settings/sections/NotionOAuthSection';
+import { FeishuOAuthSection } from '@ui/settings/sections/FeishuOAuthSection';
 import { ObsidianSettingsSection } from '@ui/settings/sections/ObsidianSettingsSection';
 import { WebArticlesSection } from '@ui/settings/sections/WebArticlesSection';
 import { VideosSection } from '@ui/settings/sections/VideosSection';
@@ -69,6 +70,21 @@ export function SettingsScene(props: SettingsSceneProps) {
     onNotionConnectOrDisconnect,
     onSaveNotionParentPage,
     onLoadNotionPages,
+
+    feishuSyncEnabled,
+    onToggleFeishuSyncEnabled,
+
+    feishuConnected,
+    pollingFeishu,
+    feishuAdvancedOpen,
+    onToggleFeishuAdvancedOpen,
+    feishuClientId,
+    setFeishuClientId,
+    feishuTokenExchangeProxyUrl,
+    setFeishuTokenExchangeProxyUrl,
+    feishuStatusText,
+    onSaveFeishuAdvancedSettings,
+    onFeishuConnectOrDisconnect,
 
     chatWithPromptTemplate,
     setChatWithPromptTemplate,
@@ -204,6 +220,31 @@ export function SettingsScene(props: SettingsSceneProps) {
             />
           </div>
         </>
+      ) : null}
+
+      {activeSection === 'feishu' ? (
+        <FeishuOAuthSection
+          busy={busy}
+          syncEnabled={feishuSyncEnabled}
+          feishuStatusText={feishuStatusText}
+          feishuConnected={!!feishuConnected}
+          pollingFeishu={pollingFeishu}
+          feishuAdvancedOpen={feishuAdvancedOpen}
+          feishuClientId={feishuClientId}
+          feishuTokenExchangeProxyUrl={feishuTokenExchangeProxyUrl}
+          onToggleSyncEnabled={(enabled) => {
+            void onToggleFeishuSyncEnabled(enabled);
+          }}
+          onToggleAdvancedOpen={onToggleFeishuAdvancedOpen}
+          onChangeClientId={setFeishuClientId}
+          onChangeTokenExchangeProxyUrl={setFeishuTokenExchangeProxyUrl}
+          onSaveAdvanced={() => {
+            void onSaveFeishuAdvancedSettings();
+          }}
+          onConnectOrDisconnect={() => {
+            void onFeishuConnectOrDisconnect();
+          }}
+        />
       ) : null}
 
       {activeSection === 'chat_with' ? (
