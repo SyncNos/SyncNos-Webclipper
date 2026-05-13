@@ -207,8 +207,18 @@ async function resolveConfiguredTargetFolderToken(
   }
 }
 
-async function createDoc({ accessToken, title }: { accessToken: string; title: string }): Promise<string> {
-  const payloadBase = { title: safeString(title) || 'Untitled' };
+async function createDoc({
+  accessToken,
+  title,
+  folderToken,
+}: {
+  accessToken: string;
+  title: string;
+  folderToken?: string;
+}): Promise<string> {
+  const payloadBase: Record<string, unknown> = { title: safeString(title) || 'Untitled' };
+  const explicitFolderToken = safeString(folderToken);
+  if (explicitFolderToken) payloadBase.folder_token = explicitFolderToken;
 
   const create = async (payload: Record<string, unknown>) => {
     const data = await fetchFeishuJson<any>('/docx/v1/documents', { method: 'POST', body: JSON.stringify(payload) }, {
@@ -229,12 +239,13 @@ async function createDoc({ accessToken, title }: { accessToken: string; title: s
     const msg = safeString(error?.message).toLowerCase();
     const mightNeedFolder = msg.includes('folder') || msg.includes('folder_token');
     if (!mightNeedFolder) throw error;
+    if (explicitFolderToken) throw error;
 
-    const folderToken = await resolveRootFolderToken(accessToken).catch(() => '');
-    if (!folderToken) {
+    const rootFolderToken = await resolveRootFolderToken(accessToken).catch(() => '');
+    if (!rootFolderToken) {
       throw new Error('Feishu doc create failed: missing folder_token (MVP has no folder selector)');
     }
-    return create({ ...payloadBase, folder_token: folderToken });
+    return create({ ...payloadBase, folder_token: rootFolderToken });
   }
 }
 
@@ -408,6 +419,7 @@ async function syncConversations({
         const existingDocId = safeString(mappingRes.mapping?.feishuDocId);
         let docId = existingDocId;
         let mode = existingDocId ? 'overwrite' : 'create';
+        let createWarnings: string[] = [];
 
         if (docId) {
           await persistCurrentJob({ currentStage: 'rebuilding_destination_page' });
@@ -421,7 +433,19 @@ async function syncConversations({
 
         if (!docId) {
           await persistCurrentJob({ currentStage: 'creating_destination_page' });
-          docId = await createDoc({ accessToken, title: currentTitle });
+          let folderToken: string | undefined = undefined;
+          if (!existingDocId) {
+            const resolved = await resolveConfiguredTargetFolderToken(accessToken);
+            if (resolved.hasConfig) {
+              if (!resolved.folderToken) {
+                throw new Error('Feishu folder resolve failed: empty folder_token');
+              }
+              folderToken = resolved.folderToken;
+              createWarnings = resolved.warnings;
+            }
+          }
+
+          docId = await createDoc({ accessToken, title: currentTitle, folderToken });
         }
 
         await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
@@ -449,6 +473,7 @@ async function syncConversations({
           mode,
           appended,
           error: '',
+          warnings: createWarnings,
           at: Date.now(),
         });
       }
