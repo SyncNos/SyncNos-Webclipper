@@ -164,7 +164,11 @@ async function resolveRootFolderToken(accessToken: string): Promise<string> {
     return legacy;
   }
 
-  const data = await fetchFeishuJson<any>('/drive/explorer/v2/root_folder/meta', { method: 'GET' }, { accessToken });
+  const data = await fetchFeishuJson<any>(
+    '/drive/explorer/v2/root_folder/meta',
+    { method: 'GET' },
+    { accessToken, retry: { attempts: 3 } },
+  );
   const token =
     safeString(data?.token) ||
     safeString(data?.folder_token) ||
@@ -256,7 +260,7 @@ async function listRootChildren({ accessToken, docId }: { accessToken: string; d
   const data = await fetchFeishuJson<any>(
     `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children?page_size=500`,
     { method: 'GET' },
-    { accessToken },
+    { accessToken, retry: { attempts: 3 } },
   );
   const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.children) ? data.children : [];
   return items;

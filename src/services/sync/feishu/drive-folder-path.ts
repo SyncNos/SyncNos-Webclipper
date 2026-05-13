@@ -56,7 +56,11 @@ async function listAllChildFoldersByName({
     qs.set('page_size', '200');
     if (pageToken) qs.set('page_token', pageToken);
 
-    const data: any = await fetchJson(`/drive/v1/files?${qs.toString()}`, { method: 'GET' }, { accessToken });
+    const data: any = await fetchJson(
+      `/drive/v1/files?${qs.toString()}`,
+      { method: 'GET' },
+      { accessToken, retry: { attempts: 3 } },
+    );
     const files = Array.isArray(data?.files) ? data.files : Array.isArray(data?.items) ? data.items : [];
 
     for (const item of files) {
@@ -159,4 +163,3 @@ export async function resolveFeishuDriveFolderTokenByPath({
 
   return { folderToken: parentToken, warnings };
 }
-
