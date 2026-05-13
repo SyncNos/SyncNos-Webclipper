@@ -14,14 +14,18 @@ export function FeishuOAuthSection(props: {
   feishuLastError: string;
   feishuClientId: string;
   feishuTokenExchangeProxyUrl: string;
-  feishuDefaultFolderPath: string;
+  feishuChatFolder: string;
+  feishuArticleFolder: string;
+  feishuVideoFolder: string;
   onToggleSyncEnabled: (enabled: boolean) => void;
   onToggleAdvancedOpen: () => void;
   onConnectOrDisconnect: () => void;
   onChangeClientId: (value: string) => void;
   onChangeTokenExchangeProxyUrl: (value: string) => void;
-  onChangeDefaultFolderPath: (value: string) => void;
-  onSaveDefaultFolderPath: () => void;
+  onChangeChatFolder: (value: string) => void;
+  onChangeArticleFolder: (value: string) => void;
+  onChangeVideoFolder: (value: string) => void;
+  onSavePaths: () => void;
   onSaveAdvanced: () => void;
 }) {
   const {
@@ -35,21 +39,25 @@ export function FeishuOAuthSection(props: {
     feishuLastError,
     feishuClientId,
     feishuTokenExchangeProxyUrl,
-    feishuDefaultFolderPath,
+    feishuChatFolder,
+    feishuArticleFolder,
+    feishuVideoFolder,
     onToggleSyncEnabled,
     onToggleAdvancedOpen,
     onConnectOrDisconnect,
     onChangeClientId,
     onChangeTokenExchangeProxyUrl,
-    onChangeDefaultFolderPath,
-    onSaveDefaultFolderPath,
+    onChangeChatFolder,
+    onChangeArticleFolder,
+    onChangeVideoFolder,
+    onSavePaths,
     onSaveAdvanced,
   } = props;
 
-  const onEnterToSaveFolderPath = (e: KeyboardEvent<HTMLInputElement>) => {
+  const onEnterToSavePaths = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    onSaveDefaultFolderPath();
+    onSavePaths();
   };
 
   return (
@@ -77,25 +85,54 @@ export function FeishuOAuthSection(props: {
         </div>
       ) : null}
 
-      <div className="tw-mt-3" aria-label={t('feishuDefaultFolderPathLabel')}>
-        <SettingsFormRow label={t('feishuDefaultFolderPathLabel')}>
-          <input
-            value={feishuDefaultFolderPath}
-            onChange={(e) => onChangeDefaultFolderPath(e.target.value)}
-            onBlur={onSaveDefaultFolderPath}
-            onKeyDown={onEnterToSaveFolderPath}
-            disabled={busy}
-            spellCheck={false}
-            placeholder={t('feishuDefaultFolderPathPlaceholder')}
-            aria-label={t('feishuDefaultFolderPathLabel')}
-            className={`${textInputClassName} tw-w-full`}
-          />
-        </SettingsFormRow>
-        <div className="tw-mt-2">
-          <SettingsFormRow label="" align="start">
-            <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-              {t('feishuDefaultFolderPathHint')}
-            </div>
+      <div className="tw-mt-3" aria-label={t('feishuPaths')}>
+        <h2 className="tw-m-0 tw-text-base tw-font-extrabold tw-text-[var(--text-primary)]">{t('feishuPaths')}</h2>
+
+        <div className="tw-mt-3 tw-grid tw-gap-2">
+          <SettingsFormRow label={t('aiChatsFolder')}>
+            <input
+              value={feishuChatFolder}
+              onChange={(e) => onChangeChatFolder(e.target.value)}
+              onBlur={onSavePaths}
+              onKeyDown={onEnterToSavePaths}
+              disabled={busy}
+              spellCheck={false}
+              placeholder="SyncNos-AIChats"
+              aria-label={t('aiChatsFolder')}
+              className={`${textInputClassName} tw-w-full`}
+            />
+          </SettingsFormRow>
+
+          <SettingsFormRow label={t('webClipperFolder')}>
+            <input
+              value={feishuArticleFolder}
+              onChange={(e) => onChangeArticleFolder(e.target.value)}
+              onBlur={onSavePaths}
+              onKeyDown={onEnterToSavePaths}
+              disabled={busy}
+              spellCheck={false}
+              placeholder="SyncNos-WebArticles"
+              aria-label={t('webClipperFolder')}
+              className={`${textInputClassName} tw-w-full`}
+            />
+          </SettingsFormRow>
+
+          <SettingsFormRow label={t('videoScriptsFolder')}>
+            <input
+              value={feishuVideoFolder}
+              onChange={(e) => onChangeVideoFolder(e.target.value)}
+              onBlur={onSavePaths}
+              onKeyDown={onEnterToSavePaths}
+              disabled={busy}
+              spellCheck={false}
+              placeholder="SyncNos-Videos"
+              aria-label={t('videoScriptsFolder')}
+              className={`${textInputClassName} tw-w-full`}
+            />
+          </SettingsFormRow>
+
+          <SettingsFormRow label={t('note')} align="start">
+            <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('feishuPathsNote')}</div>
           </SettingsFormRow>
         </div>
       </div>

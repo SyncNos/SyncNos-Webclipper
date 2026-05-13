@@ -96,9 +96,9 @@ function mockDefaultFeishuFolderLayout(path: string, init?: RequestInit) {
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     const parent = String(body.folder_token || '');
     const name = String(body.name || '');
-    if (parent === 'root' && name === 'SyncNos') return { folder: { folder_token: 'fld_syncnos' } };
-    if (parent === 'fld_syncnos' && name === 'WebClipper') return { folder: { folder_token: 'fld_webclipper' } };
-    if (parent === 'fld_webclipper' && name === 'SyncNos-AIChats') return { folder: { folder_token: 'fld_ai_chats' } };
+    if (parent === 'root' && name === 'SyncNos-AIChats') return { folder: { folder_token: 'fld_ai_chats' } };
+    if (parent === 'root' && name === 'SyncNos-WebArticles') return { folder: { folder_token: 'fld_web_articles' } };
+    if (parent === 'root' && name === 'SyncNos-Videos') return { folder: { folder_token: 'fld_videos' } };
     return { folder: { folder_token: `fld_${parent}_${name}` } };
   }
   return null;

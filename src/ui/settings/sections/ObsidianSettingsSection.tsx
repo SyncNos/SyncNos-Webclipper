@@ -14,6 +14,7 @@ export function ObsidianSettingsSection(props: {
   apiKeyMasked: string;
   chatFolder: string;
   articleFolder: string;
+  videoFolder: string;
   statusText: string;
   obsidianLogoUrl: string;
   onChangeApiBaseUrl: (v: string) => void;
@@ -21,6 +22,7 @@ export function ObsidianSettingsSection(props: {
   onChangeApiKeyDraft: (v: string) => void;
   onChangeChatFolder: (v: string) => void;
   onChangeArticleFolder: (v: string) => void;
+  onChangeVideoFolder: (v: string) => void;
   onToggleSyncEnabled: (enabled: boolean) => void;
   onSave: () => void;
   onSaveApiKey: () => void;
@@ -37,6 +39,7 @@ export function ObsidianSettingsSection(props: {
     apiKeyMasked,
     chatFolder,
     articleFolder,
+    videoFolder,
     statusText,
     obsidianLogoUrl,
     onChangeApiBaseUrl,
@@ -44,6 +47,7 @@ export function ObsidianSettingsSection(props: {
     onChangeApiKeyDraft,
     onChangeChatFolder,
     onChangeArticleFolder,
+    onChangeVideoFolder,
     onToggleSyncEnabled,
     onSave,
     onSaveApiKey,
@@ -198,6 +202,20 @@ export function ObsidianSettingsSection(props: {
               placeholder="SyncNos-WebArticles"
               className={textInputClassName}
               aria-label={t('webClipperFolder')}
+            />
+          </SettingsFormRow>
+
+          <SettingsFormRow label={t('videoScriptsFolder')}>
+            <input
+              value={videoFolder}
+              onChange={(e) => onChangeVideoFolder(e.target.value)}
+              onBlur={onSave}
+              onKeyDown={(e) => onEnterToSave(e)}
+              disabled={busy}
+              spellCheck={false}
+              placeholder="SyncNos-Videos"
+              className={textInputClassName}
+              aria-label={t('videoScriptsFolder')}
             />
           </SettingsFormRow>
 

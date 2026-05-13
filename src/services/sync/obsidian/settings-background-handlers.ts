@@ -26,6 +26,7 @@ export function registerObsidianSettingsHandlers(router: AnyRouter, deps: Deps) 
       authHeaderName: msg.authHeaderName,
       chatFolder: msg.chatFolder,
       articleFolder: msg.articleFolder,
+      videoFolder: msg.videoFolder,
     });
     return router.ok(data);
   });

@@ -361,7 +361,11 @@ async function decideSyncModeForConversation({
   const store = getSettingsStoreModule();
   const pathConfig = store && typeof store.getPathConfig === 'function' ? await store.getPathConfig() : null;
   const folderByKindId = pathConfig
-    ? { chat: safeString(pathConfig.chatFolder), article: safeString(pathConfig.articleFolder) }
+    ? {
+        chat: safeString(pathConfig.chatFolder),
+        article: safeString(pathConfig.articleFolder),
+        video: safeString((pathConfig as any)?.videoFolder),
+      }
     : undefined;
 
   const clientRes: any = await buildClient();

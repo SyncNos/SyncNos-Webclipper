@@ -14,10 +14,11 @@ import { getNotionOAuthDefaults } from '@services/sync/notion/auth/oauth';
 import { disconnectFeishu } from '@services/sync/feishu/auth/settings-client';
 import { ensureDefaultFeishuOAuthProxyUrl, getFeishuOAuthDefaults } from '@services/sync/feishu/auth/oauth';
 import {
-  FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY,
-  FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT,
-  normalizeFeishuDefaultSyncFolderPath,
-  setFeishuDefaultSyncFolderPath,
+  FEISHU_DEFAULTS,
+  FEISHU_STORAGE_KEYS,
+  getFeishuPathConfig,
+  normalizeFeishuFolderPath,
+  saveFeishuPathConfig,
 } from '@services/sync/feishu/settings-store';
 import { normalizeNotionDatabaseIdInput } from '@services/sync/notion/notion-id-utils';
 import { FEISHU_MESSAGE_TYPES, NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES } from '@services/protocols/message-contracts';
@@ -216,7 +217,9 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [feishuAdvancedOpen, setFeishuAdvancedOpen] = useState(false);
   const [pollingFeishu, setPollingFeishu] = useState(false);
   const [feishuSyncEnabled, setFeishuSyncEnabled] = useState(true);
-  const [feishuDefaultFolderPath, setFeishuDefaultFolderPath] = useState<string>('');
+  const [feishuChatFolder, setFeishuChatFolder] = useState<string>('');
+  const [feishuArticleFolder, setFeishuArticleFolder] = useState<string>('');
+  const [feishuVideoFolder, setFeishuVideoFolder] = useState<string>('');
 
   // Obsidian
   const [obsidianApiBaseUrl, setObsidianApiBaseUrl] = useState<string>('');
@@ -226,6 +229,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [obsidianApiKeyMasked, setObsidianApiKeyMasked] = useState<string>('');
   const [obsidianChatFolder, setObsidianChatFolder] = useState<string>('');
   const [obsidianArticleFolder, setObsidianArticleFolder] = useState<string>('');
+  const [obsidianVideoFolder, setObsidianVideoFolder] = useState<string>('');
   const [obsidianStatus, setObsidianStatus] = useState<string>(t('statusIdle'));
   const [obsidianSyncEnabled, setObsidianSyncEnabled] = useState(true);
 
@@ -326,7 +330,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         'feishu_oauth_pending_state',
         'feishu_oauth_last_error',
         'feishu_oauth_token_exchange_proxy_url',
-        FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY,
         'notion_ai_preferred_model_index',
         chatDbSpec.storageKey,
         articleDbSpec.storageKey,
@@ -382,12 +385,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setFeishuPendingState(String(local?.feishu_oauth_pending_state || ''));
     setFeishuLastError(String(local?.feishu_oauth_last_error || ''));
     setFeishuTokenExchangeProxyUrl(String(local?.feishu_oauth_token_exchange_proxy_url || ''));
-    const rawFeishuFolderPath = local?.[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY];
-    setFeishuDefaultFolderPath(
-      rawFeishuFolderPath == null
-        ? FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT
-        : normalizeFeishuDefaultSyncFolderPath(rawFeishuFolderPath),
-    );
+    const feishuPathConfig = await getFeishuPathConfig().catch(() => null);
+    setFeishuChatFolder(String(feishuPathConfig?.chatFolder || FEISHU_DEFAULTS.chatFolder));
+    setFeishuArticleFolder(String(feishuPathConfig?.articleFolder || FEISHU_DEFAULTS.articleFolder));
+    setFeishuVideoFolder(String(feishuPathConfig?.videoFolder || FEISHU_DEFAULTS.videoFolder));
 
     const normalizedInpageMode = normalizeInpageDisplayMode(local?.inpage_display_mode);
     setInpageDisplayMode(
@@ -410,6 +411,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setObsidianApiKeyMasked(String(obsidianSettings?.apiKeyMasked || ''));
     setObsidianChatFolder(String(obsidianSettings?.chatFolder || ''));
     setObsidianArticleFolder(String(obsidianSettings?.articleFolder || ''));
+    setObsidianVideoFolder(String(obsidianSettings?.videoFolder || ''));
     setObsidianApiKeyDraft('');
     setObsidianStatus(t('statusIdle'));
 
@@ -470,26 +472,38 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         void refresh();
       }
 
-      if (Object.prototype.hasOwnProperty.call(changes, FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY)) {
-        const nextValue = changes[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY]?.newValue;
-        setFeishuDefaultFolderPath(
-          nextValue == null ? FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT : normalizeFeishuDefaultSyncFolderPath(nextValue),
-        );
+      if (Object.prototype.hasOwnProperty.call(changes, FEISHU_STORAGE_KEYS.chatFolder)) {
+        const nextValue = changes[FEISHU_STORAGE_KEYS.chatFolder]?.newValue;
+        setFeishuChatFolder(normalizeFeishuFolderPath(nextValue, FEISHU_DEFAULTS.chatFolder));
+      }
+      if (Object.prototype.hasOwnProperty.call(changes, FEISHU_STORAGE_KEYS.articleFolder)) {
+        const nextValue = changes[FEISHU_STORAGE_KEYS.articleFolder]?.newValue;
+        setFeishuArticleFolder(normalizeFeishuFolderPath(nextValue, FEISHU_DEFAULTS.articleFolder));
+      }
+      if (Object.prototype.hasOwnProperty.call(changes, FEISHU_STORAGE_KEYS.videoFolder)) {
+        const nextValue = changes[FEISHU_STORAGE_KEYS.videoFolder]?.newValue;
+        setFeishuVideoFolder(normalizeFeishuFolderPath(nextValue, FEISHU_DEFAULTS.videoFolder));
       }
     });
   }, [refresh]);
 
-  const onSaveFeishuFolderPath = useCallback(async () => {
+  const onSaveFeishuPaths = useCallback(async () => {
     if (busy) return;
 
     await runTask(
       async () => {
-        const normalized = await setFeishuDefaultSyncFolderPath(feishuDefaultFolderPath);
-        setFeishuDefaultFolderPath(normalized);
+        const next = await saveFeishuPathConfig({
+          chatFolder: feishuChatFolder,
+          articleFolder: feishuArticleFolder,
+          videoFolder: feishuVideoFolder,
+        });
+        setFeishuChatFolder(String(next.chatFolder || FEISHU_DEFAULTS.chatFolder));
+        setFeishuArticleFolder(String(next.articleFolder || FEISHU_DEFAULTS.articleFolder));
+        setFeishuVideoFolder(String(next.videoFolder || FEISHU_DEFAULTS.videoFolder));
       },
-      { fallbackMessage: 'save feishu folder path failed' },
+      { fallbackMessage: 'save feishu paths failed' },
     );
-  }, [busy, feishuDefaultFolderPath, runTask]);
+  }, [busy, feishuArticleFolder, feishuChatFolder, feishuVideoFolder, runTask]);
 
   useEffect(() => {
     if (!pollingNotion) return;
@@ -896,6 +910,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
             authHeaderName: obsidianAuthHeaderName,
             chatFolder: obsidianChatFolder,
             articleFolder: obsidianArticleFolder,
+            videoFolder: obsidianVideoFolder,
           };
 
           if (includeApiKey === true && String(obsidianApiKeyDraft || '').trim()) {
@@ -911,6 +926,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
           setObsidianApiKeyMasked(String(data?.apiKeyMasked || ''));
           setObsidianChatFolder(String(data?.chatFolder || ''));
           setObsidianArticleFolder(String(data?.articleFolder || ''));
+          setObsidianVideoFolder(String(data?.videoFolder || ''));
           setObsidianApiKeyDraft('');
         },
         {
@@ -930,6 +946,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       obsidianArticleFolder,
       obsidianAuthHeaderName,
       obsidianChatFolder,
+      obsidianVideoFolder,
       runTask,
     ],
   );
@@ -1356,10 +1373,14 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setFeishuClientId,
     feishuTokenExchangeProxyUrl,
     setFeishuTokenExchangeProxyUrl,
-    feishuDefaultFolderPath,
-    setFeishuDefaultFolderPath,
+    feishuChatFolder,
+    setFeishuChatFolder,
+    feishuArticleFolder,
+    setFeishuArticleFolder,
+    feishuVideoFolder,
+    setFeishuVideoFolder,
     feishuStatusText,
-    onSaveFeishuFolderPath,
+    onSaveFeishuPaths,
     onSaveFeishuAdvancedSettings,
     onFeishuConnectOrDisconnect,
 
@@ -1378,6 +1399,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setObsidianChatFolder,
     obsidianArticleFolder,
     setObsidianArticleFolder,
+    obsidianVideoFolder,
+    setObsidianVideoFolder,
     obsidianStatus,
     onSaveObsidianSettings,
     onTestObsidianConnection,

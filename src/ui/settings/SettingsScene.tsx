@@ -86,10 +86,14 @@ export function SettingsScene(props: SettingsSceneProps) {
     setFeishuClientId,
     feishuTokenExchangeProxyUrl,
     setFeishuTokenExchangeProxyUrl,
-    feishuDefaultFolderPath,
-    setFeishuDefaultFolderPath,
+    feishuChatFolder,
+    setFeishuChatFolder,
+    feishuArticleFolder,
+    setFeishuArticleFolder,
+    feishuVideoFolder,
+    setFeishuVideoFolder,
     feishuStatusText,
-    onSaveFeishuFolderPath,
+    onSaveFeishuPaths,
     onSaveFeishuAdvancedSettings,
     onFeishuConnectOrDisconnect,
 
@@ -115,6 +119,8 @@ export function SettingsScene(props: SettingsSceneProps) {
     setObsidianChatFolder,
     obsidianArticleFolder,
     setObsidianArticleFolder,
+    obsidianVideoFolder,
+    setObsidianVideoFolder,
     obsidianStatus,
     onSaveObsidianSettings,
     onTestObsidianConnection,
@@ -262,16 +268,20 @@ export function SettingsScene(props: SettingsSceneProps) {
           feishuLastError={feishuLastError}
           feishuClientId={feishuClientId}
           feishuTokenExchangeProxyUrl={feishuTokenExchangeProxyUrl}
-          feishuDefaultFolderPath={feishuDefaultFolderPath}
+          feishuChatFolder={feishuChatFolder}
+          feishuArticleFolder={feishuArticleFolder}
+          feishuVideoFolder={feishuVideoFolder}
           onToggleSyncEnabled={(enabled) => {
             void onToggleFeishuSyncEnabled(enabled);
           }}
           onToggleAdvancedOpen={onToggleFeishuAdvancedOpen}
           onChangeClientId={setFeishuClientId}
           onChangeTokenExchangeProxyUrl={setFeishuTokenExchangeProxyUrl}
-          onChangeDefaultFolderPath={setFeishuDefaultFolderPath}
-          onSaveDefaultFolderPath={() => {
-            void onSaveFeishuFolderPath();
+          onChangeChatFolder={setFeishuChatFolder}
+          onChangeArticleFolder={setFeishuArticleFolder}
+          onChangeVideoFolder={setFeishuVideoFolder}
+          onSavePaths={() => {
+            void onSaveFeishuPaths();
           }}
           onSaveAdvanced={() => {
             void onSaveFeishuAdvancedSettings();
@@ -309,6 +319,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           apiKeyMasked={obsidianApiKeyMasked}
           chatFolder={obsidianChatFolder}
           articleFolder={obsidianArticleFolder}
+          videoFolder={obsidianVideoFolder}
           statusText={obsidianStatus}
           obsidianLogoUrl={getURL('icons/obsidian.svg' as any)}
           onChangeApiBaseUrl={setObsidianApiBaseUrl}
@@ -316,6 +327,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           onChangeApiKeyDraft={setObsidianApiKeyDraft}
           onChangeChatFolder={setObsidianChatFolder}
           onChangeArticleFolder={setObsidianArticleFolder}
+          onChangeVideoFolder={setObsidianVideoFolder}
           onToggleSyncEnabled={(enabled) => {
             void onToggleObsidianSyncEnabled(enabled);
           }}

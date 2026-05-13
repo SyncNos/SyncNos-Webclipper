@@ -196,6 +196,7 @@ export const zh: { [K in TranslationKey]: string } = {
   obsidianPaths: 'Obsidian 路径',
   aiChatsFolder: 'AI 对话文件夹',
   webClipperFolder: '网页剪藏文件夹',
+  videoScriptsFolder: '视频脚本文件夹',
   obsidianPathsNote: '相对于 Vault 的文件夹路径。支持嵌套文件夹，留空则使用默认路径。',
 
   // AboutSection
@@ -487,10 +488,8 @@ export const zh: { [K in TranslationKey]: string } = {
   feishuOAuth: '飞书 OAuth',
   feishuSyncEnabledLabel: '同步到飞书',
   feishuSyncEnabledHint: '已关闭飞书同步，您可以随时在设置中重新开启。',
-  feishuDefaultFolderPathLabel: '飞书默认同步目录',
-  feishuDefaultFolderPathPlaceholder: 'SyncNos/WebClipper',
-  feishuDefaultFolderPathHint:
-    '根目录下的基础路径；会在其下自动创建/使用子目录：SyncNos-AIChats / SyncNos-WebArticles / SyncNos-Videos；修改后不影响已创建的文档。',
+  feishuPaths: '飞书路径',
+  feishuPathsNote: '相对于云盘根目录的文件夹路径。支持嵌套文件夹，留空则使用默认路径。',
   feishuOAuthClientIdLabel: 'OAuth 客户端 ID',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange 代理 URL',
   feishuAdvancedHint:

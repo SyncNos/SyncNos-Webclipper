@@ -199,6 +199,7 @@ export const en = {
   obsidianPaths: 'Obsidian Paths',
   aiChatsFolder: 'AI Chats Folder',
   webClipperFolder: 'Web Clipper Folder',
+  videoScriptsFolder: 'Video Scripts Folder',
   obsidianPathsNote:
     'Vault-relative folder paths. Nested folders supported. Empty uses defaults.',
 
@@ -492,10 +493,8 @@ export const en = {
   feishuOAuth: 'Feishu OAuth',
   feishuSyncEnabledLabel: 'Sync to Feishu',
   feishuSyncEnabledHint: 'Feishu sync is disabled. You can re-enable it anytime in Settings.',
-  feishuDefaultFolderPathLabel: 'Feishu default folder',
-  feishuDefaultFolderPathPlaceholder: 'SyncNos/WebClipper',
-  feishuDefaultFolderPathHint:
-    'Base path under Drive root. Subfolders will be created/used: SyncNos-AIChats / SyncNos-WebArticles / SyncNos-Videos. Changing it won’t move existing docs.',
+  feishuPaths: 'Feishu Paths',
+  feishuPathsNote: 'Drive-root-relative folder paths. Nested folders supported. Empty uses defaults.',
   feishuOAuthClientIdLabel: 'OAuth Client ID',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange proxy URL',
   feishuAdvancedHint:

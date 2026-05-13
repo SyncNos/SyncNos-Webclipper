@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT, pickFeishuKindSubfolderName } from '@services/sync/feishu/settings-store';
+import { FEISHU_DEFAULTS, pickFeishuFolderPathForConversation, type FeishuPathConfig } from '@services/sync/feishu/settings-store';
 
 describe('Feishu folder layout', () => {
-  it('uses SyncNos/WebClipper as the default base folder path', () => {
-    expect(FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT).toBe('SyncNos/WebClipper');
+  it('defaults to root-level SyncNos-* folders (aligned with Obsidian)', () => {
+    expect(FEISHU_DEFAULTS.chatFolder).toBe('SyncNos-AIChats');
+    expect(FEISHU_DEFAULTS.articleFolder).toBe('SyncNos-WebArticles');
+    expect(FEISHU_DEFAULTS.videoFolder).toBe('SyncNos-Videos');
   });
 
-  it('maps conversation sourceType to kind subfolder names (aligned with Obsidian)', () => {
-    expect(pickFeishuKindSubfolderName({ sourceType: 'chat' })).toBe('SyncNos-AIChats');
-    expect(pickFeishuKindSubfolderName({ sourceType: 'article' })).toBe('SyncNos-WebArticles');
-    expect(pickFeishuKindSubfolderName({ sourceType: 'video' })).toBe('SyncNos-Videos');
+  it('picks folder path by conversation kind', () => {
+    const config: FeishuPathConfig = {
+      chatFolder: FEISHU_DEFAULTS.chatFolder,
+      articleFolder: FEISHU_DEFAULTS.articleFolder,
+      videoFolder: FEISHU_DEFAULTS.videoFolder,
+      defaults: { ...FEISHU_DEFAULTS },
+    };
+
+    expect(pickFeishuFolderPathForConversation({ sourceType: 'chat' }, config)).toBe('SyncNos-AIChats');
+    expect(pickFeishuFolderPathForConversation({ sourceType: 'article' }, config)).toBe('SyncNos-WebArticles');
+    expect(pickFeishuFolderPathForConversation({ sourceType: 'video' }, config)).toBe('SyncNos-Videos');
   });
 });
-

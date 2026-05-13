@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
-import { normalizeFeishuDefaultSyncFolderPath } from '@services/sync/feishu/settings-store';
+import { normalizeFeishuFolderPath } from '@services/sync/feishu/settings-store';
 
-describe('Feishu default folder path normalize', () => {
+describe('Feishu folder path normalize', () => {
   it('normalizes slashes and segments', () => {
-    expect(normalizeFeishuDefaultSyncFolderPath('')).toBe('');
-    expect(normalizeFeishuDefaultSyncFolderPath('  SyncNos / WebClipper  ')).toBe('SyncNos/WebClipper');
-    expect(normalizeFeishuDefaultSyncFolderPath('\\SyncNos\\WebClipper\\')).toBe('SyncNos/WebClipper');
-    expect(normalizeFeishuDefaultSyncFolderPath('/./SyncNos//WebClipper/../X')).toBe('SyncNos/WebClipper/X');
+    expect(normalizeFeishuFolderPath('')).toBe('');
+    expect(normalizeFeishuFolderPath('  SyncNos / WebClipper  ')).toBe('SyncNos/WebClipper');
+    expect(normalizeFeishuFolderPath('\\SyncNos\\WebClipper\\')).toBe('SyncNos/WebClipper');
+    expect(normalizeFeishuFolderPath('/./SyncNos//WebClipper/../X')).toBe('SyncNos/WebClipper/X');
   });
 });
 
@@ -119,4 +119,3 @@ describe('Feishu drive folder resolve by path', () => {
     expect(fetchJson).toHaveBeenCalled();
   });
 });
-

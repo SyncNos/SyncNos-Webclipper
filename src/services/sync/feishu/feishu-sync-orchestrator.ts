@@ -4,12 +4,7 @@ import { formatConversationMarkdownForExternalOutput } from '@services/integrati
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
 import { getFeishuOAuthToken, setFeishuOAuthToken } from '@services/sync/feishu/auth/token-store';
 import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
-import {
-  FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT,
-  FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY,
-  normalizeFeishuDefaultSyncFolderPath,
-  pickFeishuKindSubfolderName,
-} from '@services/sync/feishu/settings-store';
+import { getFeishuPathConfig, pickFeishuFolderPathForConversation } from '@services/sync/feishu/settings-store';
 import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
 import { convertContentToBlocks, isFeishuConvertPermissionDenied } from '@services/sync/feishu/docx/convert-api';
 import { materializeMarkdownImagesIntoDocx, parseMarkdownImages } from '@services/sync/feishu/docx/image-materializer';
@@ -185,15 +180,9 @@ async function resolveConfiguredTargetFolderToken(
   accessToken: string,
   conversation: any,
 ): Promise<{ folderToken: string; warnings: string[]; hasConfig: boolean }> {
-  const local = await storageGet([FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY]).catch(() => ({}));
-  const rawPath = (local as any)?.[FEISHU_DEFAULT_SYNC_FOLDER_PATH_KEY];
-  const basePath =
-    rawPath == null ? FEISHU_DEFAULT_SYNC_FOLDER_PATH_DEFAULT : normalizeFeishuDefaultSyncFolderPath(rawPath);
-  const baseSegments = basePath
-    ? basePath.split('/').map((s) => safeString(s)).filter(Boolean)
-    : [];
-  const kindSubfolder = pickFeishuKindSubfolderName(conversation);
-  const segments = [...baseSegments, kindSubfolder].map((s) => safeString(s)).filter(Boolean);
+  const config = await getFeishuPathConfig();
+  const folderPath = pickFeishuFolderPathForConversation(conversation, config);
+  const segments = folderPath.split('/').map((s) => safeString(s)).filter(Boolean);
   if (!segments.length) return { folderToken: '', warnings: [], hasConfig: false };
 
   const rootToken = await resolveRootFolderToken(accessToken);
@@ -557,15 +546,13 @@ async function syncConversations({
         if (!docId) {
           await persistCurrentJob({ currentStage: 'creating_destination_page' });
           let folderToken: string | undefined = undefined;
-          if (!existingDocId) {
-            const resolved = await resolveConfiguredTargetFolderToken(accessToken, convo);
-            if (resolved.hasConfig) {
-              if (!resolved.folderToken) {
-                throw new Error('Feishu folder resolve failed: empty folder_token');
-              }
-              folderToken = resolved.folderToken;
-              createWarnings = resolved.warnings;
+          const resolved = await resolveConfiguredTargetFolderToken(accessToken, convo);
+          if (resolved.hasConfig) {
+            if (!resolved.folderToken) {
+              throw new Error('Feishu folder resolve failed: empty folder_token');
             }
+            folderToken = resolved.folderToken;
+            createWarnings = resolved.warnings;
           }
 
           docId = await createDoc({ accessToken, title: currentTitle, folderToken });
