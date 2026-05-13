@@ -96,6 +96,7 @@ export default defineConfig({
       'https://img.notionusercontent.com/*',
       'https://api.notion.com/*',
       'https://syncnos-notion-oauth.chiimagnus.workers.dev/*',
+      'https://syncnos-feishu-oauth.chiimagnus.workers.dev/*',
       'https://chiimagnus.github.io/*',
       'https://cdnfile.sspai.com/*',
       'http://*/*',
