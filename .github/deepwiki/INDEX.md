@@ -13,7 +13,7 @@
 | 业务入口 | [business-context.md](business-context.md) | 用户、产物、关键旅程、影响行为的业务规则     |
 | 仓库总览 | [overview.md](overview.md)                 | 目录地图、入口文件、主要产物、推荐阅读顺序   |
 | 技术总览 | [architecture.md](architecture.md)         | 运行时边界、关键契约、修改热点               |
-| 数据链路 | [data-flow.md](data-flow.md)               | 来源 → 本地事实源 → Notion / Obsidian / 导出 |
+| 数据链路 | [data-flow.md](data-flow.md)               | 来源 → 本地事实源 → Notion / Obsidian / Feishu / 导出 |
 | 产品细节 | `modules/`                                 | WebClipper 的实现边界与扩展点                |
 
 ## 推荐阅读路径
@@ -93,6 +93,7 @@
 
 ## 更新记录（Update Notes）
 
+- 2026-05-14：补齐 Feishu（DocX）同步的最新事实（Convert API、图片上传插入、三类默认目录与自定义路径、`skipped_unchanged` 的 DocX 存在性校验、sync job 卡死中止与 `Open in Feishu`）；更新 `business-context.md`、`overview.md`、`data-flow.md`、`configuration.md`、`storage.md`、`troubleshooting.md`、`modules/webclipper.md`、`feishu-setup.md` 与本索引。
 - 2026-04-18：新增 `modules/videos.md` 路由页，补齐视频字幕采集、`video` kind、右键菜单与 `SyncNos-Videos` 的阅读路径；更新 `business-context.md`、`overview.md`、`modules/webclipper.md`、`INDEX.md`。
 - 2026-04-16：同步 `manifest.version` 到 `1.5.4`，并澄清 CI Node 22 / 发布 Node 20 的双环境说明；更新 `configuration.md`、`dependencies.md`、`security.md`、`GENERATION.md`。
 - 2026-04-05：同步 2026-04 重大架构变化（85 commits）——评论模块 React 迁移、Settings 顶部标签导航、AppShell listShell 重构、Notion/Obsidian 评论数同步、文章提取增强（bilibili 新增、小红书移除）、Chat with AI prompt 模板可配置；更新 `business-context.md`、`overview.md`、`architecture.md`、`modules/comments.md`、`GENERATION.md`。
