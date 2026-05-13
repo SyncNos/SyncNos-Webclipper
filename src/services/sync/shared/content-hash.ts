@@ -16,7 +16,5 @@ export async function sha256Hex(input: string): Promise<string> {
     return toHex(digest);
   }
 
-  const nodeCrypto = await import('node:crypto');
-  return nodeCrypto.createHash('sha256').update(Buffer.from(data)).digest('hex');
+  throw new Error('sha256Hex: crypto.subtle is not available in this runtime');
 }
-
