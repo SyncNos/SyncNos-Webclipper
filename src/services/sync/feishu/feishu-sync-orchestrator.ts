@@ -1,4 +1,4 @@
-import { storageGet } from '@platform/storage/local';
+import { storageGet, storageSet } from '@platform/storage/local';
 import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
 import { formatConversationMarkdownForExternalOutput } from '@services/integrations/chatwith/chatwith-settings';
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
@@ -7,6 +7,7 @@ import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
 
 const SYNC_PROVIDER = 'feishu';
 const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
+const DEFAULT_FOLDER_TOKEN_KEY = 'feishu_default_folder_token';
 
 function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
@@ -138,19 +139,54 @@ async function refreshFeishuOAuthToken(current: { refreshToken: string; accessTo
   return next as any;
 }
 
+async function resolveDefaultFolderToken(accessToken: string): Promise<string> {
+  const cached = await storageGet([DEFAULT_FOLDER_TOKEN_KEY])
+    .then((res) => safeString((res as any)?.[DEFAULT_FOLDER_TOKEN_KEY]))
+    .catch(() => '');
+  if (cached) return cached;
+
+  const data = await fetchFeishuJson<any>('/drive/explorer/v2/root_folder/meta', { method: 'GET' }, { accessToken });
+  const token =
+    safeString(data?.token) ||
+    safeString(data?.folder_token) ||
+    safeString(data?.folderToken) ||
+    safeString(data?.data?.token) ||
+    safeString(data?.data?.folder_token);
+  if (token) {
+    await storageSet({ [DEFAULT_FOLDER_TOKEN_KEY]: token }).catch(() => {});
+  }
+  return token;
+}
+
 async function createDoc({ accessToken, title }: { accessToken: string; title: string }): Promise<string> {
-  const data = await fetchFeishuJson<any>(
-    '/docx/v1/documents',
-    { method: 'POST', body: JSON.stringify({ title: safeString(title) || 'Untitled' }) },
-    { accessToken },
-  );
-  const docId =
-    safeString(data?.document?.document_id) ||
-    safeString(data?.document?.documentId) ||
-    safeString(data?.document_id) ||
-    safeString(data?.documentId);
-  if (!docId) throw new Error('Feishu doc create failed: missing document_id');
-  return docId;
+  const payloadBase = { title: safeString(title) || 'Untitled' };
+
+  const create = async (payload: Record<string, unknown>) => {
+    const data = await fetchFeishuJson<any>('/docx/v1/documents', { method: 'POST', body: JSON.stringify(payload) }, {
+      accessToken,
+    });
+    const docId =
+      safeString(data?.document?.document_id) ||
+      safeString(data?.document?.documentId) ||
+      safeString(data?.document_id) ||
+      safeString(data?.documentId);
+    if (!docId) throw new Error('Feishu doc create failed: missing document_id');
+    return docId;
+  };
+
+  try {
+    return await create(payloadBase);
+  } catch (error: any) {
+    const msg = safeString(error?.message).toLowerCase();
+    const mightNeedFolder = msg.includes('folder') || msg.includes('folder_token');
+    if (!mightNeedFolder) throw error;
+
+    const folderToken = await resolveDefaultFolderToken(accessToken).catch(() => '');
+    if (!folderToken) {
+      throw new Error('Feishu doc create failed: missing folder_token (MVP has no folder selector)');
+    }
+    return create({ ...payloadBase, folder_token: folderToken });
+  }
 }
 
 async function listRootChildren({ accessToken, docId }: { accessToken: string; docId: string }): Promise<any[]> {
@@ -318,16 +354,36 @@ async function syncConversations({
         let docId = existingDocId;
         let mode = existingDocId ? 'overwrite' : 'create';
 
+        if (docId) {
+          await persistCurrentJob({ currentStage: 'rebuilding_destination_page' });
+          try {
+            await clearRootChildren({ accessToken, docId });
+          } catch (_e) {
+            docId = '';
+            mode = 'create';
+          }
+        }
+
         if (!docId) {
           await persistCurrentJob({ currentStage: 'creating_destination_page' });
           docId = await createDoc({ accessToken, title: currentTitle });
-        } else {
-          await persistCurrentJob({ currentStage: 'rebuilding_destination_page' });
-          await clearRootChildren({ accessToken, docId });
         }
 
         await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
-        const appended = await appendTextBlocks({ accessToken, docId, markdown });
+        let appended = 0;
+        try {
+          appended = await appendTextBlocks({ accessToken, docId, markdown });
+        } catch (e) {
+          if (existingDocId) {
+            mode = 'create';
+            await persistCurrentJob({ currentStage: 'creating_destination_page' });
+            docId = await createDoc({ accessToken, title: currentTitle });
+            await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
+            appended = await appendTextBlocks({ accessToken, docId, markdown });
+          } else {
+            throw e;
+          }
+        }
 
         await defaultBackgroundStorage.patchSyncMapping(conversationId, { feishuDocId: docId });
 
@@ -379,4 +435,3 @@ const api = { getSyncStatus, clearSyncStatus, syncConversations };
 
 export { getSyncStatus, clearSyncStatus, syncConversations };
 export default api;
-

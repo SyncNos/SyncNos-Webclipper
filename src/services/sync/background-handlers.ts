@@ -41,8 +41,10 @@ type Deps = {
 
 function toSyncErrorResponse(router: AnyRouter, error: unknown) {
   const message = String((error as any)?.message ?? error ?? 'sync failed');
-  const code = String((error as any)?.code ?? '').trim();
-  if (code) return router.err(message, { code });
+  const extra = (error as any)?.extra && typeof (error as any).extra === 'object' ? (error as any).extra : null;
+  const code = String((extra as any)?.code ?? (error as any)?.code ?? '').trim();
+  if (code) return router.err(message, { ...(extra || {}), code });
+  if (extra) return router.err(message, extra);
   return router.err(message);
 }
 
