@@ -4,7 +4,7 @@
 
 - 从支持 AI 站点采集对话、从普通网页抓正文，并把结果先写入本地浏览器数据库。
 - 从支持 AI 站点采集对话、从普通网页抓正文、从视频页采集字幕，并把结果先写入本地浏览器数据库。
-- 提供 popup / app / inpage / settings(videos) 四类用户入口，让用户进行保存、导出、备份、Notion 同步、Obsidian 同步与设置管理。
+- 提供 popup / app / inpage / settings(videos) 四类用户入口，让用户进行保存、导出、备份、Notion 同步、Obsidian 同步、Feishu(DocX) 同步与设置管理。
 - 通过 MV3 的 background + content + popup + app 分层，保持“采集、持久化、同步、展示”边界清晰。
 
 ## 关键文件
@@ -50,7 +50,11 @@
 | `src/services/sync/notion/notion-parent-pages.ts`                      | Notion Parent Page 发现         | 通过 `/v1/search` 分页拉取可用 parent pages，并解析已保存 page id 的可用性                                                                         |
 | `src/services/sync/notion/settings-background-handlers.ts`             | Notion 设置路由                 | 实现 `GET_AUTH_STATUS / LIST_PARENT_PAGES / DISCONNECT`，将 UI 请求转换为 Notion API 调用并输出稳定错误形态                                        |
 | `src/services/sync/obsidian/obsidian-sync-orchestrator.ts`             | Obsidian 同步编排               | 控制 append / rebuild / rename / fallback                                                                                                          |
-| `src/ui/settings/SettingsScene.tsx`                                    | 设置页总入口                    | 管理 Notion、Notion AI、Obsidian、Backup、Chat with AI、Inpage、About You（含 Insight 统计）、About Me；Inpage 里包含阅读风格与 anti-hotlink 设置  |
+| `src/services/sync/feishu/feishu-sync-orchestrator.ts`                 | Feishu(DocX) 同步编排           | 控制 DocX 创建与写入、token refresh、sync mapping 持久化与 job snapshot                                                                            |
+| `src/services/sync/feishu/auth/oauth.ts`                               | Feishu OAuth                    | 处理授权页跳转、state 校验、code exchange/refresh（通过 worker proxy，扩展端不存 app_secret）                                                      |
+| `src/services/sync/feishu/auth/token-store.ts`                         | Feishu token store              | 统一读写 / 清理 `feishu_oauth_token_v1`，供 background handlers 与 orchestrator 使用                                                               |
+| `src/services/sync/feishu/settings-background-handlers.ts`             | Feishu 设置路由                 | 实现 `GET_AUTH_STATUS / DISCONNECT`，将 UI 请求转换为 token-store / sync orchestrator 读取                                                         |
+| `src/ui/settings/SettingsScene.tsx`                                    | 设置页总入口                    | 管理 Notion、Feishu、Notion AI、Obsidian、Backup、Chat with AI、Inpage、About You（含 Insight 统计）、About Me；Inpage 里包含阅读风格与 anti-hotlink 设置  |
 | `src/viewmodels/settings/useSettingsSceneController.ts`                | 设置页状态控制器                | 统一管理存储读写、连接状态、备份动作，并按需懒加载 About You（Insight 统计）                                                                       |
 | `src/viewmodels/settings/insight-stats.ts`                             | Insight 聚合引擎                | 从 IndexedDB 的 `conversations` + `messages` 现算本地 clip 统计                                                                                    |
 | `src/ui/settings/sections/InsightSection.tsx`                          | Insight 状态容器                | 管理 loading / error / empty / populated 四类状态                                                                                                  |
@@ -72,7 +76,7 @@
 | app           | 扩展完整页面 UI                                      | React Router、ConversationsScene、SettingsScene                 | `src/entrypoints/app/`                                                       |
 | conversations | 本地事实源与 CRUD                                    | IndexedDB、background handlers                                  | `src/services/conversations/data/storage-idb.ts`                             |
 | comments      | article 详情评论线程与本地注释层                     | IndexedDB、comments background handlers、inpage panel           | `src/services/comments/`, `ArticleCommentsSection.tsx`                       |
-| sync          | Notion / Obsidian / backup 编排层                    | `src/services/protocols/conversation-kinds.ts`, settings stores | `src/services/sync/`                                                         |
+| sync          | Notion / Obsidian / Feishu / backup 编排层           | `src/services/protocols/conversation-kinds.ts`, settings stores | `src/services/sync/`                                                         |
 
 ## 支持的采集面
 
@@ -147,12 +151,14 @@
 | 文章评论线程  | `src/services/comments/data/storage-idb.ts`, `src/services/comments/background/handlers.ts`                            | `article_comments` 负责 article 详情页的本地评论、回复与删除                                                                                                                    |
 | Notion 同步   | `notion-sync-orchestrator.ts`                                                                                          | 需要 token + `notion_parent_page_id`，cursor 命中 append，否则 rebuild                                                                                                          |
 | Obsidian 同步 | `obsidian-sync-orchestrator.ts`                                                                                        | 支持 `incremental_append`、`full_rebuild`、rename；PATCH 失败回退 `full_rebuild_fallback`                                                                                       |
+| Feishu 同步   | `feishu-sync-orchestrator.ts`                                                                                          | 需要 OAuth token；MVP 为 DocX 纯文本写入（不包含目录选择 / 图片上传 / markdown→blocks）                                                                                          |
 | 备份导入导出  | `src/services/sync/backup/export.ts`, `src/services/sync/backup/import.ts`, `src/services/sync/backup/backup-utils.ts` | Zip v2、敏感键排除、merge import；会把 `article_comments` 一并归档 / 恢复                                                                                                       |
 
 - article 会话通过 `sourceType='article'` 标记，并保存单条 `article_body` 正文消息。
 - article 评论通过 `article_comments` 独立存储，并以 `canonicalUrl` + `conversationId` 组织线程；它是 article 会话的本地注释层，而不是新的远端同步目标。
 - Notion orchestrator 会按 kind 选择 `SyncNos-AI Chats` 或 `SyncNos-Web Articles` 数据库，并在数据库缓存失效时尝试恢复一次。
 - Obsidian orchestrator 在 patch 失败时不是直接报错，而是尽量回退全量重建，优先保证文件最终可恢复到正确状态。
+- Feishu orchestrator（DocX）当前 MVP 仅写入纯文本：不做 markdown→blocks、图片上传、目录选择与真正增量同步；OAuth token 存在 `feishu_oauth_token_v1` 且会被备份排除，app_secret 不进入扩展端（由 token exchange/refresh worker 承担）。
 - `schema.ts` 的升级链路采用 `oldVersion < 2 / < 4 / < 6 / < 8` 分段处理：分别覆盖 NotionAI key 归一、article canonical 归并、`conversations.description` 旧字段清理、`article_comments` store 保留与列表分页索引回填。
 
 ## 设置与 UI 入口
@@ -161,7 +167,7 @@
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 会话列表 / 详情      | `src/ui/conversations/ConversationsScene.tsx`, `src/ui/conversations/ConversationDetailPane.tsx`, `src/ui/conversations/DetailNavigationHeader.tsx`, `src/viewmodels/conversations/conversations-context.tsx`, `src/services/integrations/detail-header-actions.ts` | popup 与 app 共享同一套会话读取、选择与 detail header 动作解析逻辑（含窄屏头部）                                                                                                                           |
 | 文章评论区           | `src/ui/conversations/ConversationDetailPane.tsx`, `src/ui/conversations/ArticleCommentsSection.tsx`, `src/services/comments/threaded-comments-panel.ts`, `src/ui/inpage/inpage-comments-panel-shadow.ts`                                                           | article detail / inpage comments panel 共享本地 threaded comments 线程                                                                                                                                     |
-| 设置页               | `src/ui/settings/SettingsScene.tsx`, `src/ui/settings/SettingsTopTabsNav.tsx`, `src/ui/settings/SettingsSidebarNav.tsx`, `src/viewmodels/settings/types.ts`                                                                                                         | 真实设置中枢：窄屏走顶部标签导航、宽屏走侧边栏导航；分组覆盖 `General`、`Chat with AI`、`Backup`、`Notion`、`Obsidian`、`About You`、`About Me`（section key：`aboutyou/aboutme`，兼容旧 `insight/about`） |
+| 设置页               | `src/ui/settings/SettingsScene.tsx`, `src/ui/settings/SettingsTopTabsNav.tsx`, `src/ui/settings/SettingsSidebarNav.tsx`, `src/viewmodels/settings/types.ts`                                                                                                         | 真实设置中枢：窄屏走顶部标签导航、宽屏走侧边栏导航；分组覆盖 `General`、`Chat with AI`、`Backup`、`Notion`、`Feishu`、`Obsidian`、`About You`、`About Me`（section key：`aboutyou/aboutme`，兼容旧 `insight/about`） |
 | Markdown 渲染        | `src/ui/shared/markdown.ts`, `src/ui/shared/ChatMessageBubble.tsx`                                                                                                                                                                                                  | 统一消息气泡与导出文本显示                                                                                                                                                                                 |
 | Chat with AI         | `src/ui/settings/sections/ChatWithAiSection.tsx`, `src/services/integrations/chatwith/chatwith-settings.ts`, `src/services/integrations/chatwith/chatwith-detail-header-actions.ts`                                                                                 | 管理 prompt 模板、平台列表、最大字符数，并把 article / conversation 渲染为可复制载荷，再从 detail header 触发复制 + 跳转                                                                                   |
 | 详情工具动作         | `src/viewmodels/conversations/conversations-context.tsx`, `src/ui/conversations/DetailHeaderActionBar.tsx`, `src/ui/conversations/DetailNavigationHeader.tsx`, `src/services/conversations/background/image-backfill-job.ts`                                        | detail 可注入 `cache-images`；触发后回填图片并刷新详情                                                                                                                                                     |
