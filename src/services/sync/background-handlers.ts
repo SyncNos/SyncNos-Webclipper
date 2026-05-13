@@ -1,6 +1,7 @@
-import { NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES, UI_EVENT_TYPES } from '@platform/messaging/message-contracts';
+import { FEISHU_MESSAGE_TYPES, NOTION_MESSAGE_TYPES, OBSIDIAN_MESSAGE_TYPES, UI_EVENT_TYPES } from '@platform/messaging/message-contracts';
 import { storageGet } from '@platform/storage/local';
 import { getNotionOAuthToken } from '@services/sync/notion/auth/token-store';
+import { getFeishuOAuthToken } from '@services/sync/feishu/auth/token-store';
 import { ensureSyncProviderEnabled } from '@services/sync/sync-provider-gate';
 
 type AnyRouter = {
@@ -12,6 +13,7 @@ type AnyRouter = {
 
 let notionDetachedRun: Promise<unknown> | null = null;
 let obsidianDetachedRun: Promise<unknown> | null = null;
+let feishuDetachedRun: Promise<unknown> | null = null;
 
 type Deps = {
   getInstanceId: () => string;
@@ -27,6 +29,11 @@ type Deps = {
       forceFullConversationIds?: unknown[];
       instanceId: string;
     }) => Promise<unknown>;
+    getSyncStatus: (input: { instanceId: string }) => Promise<unknown>;
+    clearSyncStatus: (input: { instanceId: string }) => Promise<unknown>;
+  };
+  feishuSyncOrchestrator: {
+    syncConversations: (input: { conversationIds?: unknown[]; instanceId: string }) => Promise<unknown>;
     getSyncStatus: (input: { instanceId: string }) => Promise<unknown>;
     clearSyncStatus: (input: { instanceId: string }) => Promise<unknown>;
   };
@@ -218,5 +225,72 @@ export function registerSyncHandlers(router: AnyRouter, deps: Deps) {
       releaseLock();
       return toSyncErrorResponse(router, error);
     }
+  });
+
+  router.register(FEISHU_MESSAGE_TYPES.SYNC_CONVERSATIONS, async (msg) => {
+    let lock: Promise<unknown> | null = null;
+    const releaseLock = () => {
+      if (lock && feishuDetachedRun === lock) feishuDetachedRun = null;
+    };
+    try {
+      const gateError = await ensureSyncProviderEnabled('feishu');
+      if (gateError) return router.err('sync provider disabled', gateError);
+
+      if (feishuDetachedRun) {
+        return router.err('sync already in progress', { code: 'sync_already_running' });
+      }
+
+      const conversationIds = normalizeIds(msg?.conversationIds);
+      if (!conversationIds.length) return router.err('no conversationIds');
+
+      // Acquire the lock before any async work, so concurrent requests can't race past the check.
+      lock = Promise.resolve();
+      feishuDetachedRun = lock;
+
+      const instanceId = deps.getInstanceId();
+      const status = await deps.feishuSyncOrchestrator.getSyncStatus({ instanceId });
+      const currentJob = (status as any)?.job;
+      if (currentJob?.status === 'running') {
+        releaseLock();
+        return router.err('sync already in progress', { code: 'sync_already_running' });
+      }
+
+      const token = await getFeishuOAuthToken().catch(() => null);
+      if (!token?.accessToken) {
+        releaseLock();
+        return router.err('feishu not connected');
+      }
+
+      const hub = router.eventsHub;
+      const run = deps.feishuSyncOrchestrator.syncConversations({ conversationIds, instanceId });
+      feishuDetachedRun = run;
+      void run
+        .finally(() => {
+          if (feishuDetachedRun === run) feishuDetachedRun = null;
+          try {
+            hub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
+              reason: 'syncFinished',
+              provider: 'feishu',
+            });
+          } catch (_e) {
+            // ignore
+          }
+        })
+        .catch(() => {});
+      return router.ok({ started: true, provider: 'feishu' });
+    } catch (error) {
+      releaseLock();
+      return toSyncErrorResponse(router, error);
+    }
+  });
+
+  router.register(FEISHU_MESSAGE_TYPES.GET_SYNC_STATUS, async () => {
+    const data = await deps.feishuSyncOrchestrator.getSyncStatus({ instanceId: deps.getInstanceId() });
+    return router.ok(data);
+  });
+
+  router.register(FEISHU_MESSAGE_TYPES.CLEAR_SYNC_STATUS, async () => {
+    const data = await deps.feishuSyncOrchestrator.clearSyncStatus({ instanceId: deps.getInstanceId() });
+    return router.ok(data);
   });
 }

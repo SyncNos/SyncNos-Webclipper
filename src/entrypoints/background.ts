@@ -17,6 +17,7 @@ import {
 import obsidianSyncJobStore from '@services/sync/obsidian/obsidian-sync-job-store.ts';
 import { registerNotionSettingsHandlers } from '@services/sync/notion/settings-background-handlers';
 import { registerObsidianSettingsHandlers } from '@services/sync/obsidian/settings-background-handlers';
+import { registerFeishuSettingsHandlers } from '@services/sync/feishu/settings-background-handlers';
 import { onInstalled } from '@platform/runtime/runtime';
 import { openOrFocusExtensionAppTab } from '@platform/webext/extension-app';
 import { registerClipperContextMenu } from '@platform/context-menus/clipper-context-menu';
@@ -52,6 +53,7 @@ export default defineBackground(() => {
     notionSyncJobStore: services.notionSyncJobStore,
     conversationKinds: services.conversationKinds,
   });
+  registerFeishuSettingsHandlers(router);
   registerObsidianSettingsHandlers(router, {
     getInstanceId: getBackgroundInstanceId,
     testObsidianConnection: (input) => services.obsidianSyncOrchestrator.testConnection(input),
@@ -61,6 +63,7 @@ export default defineBackground(() => {
     getInstanceId: getBackgroundInstanceId,
     notionSyncOrchestrator: services.notionSyncOrchestrator,
     obsidianSyncOrchestrator: services.obsidianSyncOrchestrator,
+    feishuSyncOrchestrator: services.feishuSyncOrchestrator,
   });
 
   // Keep legacy "start" side-effects that are not message handlers.
