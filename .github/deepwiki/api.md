@@ -128,32 +128,3 @@ sequenceDiagram
 | 无法打开 popup                      | `OPEN_EXTENSION_POPUP`                                     | 返回 `OPEN_POPUP_UNSUPPORTED` / `OPEN_POPUP_FAILED`；提示用户通过工具栏图标或检查浏览器能力                       |
 | 无法打开 inpage comments panel      | `OPEN_CURRENT_TAB_INPAGE_COMMENTS_PANEL`                   | 返回 `OPEN_INPAGE_COMMENTS_PANEL_UNAVAILABLE/FAILED`；优先检查 sender tab、content script 是否仍在运行            |
 | 视频字幕未加载或为空                | `CAPTURE_VIDEO_TRANSCRIPT` / `video-transcript-extract.ts` | 返回空结果或提示“未检测到字幕，未保存”；先确认视频页已开启字幕并等待轨道加载                                      |
-
-## 来源引用（Source References）
-
-- `src/platform/messaging/message-contracts.ts`
-- `src/platform/messaging/background-router.ts`
-- `src/services/conversations/background/handlers.ts`
-- `src/services/bootstrap/content-controller.ts`
-- `src/services/bootstrap/video-transcript-capture.ts`
-- `src/services/bootstrap/video-transcript-capture-content-handlers.ts`
-- `src/services/sync/background-handlers.ts`
-- `src/services/integrations/item-mention/background-handlers.ts`
-- `src/services/integrations/item-mention/mention-contract.ts`
-- `src/services/integrations/item-mention/mention-search.ts`
-- `src/services/sync/notion/auth/oauth.ts`
-- `src/services/sync/notion/auth/token-store.ts`
-- `src/services/sync/notion/settings-background-handlers.ts`
-- `src/services/sync/notion/notion-parent-pages.ts`
-- `src/services/sync/notion/notion-sync-orchestrator.ts`
-- `src/services/sync/obsidian/obsidian-sync-orchestrator.ts`
-- `cloudflare-workers/syncnos-notion-oauth/index.ts`
-- `src/services/bootstrap/current-page-capture.ts`
-- `src/platform/messaging/ui-background-handlers.ts`
-
-## 更新记录（Update Notes）
-
-- 2026-04-18：补充 `CONTENT_MESSAGE_TYPES.CAPTURE_VIDEO_TRANSCRIPT` 与字幕未加载时的失败模式，确保 API 页能解释视频字幕采集的 content 指令。
-- 2026-03-30：补齐 `NOTION_MESSAGE_TYPES` 的设置侧契约（`LIST_PARENT_PAGES/GET_AUTH_STATUS/DISCONNECT`）与返回结构，并同步 Notion OAuth 的 pending/error 状态键与 code exchange 重试边界。
-- 2026-03-29：同步内部消息契约组（补齐 `CHATGPT_MESSAGE_TYPES` / `ITEM_MENTION_MESSAGE_TYPES` / `COMMENTS_MESSAGE_TYPES` / `CONTENT_MESSAGE_TYPES`），并补充 `$ mention` 与“打开 inpage comments panel”的消息链路与失败模式。
-- 2026-03-19：新增 Notion OAuth Worker 的 code exchange 分阶段说明与关键参数矩阵，明确密钥仅在 Worker 侧持有。

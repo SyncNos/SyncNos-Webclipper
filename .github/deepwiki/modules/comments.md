@@ -210,36 +210,3 @@ const handleDelete = (commentId: string) => {
 | 页面内评论面板         | `inpage-comments-panel-shadow.ts`, `comment-sidebar-session.ts` | shadow root、侧边栏状态、评论级 Chat with AI 上下文        |
 | 消息契约               | `message-contracts.ts`, background handlers                     | UI / background / content 三端（含 MIGRATE_CANONICAL_URL） |
 | panel.ts 桥接层        | `panel.ts`（~470 行）                                           | dock 控制器、resize、shadow DOM 事件、notice 计时器        |
-
-## 来源引用（Source References）
-
-- `src/ui/comments/panel.ts`
-- `src/ui/comments/react/ThreadedCommentsPanel.tsx`
-- `src/ui/comments/react/panel-store.ts`
-- `src/ui/comments/react/focus-rules.ts`
-- `src/ui/comments/chatwith.ts`
-- `src/ui/comments/comment-chatwith-config.ts`
-- `src/services/comments/domain/comment-metrics.ts`
-- `src/services/comments/data/storage-idb.ts`
-- `src/services/comments/background/handlers.ts`
-- `src/services/comments/client/repo.ts`
-- `src/services/comments/locator/selector-anchoring.ts`
-- `src/services/bootstrap/inpage-comments-panel-content-handlers.ts`
-- `src/services/comments/sidebar/comment-sidebar-session.ts`
-- `src/services/integrations/chatwith/chatwith-comment-actions.ts`
-- `src/services/sync/notion/notion-sync-orchestrator.ts`
-- `src/services/sync/obsidian/obsidian-markdown-writer.ts`
-- `src/services/sync/backup/export.ts`
-- `src/services/sync/backup/import.ts`
-- `src/services/sync/backup/backup-utils.ts`
-- `src/platform/idb/schema.ts`
-- `src/platform/messaging/message-contracts.ts`
-- `src/ui/conversations/ArticleCommentsSection.tsx`
-- `src/ui/inpage/inpage-comments-panel-shadow.ts`
-- `tests/storage/article-comments-idb.test.ts`
-- `tests/comments/panel-focus-rules.test.ts`
-
-## 更新记录（Update Notes）
-
-- 2026-04-04：评论模块完成 React 迁移——删除 legacy DOM render.ts（543 行），引入 `ThreadedCommentsPanel.tsx` + `panel-store.ts` + `focus-rules.ts` 架构；新增防重入保护（`runBusyTask`）、删除二次确认（`armedDeleteId`）、发送后自动聚焦；新增评论级 Chat with AI 菜单；评论数同步到 Notion（Comment Threads 属性）和 Obsidian（`comments_root_count` frontmatter）。
-- 2026-03-29：补齐"inpage 双击保存按钮 → 打开页面内评论侧边栏"的入口说明，并同步 `OPEN_INPAGE_COMMENTS_PANEL` 的依赖方描述。

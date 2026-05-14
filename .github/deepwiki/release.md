@@ -86,18 +86,3 @@ macOS/ 历史资料已归档；本页仅保留 WebClipper 的发布主线。
 ## 更新记录（Update Notes）
 
 - 2026-04-18：补充视频字幕采集不改变发布链路的说明，避免把功能更新误读成新的交付渠道。
-
-## 来源引用（Source References）
-
-- `README.md`
-- `package.json`
-- `wxt.config.ts`
-- `.github/workflows/release.yml`
-- `.github/workflows/webclipper-release.yml`
-- `.github/workflows/webclipper-amo-publish.yml`
-- `.github/workflows/webclipper-cws-publish.yml`
-- `.github/workflows/webclipper-edge-publish.yml`
-- `.github/scripts/webclipper/package-release-assets.mjs`
-- `.github/scripts/webclipper/package-amo-source.mjs`
-- `.github/scripts/webclipper/publish-amo.mjs`
-- `.github/scripts/webclipper/publish-edge.mjs`

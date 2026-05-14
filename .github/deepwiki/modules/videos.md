@@ -142,19 +142,3 @@ sequenceDiagram
 | 页面拦截逻辑        | `video-transcript-interceptor.content.ts`, `video-transcript-bridge.content.ts` | intercept / meta 传递是否仍工作                 |
 | 会话落库字段        | `video-transcript-capture.ts`, `conversation-kinds.ts`                          | `sourceType='video'`、`SyncNos-Videos` 是否一致 |
 | 回归测试            | `tests/smoke/video-kind.test.ts`                                                | `SyncNos-Videos` DB 规格不回退                  |
-
-## 来源引用（Source References）
-
-- `src/ui/settings/sections/VideosSection.tsx`
-- `src/platform/context-menus/clipper-context-menu.ts`
-- `src/platform/messaging/message-contracts.ts`
-- `src/entrypoints/content.ts`
-- `src/entrypoints/video-transcript-interceptor.content.ts`
-- `src/entrypoints/video-transcript-bridge.content.ts`
-- `src/collectors/video/video-transcript-extract.ts`
-- `src/collectors/video/video-transcript-parse.ts`
-- `src/services/bootstrap/video-transcript-capture.ts`
-- `src/services/bootstrap/video-transcript-capture-content-handlers.ts`
-- `src/services/url-cleaning/video-url.ts`
-- `src/services/protocols/conversation-kinds.ts`
-- `tests/smoke/video-kind.test.ts`
