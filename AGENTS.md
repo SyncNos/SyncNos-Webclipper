@@ -31,13 +31,13 @@ npm run check            # 产物校验
 
 ## 核心规范
 
-| 规范               | 路径                                   |
-| ------------------ | -------------------------------------- |
-| 仓库总览           | `README.md`                            |
-| deepwiki 总入口    | `.github/deepwiki/INDEX.md`            |
-| deepwiki 业务入口  | `.github/deepwiki/business-context.md` |
-| 本文档（统一入口） | `AGENTS.md`                            |
-| WebClipper UI 规范 | `src/ui/AGENTS.md`                     |
+| 规范 | 路径 |
+| --- | --- |
+| 仓库总览 | `README.md` |
+| deepwiki 总入口 | `.github/deepwiki/INDEX.md` |
+| deepwiki 业务入口 | `.github/deepwiki/business-context.md` |
+| 本文档（统一入口） | `AGENTS.md` |
+| WebClipper UI 规范 | `src/ui/AGENTS.md` |
 
 ## 开发工作流
 

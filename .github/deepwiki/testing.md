@@ -2,44 +2,44 @@
 
 ## 测试策略
 
-| 产品线 / 层 | 主策略                                                             | 自动化程度 | 核心目标                                       |
-| ----------- | ------------------------------------------------------------------ | ---------- | ---------------------------------------------- |
-| WebClipper  | `compile` → `test` → `build`（必要时补 `build:firefox` / `check`） | 中到高     | 保障消息协议、存储迁移、同步游标、构建产物稳定 |
-| 发布层      | workflow 校验 + 打包脚本                                           | 高         | 保障 tag / manifest / 资产生成与上传一致       |
+| 产品线 / 层 | 主策略 | 自动化程度 | 核心目标 |
+| --- | --- | --- | --- |
+| WebClipper | `compile` → `test` → `build`（必要时补 `build:firefox` / `check`） | 中到高 | 保障消息协议、存储迁移、同步游标、构建产物稳定 |
+| 发布层 | workflow 校验 + 打包脚本 | 高 | 保障 tag / manifest / 资产生成与上传一致 |
 
 ## WebClipper：自动化验证入口
 
-| 命令 / 目录             | 覆盖点                  | 说明                                                                             |
-| ----------------------- | ----------------------- | -------------------------------------------------------------------------------- |
-| `npm run compile`       | TypeScript 契约与调用面 | 默认验证顺序第一步                                                               |
-| `npm run test`          | Vitest 单测             | 覆盖游标、IndexedDB 迁移、Markdown 等关键逻辑                                    |
-| `npm run build`         | Chrome / Edge 产物      | 验证 WXT 构建与入口配置                                                          |
-| `npm run build:firefox` | Firefox 产物            | 涉及 Firefox / 发布打包时必须补跑                                                |
-| `npm run check`         | dist 完整性             | build 后再调用 `check-dist.mjs`                                                  |
-| `tests/`                | 测试分层目录            | 当前至少分为 `collectors`, `domains`, `integrations`, `smoke`, `storage`, `unit` |
+| 命令 / 目录 | 覆盖点 | 说明 |
+| --- | --- | --- |
+| `npm run compile` | TypeScript 契约与调用面 | 默认验证顺序第一步 |
+| `npm run test` | Vitest 单测 | 覆盖游标、IndexedDB 迁移、Markdown 等关键逻辑 |
+| `npm run build` | Chrome / Edge 产物 | 验证 WXT 构建与入口配置 |
+| `npm run build:firefox` | Firefox 产物 | 涉及 Firefox / 发布打包时必须补跑 |
+| `npm run check` | dist 完整性 | build 后再调用 `check-dist.mjs` |
+| `tests/` | 测试分层目录 | 当前至少分为 `collectors`, `domains`, `integrations`, `smoke`, `storage`, `unit` |
 
 ## 代表性测试用例
 
-| 文件                                                                                         | 验证点                                                                                                                                                                      | 为什么重要                                                              |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `tests/unit/notion-sync-cursor.test.ts`                                                      | Notion cursor 的 append / rebuild 判断                                                                                                                                      | 直接决定是否会重复写入或错误重建                                        |
-| `tests/unit/notion-parent-pages.test.ts`                                                     | Notion Parent Page 发现：分页、过滤 database 子页面、savedPageId resolve（search miss 时回退 `GET /pages/:id`）                                                             | 防止设置页 Parent Page 下拉在空结果 / 旧选择 / 分页边界下失效           |
-| `tests/storage/schema-migration.test.ts`                                                     | IndexedDB v2 / v4 / v6 / v8 迁移：NotionAI stable key、article canonical key 归并、legacy 字段清理与 list pagination 索引回填                                               | 直接关系到旧数据升级与 mapping 延续                                     |
-| `tests/storage/conversations-idb.test.ts`                                                    | conversations / messages 的本地持久化                                                                                                                                       | 确认 UI 和同步层读到的事实源正确                                        |
-| `tests/storage/article-comments-idb.test.ts`                                                 | `article_comments` 的增删改查、回复、级联删除与 orphan attachment                                                                                                           | 确认 article 详情页的本地评论线程不丢、不串、不挂空                     |
-| `tests/domains/backup-service.test.ts`                                                       | Zip v2 导出 / 导入主流程、image cache 回填与 merge 行为                                                                                                                     | 确认备份 archive 的结构、恢复和 merge 语义仍然稳定                      |
-| `tests/domains/backup-article-comments.test.ts`                                              | `articleCommentsIndexPath` 与 `counts.article_comments` 的 manifest 校验                                                                                                    | 确认 Zip v2 清单会携带文章评论归档元数据                                |
-| `tests/unit/anti-hotlink-rules-store.test.ts`                                                | `anti_hotlink_rules_v1` 默认规则、读写与回退                                                                                                                                | 确认反防盗链规则不会被错误清空或写坏                                    |
-| `tests/storage/insight-stats.test.ts`                                                        | Insight 聚合：空库、chat/article 混合、Unknown 域名、Top N 折叠、Top 3 对话排序                                                                                             | 防止本地统计页把“事实源”算错或把尾部来源错误归桶                        |
-| `tests/unit/markdown-renderer.test.ts`                                                       | 消息渲染与 markdown 输出                                                                                                                                                    | 防止 UI 与导出文本回归                                                  |
-| `tests/collectors/gemini-collector.test.ts`                                                  | 过滤隐藏说话人 / 状态文案、blob 上传图片内联                                                                                                                                | 防止 Gemini 页面结构变化把噪音文案或上传图片误写入正文                  |
-| `tests/collectors/kimi-collector.test.ts`, `tests/collectors/zai-collector.test.ts`          | 用户上传附件卡片图片抓取                                                                                                                                                    | 防止附件图片只出现在页面而未进入本地会话 markdown                       |
-| `tests/smoke/background-router-current-page-capture.test.ts`                                 | popup 当前页抓取与 background relay                                                                                                                                         | 保证当前页抓取不会只在 UI 上“看起来能点”                                |
-| `tests/smoke/detail-header-actions.test.ts`, `tests/smoke/app-detail-header-actions.test.ts` | Notion / Obsidian / Chat with AI / cache-images 详情头动作解析（含 clipboard + external jump）                                                                              | 覆盖 `open` / `tools` 主路径，保证详情头动作协议不回退                  |
-| `tests/smoke/video-kind.test.ts`                                                             | `video` kind、`SyncNos-Videos`、视频字幕会话落点                                                                                                                            | 覆盖视频字幕采集后的会话类型与同步目标是否一致                          |
-| `tests/unit/settings-sections.test.ts`                                                       | Settings 分组与 section 顺序（`Features = general + chat_with`，`Data = backup + notion + obsidian`，`About = aboutyou + aboutme`；Inpage 分区承载阅读风格 / anti-hotlink） | 防止 Settings 导航回退或新分区被错误挪位                                |
-| `tests/smoke/background-router-item-mention.test.ts`                                         | `$ mention` 消息路由冒烟（search/build）                                                                                                                                    | 覆盖 `ITEM_MENTION_MESSAGE_TYPES` 在 background router 的注册与输出结构 |
-| `tests/unit/item-mention-search.test.ts`                                                     | `$ mention` 候选匹配与排序                                                                                                                                                  | 防止标题/域名/来源匹配规则漂移导致“候选顺序看起来不对”                  |
+| 文件 | 验证点 | 为什么重要 |
+| --- | --- | --- |
+| `tests/unit/notion-sync-cursor.test.ts` | Notion cursor 的 append / rebuild 判断 | 直接决定是否会重复写入或错误重建 |
+| `tests/unit/notion-parent-pages.test.ts` | Notion Parent Page 发现：分页、过滤 database 子页面、savedPageId resolve（search miss 时回退 `GET /pages/:id`） | 防止设置页 Parent Page 下拉在空结果 / 旧选择 / 分页边界下失效 |
+| `tests/storage/schema-migration.test.ts` | IndexedDB v2 / v4 / v6 / v8 迁移：NotionAI stable key、article canonical key 归并、legacy 字段清理与 list pagination 索引回填 | 直接关系到旧数据升级与 mapping 延续 |
+| `tests/storage/conversations-idb.test.ts` | conversations / messages 的本地持久化 | 确认 UI 和同步层读到的事实源正确 |
+| `tests/storage/article-comments-idb.test.ts` | `article_comments` 的增删改查、回复、级联删除与 orphan attachment | 确认 article 详情页的本地评论线程不丢、不串、不挂空 |
+| `tests/domains/backup-service.test.ts` | Zip v2 导出 / 导入主流程、image cache 回填与 merge 行为 | 确认备份 archive 的结构、恢复和 merge 语义仍然稳定 |
+| `tests/domains/backup-article-comments.test.ts` | `articleCommentsIndexPath` 与 `counts.article_comments` 的 manifest 校验 | 确认 Zip v2 清单会携带文章评论归档元数据 |
+| `tests/unit/anti-hotlink-rules-store.test.ts` | `anti_hotlink_rules_v1` 默认规则、读写与回退 | 确认反防盗链规则不会被错误清空或写坏 |
+| `tests/storage/insight-stats.test.ts` | Insight 聚合：空库、chat/article 混合、Unknown 域名、Top N 折叠、Top 3 对话排序 | 防止本地统计页把“事实源”算错或把尾部来源错误归桶 |
+| `tests/unit/markdown-renderer.test.ts` | 消息渲染与 markdown 输出 | 防止 UI 与导出文本回归 |
+| `tests/collectors/gemini-collector.test.ts` | 过滤隐藏说话人 / 状态文案、blob 上传图片内联 | 防止 Gemini 页面结构变化把噪音文案或上传图片误写入正文 |
+| `tests/collectors/kimi-collector.test.ts`, `tests/collectors/zai-collector.test.ts` | 用户上传附件卡片图片抓取 | 防止附件图片只出现在页面而未进入本地会话 markdown |
+| `tests/smoke/background-router-current-page-capture.test.ts` | popup 当前页抓取与 background relay | 保证当前页抓取不会只在 UI 上“看起来能点” |
+| `tests/smoke/detail-header-actions.test.ts`, `tests/smoke/app-detail-header-actions.test.ts` | Notion / Obsidian / Chat with AI / cache-images 详情头动作解析（含 clipboard + external jump） | 覆盖 `open` / `tools` 主路径，保证详情头动作协议不回退 |
+| `tests/smoke/video-kind.test.ts` | `video` kind、`SyncNos-Videos`、视频字幕会话落点 | 覆盖视频字幕采集后的会话类型与同步目标是否一致 |
+| `tests/unit/settings-sections.test.ts` | Settings 分组与 section 顺序（`Features = general + chat_with`，`Data = backup + notion + obsidian`，`About = aboutyou + aboutme`；Inpage 分区承载阅读风格 / anti-hotlink） | 防止 Settings 导航回退或新分区被错误挪位 |
+| `tests/smoke/background-router-item-mention.test.ts` | `$ mention` 消息路由冒烟（search/build） | 覆盖 `ITEM_MENTION_MESSAGE_TYPES` 在 background router 的注册与输出结构 |
+| `tests/unit/item-mention-search.test.ts` | `$ mention` 候选匹配与排序 | 防止标题/域名/来源匹配规则漂移导致“候选顺序看起来不对” |
 
 ## 手动冒烟建议
 
@@ -55,22 +55,22 @@
 
 ## 发布前检查
 
-| 检查项                        | 先看哪里                                                                                                   | 期望                                               |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| manifest 版本与 tag 一致      | `wxt.config.ts`, `webclipper-amo-publish.yml`, `webclipper-cws-publish.yml`, `webclipper-edge-publish.yml` | 具体版本值以 `configuration.md` 为准（本页不写死） |
-| Chrome / Firefox 构建均可通过 | `package.json` scripts                                                                                     | `build` / `build:firefox` 成功                     |
-| dist 引用完整                 | `check-dist.mjs`                                                                                           | `npm run check` 通过                               |
-| AMO / CWS 凭据                | workflow secrets                                                                                           | 发布 workflow 不因凭据缺失失败                     |
+| 检查项 | 先看哪里 | 期望 |
+| --- | --- | --- |
+| manifest 版本与 tag 一致 | `wxt.config.ts`, `webclipper-amo-publish.yml`, `webclipper-cws-publish.yml`, `webclipper-edge-publish.yml` | 具体版本值以 `configuration.md` 为准（本页不写死） |
+| Chrome / Firefox 构建均可通过 | `package.json` scripts | `build` / `build:firefox` 成功 |
+| dist 引用完整 | `check-dist.mjs` | `npm run check` 通过 |
+| AMO / CWS 凭据 | workflow secrets | 发布 workflow 不因凭据缺失失败 |
 
 ## 回归优先级
 
-| 优先级 | 场景                                 | 原因                           |
-| ------ | ------------------------------------ | ------------------------------ |
-| P0     | Notion 授权、Parent Page、主同步链路 | 直接决定核心价值是否交付       |
-| P1     | 本地存储、Schema 迁移、备份导入导出  | 直接影响历史数据与恢复能力     |
-| P1     | collectors、article fetch、消息协议  | 直接影响采集范围与 UI 可见数据 |
-| P1     | Obsidian / Notion cursor 逻辑        | 直接影响增量写入与重建策略     |
-| P2     | 菜单栏模式、键盘焦点、字体缩放       | 更偏体验，但很容易在桌面端回退 |
+| 优先级 | 场景 | 原因 |
+| --- | --- | --- |
+| P0 | Notion 授权、Parent Page、主同步链路 | 直接决定核心价值是否交付 |
+| P1 | 本地存储、Schema 迁移、备份导入导出 | 直接影响历史数据与恢复能力 |
+| P1 | collectors、article fetch、消息协议 | 直接影响采集范围与 UI 可见数据 |
+| P1 | Obsidian / Notion cursor 逻辑 | 直接影响增量写入与重建策略 |
+| P2 | 菜单栏模式、键盘焦点、字体缩放 | 更偏体验，但很容易在桌面端回退 |
 
 ## 备注
 

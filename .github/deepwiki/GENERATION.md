@@ -2,15 +2,15 @@
 
 ## Repository State
 
-| Field                | Value                                      |
-| -------------------- | ------------------------------------------ |
-| Repository           | `chiimagnus/SyncNos`                       |
-| Commit hash          | `e8fa764809afdddaefca43a625a0d042065dc009` |
-| Branch name          | `crh` (HEAD), `origin/crh`                 |
-| Generation timestamp | `2026-04-18 22:17:45 +0800`                |
-| Output language      | 中文                                       |
-| Generated directory  | `.github/deepwiki/`                        |
-| Update mode          | Minor incremental docs sync                |
+| Field | Value |
+| --- | --- |
+| Repository | `chiimagnus/SyncNos` |
+| Commit hash | `e8fa764809afdddaefca43a625a0d042065dc009` |
+| Branch name | `crh` (HEAD), `origin/crh` |
+| Generation timestamp | `2026-04-18 22:17:45 +0800` |
+| Output language | 中文 |
+| Generated directory | `.github/deepwiki/` |
+| Update mode | Minor incremental docs sync |
 
 ## Page Inventory
 
@@ -52,17 +52,17 @@
 
 ## Audit Basis
 
-| 类别            | 主要来源                                                                                                                                                                                                                                                                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 仓库入口与规范  | `AGENTS.md`, `README.md`, `README.zh-CN.md`                                                                                                                                                                                                                                                                                                        |
-| 评论 React 迁移 | `src/ui/comments/react/ThreadedCommentsPanel.tsx`, `panel-store.ts`, `focus-rules.ts`, `comment-chatwith-menu.tsx`                                                                                                                                                                                                                                 |
-| Settings 重构   | `src/ui/settings/SettingsScene.tsx`, `SettingsTopTabsNav.tsx`, `useSettingsSceneController.ts`                                                                                                                                                                                                                                                     |
-| AppShell 重构   | `src/ui/app/AppShell.tsx`, `PopupShell.tsx`, `ConversationsScene.tsx`, `CapturedListPaneShell.tsx`                                                                                                                                                                                                                                                 |
-| 评论数同步      | `src/services/comments/domain/comment-metrics.ts`, `notion-sync-orchestrator.ts`, `obsidian-markdown-writer.ts`                                                                                                                                                                                                                                    |
-| 文章提取        | `src/collectors/web/article-fetch-sites/bilibili-opus.ts`, `article-extract/markdown.ts`                                                                                                                                                                                                                                                           |
-| 视频字幕采集    | `src/entrypoints/video-transcript-interceptor.content.ts`, `src/entrypoints/video-transcript-bridge.content.ts`, `src/services/bootstrap/video-transcript-capture.ts`, `src/services/bootstrap/video-transcript-capture-content-handlers.ts`, `src/collectors/video/video-transcript-extract.ts`, `src/collectors/video/video-transcript-parse.ts` |
-| Chat with AI    | `src/services/integrations/chatwith/chatwith-settings.ts`, `chatwith-comment-actions.ts`                                                                                                                                                                                                                                                           |
-| Git 历史        | 85 commits since 2026-04-02                                                                                                                                                                                                                                                                                                                        |
+| 类别 | 主要来源 |
+| --- | --- |
+| 仓库入口与规范 | `AGENTS.md`, `README.md`, `README.zh-CN.md` |
+| 评论 React 迁移 | `src/ui/comments/react/ThreadedCommentsPanel.tsx`, `panel-store.ts`, `focus-rules.ts`, `comment-chatwith-menu.tsx` |
+| Settings 重构 | `src/ui/settings/SettingsScene.tsx`, `SettingsTopTabsNav.tsx`, `useSettingsSceneController.ts` |
+| AppShell 重构 | `src/ui/app/AppShell.tsx`, `PopupShell.tsx`, `ConversationsScene.tsx`, `CapturedListPaneShell.tsx` |
+| 评论数同步 | `src/services/comments/domain/comment-metrics.ts`, `notion-sync-orchestrator.ts`, `obsidian-markdown-writer.ts` |
+| 文章提取 | `src/collectors/web/article-fetch-sites/bilibili-opus.ts`, `article-extract/markdown.ts` |
+| 视频字幕采集 | `src/entrypoints/video-transcript-interceptor.content.ts`, `src/entrypoints/video-transcript-bridge.content.ts`, `src/services/bootstrap/video-transcript-capture.ts`, `src/services/bootstrap/video-transcript-capture-content-handlers.ts`, `src/collectors/video/video-transcript-extract.ts`, `src/collectors/video/video-transcript-parse.ts` |
+| Chat with AI | `src/services/integrations/chatwith/chatwith-settings.ts`, `chatwith-comment-actions.ts` |
+| Git 历史 | 85 commits since 2026-04-02 |
 
 ## Notes For Next Update
 
