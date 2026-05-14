@@ -18,7 +18,7 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 
 ## Why SyncNos WebClipper?
 
-|  |
+|  |  |
 | --- | --- |
 | 🔒 **Your data stays in your browser** | No third-party servers, no data collection. Everything is stored in IndexedDB first — you decide where it goes next. |
 | 🔄 **Incremental sync, no duplicates** | Only new content gets synced. Precise cursor tracking picks up right where you left off. Your knowledge base grows while you chat. |
