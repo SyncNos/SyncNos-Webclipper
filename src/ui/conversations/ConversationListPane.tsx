@@ -34,7 +34,6 @@ const SITE_FILTER_ALL_KEY = 'all';
 const SITE_FILTER_UNKNOWN_KEY = 'unknown';
 const MAX_LOCATE_LOAD_ROUNDS = 8;
 
-
 function formatTime(ts?: number) {
   if (!ts) return '';
   try {
