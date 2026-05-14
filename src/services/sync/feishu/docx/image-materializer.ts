@@ -277,7 +277,7 @@ export async function materializeMarkdownImagesIntoDocx({
       const fileToken = await uploadImageToFeishu({ accessToken, imageBlockId, fileName, blob: dl.blob });
       await bindImageBlockWithFileToken({ accessToken, docId, imageBlockId, fileToken });
       uploadedCount += 1;
-    } catch (e) {
+    } catch {
       fallbackUrlCount += 1;
       warnings.push(`image upload failed: ${url}`);
       appendedBlocks += await appendTextAsBlock({ accessToken, docId, text: url });
