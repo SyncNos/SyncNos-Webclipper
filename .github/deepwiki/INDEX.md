@@ -8,13 +8,13 @@
 - **稳定事实源**：版本、权限、配置、迁移规则请以 `wxt.config.ts`、`schema.ts`、workflow 与脚本为准；本索引不再保留按日期堆叠的变更流水。
 - **如何使用本索引**：如果你先想理解“产品做什么”，走 business-first；如果你已经准备改代码，走 engineering-first；如果你要发版本，走 release-first。
 
-| 维度     | 主入口页面                                 | 你会得到什么                                          |
-| -------- | ------------------------------------------ | ----------------------------------------------------- |
-| 业务入口 | [business-context.md](business-context.md) | 用户、产物、关键旅程、影响行为的业务规则              |
-| 仓库总览 | [overview.md](overview.md)                 | 目录地图、入口文件、主要产物、推荐阅读顺序            |
-| 技术总览 | [architecture.md](architecture.md)         | 运行时边界、关键契约、修改热点                        |
-| 数据链路 | [data-flow.md](data-flow.md)               | 来源 → 本地事实源 → Notion / Obsidian / Feishu / 导出 |
-| 产品细节 | `modules/`                                 | WebClipper 的实现边界与扩展点                         |
+| 维度 | 主入口页面 | 你会得到什么 |
+| --- | --- | --- |
+| 业务入口 | [business-context.md](business-context.md) | 用户、产物、关键旅程、影响行为的业务规则 |
+| 仓库总览 | [overview.md](overview.md) | 目录地图、入口文件、主要产物、推荐阅读顺序 |
+| 技术总览 | [architecture.md](architecture.md) | 运行时边界、关键契约、修改热点 |
+| 数据链路 | [data-flow.md](data-flow.md) | 来源 → 本地事实源 → Notion / Obsidian / Feishu / 导出 |
+| 产品细节 | `modules/` | WebClipper 的实现边界与扩展点 |
 
 ## 推荐阅读路径
 
@@ -51,35 +51,35 @@
 
 ## 页面分组
 
-| 分组       | 页面                                                                                                                                                                       | 说明                                                           |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| 业务入口层 | `business-context.md`                                                                                                                                                      | 用业务语义把读者送往技术页，而不是停留在 marketing 摘要。      |
-| 基础全景   | `overview.md`, `architecture.md`, `dependencies.md`, `data-flow.md`                                                                                                        | 帮你建立仓库全貌、运行时边界和主链路。                         |
-| 工程执行   | `configuration.md`, `testing.md`, `workflow.md`                                                                                                                            | 回答“如何配置、如何验证、如何协作”。                           |
-| 产品模块   | `modules/webclipper.md`, `modules/videos.md`                                                                                                                               | 回答“改扩展去哪里”与“视频字幕采集去哪里”。                     |
-| 专题页面   | [storage.md](storage.md), [release.md](release.md), [troubleshooting.md](troubleshooting.md), [api.md](api.md), [operations.md](operations.md), [security.md](security.md) | 回答“数据落点、交付链路、故障定位、API 契约、运维与安全边界”。 |
-| 参考       | [glossary.md](glossary.md), [GENERATION.md](GENERATION.md)                                                                                                                 | 统一术语与生成元数据。                                         |
+| 分组 | 页面 | 说明 |
+| --- | --- | --- |
+| 业务入口层 | `business-context.md` | 用业务语义把读者送往技术页，而不是停留在 marketing 摘要。 |
+| 基础全景 | `overview.md`, `architecture.md`, `dependencies.md`, `data-flow.md` | 帮你建立仓库全貌、运行时边界和主链路。 |
+| 工程执行 | `configuration.md`, `testing.md`, `workflow.md` | 回答“如何配置、如何验证、如何协作”。 |
+| 产品模块 | `modules/webclipper.md`, `modules/videos.md` | 回答“改扩展去哪里”与“视频字幕采集去哪里”。 |
+| 专题页面 | [storage.md](storage.md), [release.md](release.md), [troubleshooting.md](troubleshooting.md), [api.md](api.md), [operations.md](operations.md), [security.md](security.md) | 回答“数据落点、交付链路、故障定位、API 契约、运维与安全边界”。 |
+| 参考 | [glossary.md](glossary.md), [GENERATION.md](GENERATION.md) | 统一术语与生成元数据。 |
 
 ## 页面地图（按问题导航）
 
-| 我想回答的问题                                                                                                                   | 先读哪里                                       | 再读哪里                                                                                                     |
-| -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 这个仓库到底解决什么问题？                                                                                                       | [business-context.md](business-context.md)     | [overview.md](overview.md)                                                                                   |
-| WebClipper 为什么先落本地库再同步？                                                                                              | [business-context.md](business-context.md)     | [data-flow.md](data-flow.md), [storage.md](storage.md)                                                       |
-| WebClipper 的视频字幕采集、右键菜单和 `video` kind 改哪里？                                                                      | [modules/videos.md](modules/videos.md)         | [configuration.md](configuration.md), [testing.md](testing.md), [data-flow.md](data-flow.md)                 |
-| WebClipper 的 Insight 仪表盘读的是什么、本地统计改哪里？                                                                         | [modules/webclipper.md](modules/webclipper.md) | [storage.md](storage.md), [configuration.md](configuration.md), [testing.md](testing.md)                     |
-| WebClipper 的主题（仅跟随系统）、inpage 开关、AI 自动保存、AI `$ mention`、图片缓存、Inpage 阅读风格与 anti-hotlink 配置改哪里？ | [configuration.md](configuration.md)           | [modules/webclipper.md](modules/webclipper.md), [workflow.md](workflow.md)                                   |
-| WebClipper 的文章评论 / 注释线程改哪里？                                                                                         | [modules/comments.md](modules/comments.md)     | [modules/webclipper.md](modules/webclipper.md), [storage.md](storage.md), [testing.md](testing.md)           |
-| WebClipper 底部 `source/site` 筛选菜单为什么高度会动态变化、怎样排查裁切？                                                       | [modules/webclipper.md](modules/webclipper.md) | [configuration.md](configuration.md), [troubleshooting.md](troubleshooting.md)                               |
-| `Chat with AI` 是怎么从详情页触发的、模板和平台存在哪？                                                                          | [modules/webclipper.md](modules/webclipper.md) | [configuration.md](configuration.md), [testing.md](testing.md)                                               |
-| `cache-images` 为什么有时提示更新 0 条，图片缓存开关如何按来源生效？                                                             | [modules/webclipper.md](modules/webclipper.md) | [data-flow.md](data-flow.md), [configuration.md](configuration.md), [troubleshooting.md](troubleshooting.md) |
-| 为什么窄屏下从 Insight 点进对话能直接打开 detail？                                                                               | [modules/webclipper.md](modules/webclipper.md) | [storage.md](storage.md), [architecture.md](architecture.md)                                                 |
-| 我应该改哪个目录？                                                                                                               | [overview.md](overview.md)                     | [architecture.md](architecture.md), `modules/`                                                               |
-| 某个数据源 / collector / sync job 影响哪些系统？                                                                                 | [architecture.md](architecture.md)             | [data-flow.md](data-flow.md), [troubleshooting.md](troubleshooting.md)                                       |
-| OAuth 交换、消息契约和外部 API 边界在哪里看？                                                                                    | [api.md](api.md)                               | [dependencies.md](dependencies.md), [security.md](security.md)                                               |
-| 权限、凭据、敏感数据保护策略在哪里看？                                                                                           | [security.md](security.md)                     | [configuration.md](configuration.md), [workflow.md](workflow.md)                                             |
-| 日常运行检查和故障处理 Runbook 在哪里看？                                                                                        | [operations.md](operations.md)                 | [troubleshooting.md](troubleshooting.md), [release.md](release.md)                                           |
-| 怎样验证发布不会炸？                                                                                                             | [release.md](release.md)                       | [configuration.md](configuration.md), [testing.md](testing.md)                                               |
+| 我想回答的问题 | 先读哪里 | 再读哪里 |
+| --- | --- | --- |
+| 这个仓库到底解决什么问题？ | [business-context.md](business-context.md) | [overview.md](overview.md) |
+| WebClipper 为什么先落本地库再同步？ | [business-context.md](business-context.md) | [data-flow.md](data-flow.md), [storage.md](storage.md) |
+| WebClipper 的视频字幕采集、右键菜单和 `video` kind 改哪里？ | [modules/videos.md](modules/videos.md) | [configuration.md](configuration.md), [testing.md](testing.md), [data-flow.md](data-flow.md) |
+| WebClipper 的 Insight 仪表盘读的是什么、本地统计改哪里？ | [modules/webclipper.md](modules/webclipper.md) | [storage.md](storage.md), [configuration.md](configuration.md), [testing.md](testing.md) |
+| WebClipper 的主题（仅跟随系统）、inpage 开关、AI 自动保存、AI `$ mention`、图片缓存、Inpage 阅读风格与 anti-hotlink 配置改哪里？ | [configuration.md](configuration.md) | [modules/webclipper.md](modules/webclipper.md), [workflow.md](workflow.md) |
+| WebClipper 的文章评论 / 注释线程改哪里？ | [modules/comments.md](modules/comments.md) | [modules/webclipper.md](modules/webclipper.md), [storage.md](storage.md), [testing.md](testing.md) |
+| WebClipper 底部 `source/site` 筛选菜单为什么高度会动态变化、怎样排查裁切？ | [modules/webclipper.md](modules/webclipper.md) | [configuration.md](configuration.md), [troubleshooting.md](troubleshooting.md) |
+| `Chat with AI` 是怎么从详情页触发的、模板和平台存在哪？ | [modules/webclipper.md](modules/webclipper.md) | [configuration.md](configuration.md), [testing.md](testing.md) |
+| `cache-images` 为什么有时提示更新 0 条，图片缓存开关如何按来源生效？ | [modules/webclipper.md](modules/webclipper.md) | [data-flow.md](data-flow.md), [configuration.md](configuration.md), [troubleshooting.md](troubleshooting.md) |
+| 为什么窄屏下从 Insight 点进对话能直接打开 detail？ | [modules/webclipper.md](modules/webclipper.md) | [storage.md](storage.md), [architecture.md](architecture.md) |
+| 我应该改哪个目录？ | [overview.md](overview.md) | [architecture.md](architecture.md), `modules/` |
+| 某个数据源 / collector / sync job 影响哪些系统？ | [architecture.md](architecture.md) | [data-flow.md](data-flow.md), [troubleshooting.md](troubleshooting.md) |
+| OAuth 交换、消息契约和外部 API 边界在哪里看？ | [api.md](api.md) | [dependencies.md](dependencies.md), [security.md](security.md) |
+| 权限、凭据、敏感数据保护策略在哪里看？ | [security.md](security.md) | [configuration.md](configuration.md), [workflow.md](workflow.md) |
+| 日常运行检查和故障处理 Runbook 在哪里看？ | [operations.md](operations.md) | [troubleshooting.md](troubleshooting.md), [release.md](release.md) |
+| 怎样验证发布不会炸？ | [release.md](release.md) | [configuration.md](configuration.md), [testing.md](testing.md) |
 
 ## Coverage Gaps
 

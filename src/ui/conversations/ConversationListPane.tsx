@@ -34,23 +34,6 @@ const SITE_FILTER_ALL_KEY = 'all';
 const SITE_FILTER_UNKNOWN_KEY = 'unknown';
 const MAX_LOCATE_LOAD_ROUNDS = 8;
 
-function commonPrefix(a: string, b: string) {
-  const left = String(a || '');
-  const right = String(b || '');
-  const limit = Math.min(left.length, right.length);
-  let i = 0;
-  for (; i < limit; i += 1) {
-    if (left[i] !== right[i]) break;
-  }
-  return left.slice(0, i);
-}
-
-function normalizeSyncMenuLabel(text: string) {
-  const raw = String(text || '');
-  const trimmedRight = raw.replace(/[\s:：·•\-–—]+$/g, '').trimEnd();
-  return trimmedRight || raw.trim();
-}
-
 function formatTime(ts?: number) {
   if (!ts) return '';
   try {
