@@ -22,6 +22,7 @@
 | UI | `UI_MESSAGE_TYPES` + `UI_EVENT_TYPES` | 打开 popup、打开 inpage comments panel、状态广播 | background <-> UI |
 | CONTENT（非 router） | `CONTENT_MESSAGE_TYPES` | background -> content script 指令（例如打开 inpage comments panel） | background -> content |
 | CONTENT（非 router） | `CONTENT_MESSAGE_TYPES.CAPTURE_VIDEO_TRANSCRIPT` | 触发字幕拦截后的 video 会话写入 | background -> content |
+| FEISHU | `FEISHU_MESSAGE_TYPES` | 授权状态、断开连接、手动同步、job 状态 | settings/conversations -> background |
 
 ## CORE 关键消息
 
@@ -66,6 +67,16 @@
 
 > `UI_MESSAGE_TYPES.OPEN_EXTENSION_POPUP` 仍存在，但不再是 inpage 双击的默认入口；它用于显式请求打开扩展 popup（依赖浏览器是否支持 `action.openPopup()`）。
 
+## FEISHU 关键消息
+
+| 消息类型 | 入参关键字段 | 返回 | 说明 |
+| --- | --- | --- | --- |
+| `getFeishuAuthStatus` | 无 | `{ connected, token }` | 查询 Feishu 连接状态 |
+| `feishuDisconnect` | 无 | 清理结果 | 断开连接：清理 token、pending state、last error 与 sync job |
+| `feishuSyncConversations` | `conversationIds[]` | `{ started: true, provider: 'feishu' }` | 手动同步指定会话；依赖已连接 token；若 provider 被禁用会返回 extra `{code:'sync_provider_disabled',provider:'feishu'}` |
+| `getFeishuSyncStatus` | 无 | `{ provider: 'feishu', job }` | 查询后台同步 job 状态 |
+| `clearFeishuSyncStatus` | 无 | `{ provider: 'feishu', job: null }` | 清空同步状态 |
+
 ## 外部 API 矩阵
 
 | API | 入口 | 方法 | 关键参数 | 关键响应 |
@@ -74,6 +85,13 @@
 | OAuth code exchange（worker） | `/notion/oauth/exchange` | POST JSON | `code`, `redirectUri` | `access_token` JSON |
 | Notion API | `https://api.notion.com/*` | HTTPS | token + Parent Page + DB/page payload | 数据库/页面/block 读写 |
 | Obsidian Local REST API | `http://127.0.0.1:27123/*`（可配置） | HTTP | API Key + path/body | 文件写入、patch、open |
+| Feishu OAuth authorize | `https://accounts.feishu.cn/open-apis/authen/v1/authorize` | GET | `client_id`, `redirect_uri`, `state`, `scope` | 授权码回调 |
+| Feishu OAuth code exchange（worker） | `/exchange` | POST JSON | `code`, `redirectUri` | `access_token` JSON |
+| Feishu OAuth token refresh（worker） | `/refresh` | POST JSON | `refresh_token`, `redirectUri` | 新 `access_token` JSON |
+| Feishu Convert API | `POST /docx/v1/documents/blocks/convert` | POST | `content`（markdown）, `content_type: 'markdown'` | DocX blocks + `first_level_block_ids` |
+| Feishu DocX blocks API | `POST /docx/v1/documents/{docId}/blocks/{blockId}/descendant` / `children` | POST | block tree / flat children | 插入 blocks |
+| Feishu Drive media upload | `POST /drive/v1/medias/upload_all` | multipart | `parent_type`, `parent_node`, file blob | `file_token` |
+| Feishu image block bind | `PATCH /docx/v1/documents/{docId}/blocks/{imageBlockId}` | PATCH | `replace_image: { token }` | 绑定图片到 block |
 
 ## Notion OAuth Worker 交换流程
 
@@ -124,6 +142,10 @@ sequenceDiagram
 | worker 限流 429 | Cloudflare worker | 返回 `Retry-After`，前端重试或提示稍后 |
 | Obsidian PATCH 失败 | `obsidian-sync-orchestrator.ts` | 自动回退 full rebuild |
 | 消息 type 未注册 | background router fallback | 返回 `unknown message type` |
+| Feishu Convert 权限不足 | `convert-api.ts` → orchestrator | 回退为纯文本 blocks 写入 |
+| Feishu 图片绑定失败 | `image-block-binder.ts` → orchestrator | 记录 warning 不阻断同步，重试 3 次（429/5xx） |
+| Feishu token 过期 | `resolveFeishuAccessToken()` | 自动刷新（直连或 proxy）；刷新失败则中断同步 |
+| Feishu 文档被删 | `isFeishuDocxGoneError()` | 自动创建新 DocX 并更新 mapping |
 | `$ mention` 插入失败（detail 为空） | `buildMentionInsertText` | 返回 `EMPTY_DETAIL`；通常需要重新采集该会话或先确认详情能正常打开 |
 | 无法打开 popup | `OPEN_EXTENSION_POPUP` | 返回 `OPEN_POPUP_UNSUPPORTED` / `OPEN_POPUP_FAILED`；提示用户通过工具栏图标或检查浏览器能力 |
 | 无法打开 inpage comments panel | `OPEN_CURRENT_TAB_INPAGE_COMMENTS_PANEL` | 返回 `OPEN_INPAGE_COMMENTS_PANEL_UNAVAILABLE/FAILED`；优先检查 sender tab、content script 是否仍在运行 |

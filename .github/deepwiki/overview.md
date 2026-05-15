@@ -29,6 +29,13 @@ SyncNos 现在围绕“异构内容 → 稳定知识资产”展开的是 WebCli
 - **文章提取增强**：新增 bilibili 动态支持，移除小红书适配器，优化 Discourse `<details>` code blocks 处理。
 - **视频字幕采集**：新增 YouTube / Bilibili 字幕抓取、`VideosSection.tsx` 设置分区、`Save video transcript` 右键菜单和 `video` conversation kind。
 
+**v1.7.0（2026-05）重大功能新增**：
+
+- **Feishu（DocX）同步**：完整的飞书文档同步链路，包括 OAuth 授权（支持 proxy worker 和直连两种模式）、Convert API（markdown → DocX blocks）、图片绑定（上传到 Drive 并绑定到 image blocks）、按 conversation kind 分流到三个默认目录（`SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`）、skip-unchanged 增量跳过（SHA-256 hash + DocX 可访问性校验）、Convert 失败回退纯文本 blocks。
+- **Feishu OAuth scope 升级**：新增 `docx:document.block:convert` 权限，支持 Convert API。
+- **Feishu 图片绑定流水线**：图片预处理（占位 URL 生成）→ Convert → 按位置顺序匹配 image blocks → 上传到 Drive → 绑定 file token；best-effort 策略，失败不阻断同步。
+- **12 个 Feishu 专项测试**：覆盖 API 错误规范化、重试逻辑、Convert block 树规范化、图片绑定流程、markdown 格式化、Drive 路径解析、folder 布局、skip-unchanged、warnings 去敏等。
+
 ## 关键入口文件
 
 | 入口 | 路径 | 作用 | 为什么先看这里 |

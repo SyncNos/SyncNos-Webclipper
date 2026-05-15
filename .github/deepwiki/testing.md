@@ -67,6 +67,7 @@
 | 优先级 | 场景 | 原因 |
 | --- | --- | --- |
 | P0 | Notion 授权、Parent Page、主同步链路 | 直接决定核心价值是否交付 |
+| P0 | Feishu 授权、Convert API、图片绑定、主同步链路 | 直接决定 Feishu 同步是否可用 |
 | P1 | 本地存储、Schema 迁移、备份导入导出 | 直接影响历史数据与恢复能力 |
 | P1 | collectors、article fetch、消息协议 | 直接影响采集范围与 UI 可见数据 |
 | P1 | Obsidian / Notion cursor 逻辑 | 直接影响增量写入与重建策略 |
@@ -79,4 +80,5 @@
 - `cache-images` 目前仍以手工冒烟为主（仓库内暂未发现专门单测）；若后续继续演进，建议补 `background handler + image-backfill-job + action slot` 联动测试。
 - `anti_hotlink_rules_v1` 的默认规则与回退，建议至少跑 `tests/unit/anti-hotlink-rules-store.test.ts` 和 `tests/smoke/image-download-proxy.test.ts`，并做一次 article 抓取人工冒烟，确认命中规则时图片仍会自动缓存。
 - `article_comments` 相关改动，至少要跑 `tests/storage/article-comments-idb.test.ts` 与 `tests/domains/backup-article-comments.test.ts`，并做一次 article detail / inpage comments panel 的人工回归；Zip v2 现在会带回评论线程，但 legacy backup 仍可能缺少这部分元数据。
+- Feishu 同步相关改动，至少要跑以下 12 个测试文件：`feishu-api-error-normalization.test.ts`、`feishu-api-retry.test.ts`、`feishu-convert-block-tree-normalize.test.ts`、`feishu-convert-fallback.test.ts`、`feishu-docx-image-bind-flow.test.ts`、`feishu-docx-markdown-formatter.test.ts`、`feishu-drive-folder-path.test.ts`、`feishu-folder-layout.test.ts`、`feishu-image-bind-retry.test.ts`、`feishu-orchestrator-warnings-sanitize.test.ts`、`feishu-skip-unchanged.test.ts`、`feishu-skip-unchanged-missing-doc.test.ts`、`feishu-warnings-sanitize-limit.test.ts`，并做一次 Feishu OAuth 连接 → 手动同步 → 验证 DocX 内容的人工冒烟。
 - 需要真的跑代码时，优先遵循仓库已有的命令，不新增新的 lint / test 系统。

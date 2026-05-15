@@ -38,7 +38,7 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 
 1. **Install the extension** (Chrome / Edge / Firefox / Arc)
 2. **Open any supported AI platform, web page, or video page** — the extension captures conversations, articles, and loaded subtitles in the background
-3. **Sync or export** — go to Settings to sync to Notion / Obsidian, or export Markdown / Zip backups
+3. **Sync or export** — go to Settings to sync to Notion / Obsidian / Feishu, or export Markdown / Zip backups
 
 ## Demo Video
 
@@ -105,7 +105,7 @@ YouTube and Bilibili video pages can capture already loaded subtitles/transcript
 WebClipper Popup: save and browse conversations
 ![WebClipper Popup](.github/deepwiki/assets/popup-screenshots.png)
 
-WebClipper Settings: backup and sync (Notion / Obsidian)
+WebClipper Settings: backup and sync (Notion / Obsidian / Feishu)
 ![WebClipper Settings](.github/deepwiki/assets/setting-screenshots.png)
 
 ## Support

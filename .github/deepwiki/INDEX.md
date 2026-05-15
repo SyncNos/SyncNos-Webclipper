@@ -71,6 +71,8 @@
 | WebClipper 的主题（仅跟随系统）、inpage 开关、AI 自动保存、AI `$ mention`、图片缓存、Inpage 阅读风格与 anti-hotlink 配置改哪里？ | [configuration.md](configuration.md) | [modules/webclipper.md](modules/webclipper.md), [workflow.md](workflow.md) |
 | WebClipper 的文章评论 / 注释线程改哪里？ | [modules/comments.md](modules/comments.md) | [modules/webclipper.md](modules/webclipper.md), [storage.md](storage.md), [testing.md](testing.md) |
 | WebClipper 底部 `source/site` 筛选菜单为什么高度会动态变化、怎样排查裁切？ | [modules/webclipper.md](modules/webclipper.md) | [configuration.md](configuration.md), [troubleshooting.md](troubleshooting.md) |
+| Feishu（DocX）同步的 Convert API、图片绑定、folder 路由改哪里？ | [data-flow.md](data-flow.md), [api.md](api.md) | [configuration.md](configuration.md), [modules/webclipper.md](modules/webclipper.md), [testing.md](testing.md) |
+| Feishu OAuth 连接失败 / token 刷新失败怎么排查？ | [troubleshooting.md](troubleshooting.md) | [configuration.md](configuration.md), [feishu-setup.md](feishu-setup.md) |
 | `Chat with AI` 是怎么从详情页触发的、模板和平台存在哪？ | [modules/webclipper.md](modules/webclipper.md) | [configuration.md](configuration.md), [testing.md](testing.md) |
 | `cache-images` 为什么有时提示更新 0 条，图片缓存开关如何按来源生效？ | [modules/webclipper.md](modules/webclipper.md) | [data-flow.md](data-flow.md), [configuration.md](configuration.md), [troubleshooting.md](troubleshooting.md) |
 | 为什么窄屏下从 Insight 点进对话能直接打开 detail？ | [modules/webclipper.md](modules/webclipper.md) | [storage.md](storage.md), [architecture.md](architecture.md) |
@@ -93,6 +95,7 @@
 
 ## 更新记录（Update Notes）
 
+- 2026-05-16：v1.7.0 深度更新——同步 manifest.version 到 `1.7.0`，补齐 Feishu Convert API 四阶段流水线（图片预处理 → Convert → block 插入 → 图片绑定）、OAuth scope（`docx:document docx:document.block:convert drive:drive`）、12 个 Feishu 专项测试、商店描述增加飞书、新增 `webclipper_sync_provider_feishu_enabled` 配置项；更新 `configuration.md`、`data-flow.md`、`architecture.md`、`api.md`、`dependencies.md`、`operations.md`、`troubleshooting.md`、`glossary.md`、`overview.md`、`testing.md`、`INDEX.md`、`GENERATION.md`。
 - 2026-05-14：补齐 Feishu（DocX）同步的最新事实（Convert API、图片上传插入、三类默认目录与自定义路径、`skipped_unchanged` 的 DocX 存在性校验、sync job 卡死中止与 `Open in Feishu`）；更新 `business-context.md`、`overview.md`、`data-flow.md`、`configuration.md`、`storage.md`、`troubleshooting.md`、`modules/webclipper.md`、`feishu-setup.md` 与本索引。
 - 2026-04-18：新增 `modules/videos.md` 路由页，补齐视频字幕采集、`video` kind、右键菜单与 `SyncNos-Videos` 的阅读路径；更新 `business-context.md`、`overview.md`、`modules/webclipper.md`、`INDEX.md`。
 - 2026-04-16：同步 `manifest.version` 到 `1.5.4`，并澄清 CI Node 22 / 发布 Node 20 的双环境说明；更新 `configuration.md`、`dependencies.md`、`security.md`、`GENERATION.md`。
