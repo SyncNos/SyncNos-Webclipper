@@ -16,6 +16,56 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function readHttpStatus(error: unknown): number {
+  const e: any = error;
+  const status = Number(e?.extra?.status ?? e?.status ?? 0) || 0;
+  return status;
+}
+
+function readFeishuCode(error: unknown): string {
+  const e: any = error;
+  const code = e?.extra?.code;
+  return code == null ? '' : String(code);
+}
+
+function readRetryAfterMs(error: unknown): number | undefined {
+  const e: any = error;
+  const ms = Number(e?.extra?.retryAfterMs ?? 0) || 0;
+  return ms > 0 ? ms : undefined;
+}
+
+function shouldRetry(error: unknown): boolean {
+  const status = readHttpStatus(error);
+  const code = readFeishuCode(error);
+  if (status === 429) return true;
+  if (status >= 500 && status <= 599) return true;
+  if (status === 400 && code === '99991400') return true; // app rate limit
+  return false;
+}
+
+function backoffMs(attempt: number, error: unknown): number {
+  const retryAfter = readRetryAfterMs(error);
+  if (retryAfter) return retryAfter;
+  const base = 300 * Math.pow(3, Math.max(0, attempt - 1));
+  const jitter = Math.floor(Math.random() * 120);
+  return Math.min(10_000, Math.round(base + jitter));
+}
+
+async function withRetry<T>(fn: () => Promise<T>, { attempts }: { attempts: number }): Promise<T> {
+  const max = Math.max(1, Math.min(3, Number(attempts) || 1));
+  let lastErr: unknown = null;
+  for (let attempt = 1; attempt <= max; attempt += 1) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt >= max || !shouldRetry(e)) throw e;
+      await sleep(backoffMs(attempt, e));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('retry failed');
+}
+
 function sanitizeUrlForWarning(url: string): string {
   const raw = safeString(url);
   if (!raw) return '';
@@ -169,8 +219,13 @@ export async function bindFeishuDocxImagesByOrder({
       source.kind === 'http' ? guessFileNameFromUrl(preferredUrl, ext) : `image-${i + 1}.${ext || 'png'}`;
 
     try {
-      const fileToken = await uploadImageToFeishu({ accessToken, imageBlockId, fileName, blob });
-      await bindImageBlockWithFileToken({ accessToken, docId, imageBlockId, fileToken });
+      const fileToken = await withRetry(
+        () => uploadImageToFeishu({ accessToken, imageBlockId, fileName, blob }),
+        { attempts: 3 },
+      );
+      await withRetry(() => bindImageBlockWithFileToken({ accessToken, docId, imageBlockId, fileToken }), {
+        attempts: 3,
+      });
       boundCount += 1;
     } catch (e) {
       const msg = sanitizePotentialUrls(safeString((e as any)?.message || ''));
