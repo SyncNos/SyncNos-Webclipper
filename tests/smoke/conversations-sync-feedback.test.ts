@@ -181,6 +181,17 @@ describe('Conversations sync feedback', () => {
     });
   }
 
+  function clickFeishuButton() {
+    const label = t('providerFeishu');
+    const button = Array.from(document.querySelectorAll('button')).find((el) =>
+      el.textContent?.trim().startsWith(label),
+    ) as HTMLButtonElement | undefined;
+    expect(button).toBeTruthy();
+    act(() => {
+      button!.click();
+    });
+  }
+
   function clickDismissButton() {
     const button = document.querySelector('[aria-label="Dismiss sync feedback"]') as HTMLButtonElement | null;
     expect(button).toBeTruthy();
@@ -479,5 +490,64 @@ describe('Conversations sync feedback', () => {
     expect(failureNotice?.textContent).toContain(t('phaseFailed'));
     expect(failureNotice?.textContent).toContain(t('syncProviderDisabled'));
     expect(failureNotice?.textContent).not.toContain('sync provider disabled');
+  });
+
+  it('shows granular stage progress for a single-conversation Feishu run (avoids only 0/1 then 1/1)', async () => {
+    const run = deferred<any>();
+    syncFeishuConversations.mockImplementation(() => run.promise);
+    getFeishuSyncStatus.mockResolvedValue({ provider: 'feishu', instanceId: 'feishu-test', job: null });
+
+    await renderPane();
+    selectFirstConversation();
+    clickFeishuButton();
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+
+    const runningNotice = document.getElementById('conversationSyncFeedback');
+    expect(runningNotice).toBeTruthy();
+    expect(runningNotice?.getAttribute('data-phase')).toBe('running');
+    expect(runningNotice?.textContent).toContain('0/7');
+    expect(runningNotice?.textContent).toContain(t('syncStagePreparingQueue'));
+
+    // Simulate a background status poll update moving to the next stage; the done count should advance.
+    getFeishuSyncStatus.mockResolvedValue({
+      provider: 'feishu',
+      instanceId: 'feishu-test',
+      job: {
+        provider: 'feishu',
+        status: 'running',
+        startedAt: Date.now(),
+        updatedAt: Date.now(),
+        finishedAt: null,
+        conversationIds: [11],
+        currentConversationId: 11,
+        currentConversationTitle: 'Current sync target',
+        currentStage: 'loading_conversation',
+        okCount: 0,
+        failCount: 0,
+        perConversation: [],
+      },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(600);
+      await flushMicrotasks();
+    });
+
+    expect(document.getElementById('conversationSyncFeedback')?.textContent).toContain('1/7');
+    run.resolve({ provider: 'feishu', okCount: 1, failCount: 0, failures: [], results: [] });
+
+    // Ensure any pending polling timers/microtasks settle before the test environment tears down `window`.
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      await flushMicrotasks();
+    });
+
+    act(() => {
+      root?.unmount();
+    });
+    root = null;
   });
 });
