@@ -56,11 +56,6 @@ vi.mock('@services/sync/feishu/settings-store', () => ({
   pickFeishuFolderPathForConversation: vi.fn(() => ''),
 }));
 
-vi.mock('@services/sync/feishu/docx/image-materializer', () => ({
-  parseMarkdownImages: vi.fn(() => [{ url: 'https://example.com/a.png' }]),
-  materializeMarkdownImagesIntoDocx: vi.fn(async () => ({ appendedBlocks: 1 })),
-}));
-
 const fetchFeishuJsonMock = vi.hoisted(() => vi.fn());
 vi.mock('@services/sync/feishu/feishu-api', () => ({
   fetchFeishuJson: fetchFeishuJsonMock,
