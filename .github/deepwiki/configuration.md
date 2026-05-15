@@ -99,7 +99,8 @@ Feishu 同步的配置分两类：
 | 键 | 存储层 | 作用 | 备注 / 默认 |
 | --- | --- | --- | --- |
 | `feishu_oauth_client_id` | `chrome.storage.local` | Feishu OAuth client id | 维护者可在 `src/services/sync/feishu/auth/oauth.ts` 写入默认值；用户也可在 Settings → Feishu Advanced 覆盖 |
-| `feishu_oauth_token_exchange_proxy_url` | `chrome.storage.local` | OAuth code exchange/refresh 代理 Worker URL | 默认由 `src/services/sync/feishu/auth/oauth.ts` 提供；扩展端不存 `client_secret` |
+| `feishu_oauth_client_secret` | `chrome.storage.local` | Feishu OAuth client secret（可选） | **敏感信息**：会被 Zip v2 备份排除；配置后扩展会优先走直连 token exchange/refresh（无需 Worker） |
+| `feishu_oauth_token_exchange_proxy_url` | `chrome.storage.local` | OAuth code exchange/refresh 代理 Worker URL | 默认由 `src/services/sync/feishu/auth/oauth.ts` 提供；当未配置 `feishu_oauth_client_secret` 时用它完成 exchange/refresh（避免在扩展端存 secret） |
 | `feishu_oauth_pending_state` | `chrome.storage.local` | OAuth state（防 CSRF） | 授权开始时写入、回调校验后清空 |
 | `feishu_oauth_last_error` | `chrome.storage.local` | 最近一次 OAuth 错误 | Settings 会展示并允许用户重新 Connect |
 | `feishu_oauth_token_v1` | `chrome.storage.local` | OAuth token（access/refresh/expiresAt） | **敏感信息**：会被 Zip v2 备份排除 |

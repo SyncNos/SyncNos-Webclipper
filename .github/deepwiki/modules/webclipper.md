@@ -51,7 +51,7 @@
 | `src/services/sync/notion/settings-background-handlers.ts` | Notion 设置路由 | 实现 `GET_AUTH_STATUS / LIST_PARENT_PAGES / DISCONNECT`，将 UI 请求转换为 Notion API 调用并输出稳定错误形态 |
 | `src/services/sync/obsidian/obsidian-sync-orchestrator.ts` | Obsidian 同步编排 | 控制 append / rebuild / rename / fallback |
 | `src/services/sync/feishu/feishu-sync-orchestrator.ts` | Feishu(DocX) 同步编排 | 控制 DocX 创建与写入、token refresh、sync mapping 持久化与 job snapshot |
-| `src/services/sync/feishu/auth/oauth.ts` | Feishu OAuth | 处理授权页跳转、state 校验、code exchange/refresh（通过 worker proxy，扩展端不存 app_secret） |
+| `src/services/sync/feishu/auth/oauth.ts` | Feishu OAuth | 处理授权页跳转、state 校验、code exchange/refresh（可直连或通过 worker proxy；未配置 `client_secret` 时走 proxy） |
 | `src/services/sync/feishu/auth/token-store.ts` | Feishu token store | 统一读写 / 清理 `feishu_oauth_token_v1`，供 background handlers 与 orchestrator 使用 |
 | `src/services/sync/feishu/settings-background-handlers.ts` | Feishu 设置路由 | 实现 `GET_AUTH_STATUS / DISCONNECT`，将 UI 请求转换为 token-store / sync orchestrator 读取 |
 | `src/ui/settings/SettingsScene.tsx` | 设置页总入口 | 管理 Notion、Feishu、Notion AI、Obsidian、Backup、Chat with AI、Inpage、About You（含 Insight 统计）、About Me；Inpage 里包含阅读风格与 anti-hotlink 设置 |

@@ -13,6 +13,17 @@ It describes how to set up Feishu OAuth + DocX sync so end users don't need BYO 
 
 > 安全边界：扩展端只保存 OAuth token（`feishu_oauth_token_v1`，并且会被备份排除）；`client_secret` 只存在于 Worker 的 secret 中。
 
+## 方案 B（用户自建应用）：不使用 Worker，直接在扩展内填写密钥
+
+如果你的使用场景是“每个用户/每个企业自己创建飞书 **企业自建应用**”，并且希望省去部署 Cloudflare Worker 的步骤，可以使用 **方案 B**：
+
+- 用户在 Settings → Feishu → Advanced 中填写：
+  - `feishu_oauth_client_id`（App ID）
+  - `feishu_oauth_client_secret`（App Secret，敏感信息，备份会排除）
+- 扩展会优先走 **直连** token exchange/refresh（不再依赖 `feishu_oauth_token_exchange_proxy_url`）
+
+> 取舍：方案 B 更易上手，但 `client_secret` 会保存在扩展的 `chrome.storage.local` 中（仍会被备份排除）。
+
 ## 0. 你将改动/维护的东西
 
 - Feishu 应用（飞书开放平台）

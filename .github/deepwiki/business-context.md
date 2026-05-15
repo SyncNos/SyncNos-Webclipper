@@ -15,7 +15,7 @@ SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的
 | 产物 | 生产方 | 对用户的意义 | 关键约束 |
 | --- | --- | --- | --- |
 | Notion Parent Page 下的数据库 / 页面 | WebClipper | 统一承载 AI chats、web articles | 没授权或没选 Parent Page 时必须阻止写入 |
-| Feishu 云文档 DocX | WebClipper | 把 conversation 以 DocX 文档形式写入飞书云盘（按类型分文件夹） | 通过 OAuth + Worker 完成授权与 refresh；扩展端不存 `client_secret`，token 不进入备份 |
+| Feishu 云文档 DocX | WebClipper | 把 conversation 以 DocX 文档形式写入飞书云盘（按类型分文件夹） | 默认可通过 OAuth + Worker 完成授权与 refresh（避免在扩展端存 `client_secret`）；也支持用户在扩展内填写 `client_secret` 走直连 exchange/refresh（Worker 可选）。token 不进入备份 |
 | WebClipper 本地会话库 | WebClipper | 让采集、导出、备份、二次同步都基于同一份本地事实 | 先落 IndexedDB，再派生到任何外部目标 |
 | WebClipper Insight 仪表盘 | WebClipper | 把"数据库里的行数"转成用户可见的累计成果、来源结构和最长对话 | 只读、本地计算、不得依赖网络或新增 schema |
 | Chat with AI 详情头动作 | WebClipper | 把文章 / 对话内容变成可复制 prompt，并一键跳转到用户启用的 AI 平台 | 先复制到剪贴板，再打开外部站点；不在后台自动发起模型调用；prompt 模板可在设置中自定义 |
