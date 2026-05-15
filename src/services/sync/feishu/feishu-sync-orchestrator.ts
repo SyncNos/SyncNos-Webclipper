@@ -11,6 +11,7 @@ import {
   isFeishuConvertPermissionDenied,
   normalizeConvertedBlocksPreorder,
 } from '@services/sync/feishu/docx/convert-api';
+import { preprocessFeishuDocxMarkdownImages } from '@services/sync/feishu/docx/feishu-docx-image-preprocess';
 import { sha256Hex } from '@services/sync/shared/content-hash';
 
 const SYNC_PROVIDER = 'feishu';
@@ -451,8 +452,13 @@ async function appendMarkdownWithConvertFallback({
   docId: string;
   markdown: string;
 }): Promise<number> {
+  const preprocessed = await preprocessFeishuDocxMarkdownImages(markdown).catch(() => ({
+    markdownForConvert: markdown,
+    imageSourcesInOrder: [],
+  }));
+
   try {
-    return await appendConvertedBlocks({ accessToken, docId, markdown });
+    return await appendConvertedBlocks({ accessToken, docId, markdown: preprocessed.markdownForConvert });
   } catch (e) {
     if (isFeishuConvertPermissionDenied(e)) {
       return appendTextBlocks({ accessToken, docId, markdown });
