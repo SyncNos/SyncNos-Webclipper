@@ -75,7 +75,11 @@ function formatArticleMarkdown(
   return lines.join('\n');
 }
 
-function formatChatMarkdown(conversation: Conversation, messages: ConversationMessage[], options: FormatConversationMarkdownOptions) {
+function formatChatMarkdown(
+  conversation: Conversation,
+  messages: ConversationMessage[],
+  options: FormatConversationMarkdownOptions,
+) {
   const c = conversation || ({} as any);
   const lines: string[] = [];
   lines.push(`# ${c.title || '(untitled)'}`);

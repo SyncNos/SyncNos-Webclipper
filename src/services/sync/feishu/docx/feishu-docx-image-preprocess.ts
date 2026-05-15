@@ -117,50 +117,52 @@ export async function preprocessFeishuDocxMarkdownImages(markdown: string): Prom
 
       parts.push(src.slice(cursor, start));
 
-      const computed = cache.get(urlRaw) || (async () => {
-        const sourceUrl = safeString(urlRaw);
-        if (isHttpUrl(sourceUrl)) {
+      const computed =
+        cache.get(urlRaw) ||
+        (async () => {
+          const sourceUrl = safeString(urlRaw);
+          if (isHttpUrl(sourceUrl)) {
+            return { kind: 'http' as const, sourceUrl, urlForConvert: sourceUrl };
+          }
+
+          const assetId = parseSyncnosAssetId(sourceUrl);
+          if (assetId) {
+            const asset = await getImageCacheAssetById({ id: assetId }).catch(() => null);
+            const contentType = safeString(asset?.contentType);
+            const ext = extFromContentType(contentType || 'image/png');
+            const blob = asset?.blob instanceof Blob ? asset.blob : undefined;
+
+            const urlForConvert =
+              asset && isHttpUrl(safeString(asset.url))
+                ? safeString(asset.url)
+                : await toPlaceholderUrl('asset', `asset:${assetId}`, ext);
+
+            return {
+              kind: 'syncnos_asset' as const,
+              sourceUrl,
+              urlForConvert,
+              blob,
+              contentType: contentType || undefined,
+            };
+          }
+
+          if (isDataImageUrl(sourceUrl)) {
+            const decoded = decodeDataUrlToBlob(sourceUrl);
+            const contentType = safeString(decoded?.contentType);
+            const ext = extFromContentType(contentType || 'image/png');
+            const urlForConvert = await toPlaceholderUrl('data', sourceUrl, ext);
+            return {
+              kind: 'data' as const,
+              sourceUrl,
+              urlForConvert,
+              blob: decoded?.blob,
+              contentType: contentType || undefined,
+            };
+          }
+
+          // Unknown scheme: keep as-is (Convert may ignore it).
           return { kind: 'http' as const, sourceUrl, urlForConvert: sourceUrl };
-        }
-
-        const assetId = parseSyncnosAssetId(sourceUrl);
-        if (assetId) {
-          const asset = await getImageCacheAssetById({ id: assetId }).catch(() => null);
-          const contentType = safeString(asset?.contentType);
-          const ext = extFromContentType(contentType || 'image/png');
-          const blob = asset?.blob instanceof Blob ? asset.blob : undefined;
-
-          const urlForConvert =
-            asset && isHttpUrl(safeString(asset.url))
-              ? safeString(asset.url)
-              : await toPlaceholderUrl('asset', `asset:${assetId}`, ext);
-
-          return {
-            kind: 'syncnos_asset' as const,
-            sourceUrl,
-            urlForConvert,
-            blob,
-            contentType: contentType || undefined,
-          };
-        }
-
-        if (isDataImageUrl(sourceUrl)) {
-          const decoded = decodeDataUrlToBlob(sourceUrl);
-          const contentType = safeString(decoded?.contentType);
-          const ext = extFromContentType(contentType || 'image/png');
-          const urlForConvert = await toPlaceholderUrl('data', sourceUrl, ext);
-          return {
-            kind: 'data' as const,
-            sourceUrl,
-            urlForConvert,
-            blob: decoded?.blob,
-            contentType: contentType || undefined,
-          };
-        }
-
-        // Unknown scheme: keep as-is (Convert may ignore it).
-        return { kind: 'http' as const, sourceUrl, urlForConvert: sourceUrl };
-      })();
+        })();
 
       cache.set(urlRaw, computed);
       const source = await computed;

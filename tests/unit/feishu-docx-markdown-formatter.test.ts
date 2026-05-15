@@ -38,14 +38,9 @@ describe('feishu docx markdown formatter', () => {
   });
 
   it('keeps internal image references (data url / syncnos-asset)', async () => {
-    const markdown = [
-      '# Title',
-      '',
-      '![d](data:image/png;base64,AAAA)',
-      '',
-      '![a](syncnos-asset://123)',
-      '',
-    ].join('\n');
+    const markdown = ['# Title', '', '![d](data:image/png;base64,AAAA)', '', '![a](syncnos-asset://123)', ''].join(
+      '\n',
+    );
 
     const out = await formatConversationMarkdownForFeishuDocxSync(
       { id: 1, source: 'x', conversationKey: 'k', title: 't' } as any,

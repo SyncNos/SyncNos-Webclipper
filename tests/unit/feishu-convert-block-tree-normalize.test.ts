@@ -30,4 +30,3 @@ describe('feishu convert blocks preorder normalization', () => {
     expect(normalized.blocks.length).toBe(1);
   });
 });
-

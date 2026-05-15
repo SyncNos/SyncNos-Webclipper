@@ -165,7 +165,9 @@ describe('feishu docx image bind flow', () => {
     const res = await orch.syncConversations({ conversationIds: [1], instanceId: 'x' });
     expect(res.okCount).toBe(1);
 
-    expect(fetchFeishuJsonMock.mock.calls.map((c) => String(c[0] || ''))).toContain('/docx/v1/documents/blocks/convert');
+    expect(fetchFeishuJsonMock.mock.calls.map((c) => String(c[0] || ''))).toContain(
+      '/docx/v1/documents/blocks/convert',
+    );
     expect(imageBindMocks.uploadImageToFeishu).toHaveBeenCalledTimes(2);
     expect(imageBindMocks.bindImageBlockWithFileToken).toHaveBeenCalledTimes(2);
   });
@@ -211,4 +213,3 @@ describe('feishu docx image bind flow', () => {
     expect(String(res.results?.[0]?.warnings?.join('\n') || '')).toContain('missing docx image blocks');
   });
 });
-

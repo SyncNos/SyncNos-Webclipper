@@ -57,4 +57,3 @@ describe('feishu warnings sanitization', () => {
     expect(text).not.toContain('SECRET');
   });
 });
-

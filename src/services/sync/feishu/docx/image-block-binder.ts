@@ -95,13 +95,7 @@ function readBlockType(block: any): number {
   return Number(block.block_type ?? block.blockType ?? 0) || 0;
 }
 
-async function listAllDocBlocks({
-  accessToken,
-  docId,
-}: {
-  accessToken: string;
-  docId: string;
-}): Promise<any[]> {
+async function listAllDocBlocks({ accessToken, docId }: { accessToken: string; docId: string }): Promise<any[]> {
   const out: any[] = [];
   let pageToken = '';
   for (let round = 0; round < 60; round += 1) {
@@ -219,10 +213,9 @@ export async function bindFeishuDocxImagesByOrder({
       source.kind === 'http' ? guessFileNameFromUrl(preferredUrl, ext) : `image-${i + 1}.${ext || 'png'}`;
 
     try {
-      const fileToken = await withRetry(
-        () => uploadImageToFeishu({ accessToken, imageBlockId, fileName, blob }),
-        { attempts: 3 },
-      );
+      const fileToken = await withRetry(() => uploadImageToFeishu({ accessToken, imageBlockId, fileName, blob }), {
+        attempts: 3,
+      });
       await withRetry(() => bindImageBlockWithFileToken({ accessToken, docId, imageBlockId, fileToken }), {
         attempts: 3,
       });

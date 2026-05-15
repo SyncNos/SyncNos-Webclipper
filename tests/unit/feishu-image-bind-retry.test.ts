@@ -61,4 +61,3 @@ describe('feishu image bind retry', () => {
     expect(res.boundCount).toBe(1);
   });
 });
-
