@@ -6,7 +6,11 @@ import { getFeishuOAuthToken, setFeishuOAuthToken } from '@services/sync/feishu/
 import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
 import { getFeishuPathConfig, pickFeishuFolderPathForConversation } from '@services/sync/feishu/settings-store';
 import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
-import { convertContentToBlocks, isFeishuConvertPermissionDenied } from '@services/sync/feishu/docx/convert-api';
+import {
+  convertContentToBlocks,
+  isFeishuConvertPermissionDenied,
+  normalizeConvertedBlocksPreorder,
+} from '@services/sync/feishu/docx/convert-api';
 import { materializeMarkdownImagesIntoDocx, parseMarkdownImages } from '@services/sync/feishu/docx/image-materializer';
 import { sha256Hex } from '@services/sync/shared/content-hash';
 
@@ -403,7 +407,8 @@ async function appendConvertedBlocks({
   docId: string;
   markdown: string;
 }): Promise<number> {
-  const converted = await convertContentToBlocks({ accessToken, content: markdown, contentType: 'markdown' });
+  const convertedRaw = await convertContentToBlocks({ accessToken, content: markdown, contentType: 'markdown' });
+  const converted = normalizeConvertedBlocksPreorder(convertedRaw);
   const blocks = sanitizeConvertedBlocksForInsert(converted.blocks);
   if (!blocks.length) throw new Error('Feishu Convert API: empty blocks');
 
