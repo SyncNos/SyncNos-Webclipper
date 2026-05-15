@@ -128,7 +128,7 @@ export function ConversationListPane({
     toggleSelected,
     setActiveId,
     clearSelected,
-    openConversationExternalById,
+    openConversationInListScopeById,
     exporting,
     listError,
     syncFeedback,
@@ -544,8 +544,7 @@ export function ConversationListPane({
   const onNoticeJumpToConversation = (conversationId: number) => {
     const id = Number(conversationId);
     if (!Number.isFinite(id) || id <= 0) return;
-    clearSelected();
-    openConversationExternalById(id);
+    openConversationInListScopeById(id);
     onOpenConversation?.(id);
   };
 

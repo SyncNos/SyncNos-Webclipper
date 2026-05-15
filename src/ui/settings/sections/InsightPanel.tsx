@@ -324,7 +324,7 @@ export function InsightPanel(props: {
   onChangeRange: (next: InsightTimeRange) => void;
 }) {
   const { stats, range, onChangeRange } = props;
-  const { openConversationExternalByLoc, openConversationExternalById, clearSelected } = useConversationsApp();
+  const { openConversationInListScopeByLoc, openConversationInListScopeById } = useConversationsApp();
   const isNarrow = useIsNarrowScreen();
   const routerLocation = useLocation();
   const fallbackTo = useMemo(() => {
@@ -345,14 +345,13 @@ export function InsightPanel(props: {
     const conversationId = Number(item?.conversationId);
 
     const openedId = openConversationInApp(conversationId, {
-      clearSelected,
       isNarrow,
       setActiveId: (id) => {
         if (source && conversationKey) {
-          void openConversationExternalByLoc({ source, conversationKey });
+          void openConversationInListScopeByLoc({ source, conversationKey });
           return;
         }
-        void openConversationExternalById(Number(id));
+        void openConversationInListScopeById(Number(id));
       },
     });
 
