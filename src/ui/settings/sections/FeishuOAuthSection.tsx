@@ -178,6 +178,7 @@ export function FeishuOAuthSection(props: {
               >
                 {t('openSetupGuide')}
               </a>
+              . If you updated Feishu OAuth scopes/permissions (e.g. Convert), disconnect and connect again to re-authorize.
             </div>
           </SettingsFormRow>
         </div>
