@@ -528,7 +528,7 @@ async function appendTextBlocks({
     const slice = blocks.slice(i, i + batchSize);
     await fetchFeishuJson<any>(
       `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
-      { method: 'POST', body: JSON.stringify({ children: slice }) },
+      { method: 'POST', body: JSON.stringify({ children: slice, index: -1 }) },
       { accessToken },
     );
     appended += slice.length;
