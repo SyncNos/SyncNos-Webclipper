@@ -140,9 +140,8 @@ describe('feishu orchestrator warnings sanitization', () => {
     const res = await orch.syncConversations({ conversationIds: [1], instanceId: 'x' });
     expect(res.okCount).toBe(1);
 
-    const warnings = String(res.perConversation?.[0]?.warnings?.join('\n') || '');
+    const warnings = String(res.results?.[0]?.warnings?.join('\n') || '');
     expect(warnings).toContain('https://example.com/a.png?keys=sig,x');
     expect(warnings).not.toContain('SECRET');
   });
 });
-
