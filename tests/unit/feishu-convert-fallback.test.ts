@@ -249,4 +249,48 @@ describe('feishu convert fallback', () => {
       calls.some((c) => c.path.endsWith('/children') && String(c.init?.method || 'GET').toUpperCase() === 'POST'),
     ).toBe(true);
   });
+
+  it('batches descendant insertion when convert yields more than 1000 blocks', async () => {
+    setupChromeStorage();
+    tokenMocks.getFeishuOAuthToken.mockResolvedValue({ accessToken: 't', expiresAt: Date.now() + 60_000 });
+    jobStoreMocks.abortRunningJobIfFromOtherInstance.mockResolvedValue(null);
+    jobStoreMocks.isRunningJob.mockReturnValue(false);
+
+    backgroundStorageMocks.getSyncMappingByConversation.mockResolvedValue({
+      conversation: { id: 1, title: 't' },
+      mapping: { feishuDocId: '' },
+    });
+    backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([]);
+
+    const blocks = Array.from({ length: 1001 }).map((_, i) => ({
+      block_id: `b${i + 1}`,
+      block_type: 2,
+      text: { elements: [{ text_run: { content: `line${i + 1}` } }] },
+      children: [],
+    }));
+    const firstLevel = blocks.map((b) => b.block_id);
+
+    fetchFeishuJsonMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const drive = mockDefaultFeishuFolderLayout(path, init);
+      if (drive) return drive;
+      if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
+      if (path.includes('/children?page_size=')) return { items: [] };
+      if (path === '/docx/v1/documents/blocks/convert')
+        return {
+          blocks,
+          first_level_block_ids: firstLevel,
+        };
+      if (path.endsWith('/descendant')) return { ok: true };
+      if (path.endsWith('/children') && !path.includes('batch_delete')) return { ok: true };
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const orch = await loadModule('@services/sync/feishu/feishu-sync-orchestrator.ts');
+    const res = await orch.syncConversations({ conversationIds: [1], instanceId: 'x' });
+    expect(res.okCount).toBe(1);
+
+    const calls = fetchFeishuJsonMock.mock.calls.map((c) => String(c[0] || ''));
+    const descendantCalls = calls.filter((p) => p.endsWith('/descendant'));
+    expect(descendantCalls.length).toBe(2);
+  });
 });
