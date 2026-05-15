@@ -2,13 +2,13 @@ import { downloadImageSmart } from '@platform/webext/image-download-proxy';
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
 
 const FEISHU_OPEN_API_BASE = 'https://open.feishu.cn/open-apis';
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // 20MB (upload_all limit)
+export const FEISHU_DOCX_IMAGE_MAX_BYTES = 20 * 1024 * 1024; // 20MB (upload_all limit)
 
 function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
 }
 
-function guessFileNameFromUrl(url: string, fallbackExt = 'png') {
+export function guessFileNameFromUrl(url: string, fallbackExt = 'png') {
   try {
     const u = new URL(url);
     const name = u.pathname.split('/').pop() || '';
@@ -65,7 +65,7 @@ function splitMarkdownByImages(markdown: string) {
   return parts;
 }
 
-async function uploadImageToFeishu({
+export async function uploadImageToFeishu({
   accessToken,
   imageBlockId,
   fileName,
@@ -139,7 +139,7 @@ async function uploadImageToFeishu({
   }
 }
 
-async function bindImageBlockWithFileToken({
+export async function bindImageBlockWithFileToken({
   accessToken,
   docId,
   imageBlockId,
@@ -249,7 +249,7 @@ export async function materializeMarkdownImagesIntoDocx({
     const url = safeString(part.url);
     if (!url) continue;
 
-    const dl = await downloadImageSmart({ url, maxBytes: MAX_IMAGE_BYTES }).catch(() => ({
+    const dl = await downloadImageSmart({ url, maxBytes: FEISHU_DOCX_IMAGE_MAX_BYTES }).catch(() => ({
       ok: false as const,
       reason: 'fetch' as const,
     }));
@@ -260,7 +260,7 @@ export async function materializeMarkdownImagesIntoDocx({
       continue;
     }
 
-    if ((dl.blob.size || 0) > MAX_IMAGE_BYTES) {
+    if ((dl.blob.size || 0) > FEISHU_DOCX_IMAGE_MAX_BYTES) {
       fallbackUrlCount += 1;
       warnings.push(`image too large (>20MB): ${url}`);
       appendedBlocks += await appendTextAsBlock({ accessToken, docId, text: url });
