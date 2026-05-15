@@ -18,6 +18,7 @@ export function FeishuOAuthSection(props: {
   feishuChatFolder: string;
   feishuArticleFolder: string;
   feishuVideoFolder: string;
+  setupGuideUrl: string;
   onToggleSyncEnabled: (enabled: boolean) => void;
   onToggleAdvancedOpen: () => void;
   onConnectOrDisconnect: () => void;
@@ -46,6 +47,7 @@ export function FeishuOAuthSection(props: {
     feishuChatFolder,
     feishuArticleFolder,
     feishuVideoFolder,
+    setupGuideUrl,
     onToggleSyncEnabled,
     onToggleAdvancedOpen,
     onConnectOrDisconnect,
@@ -178,7 +180,7 @@ export function FeishuOAuthSection(props: {
                 {t('feishuAdvancedHint')}{' '}
                 <a
                   className="tw-underline hover:tw-opacity-80"
-                  href="https://github.com/chiimagnus/SyncNos/blob/main/.github/guide/feishu/DocxSync.zh.md"
+                  href={setupGuideUrl}
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => {

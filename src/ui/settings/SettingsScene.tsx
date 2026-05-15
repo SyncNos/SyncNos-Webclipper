@@ -99,6 +99,7 @@ export function SettingsScene(props: SettingsSceneProps) {
     onSaveFeishuAdvancedSettings,
     onFeishuConnectOrDisconnect,
     onOpenFeishuSetupGuide,
+    feishuSetupGuideUrl,
 
     chatWithPromptTemplate,
     setChatWithPromptTemplate,
@@ -275,6 +276,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           feishuChatFolder={feishuChatFolder}
           feishuArticleFolder={feishuArticleFolder}
           feishuVideoFolder={feishuVideoFolder}
+          setupGuideUrl={feishuSetupGuideUrl}
           onToggleSyncEnabled={(enabled) => {
             void onToggleFeishuSyncEnabled(enabled);
           }}
