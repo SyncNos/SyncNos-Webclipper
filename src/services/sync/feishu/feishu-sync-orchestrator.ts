@@ -26,6 +26,25 @@ function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
 }
 
+function sanitizeUrlForWarning(url: string): string {
+  const raw = safeString(url);
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    const keys = Array.from(new Set(Array.from(u.searchParams.keys()))).slice(0, 12);
+    const q = keys.length ? `?keys=${keys.join(',')}` : '';
+    return `${u.origin}${u.pathname}${q}`;
+  } catch (_e) {
+    return raw.slice(0, 140);
+  }
+}
+
+function sanitizePotentialUrls(text: string): string {
+  const src = safeString(text);
+  if (!src) return '';
+  return src.replace(/https?:\/\/[^\s)]+/gi, (matched) => sanitizeUrlForWarning(matched));
+}
+
 function limitWarnings(warnings: string[], maxCount: number): string[] {
   const list = Array.isArray(warnings) ? warnings.map((w) => safeString(w)).filter(Boolean) : [];
   const max = Number.isFinite(Number(maxCount)) ? Math.max(1, Math.floor(Number(maxCount))) : 20;
@@ -476,7 +495,7 @@ async function appendMarkdownWithConvertFallback({
       imageCount: preprocessed.imageSourcesInOrder.length,
       docImageBlockCount: 0,
       boundCount: 0,
-      warnings: [`image bind failed: ${safeString((e as any)?.message || e || '')}`],
+      warnings: [`image bind failed: ${sanitizePotentialUrls(safeString((e as any)?.message || e || ''))}`],
     }));
     return { appended, warnings: bind.warnings || [] };
   } catch (e) {
