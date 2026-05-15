@@ -6,6 +6,8 @@ import { setFeishuOAuthToken, type FeishuOAuthTokenV1 } from '@services/sync/fei
 declare const __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__: string | undefined;
 declare const __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__: string | undefined;
 
+const FEISHU_TOKEN_URL = 'https://open.feishu.cn/open-apis/authen/v2/oauth/token';
+
 const DEFAULT_FEISHU_OAUTH_CLIENT_ID =
   (typeof __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__ === 'string' ? __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__ : '') ||
   'cli_aa8e3c9970cb5cb5';
@@ -40,6 +42,34 @@ function toError(message: unknown) {
   return new Error(String(message || 'unknown error'));
 }
 
+function safeString(value: unknown): string {
+  return String(value == null ? '' : value).trim();
+}
+
+function normalizeOAuthTokenResponse(
+  json: any,
+): { access_token: string; refresh_token?: string; expires_in?: number } | null {
+  if (!json || typeof json !== 'object') return null;
+
+  const accessToken = typeof json.access_token === 'string' ? json.access_token : '';
+  if (accessToken) {
+    return {
+      access_token: accessToken,
+      refresh_token: typeof json.refresh_token === 'string' ? json.refresh_token : undefined,
+      expires_in: Number.isFinite(Number(json.expires_in)) ? Number(json.expires_in) : undefined,
+    };
+  }
+
+  const data = (json as any).data;
+  const nestedAccess = typeof data?.access_token === 'string' ? data.access_token : '';
+  if (!nestedAccess) return null;
+  return {
+    access_token: nestedAccess,
+    refresh_token: typeof data?.refresh_token === 'string' ? data.refresh_token : undefined,
+    expires_in: Number.isFinite(Number(data?.expires_in)) ? Number(data.expires_in) : undefined,
+  };
+}
+
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -66,7 +96,31 @@ async function getTokenExchangeProxyUrl(): Promise<string> {
   }
 }
 
-async function exchangeFeishuCodeForToken(code: string, { fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}) {
+async function getFeishuClientId(): Promise<string> {
+  try {
+    const res = await storageGet([KEY_CLIENT_ID]);
+    const value = res?.[KEY_CLIENT_ID] ? String(res[KEY_CLIENT_ID]) : '';
+    const normalized = value.trim();
+    return normalized || DEFAULT_FEISHU_OAUTH_CLIENT_ID;
+  } catch (_e) {
+    return DEFAULT_FEISHU_OAUTH_CLIENT_ID;
+  }
+}
+
+async function getFeishuClientSecret(): Promise<string> {
+  try {
+    const res = await storageGet([KEY_CLIENT_SECRET]);
+    const value = res?.[KEY_CLIENT_SECRET] ? String(res[KEY_CLIENT_SECRET]) : '';
+    return value.trim();
+  } catch (_e) {
+    return '';
+  }
+}
+
+async function exchangeFeishuCodeForTokenViaProxy(
+  code: string,
+  { fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {},
+) {
   const proxyUrl = await getTokenExchangeProxyUrl();
   if (!proxyUrl) throw toError('token exchange proxy url not configured');
 
@@ -97,9 +151,10 @@ async function exchangeFeishuCodeForToken(code: string, { fetchImpl = fetch }: {
 
       const text = await res.text();
       if (!res.ok) throw toError(`token exchange failed: HTTP ${res.status} ${text}`);
-      const json = JSON.parse(text);
-      if (!json || !json.access_token) throw toError('no access_token in response');
-      return json;
+      const rawJson = JSON.parse(text);
+      const normalized = normalizeOAuthTokenResponse(rawJson);
+      if (!normalized?.access_token) throw toError('no access_token in response');
+      return normalized;
     } catch (e) {
       lastErr = e;
       const msg = String((e as any)?.message || e || '');
@@ -111,6 +166,75 @@ async function exchangeFeishuCodeForToken(code: string, { fetchImpl = fetch }: {
   }
 
   throw lastErr || toError('token exchange failed');
+}
+
+async function exchangeFeishuCodeForTokenDirect(code: string, { fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}) {
+  const clientId = await getFeishuClientId();
+  const clientSecret = await getFeishuClientSecret();
+  if (!clientId) throw toError('Feishu OAuth client id not configured');
+  if (!clientSecret) throw toError('Feishu OAuth client secret not configured');
+
+  let lastErr: any = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const res = await (fetchImpl === fetch
+        ? fetchWithTimeout(
+            FEISHU_TOKEN_URL,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify({
+                grant_type: 'authorization_code',
+                client_id: clientId,
+                client_secret: clientSecret,
+                code,
+                redirect_uri: getFeishuOAuthDefaults().redirectUri,
+              }),
+            },
+            12_000,
+          )
+        : fetchImpl(FEISHU_TOKEN_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({
+              grant_type: 'authorization_code',
+              client_id: clientId,
+              client_secret: clientSecret,
+              code,
+              redirect_uri: getFeishuOAuthDefaults().redirectUri,
+            }),
+          }));
+
+      const text = await res.text();
+      if (!res.ok) throw toError(`token exchange failed: HTTP ${res.status} ${text}`);
+      const rawJson = text ? JSON.parse(text) : null;
+      const normalized = normalizeOAuthTokenResponse(rawJson);
+      if (!normalized?.access_token) throw toError('no access_token in response');
+      return normalized;
+    } catch (e) {
+      lastErr = e;
+      const msg = String((e as any)?.message || e || '');
+      const transient = /aborted|timeout|network|fetch/i.test(msg);
+      if (attempt >= 2 || !transient) break;
+      await sleep(700);
+    }
+  }
+
+  throw lastErr || toError('token exchange failed');
+}
+
+async function exchangeFeishuCodeForToken(code: string, { fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}) {
+  const secret = await getFeishuClientSecret();
+  if (secret) {
+    return exchangeFeishuCodeForTokenDirect(code, { fetchImpl });
+  }
+  return exchangeFeishuCodeForTokenViaProxy(code, { fetchImpl });
 }
 
 function parseQueryFromUrl(url: string) {
@@ -141,7 +265,6 @@ export async function ensureDefaultFeishuOAuthClientId(): Promise<void> {
     if (!currentId && DEFAULT_FEISHU_OAUTH_CLIENT_ID) {
       await storageSet({ [KEY_CLIENT_ID]: DEFAULT_FEISHU_OAUTH_CLIENT_ID });
     }
-    await storageRemove([KEY_CLIENT_SECRET]);
   } catch (_e) {
     // ignore (best-effort)
   }
@@ -149,7 +272,9 @@ export async function ensureDefaultFeishuOAuthClientId(): Promise<void> {
 
 export async function ensureDefaultFeishuOAuthProxyUrl(): Promise<void> {
   try {
-    const res = await storageGet([KEY_TOKEN_EXCHANGE_PROXY_URL]);
+    const res = await storageGet([KEY_TOKEN_EXCHANGE_PROXY_URL, KEY_CLIENT_SECRET]);
+    const clientSecret = safeString(res?.[KEY_CLIENT_SECRET]);
+    if (clientSecret) return;
     const current = res?.[KEY_TOKEN_EXCHANGE_PROXY_URL] ? String(res[KEY_TOKEN_EXCHANGE_PROXY_URL]) : '';
     if (!current && DEFAULT_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL) {
       await storageSet({ [KEY_TOKEN_EXCHANGE_PROXY_URL]: DEFAULT_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL });
