@@ -26,6 +26,14 @@ function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
 }
 
+function limitWarnings(warnings: string[], maxCount: number): string[] {
+  const list = Array.isArray(warnings) ? warnings.map((w) => safeString(w)).filter(Boolean) : [];
+  const max = Number.isFinite(Number(maxCount)) ? Math.max(1, Math.floor(Number(maxCount))) : 20;
+  if (list.length <= max) return list;
+  const remain = list.length - max;
+  return [...list.slice(0, max), `(+${remain} more)`];
+}
+
 function normalizeOAuthTokenResponse(
   json: any,
 ): { access_token: string; refresh_token?: string; expires_in?: number } | null {
@@ -713,7 +721,7 @@ async function syncConversations({
           mode,
           appended,
           error: '',
-          warnings: [...createWarnings, ...appendWarnings],
+          warnings: limitWarnings([...createWarnings, ...appendWarnings], 20),
           at: Date.now(),
         });
       }

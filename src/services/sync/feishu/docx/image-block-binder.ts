@@ -29,6 +29,12 @@ function sanitizeUrlForWarning(url: string): string {
   }
 }
 
+function sanitizePotentialUrls(text: string): string {
+  const src = safeString(text);
+  if (!src) return '';
+  return src.replace(/https?:\/\/[^\s)]+/gi, (matched) => sanitizeUrlForWarning(matched));
+}
+
 function readBlockId(block: any): string {
   if (!block || typeof block !== 'object') return '';
   return safeString(block.block_id ?? block.blockId ?? block.id);
@@ -167,7 +173,8 @@ export async function bindFeishuDocxImagesByOrder({
       await bindImageBlockWithFileToken({ accessToken, docId, imageBlockId, fileToken });
       boundCount += 1;
     } catch (e) {
-      warnings.push(`image bind failed: ${sanitizeUrlForWarning(preferredUrl)} (${safeString((e as any)?.message)})`);
+      const msg = sanitizePotentialUrls(safeString((e as any)?.message || ''));
+      warnings.push(`image bind failed: ${sanitizeUrlForWarning(preferredUrl)}${msg ? ` (${msg})` : ''}`);
     }
 
     // DocX write APIs are rate-limited; keep conservative pacing.
@@ -185,4 +192,3 @@ export async function bindFeishuDocxImagesByOrder({
 export default {
   bindFeishuDocxImagesByOrder,
 };
-
