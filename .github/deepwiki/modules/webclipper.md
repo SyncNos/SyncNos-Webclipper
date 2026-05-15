@@ -158,7 +158,7 @@
 - article 评论通过 `article_comments` 独立存储，并以 `canonicalUrl` + `conversationId` 组织线程；它是 article 会话的本地注释层，而不是新的远端同步目标。
 - Notion orchestrator 会按 kind 选择 `SyncNos-AI Chats` 或 `SyncNos-Web Articles` 数据库，并在数据库缓存失效时尝试恢复一次。
 - Obsidian orchestrator 在 patch 失败时不是直接报错，而是尽量回退全量重建，优先保证文件最终可恢复到正确状态。
-- Feishu orchestrator（DocX）基于 OAuth token 把 conversation 写入飞书云文档：默认会在云盘根目录创建/使用三类文件夹（`SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`），也可在 Settings 中分别自定义路径；同步时优先走 Convert API（markdown→DocX blocks）与图片上传插入（失败会回退为纯文本 blocks 写入）；并通过内容 hash 实现 `skipped_unchanged`，若目标 DocX 已删除/不可访问则自动创建新文档并更新 mapping。OAuth token 存在 `feishu_oauth_token_v1` 且会被备份排除；`client_secret` 不进入扩展端（由 token exchange/refresh worker 承担）。
+- Feishu orchestrator（DocX）基于 OAuth token 把 conversation 写入飞书云文档：默认会在云盘根目录创建/使用三类文件夹（`SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`），也可在 Settings 中分别自定义路径；同步时优先走 Convert API（markdown→DocX blocks）与图片上传插入（失败会回退为纯文本 blocks 写入）；并通过内容 hash 实现 `skipped_unchanged`，若目标 DocX 已删除/不可访问则自动创建新文档并更新 mapping。OAuth token 存在 `feishu_oauth_token_v1` 且会被备份排除；可选地在扩展端保存 `client_secret` 走直连 refresh，或不保存密钥改走 token exchange/refresh worker。
 - `schema.ts` 的升级链路采用 `oldVersion < 2 / < 4 / < 6 / < 8` 分段处理：分别覆盖 NotionAI key 归一、article canonical 归并、`conversations.description` 旧字段清理、`article_comments` store 保留与列表分页索引回填。
 
 ## 设置与 UI 入口

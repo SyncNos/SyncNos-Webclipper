@@ -491,9 +491,9 @@ export const zh: { [K in TranslationKey]: string } = {
   feishuSyncEnabledHint: '已关闭飞书同步，您可以随时在设置中重新开启。',
   feishuPaths: '飞书路径',
   feishuPathsNote: '相对于云盘根目录的文件夹路径。支持嵌套文件夹，留空则使用默认路径。',
-  feishuOAuthClientIdLabel: 'OAuth 客户端 ID',
-  feishuOAuthClientSecretLabel: 'OAuth 客户端密钥',
-  feishuTokenExchangeProxyUrlLabel: 'Token exchange 代理 URL',
+  feishuOAuthClientIdLabel: 'App ID（Client ID）',
+  feishuOAuthClientSecretLabel: 'App Secret（Client Secret）',
+  feishuTokenExchangeProxyUrlLabel: '代理 URL（Worker）',
   feishuAdvancedHint:
     '连接飞书需要先填 App ID（Client ID）。两种方式二选一：① 填“代理 URL”（Worker）：更安全，扩展不会保存 App Secret；② 填“Client Secret”（App Secret）：更省事，扩展会直连飞书完成登录与刷新（无需 Worker，但密钥会保存在本机）。',
   feishuWaitingHint: '请在打开的飞书授权页完成授权，然后返回这里。',
