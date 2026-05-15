@@ -64,6 +64,12 @@ export function FeishuOAuthSection(props: {
     onSavePaths();
   };
 
+  const onEnterToSaveAdvanced = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    onSaveAdvanced();
+  };
+
   return (
     <>
       <section className={cardClassName} aria-label={t('feishuOAuth')}>
@@ -118,6 +124,8 @@ export function FeishuOAuthSection(props: {
             <input
               value={feishuClientId}
               onChange={(e) => onChangeClientId(e.target.value)}
+              onBlur={onSaveAdvanced}
+              onKeyDown={onEnterToSaveAdvanced}
               disabled={busy}
               spellCheck={false}
               placeholder="cli_xxx"
@@ -130,6 +138,8 @@ export function FeishuOAuthSection(props: {
             <input
               value={feishuClientSecret}
               onChange={(e) => onChangeClientSecret(e.target.value)}
+              onBlur={onSaveAdvanced}
+              onKeyDown={onEnterToSaveAdvanced}
               disabled={busy}
               spellCheck={false}
               type="password"
@@ -143,6 +153,8 @@ export function FeishuOAuthSection(props: {
             <input
               value={feishuTokenExchangeProxyUrl}
               onChange={(e) => onChangeTokenExchangeProxyUrl(e.target.value)}
+              onBlur={onSaveAdvanced}
+              onKeyDown={onEnterToSaveAdvanced}
               disabled={busy}
               spellCheck={false}
               placeholder="https://.../feishu/oauth/exchange"
@@ -150,12 +162,6 @@ export function FeishuOAuthSection(props: {
               className={`${textInputClassName} tw-w-full`}
             />
           </SettingsFormRow>
-
-          <div className="tw-flex tw-justify-end">
-            <button type="button" className={buttonClassName} onClick={onSaveAdvanced} disabled={busy}>
-              {t('save')}
-            </button>
-          </div>
 
           <SettingsFormRow label={t('note')} align="start">
             <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">

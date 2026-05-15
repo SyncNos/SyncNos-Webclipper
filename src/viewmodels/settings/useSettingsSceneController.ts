@@ -721,10 +721,21 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         throw new Error('Feishu OAuth client id not configured');
       }
       const clientSecret = String(feishuClientSecret || '').trim();
-      const proxyUrl = String(feishuTokenExchangeProxyUrl || '').trim();
+      const proxyUrlRaw = String(feishuTokenExchangeProxyUrl || '').trim();
+      const proxyUrl = proxyUrlRaw ? normalizeHttpsUrlOrEmpty(proxyUrlRaw) : '';
+      if (proxyUrlRaw && !proxyUrl) throw new Error('Feishu token exchange proxy url must be https');
       if (!clientSecret && !proxyUrl) {
         throw new Error('Feishu OAuth requires client secret (direct) or token exchange proxy url (worker)');
       }
+
+      await storageSet({
+        feishu_oauth_client_id: clientId,
+        feishu_oauth_client_secret: clientSecret,
+        feishu_oauth_token_exchange_proxy_url: proxyUrl,
+      });
+      setFeishuTokenExchangeProxyUrl(proxyUrl);
+      setFeishuClientId(clientId);
+      setFeishuClientSecret(clientSecret);
 
       const cfg = getFeishuOAuthDefaults();
       const state = `webclipper_${Math.random().toString(16).slice(2)}_${Date.now()}`;
