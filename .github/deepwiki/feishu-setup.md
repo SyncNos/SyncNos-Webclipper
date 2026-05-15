@@ -90,11 +90,17 @@ https://chiimagnus.github.io/syncnos-oauth/callback
 | 列出目录内容（按路径查找 folder） | `GET /open-apis/drive/v1/files` | `drive:drive`（建议） |
 | 创建目录（路径不存在时自动创建） | `POST /open-apis/drive/v1/files/create_folder` | `drive:drive` |
 | 创建 DocX 文档 | `POST /open-apis/docx/v1/documents` | `docx:document` 或 `docx:document:create` |
+| **Markdown/HTML 转 blocks（Convert）** | `POST /open-apis/docx/v1/documents/blocks/convert` | `docx:document.block:convert` |
 | 获取文档子块列表 | `GET /open-apis/docx/v1/documents/{id}/blocks/{id}/children` | `docx:document` |
 | 批量删除子块 | `DELETE /open-apis/docx/v1/documents/{id}/blocks/{id}/children/batch_delete` | `docx:document` |
 | 创建子块（写入内容） | `POST /open-apis/docx/v1/documents/{id}/blocks/{id}/children` | `docx:document` |
 
-**当前默认配置**：`docx:document` + `drive:drive`（默认会在云盘根目录创建/使用三类文件夹：`SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`；也可在 Settings → Feishu → Feishu Paths 中分别自定义，目录不存在会自动创建）。如果你之前用的是 `drive:drive:readonly`，升级后需要 **Disconnect → Connect** 重新授权，否则旧 token 可能无创建目录权限。
+**当前默认配置**：`docx:document` + `docx:document.block:convert` + `drive:drive`（默认会在云盘根目录创建/使用三类文件夹：`SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`；也可在 Settings → Feishu → Feishu Paths 中分别自定义，目录不存在会自动创建）。
+
+注意：
+- `docx:document.block:convert` 是高级权限：即使你已经开通了 `docx:document`，Convert 仍可能返回 401/403。
+- scope 升级后必须让用户 **Disconnect → Connect** 重新授权（刷新 token 不保证自动获得新增 scope）。
+- 如果你之前用的是 `drive:drive:readonly`，升级后同样需要 **Disconnect → Connect** 重新授权，否则旧 token 可能无创建目录权限。
 
 ---
 
@@ -107,7 +113,7 @@ https://chiimagnus.github.io/syncnos-oauth/callback
 完整示例：
 
 ```jsx
-https://accounts.feishu.cn/open-apis/authen/v1/authorize?client_id=cli_xxxxx&redirect_uri=https%3A%2F%2Fchiimagnus.github.io%2Fsyncnos-oauth%2Fcallback&response_type=code&scope=docx%3Adocument%20drive%3Adrive&state=RANDOM_STATE
+https://accounts.feishu.cn/open-apis/authen/v1/authorize?client_id=cli_xxxxx&redirect_uri=https%3A%2F%2Fchiimagnus.github.io%2Fsyncnos-oauth%2Fcallback&response_type=code&scope=docx%3Adocument%20docx%3Adocument.block%3Aconvert%20drive%3Adrive&state=RANDOM_STATE
 ```
 
 **参数说明：**
@@ -117,8 +123,12 @@ https://accounts.feishu.cn/open-apis/authen/v1/authorize?client_id=cli_xxxxx&red
 | `client_id` | ✅ | App ID（`cli_xxx`），在【凭证与基础信息】获取 |
 | `redirect_uri` | ✅ | 重定向地址，须在白名单内，需 URL 编码 |
 | `response_type` | ✅ | 固定为 `code` |
-| `scope` | 推荐 | 空格分隔的权限（如 `docx:document drive:drive`），须已在控制台开通，否则报错 20027 |
+| `scope` | 推荐 | 空格分隔的权限（如 `docx:document docx:document.block:convert drive:drive`），须已在控制台开通，否则报错 20027 |
 | `state` | 可选 | 防 CSRF 随机字符串，回调时原样返回 |
+
+同步写入策略（以代码为准）：
+- Markdown 渲染优先走 Convert（尽量保留标题/列表/代码块/表格等结构）
+- 图片会在 Convert 写入后通过 `drive/v1/medias/upload_all` + `replace_image` 做 best-effort 绑定；单张失败会记录 warnings，不应阻断整篇同步
 
 #### 用授权码换取 user_access_token
 
