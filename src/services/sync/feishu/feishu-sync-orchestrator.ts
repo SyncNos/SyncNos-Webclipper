@@ -1,6 +1,6 @@
 import { storageGet, storageSet } from '@platform/storage/local';
 import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
-import { formatConversationMarkdownForExternalOutput } from '@services/integrations/chatwith/chatwith-settings';
+import { formatConversationMarkdownForFeishuDocxSync } from '@services/sync/feishu/docx/feishu-docx-markdown';
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
 import { getFeishuOAuthToken, setFeishuOAuthToken } from '@services/sync/feishu/auth/token-store';
 import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
@@ -591,7 +591,7 @@ async function syncConversations({
           currentStage: 'preparing_sync',
         });
 
-        const markdown = await formatConversationMarkdownForExternalOutput(convo as any, detail as any);
+        const markdown = await formatConversationMarkdownForFeishuDocxSync(convo as any, detail as any);
         const existingDocId = safeString(mappingRes.mapping?.feishuDocId);
         const existingContentHash = safeString(mappingRes.mapping?.feishuLastContentHash);
         const contentHash = await sha256Hex(markdown).catch(() => '');
