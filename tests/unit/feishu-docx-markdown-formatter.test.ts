@@ -3,6 +3,40 @@ import { describe, expect, it } from 'vitest';
 import { formatConversationMarkdownForFeishuDocxSync } from '@services/sync/feishu/docx/feishu-docx-markdown';
 
 describe('feishu docx markdown formatter', () => {
+  it('uses H1 for role labels (content/user/assistant) to improve Feishu render prominence', async () => {
+    const out = await formatConversationMarkdownForFeishuDocxSync(
+      { id: 1, source: 'x', conversationKey: 'k', title: 't' } as any,
+      {
+        conversationId: 1,
+        messages: [
+          { id: 1, conversationId: 1, messageKey: 'm1', role: 'content', contentText: 'a' } as any,
+          { id: 2, conversationId: 1, messageKey: 'm2', role: 'user', contentText: 'b' } as any,
+          { id: 3, conversationId: 1, messageKey: 'm3', role: 'assistant', contentText: 'c' } as any,
+        ],
+      } as any,
+    );
+
+    expect(out).toContain('\n# content\n');
+    expect(out).toContain('\n# You\n');
+    expect(out).toContain('\n# assistant\n');
+    expect(out).not.toContain('\n## content\n');
+    expect(out).not.toContain('\n## You\n');
+    expect(out).not.toContain('\n## assistant\n');
+  });
+
+  it('uses H1 for article Content section in Feishu sync output', async () => {
+    const out = await formatConversationMarkdownForFeishuDocxSync(
+      { id: 1, source: 'x', conversationKey: 'k', title: 't', sourceType: 'article' } as any,
+      {
+        conversationId: 1,
+        messages: [{ id: 1, conversationId: 1, messageKey: 'm1', role: 'content', contentText: 'body' } as any],
+      } as any,
+    );
+
+    expect(out).toContain('\n# Content\n');
+    expect(out).not.toContain('\n## Content\n');
+  });
+
   it('keeps internal image references (data url / syncnos-asset)', async () => {
     const markdown = [
       '# Title',
@@ -55,4 +89,3 @@ describe('feishu docx markdown formatter', () => {
     expect(out).toContain('![alt](https://example.com/a.png)\n\nCaption');
   });
 });
-

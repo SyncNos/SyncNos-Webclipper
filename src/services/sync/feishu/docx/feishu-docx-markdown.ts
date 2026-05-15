@@ -13,11 +13,15 @@ export async function formatConversationMarkdownForFeishuDocxSync(
   conversation: Conversation,
   detail: ConversationDetail,
 ): Promise<string> {
-  const raw = formatConversationMarkdown(conversation, (detail?.messages || []) as any);
+  const raw = formatConversationMarkdown(conversation, (detail?.messages || []) as any, {
+    // Feishu Convert renders per-message role labels as too subtle when using H2.
+    // Use H1 to make "content/user/assistant" style sections more prominent in DocX.
+    chatMessageHeadingLevel: 1,
+    articleContentHeadingLevel: 1,
+  });
   return normalizeStandaloneImageCaptionLines(raw);
 }
 
 export default {
   formatConversationMarkdownForFeishuDocxSync,
 };
-
