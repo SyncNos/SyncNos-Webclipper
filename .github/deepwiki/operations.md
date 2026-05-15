@@ -47,6 +47,7 @@ flowchart LR
 | Notion 手动同步（扩展） | `NOTION_MESSAGE_TYPES.SYNC_CONVERSATIONS` | `sync_mappings` + job store | cursor 不匹配时转 rebuild |
 | Obsidian 同步（扩展） | `OBSIDIAN_MESSAGE_TYPES.SYNC_CONVERSATIONS` | Obsidian sync status + 本地 messages | PATCH 失败自动回退 full rebuild |
 | 图片回填（扩展） | `BACKFILL_CONVERSATION_IMAGES` | `updatedMessages/downloadedCount` | 回填失败不阻塞主会话保存 |
+| Feishu 手动同步（扩展） | `FEISHU_MESSAGE_TYPES.SYNC_CONVERSATIONS` | `feishu_sync_job_v1` + `sync_mappings` | Convert 失败回退纯文本；图片绑定失败记录 warning；token 过期自动刷新 |
 
 ## 备份与恢复操作
 
@@ -66,6 +67,8 @@ flowchart LR
 | `cache-images` 提示更新 0 条 | `src/services/conversations/background/image-backfill-job.ts` | 检查对应来源开关是否开启、且消息内存在可下载图片链接 |
 | 视频字幕采集结果为空 | `src/entrypoints/video-transcript-interceptor.content.ts`, `src/services/bootstrap/video-transcript-capture.ts` | 先确认视频页字幕轨道已加载，再通过 `VideosSection` 或右键菜单重试；若仍为空，检查是否仅支持 YouTube / Bilibili |
 | Notion OAuth 回调失败 | `src/services/sync/notion/auth/oauth.ts`, worker `index.ts` | 核对 pending state、worker secret、429/超时情况 |
+| Feishu OAuth 回调失败 | `src/services/sync/feishu/auth/oauth.ts`, `syncnos-feishu-oauth` worker | 核对 pending state、worker secret、scope 是否包含 `docx:document.block:convert`、429/超时情况 |
+| Feishu 同步卡住 | `src/services/sync/feishu/feishu-sync-orchestrator.ts`, `sync-job-store.ts` | reload 后遗留 running job 会被标记为 aborted；如仍持续，dismiss 通知后重试 |
 | 发布 workflow 报版本不匹配 | `wxt.config.ts`, `webclipper-*.yml` | 对齐 `manifest.version` 与 tag |
 
 ## 运维边界与 Coverage Gaps
