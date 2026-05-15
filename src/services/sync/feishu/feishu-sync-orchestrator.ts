@@ -12,10 +12,36 @@ import { sha256Hex } from '@services/sync/shared/content-hash';
 
 const SYNC_PROVIDER = 'feishu';
 const TOKEN_EXCHANGE_PROXY_URL_KEY = 'feishu_oauth_token_exchange_proxy_url';
+const OAUTH_CLIENT_ID_KEY = 'feishu_oauth_client_id';
+const OAUTH_CLIENT_SECRET_KEY = 'feishu_oauth_client_secret';
 const ROOT_FOLDER_TOKEN_KEY = 'feishu_root_folder_token';
+const FEISHU_TOKEN_URL = 'https://open.feishu.cn/open-apis/authen/v2/oauth/token';
 
 function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
+}
+
+function normalizeOAuthTokenResponse(
+  json: any,
+): { access_token: string; refresh_token?: string; expires_in?: number } | null {
+  if (!json || typeof json !== 'object') return null;
+  const accessToken = typeof json.access_token === 'string' ? json.access_token : '';
+  if (accessToken) {
+    return {
+      access_token: accessToken,
+      refresh_token: typeof json.refresh_token === 'string' ? json.refresh_token : undefined,
+      expires_in: Number.isFinite(Number(json.expires_in)) ? Number(json.expires_in) : undefined,
+    };
+  }
+
+  const data = (json as any).data;
+  const nestedAccess = typeof data?.access_token === 'string' ? data.access_token : '';
+  if (!nestedAccess) return null;
+  return {
+    access_token: nestedAccess,
+    refresh_token: typeof data?.refresh_token === 'string' ? data.refresh_token : undefined,
+    expires_in: Number.isFinite(Number(data?.expires_in)) ? Number(data.expires_in) : undefined,
+  };
 }
 
 function normalizeIds(list: unknown) {
@@ -112,7 +138,49 @@ async function refreshFeishuOAuthToken(current: { refreshToken: string; accessTo
   const refreshToken = safeString((current as any).refreshToken);
   if (!refreshToken) throw new Error('Feishu refresh token missing');
 
-  const res = await storageGet([TOKEN_EXCHANGE_PROXY_URL_KEY]).catch(() => ({}));
+  const res = await storageGet([TOKEN_EXCHANGE_PROXY_URL_KEY, OAUTH_CLIENT_ID_KEY, OAUTH_CLIENT_SECRET_KEY]).catch(
+    () => ({}),
+  );
+  const clientId = safeString((res as any)?.[OAUTH_CLIENT_ID_KEY]);
+  const clientSecret = safeString((res as any)?.[OAUTH_CLIENT_SECRET_KEY]);
+
+  if (clientSecret) {
+    if (!clientId) throw new Error('Feishu OAuth client id not configured');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12_000);
+    const resp = await fetch(FEISHU_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8', Accept: 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    const text = await resp.text();
+    if (!resp.ok) throw new Error(text || `token refresh failed: HTTP ${resp.status}`);
+    const rawJson = text ? JSON.parse(text) : null;
+    const normalized = normalizeOAuthTokenResponse(rawJson);
+    const accessToken = safeString(normalized?.access_token);
+    if (!accessToken) throw new Error('token refresh failed: missing access_token');
+
+    const now = Date.now();
+    const expiresInSeconds = Number(normalized?.expires_in) || 0;
+    const next = {
+      ...(await getFeishuOAuthToken()),
+      accessToken,
+      refreshToken: safeString(normalized?.refresh_token) || refreshToken,
+      expiresAt: expiresInSeconds > 0 ? now + expiresInSeconds * 1000 : now,
+      createdAt: now,
+    };
+    await setFeishuOAuthToken(next as any);
+    return next as any;
+  }
+
   const exchangeProxyUrl = safeString((res as any)?.[TOKEN_EXCHANGE_PROXY_URL_KEY]);
   const refreshProxyUrl = deriveRefreshProxyUrl(exchangeProxyUrl);
   if (!refreshProxyUrl) throw new Error('Feishu token refresh proxy url not configured');
@@ -128,15 +196,16 @@ async function refreshFeishuOAuthToken(current: { refreshToken: string; accessTo
 
   const text = await resp.text();
   if (!resp.ok) throw new Error(text || `token refresh failed: HTTP ${resp.status}`);
-  const json = JSON.parse(text);
-  const accessToken = safeString(json?.access_token);
+  const rawJson = text ? JSON.parse(text) : null;
+  const normalized = normalizeOAuthTokenResponse(rawJson);
+  const accessToken = safeString(normalized?.access_token);
   if (!accessToken) throw new Error('token refresh failed: missing access_token');
   const now = Date.now();
-  const expiresInSeconds = Number(json?.expires_in) || 0;
+  const expiresInSeconds = Number(normalized?.expires_in) || 0;
   const next = {
     ...(await getFeishuOAuthToken()),
     accessToken,
-    refreshToken: safeString(json?.refresh_token) || refreshToken,
+    refreshToken: safeString(normalized?.refresh_token) || refreshToken,
     expiresAt: expiresInSeconds > 0 ? now + expiresInSeconds * 1000 : now,
     createdAt: now,
   };

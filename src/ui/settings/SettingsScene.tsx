@@ -78,12 +78,12 @@ export function SettingsScene(props: SettingsSceneProps) {
 
     feishuConnected,
     pollingFeishu,
-    feishuAdvancedOpen,
-    onToggleFeishuAdvancedOpen,
     feishuPendingState,
     feishuLastError,
     feishuClientId,
     setFeishuClientId,
+    feishuClientSecret,
+    setFeishuClientSecret,
     feishuTokenExchangeProxyUrl,
     setFeishuTokenExchangeProxyUrl,
     feishuChatFolder,
@@ -96,6 +96,8 @@ export function SettingsScene(props: SettingsSceneProps) {
     onSaveFeishuPaths,
     onSaveFeishuAdvancedSettings,
     onFeishuConnectOrDisconnect,
+    onOpenFeishuSetupGuide,
+    feishuSetupGuideUrl,
 
     chatWithPromptTemplate,
     setChatWithPromptTemplate,
@@ -263,19 +265,20 @@ export function SettingsScene(props: SettingsSceneProps) {
           feishuStatusText={feishuStatusText}
           feishuConnected={!!feishuConnected}
           pollingFeishu={pollingFeishu}
-          feishuAdvancedOpen={feishuAdvancedOpen}
           feishuPendingState={feishuPendingState}
           feishuLastError={feishuLastError}
           feishuClientId={feishuClientId}
+          feishuClientSecret={feishuClientSecret}
           feishuTokenExchangeProxyUrl={feishuTokenExchangeProxyUrl}
           feishuChatFolder={feishuChatFolder}
           feishuArticleFolder={feishuArticleFolder}
           feishuVideoFolder={feishuVideoFolder}
+          setupGuideUrl={feishuSetupGuideUrl}
           onToggleSyncEnabled={(enabled) => {
             void onToggleFeishuSyncEnabled(enabled);
           }}
-          onToggleAdvancedOpen={onToggleFeishuAdvancedOpen}
           onChangeClientId={setFeishuClientId}
+          onChangeClientSecret={setFeishuClientSecret}
           onChangeTokenExchangeProxyUrl={setFeishuTokenExchangeProxyUrl}
           onChangeChatFolder={setFeishuChatFolder}
           onChangeArticleFolder={setFeishuArticleFolder}
@@ -289,6 +292,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           onConnectOrDisconnect={() => {
             void onFeishuConnectOrDisconnect();
           }}
+          onOpenSetupGuide={onOpenFeishuSetupGuide}
         />
       ) : null}
 
