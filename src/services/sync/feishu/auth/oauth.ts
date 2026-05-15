@@ -167,7 +167,10 @@ async function exchangeFeishuCodeForTokenViaProxy(
   throw lastErr || toError('token exchange failed');
 }
 
-async function exchangeFeishuCodeForTokenDirect(code: string, { fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}) {
+async function exchangeFeishuCodeForTokenDirect(
+  code: string,
+  { fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {},
+) {
   const clientId = await getFeishuClientId();
   const clientSecret = await getFeishuClientSecret();
   if (!clientId) throw toError('Feishu OAuth client id not configured');
