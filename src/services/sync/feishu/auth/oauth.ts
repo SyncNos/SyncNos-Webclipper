@@ -9,12 +9,11 @@ declare const __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__: string | undefi
 const FEISHU_TOKEN_URL = 'https://open.feishu.cn/open-apis/authen/v2/oauth/token';
 
 const DEFAULT_FEISHU_OAUTH_CLIENT_ID =
-  (typeof __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__ === 'string' ? __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__ : '') ||
-  'cli_aa8e3c9970cb5cb5';
+  typeof __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__ === 'string' ? __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__ : '';
 const DEFAULT_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL =
-  (typeof __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__ === 'string'
+  typeof __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__ === 'string'
     ? __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__
-    : '') || 'https://syncnos-feishu-oauth.chiimagnus.workers.dev/feishu/oauth/exchange';
+    : '';
 
 const KEY_CLIENT_ID = 'feishu_oauth_client_id';
 const KEY_CLIENT_SECRET = 'feishu_oauth_client_secret';
