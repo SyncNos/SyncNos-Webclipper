@@ -1,13 +1,18 @@
 import { storageGet, storageSet } from '@platform/storage/local';
 import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
-import { formatConversationMarkdownForExternalOutput } from '@services/integrations/chatwith/chatwith-settings';
+import { formatConversationMarkdownForFeishuDocxSync } from '@services/sync/feishu/docx/feishu-docx-markdown';
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
 import { getFeishuOAuthToken, setFeishuOAuthToken } from '@services/sync/feishu/auth/token-store';
 import feishuSyncJobStore from '@services/sync/feishu/feishu-sync-job-store.ts';
 import { getFeishuPathConfig, pickFeishuFolderPathForConversation } from '@services/sync/feishu/settings-store';
 import { resolveFeishuDriveFolderTokenByPath } from '@services/sync/feishu/drive-folder-path';
-import { convertContentToBlocks, isFeishuConvertPermissionDenied } from '@services/sync/feishu/docx/convert-api';
-import { materializeMarkdownImagesIntoDocx, parseMarkdownImages } from '@services/sync/feishu/docx/image-materializer';
+import {
+  convertContentToBlocks,
+  isFeishuConvertPermissionDenied,
+  normalizeConvertedBlocksPreorder,
+} from '@services/sync/feishu/docx/convert-api';
+import { preprocessFeishuDocxMarkdownImages } from '@services/sync/feishu/docx/feishu-docx-image-preprocess';
+import { bindFeishuDocxImagesByOrder } from '@services/sync/feishu/docx/image-block-binder';
 import { sha256Hex } from '@services/sync/shared/content-hash';
 
 const SYNC_PROVIDER = 'feishu';
@@ -19,6 +24,33 @@ const FEISHU_TOKEN_URL = 'https://open.feishu.cn/open-apis/authen/v2/oauth/token
 
 function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
+}
+
+function sanitizeUrlForWarning(url: string): string {
+  const raw = safeString(url);
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    const keys = Array.from(new Set(Array.from(u.searchParams.keys()))).slice(0, 12);
+    const q = keys.length ? `?keys=${keys.join(',')}` : '';
+    return `${u.origin}${u.pathname}${q}`;
+  } catch (_e) {
+    return raw.slice(0, 140);
+  }
+}
+
+function sanitizePotentialUrls(text: string): string {
+  const src = safeString(text);
+  if (!src) return '';
+  return src.replace(/https?:\/\/[^\s)]+/gi, (matched) => sanitizeUrlForWarning(matched));
+}
+
+function limitWarnings(warnings: string[], maxCount: number): string[] {
+  const list = Array.isArray(warnings) ? warnings.map((w) => safeString(w)).filter(Boolean) : [];
+  const max = Number.isFinite(Number(maxCount)) ? Math.max(1, Math.floor(Number(maxCount))) : 20;
+  if (list.length <= max) return list;
+  const remain = list.length - max;
+  return [...list.slice(0, max), `(+${remain} more)`];
 }
 
 function normalizeOAuthTokenResponse(
@@ -394,6 +426,18 @@ function sanitizeConvertedBlocksForInsert(blocks: any[]): any[] {
   });
 }
 
+function readDocxBlockId(block: any): string {
+  if (!block || typeof block !== 'object') return '';
+  return safeString((block as any).block_id ?? (block as any).blockId ?? (block as any).id);
+}
+
+function readDocxBlockChildrenIds(block: any): string[] {
+  if (!block || typeof block !== 'object') return [];
+  const raw = (block as any).children ?? (block as any).children_id ?? (block as any).childrenIds;
+  const list = Array.isArray(raw) ? raw : [];
+  return Array.from(new Set(list.map((id: any) => safeString(id)).filter(Boolean)));
+}
+
 async function appendConvertedBlocks({
   accessToken,
   docId,
@@ -403,23 +447,135 @@ async function appendConvertedBlocks({
   docId: string;
   markdown: string;
 }): Promise<number> {
-  const converted = await convertContentToBlocks({ accessToken, content: markdown, contentType: 'markdown' });
+  const convertedRaw = await convertContentToBlocks({ accessToken, content: markdown, contentType: 'markdown' });
+  const converted = normalizeConvertedBlocksPreorder(convertedRaw);
   const blocks = sanitizeConvertedBlocksForInsert(converted.blocks);
   if (!blocks.length) throw new Error('Feishu Convert API: empty blocks');
 
   // Prefer descendant insertion when Convert returns first-level block ids (needed for nested structures).
   if (converted.firstLevelBlockIds.length) {
-    if (blocks.length > 1000) throw new Error('Feishu Convert blocks exceed 1000 limit for descendant insert');
-    await fetchFeishuJson<any>(
-      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/descendant`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ children_id: converted.firstLevelBlockIds, descendants: blocks, index: -1 }),
-      },
-      { accessToken },
-    );
-    await new Promise((r) => setTimeout(r, 350));
-    return converted.firstLevelBlockIds.length;
+    const MAX_DESCENDANTS = 1000;
+
+    const insertDescendantBatch = async (childrenId: string[], descendants: any[]) => {
+      await fetchFeishuJson<any>(
+        `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/descendant`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ children_id: childrenId, descendants, index: -1 }),
+        },
+        { accessToken },
+      );
+      await new Promise((r) => setTimeout(r, 350));
+    };
+
+    if (blocks.length <= MAX_DESCENDANTS) {
+      await insertDescendantBatch(converted.firstLevelBlockIds, blocks);
+      return converted.firstLevelBlockIds.length;
+    }
+
+    // Large docs: best-effort batch descendant insertion by root subtrees.
+    const idToChildren = new Map<string, string[]>();
+    for (const block of blocks) {
+      const id = readDocxBlockId(block);
+      if (!id) continue;
+      if (!idToChildren.has(id)) idToChildren.set(id, readDocxBlockChildrenIds(block));
+    }
+
+    const collectSubtreeIds = (rootId: string): Set<string> => {
+      const out = new Set<string>();
+      const stack = [safeString(rootId)].filter(Boolean);
+      while (stack.length) {
+        const id = stack.pop()!;
+        if (!id || out.has(id)) continue;
+        out.add(id);
+        const children = idToChildren.get(id) || [];
+        for (const childId of children) {
+          if (!out.has(childId)) stack.push(childId);
+        }
+      }
+      return out;
+    };
+
+    const insertedIds = new Set<string>();
+    const roots = converted.firstLevelBlockIds;
+
+    let batchRoots: string[] = [];
+    let batchIds = new Set<string>();
+
+    const flush = async () => {
+      if (!batchRoots.length) return;
+      const descendants = blocks.filter((b) => batchIds.has(readDocxBlockId(b)));
+      if (descendants.length) await insertDescendantBatch(batchRoots, descendants);
+      for (const id of batchIds) insertedIds.add(id);
+      batchRoots = [];
+      batchIds = new Set<string>();
+    };
+
+    for (const rootId of roots) {
+      const subtree = collectSubtreeIds(rootId);
+      if (!subtree.size) continue;
+
+      if (subtree.size > MAX_DESCENDANTS) {
+        // Too large even for a single descendant insert: degrade to flat insertion for that subtree.
+        await flush();
+        const flat = blocks.filter((b) => subtree.has(readDocxBlockId(b)));
+        if (flat.length) {
+          const batchSize = 20;
+          for (let i = 0; i < flat.length; i += batchSize) {
+            const slice = flat.slice(i, i + batchSize);
+            await fetchFeishuJson<any>(
+              `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
+              { method: 'POST', body: JSON.stringify({ children: slice, index: -1 }) },
+              { accessToken },
+            );
+            await new Promise((r) => setTimeout(r, 350));
+          }
+          for (const b of flat) {
+            const id = readDocxBlockId(b);
+            if (id) insertedIds.add(id);
+          }
+        }
+        continue;
+      }
+
+      if (!batchRoots.length) {
+        batchRoots = [rootId];
+        batchIds = subtree;
+        continue;
+      }
+
+      if (batchIds.size + subtree.size > MAX_DESCENDANTS) {
+        await flush();
+        batchRoots = [rootId];
+        batchIds = subtree;
+        continue;
+      }
+
+      batchRoots.push(rootId);
+      for (const id of subtree) batchIds.add(id);
+    }
+
+    await flush();
+
+    // Best-effort: append any unreachable/orphan blocks via flat insertion (to avoid full text fallback).
+    const orphans = blocks.filter((b) => {
+      const id = readDocxBlockId(b);
+      return id ? !insertedIds.has(id) : true;
+    });
+    if (orphans.length) {
+      const batchSize = 20;
+      for (let i = 0; i < orphans.length; i += batchSize) {
+        const slice = orphans.slice(i, i + batchSize);
+        await fetchFeishuJson<any>(
+          `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
+          { method: 'POST', body: JSON.stringify({ children: slice, index: -1 }) },
+          { accessToken },
+        );
+        await new Promise((r) => setTimeout(r, 350));
+      }
+    }
+
+    return roots.length;
   }
 
   // Fallback to flat children insertion (max 50 blocks per request; keep small to avoid rate-limit).
@@ -446,24 +602,30 @@ async function appendMarkdownWithConvertFallback({
   accessToken: string;
   docId: string;
   markdown: string;
-}): Promise<number> {
-  const images = parseMarkdownImages(markdown);
-  if (images.length) {
-    try {
-      const res = await materializeMarkdownImagesIntoDocx({ accessToken, docId, markdown });
-      return res.appendedBlocks;
-    } catch (_e) {
-      return appendTextBlocks({ accessToken, docId, markdown });
-    }
-  }
+}): Promise<{ appended: number; warnings: string[] }> {
+  const preprocessed = await preprocessFeishuDocxMarkdownImages(markdown).catch(() => ({
+    markdownForConvert: markdown,
+    imageSourcesInOrder: [],
+  }));
 
   try {
-    return await appendConvertedBlocks({ accessToken, docId, markdown });
+    const appended = await appendConvertedBlocks({ accessToken, docId, markdown: preprocessed.markdownForConvert });
+    const bind = await bindFeishuDocxImagesByOrder({
+      accessToken,
+      docId,
+      imageSourcesInOrder: preprocessed.imageSourcesInOrder,
+    }).catch((e) => ({
+      imageCount: preprocessed.imageSourcesInOrder.length,
+      docImageBlockCount: 0,
+      boundCount: 0,
+      warnings: [`image bind failed: ${sanitizePotentialUrls(safeString((e as any)?.message || e || ''))}`],
+    }));
+    return { appended, warnings: bind.warnings || [] };
   } catch (e) {
     if (isFeishuConvertPermissionDenied(e)) {
-      return appendTextBlocks({ accessToken, docId, markdown });
+      return { appended: await appendTextBlocks({ accessToken, docId, markdown }), warnings: [] };
     }
-    return appendTextBlocks({ accessToken, docId, markdown });
+    return { appended: await appendTextBlocks({ accessToken, docId, markdown }), warnings: [] };
   }
 }
 
@@ -489,7 +651,7 @@ async function appendTextBlocks({
     const slice = blocks.slice(i, i + batchSize);
     await fetchFeishuJson<any>(
       `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
-      { method: 'POST', body: JSON.stringify({ children: slice }) },
+      { method: 'POST', body: JSON.stringify({ children: slice, index: -1 }) },
       { accessToken },
     );
     appended += slice.length;
@@ -591,7 +753,7 @@ async function syncConversations({
           currentStage: 'preparing_sync',
         });
 
-        const markdown = await formatConversationMarkdownForExternalOutput(convo as any, detail as any);
+        const markdown = await formatConversationMarkdownForFeishuDocxSync(convo as any, detail as any);
         const existingDocId = safeString(mappingRes.mapping?.feishuDocId);
         const existingContentHash = safeString(mappingRes.mapping?.feishuLastContentHash);
         const contentHash = await sha256Hex(markdown).catch(() => '');
@@ -670,15 +832,20 @@ async function syncConversations({
 
         await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
         let appended = 0;
+        let appendWarnings: string[] = [];
         try {
-          appended = await appendMarkdownWithConvertFallback({ accessToken, docId, markdown });
+          const res = await appendMarkdownWithConvertFallback({ accessToken, docId, markdown });
+          appended = res.appended;
+          appendWarnings = Array.isArray(res.warnings) ? res.warnings : [];
         } catch (e) {
           if (existingDocId) {
             mode = 'create';
             await persistCurrentJob({ currentStage: 'creating_destination_page' });
             docId = await createDoc({ accessToken, title: currentTitle });
             await persistCurrentJob({ currentStage: 'uploading_message_blocks' });
-            appended = await appendMarkdownWithConvertFallback({ accessToken, docId, markdown });
+            const res = await appendMarkdownWithConvertFallback({ accessToken, docId, markdown });
+            appended = res.appended;
+            appendWarnings = Array.isArray(res.warnings) ? res.warnings : [];
           } else {
             throw e;
           }
@@ -696,7 +863,7 @@ async function syncConversations({
           mode,
           appended,
           error: '',
-          warnings: createWarnings,
+          warnings: limitWarnings([...createWarnings, ...appendWarnings], 20),
           at: Date.now(),
         });
       }

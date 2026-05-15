@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { sha256Hex } from '@services/sync/shared/content-hash';
-
 const backgroundStorageMocks = vi.hoisted(() => ({
   getSyncMappingByConversation: vi.fn(),
   getMessagesByConversationId: vi.fn(),
@@ -42,27 +40,23 @@ vi.mock('@services/sync/feishu/feishu-sync-job-store.ts', () => ({
   },
 }));
 
-vi.mock('@services/sync/feishu/docx/feishu-docx-markdown', () => ({
-  formatConversationMarkdownForFeishuDocxSync: vi.fn(async () => '![img](https://example.com/a.png)'),
-}));
-
-vi.mock('@services/sync/feishu/settings-store', () => ({
-  getFeishuPathConfig: vi.fn(async () => ({
-    chatFolder: '',
-    articleFolder: '',
-    videoFolder: '',
-    defaults: { chatFolder: '', articleFolder: '', videoFolder: '' },
-  })),
-  pickFeishuFolderPathForConversation: vi.fn(() => ''),
-}));
-
 const fetchFeishuJsonMock = vi.hoisted(() => vi.fn());
 vi.mock('@services/sync/feishu/feishu-api', () => ({
   fetchFeishuJson: fetchFeishuJsonMock,
 }));
 
-function setupChromeStorage() {
-  const store: Record<string, unknown> = {};
+const bindMocks = vi.hoisted(() => ({
+  bindFeishuDocxImagesByOrder: vi.fn(async () => {
+    throw new Error('bind failed: https://example.com/a.png?sig=SECRET&x=1');
+  }),
+}));
+
+vi.mock('@services/sync/feishu/docx/image-block-binder', () => ({
+  bindFeishuDocxImagesByOrder: bindMocks.bindFeishuDocxImagesByOrder,
+}));
+
+function setupChromeStorage(initial: Record<string, unknown> = {}) {
+  const store: Record<string, unknown> = { ...initial };
   // @ts-expect-error test global
   globalThis.chrome = {
     runtime: { lastError: null },
@@ -78,7 +72,9 @@ function setupChromeStorage() {
           for (const [k, v] of Object.entries(payload || {})) store[k] = v;
           cb && cb();
         },
-        remove(_keys: any, cb: () => void) {
+        remove(keys: any, cb: () => void) {
+          const list = Array.isArray(keys) ? keys : typeof keys === 'string' ? [keys] : [];
+          for (const k of list) delete store[k];
           cb && cb();
         },
       },
@@ -98,40 +94,54 @@ afterEach(() => {
   delete globalThis.chrome;
 });
 
-describe('feishu skip unchanged missing doc', () => {
-  it('creates a new doc when content unchanged but existing doc is gone', async () => {
+function mockDefaultFeishuFolderLayout(path: string, init?: RequestInit) {
+  if (path === '/drive/explorer/v2/root_folder/meta') return { token: 'root' };
+  if (path.startsWith('/drive/v1/files?')) return { files: [], has_more: false };
+  if (path === '/drive/v1/files/create_folder') {
+    const body = init?.body ? JSON.parse(String(init.body)) : {};
+    const parent = String(body.folder_token || '');
+    const name = String(body.name || '');
+    if (parent === 'root' && name === 'SyncNos-AIChats') return { folder: { folder_token: 'fld_ai_chats' } };
+    if (parent === 'root' && name === 'SyncNos-WebArticles') return { folder: { folder_token: 'fld_web_articles' } };
+    if (parent === 'root' && name === 'SyncNos-Videos') return { folder: { folder_token: 'fld_videos' } };
+    return { folder: { folder_token: `fld_${parent}_${name}` } };
+  }
+  return null;
+}
+
+describe('feishu orchestrator warnings sanitization', () => {
+  it('sanitizes query values even when binder throws', async () => {
     setupChromeStorage();
     tokenMocks.getFeishuOAuthToken.mockResolvedValue({ accessToken: 't', expiresAt: Date.now() + 60_000 });
     jobStoreMocks.abortRunningJobIfFromOtherInstance.mockResolvedValue(null);
     jobStoreMocks.isRunningJob.mockReturnValue(false);
 
-    const hash = await sha256Hex('![img](https://example.com/a.png)');
     backgroundStorageMocks.getSyncMappingByConversation.mockResolvedValue({
       conversation: { id: 1, title: 't' },
-      mapping: { feishuDocId: 'doc1', feishuLastContentHash: hash },
+      mapping: { feishuDocId: '' },
     });
     backgroundStorageMocks.getMessagesByConversationId.mockResolvedValue([]);
 
-    fetchFeishuJsonMock.mockImplementation(async (path: string, init: any) => {
-      if (path === '/docx/v1/documents/doc1' && String(init?.method || 'GET').toUpperCase() === 'GET') {
-        const err: any = new Error('resource deleted');
-        err.extra = { status: 400, code: 1770003 };
-        throw err;
-      }
-      if (path === '/docx/v1/documents' && String(init?.method || 'GET').toUpperCase() === 'POST') {
-        return { document: { document_id: 'doc_new' } };
-      }
-      return {};
+    fetchFeishuJsonMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const drive = mockDefaultFeishuFolderLayout(path, init);
+      if (drive) return drive;
+      if (path === '/docx/v1/documents') return { document: { document_id: 'doc1' } };
+      if (path.includes('/children?page_size=')) return { items: [] };
+      if (path === '/docx/v1/documents/blocks/convert')
+        return {
+          blocks: [{ block_type: 2, text: { elements: [{ text_run: { content: 'hi' } }] } }],
+          first_level_block_ids: [],
+        };
+      if (path.endsWith('/children') && !path.includes('batch_delete')) return { ok: true };
+      throw new Error(`unexpected path: ${path}`);
     });
 
     const orch = await loadModule('@services/sync/feishu/feishu-sync-orchestrator.ts');
     const res = await orch.syncConversations({ conversationIds: [1], instanceId: 'x' });
-
     expect(res.okCount).toBe(1);
-    expect(res.results?.[0]?.mode).toBe('create');
-    expect(backgroundStorageMocks.patchSyncMapping).toHaveBeenCalledWith(
-      1,
-      expect.objectContaining({ feishuDocId: 'doc_new' }),
-    );
+
+    const warnings = String(res.results?.[0]?.warnings?.join('\n') || '');
+    expect(warnings).toContain('https://example.com/a.png?keys=sig,x');
+    expect(warnings).not.toContain('SECRET');
   });
 });

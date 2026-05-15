@@ -11,6 +11,60 @@ export type FeishuDocxConvertResult = {
   firstLevelBlockIds: string[];
 };
 
+function readBlockId(block: any): string {
+  if (!block || typeof block !== 'object') return '';
+  return safeString((block as any).block_id ?? (block as any).blockId ?? (block as any).id);
+}
+
+function readChildrenIds(block: any): string[] {
+  if (!block || typeof block !== 'object') return [];
+  const raw = (block as any).children ?? (block as any).children_id ?? (block as any).childrenIds;
+  const list = Array.isArray(raw) ? raw : [];
+  return Array.from(new Set(list.map((id: any) => safeString(id)).filter(Boolean)));
+}
+
+/**
+ * Convert API may return `blocks` in an order that is not a valid pre-order traversal.
+ * For descendant insertion, we prefer emitting blocks in a parent-before-children order.
+ */
+export function normalizeConvertedBlocksPreorder(input: FeishuDocxConvertResult): FeishuDocxConvertResult {
+  const blocks = Array.isArray(input?.blocks) ? input.blocks : [];
+  const firstLevelBlockIds = Array.isArray(input?.firstLevelBlockIds) ? input.firstLevelBlockIds : [];
+  if (!blocks.length) return { blocks: [], firstLevelBlockIds: [] };
+
+  const idToBlock = new Map<string, any>();
+  for (const block of blocks) {
+    const id = readBlockId(block);
+    if (!id) continue;
+    if (!idToBlock.has(id)) idToBlock.set(id, block);
+  }
+
+  const roots = Array.from(new Set(firstLevelBlockIds.map((id) => safeString(id)).filter(Boolean)));
+  const visited = new Set<string>();
+  const ordered: any[] = [];
+
+  const visit = (id: string) => {
+    if (!id || visited.has(id)) return;
+    const block = idToBlock.get(id);
+    if (!block) return;
+    visited.add(id);
+    ordered.push(block);
+    for (const childId of readChildrenIds(block)) visit(childId);
+  };
+
+  for (const rootId of roots) visit(rootId);
+
+  // Append any unreachable blocks to preserve content best-effort.
+  for (const block of blocks) {
+    const id = readBlockId(block);
+    if (id && visited.has(id)) continue;
+    ordered.push(block);
+    if (id) visited.add(id);
+  }
+
+  return { blocks: ordered, firstLevelBlockIds: roots };
+}
+
 export function isFeishuConvertPermissionDenied(error: unknown): boolean {
   const e = error as FeishuApiError & { extra?: any };
   const status = Number((e as any)?.extra?.status || 0) || 0;

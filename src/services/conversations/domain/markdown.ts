@@ -4,6 +4,33 @@ function isNonEmptyString(v: unknown): v is string {
   return typeof v === 'string' && v.trim().length > 0;
 }
 
+type MarkdownHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
+type FormatConversationMarkdownOptions = {
+  /**
+   * Heading level used for per-message role labels in chat conversations.
+   * Defaults to 2 to keep message sections under the document title.
+   */
+  chatMessageHeadingLevel?: MarkdownHeadingLevel;
+  /**
+   * Heading level used for the "Content" section in article conversations.
+   * Defaults to 2 to keep the section under the document title.
+   */
+  articleContentHeadingLevel?: MarkdownHeadingLevel;
+};
+
+function clampHeadingLevel(level: unknown, fallback: MarkdownHeadingLevel): MarkdownHeadingLevel {
+  const n = Number(level);
+  if (!Number.isFinite(n)) return fallback;
+  if (n <= 1) return 1;
+  if (n >= 6) return 6;
+  return Math.floor(n) as MarkdownHeadingLevel;
+}
+
+function headingPrefix(level: MarkdownHeadingLevel) {
+  return '#'.repeat(level);
+}
+
 function formatIso(ts?: number) {
   const t = Number(ts) || 0;
   if (!t) return '';
@@ -26,7 +53,11 @@ export function sanitizeFilenamePart(value: unknown, fallback: string, maxLen: n
   return cleaned.slice(0, limit) || fallback;
 }
 
-function formatArticleMarkdown(conversation: Conversation, messages: ConversationMessage[]) {
+function formatArticleMarkdown(
+  conversation: Conversation,
+  messages: ConversationMessage[],
+  options: FormatConversationMarkdownOptions,
+) {
   const c = conversation || ({} as any);
   const m0 = Array.isArray(messages) && messages.length ? messages[0] : null;
   const lines: string[] = [];
@@ -36,14 +67,19 @@ function formatArticleMarkdown(conversation: Conversation, messages: Conversatio
   if (isNonEmptyString(c.publishedAt)) lines.push(`- Published: ${String(c.publishedAt)}`);
   if (isNonEmptyString(c.url)) lines.push(`- URL: ${String(c.url)}`);
   lines.push('');
-  lines.push('## Content');
+  const contentHeadingLevel = clampHeadingLevel(options.articleContentHeadingLevel, 2);
+  lines.push(`${headingPrefix(contentHeadingLevel)} Content`);
   lines.push('');
   lines.push(String((m0 && ((m0 as any).contentMarkdown || (m0 as any).contentText)) || ''));
   lines.push('');
   return lines.join('\n');
 }
 
-function formatChatMarkdown(conversation: Conversation, messages: ConversationMessage[]) {
+function formatChatMarkdown(
+  conversation: Conversation,
+  messages: ConversationMessage[],
+  options: FormatConversationMarkdownOptions,
+) {
   const c = conversation || ({} as any);
   const lines: string[] = [];
   lines.push(`# ${c.title || '(untitled)'}`);
@@ -55,10 +91,12 @@ function formatChatMarkdown(conversation: Conversation, messages: ConversationMe
     lines.push(`- Warnings: ${c.warningFlags.map(String).join(', ')}`);
   }
   lines.push('');
+  const messageHeadingLevel = clampHeadingLevel(options.chatMessageHeadingLevel, 2);
+  const messageHeading = headingPrefix(messageHeadingLevel);
   for (const m of messages || []) {
     const role = (m as any).role || 'assistant';
     const authorName = role === 'user' && isNonEmptyString((m as any).authorName) ? String((m as any).authorName) : '';
-    lines.push(`## ${role === 'user' ? authorName || 'You' : role}`);
+    lines.push(`${messageHeading} ${role === 'user' ? authorName || 'You' : role}`);
     lines.push('');
     lines.push(String((m as any).contentMarkdown || (m as any).contentText || ''));
     lines.push('');
@@ -66,8 +104,12 @@ function formatChatMarkdown(conversation: Conversation, messages: ConversationMe
   return lines.join('\n');
 }
 
-export function formatConversationMarkdown(conversation: Conversation, messages: ConversationMessage[]) {
+export function formatConversationMarkdown(
+  conversation: Conversation,
+  messages: ConversationMessage[],
+  options: FormatConversationMarkdownOptions = {},
+) {
   const sourceType = conversation?.sourceType ? String(conversation.sourceType) : '';
-  if (sourceType === 'article') return formatArticleMarkdown(conversation, messages);
-  return formatChatMarkdown(conversation, messages);
+  if (sourceType === 'article') return formatArticleMarkdown(conversation, messages, options);
+  return formatChatMarkdown(conversation, messages, options);
 }

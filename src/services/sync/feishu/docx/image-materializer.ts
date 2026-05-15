@@ -1,14 +1,13 @@
-import { downloadImageSmart } from '@platform/webext/image-download-proxy';
 import { fetchFeishuJson } from '@services/sync/feishu/feishu-api';
 
 const FEISHU_OPEN_API_BASE = 'https://open.feishu.cn/open-apis';
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // 20MB (upload_all limit)
+export const FEISHU_DOCX_IMAGE_MAX_BYTES = 20 * 1024 * 1024; // 20MB (upload_all limit)
 
 function safeString(v: unknown) {
   return String(v == null ? '' : v).trim();
 }
 
-function guessFileNameFromUrl(url: string, fallbackExt = 'png') {
+export function guessFileNameFromUrl(url: string, fallbackExt = 'png') {
   try {
     const u = new URL(url);
     const name = u.pathname.split('/').pop() || '';
@@ -20,52 +19,7 @@ function guessFileNameFromUrl(url: string, fallbackExt = 'png') {
   return `image.${fallbackExt}`;
 }
 
-export type MarkdownImageToken = {
-  alt: string;
-  url: string;
-};
-
-export function parseMarkdownImages(markdown: string): MarkdownImageToken[] {
-  const text = String(markdown || '');
-  if (!text) return [];
-
-  const out: MarkdownImageToken[] = [];
-  const re = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)/g;
-  let m: RegExpExecArray | null = null;
-  while ((m = re.exec(text))) {
-    const alt = safeString(m[1]);
-    const url = safeString(m[2]);
-    if (!url) continue;
-    out.push({ alt, url });
-  }
-  return out;
-}
-
-function splitMarkdownByImages(markdown: string) {
-  const text = String(markdown || '');
-  const parts: Array<{ type: 'text'; value: string } | { type: 'image'; alt: string; url: string }> = [];
-
-  const re = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)/g;
-  let cursor = 0;
-  let m: RegExpExecArray | null = null;
-  while ((m = re.exec(text))) {
-    const idx = Number(m.index) || 0;
-    const before = text.slice(cursor, idx);
-    if (before) parts.push({ type: 'text', value: before });
-
-    const alt = safeString(m[1]);
-    const url = safeString(m[2]);
-    if (url) parts.push({ type: 'image', alt, url });
-
-    cursor = idx + m[0].length;
-  }
-
-  const tail = text.slice(cursor);
-  if (tail) parts.push({ type: 'text', value: tail });
-  return parts;
-}
-
-async function uploadImageToFeishu({
+export async function uploadImageToFeishu({
   accessToken,
   imageBlockId,
   fileName,
@@ -139,7 +93,7 @@ async function uploadImageToFeishu({
   }
 }
 
-async function bindImageBlockWithFileToken({
+export async function bindImageBlockWithFileToken({
   accessToken,
   docId,
   imageBlockId,
@@ -155,136 +109,4 @@ async function bindImageBlockWithFileToken({
     { method: 'PATCH', body: JSON.stringify({ replace_image: { token: fileToken } }) },
     { accessToken },
   );
-}
-
-async function createEmptyImageBlock({ accessToken, docId }: { accessToken: string; docId: string }): Promise<string> {
-  const data = await fetchFeishuJson<any>(
-    `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
-    { method: 'POST', body: JSON.stringify({ children: [{ block_type: 27, image: {} }], index: -1 }) },
-    { accessToken },
-  );
-
-  const created =
-    (Array.isArray((data as any)?.children) ? (data as any).children : null) ||
-    (Array.isArray((data as any)?.items) ? (data as any).items : null) ||
-    [];
-  const id =
-    safeString(created?.[0]?.block_id) ||
-    safeString(created?.[0]?.blockId) ||
-    safeString(created?.[0]?.block?.block_id) ||
-    safeString(created?.[0]?.block?.blockId);
-  if (!id) throw new Error('Feishu create image block failed: missing block_id');
-  return id;
-}
-
-async function appendTextAsBlock({
-  accessToken,
-  docId,
-  text,
-}: {
-  accessToken: string;
-  docId: string;
-  text: string;
-}): Promise<number> {
-  const content = String(text || '');
-  if (!content) return 0;
-  const maxChunk = 8000;
-  const chunks: string[] = [];
-  for (let cursor = 0; cursor < content.length; cursor += maxChunk) {
-    chunks.push(content.slice(cursor, Math.min(content.length, cursor + maxChunk)));
-  }
-  if (!chunks.length) return 0;
-
-  const blocks = chunks.map((c) => ({ block_type: 2, text: { elements: [{ text_run: { content: c } }] } }));
-
-  const batchSize = 20;
-  for (let i = 0; i < blocks.length; i += batchSize) {
-    const slice = blocks.slice(i, i + batchSize);
-    await fetchFeishuJson<any>(
-      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(docId)}/children`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ children: slice, index: -1 }),
-      },
-      { accessToken },
-    );
-    await new Promise((r) => setTimeout(r, 350));
-  }
-
-  return blocks.length;
-}
-
-export type MaterializeImagesResult = {
-  appendedBlocks: number;
-  imageCount: number;
-  uploadedCount: number;
-  fallbackUrlCount: number;
-  warnings: string[];
-};
-
-export async function materializeMarkdownImagesIntoDocx({
-  accessToken,
-  docId,
-  markdown,
-}: {
-  accessToken: string;
-  docId: string;
-  markdown: string;
-}): Promise<MaterializeImagesResult> {
-  const parts = splitMarkdownByImages(markdown);
-  const warnings: string[] = [];
-
-  let appendedBlocks = 0;
-  let imageCount = 0;
-  let uploadedCount = 0;
-  let fallbackUrlCount = 0;
-
-  for (const part of parts) {
-    if (part.type === 'text') {
-      appendedBlocks += await appendTextAsBlock({ accessToken, docId, text: part.value });
-      continue;
-    }
-
-    imageCount += 1;
-    const url = safeString(part.url);
-    if (!url) continue;
-
-    const dl = await downloadImageSmart({ url, maxBytes: MAX_IMAGE_BYTES }).catch(() => ({
-      ok: false as const,
-      reason: 'fetch' as const,
-    }));
-    if (!dl.ok) {
-      fallbackUrlCount += 1;
-      warnings.push(`image download failed (${dl.reason}): ${url}`);
-      appendedBlocks += await appendTextAsBlock({ accessToken, docId, text: url });
-      continue;
-    }
-
-    if ((dl.blob.size || 0) > MAX_IMAGE_BYTES) {
-      fallbackUrlCount += 1;
-      warnings.push(`image too large (>20MB): ${url}`);
-      appendedBlocks += await appendTextAsBlock({ accessToken, docId, text: url });
-      continue;
-    }
-
-    const fileName = guessFileNameFromUrl(url, (dl.contentType.split('/')[1] || 'png').replace(/[^a-z0-9]/gi, ''));
-
-    try {
-      const imageBlockId = await createEmptyImageBlock({ accessToken, docId });
-      appendedBlocks += 1;
-      await new Promise((r) => setTimeout(r, 350));
-
-      const fileToken = await uploadImageToFeishu({ accessToken, imageBlockId, fileName, blob: dl.blob });
-      await bindImageBlockWithFileToken({ accessToken, docId, imageBlockId, fileToken });
-      uploadedCount += 1;
-    } catch {
-      fallbackUrlCount += 1;
-      warnings.push(`image upload failed: ${url}`);
-      appendedBlocks += await appendTextAsBlock({ accessToken, docId, text: url });
-    }
-
-    await new Promise((r) => setTimeout(r, 350));
-  }
-
-  return { appendedBlocks, imageCount, uploadedCount, fallbackUrlCount, warnings };
 }

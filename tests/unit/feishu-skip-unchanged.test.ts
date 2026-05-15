@@ -42,8 +42,8 @@ vi.mock('@services/sync/feishu/feishu-sync-job-store.ts', () => ({
   },
 }));
 
-vi.mock('@services/integrations/chatwith/chatwith-settings', () => ({
-  formatConversationMarkdownForExternalOutput: vi.fn(async () => '# same content'),
+vi.mock('@services/sync/feishu/docx/feishu-docx-markdown', () => ({
+  formatConversationMarkdownForFeishuDocxSync: vi.fn(async () => '# same content'),
 }));
 
 const fetchFeishuJsonMock = vi.hoisted(() => vi.fn());
