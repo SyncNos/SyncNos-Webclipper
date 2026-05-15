@@ -13,6 +13,7 @@ export function FeishuOAuthSection(props: {
   feishuPendingState: string;
   feishuLastError: string;
   feishuClientId: string;
+  feishuClientSecret: string;
   feishuTokenExchangeProxyUrl: string;
   feishuChatFolder: string;
   feishuArticleFolder: string;
@@ -21,6 +22,7 @@ export function FeishuOAuthSection(props: {
   onToggleAdvancedOpen: () => void;
   onConnectOrDisconnect: () => void;
   onChangeClientId: (value: string) => void;
+  onChangeClientSecret: (value: string) => void;
   onChangeTokenExchangeProxyUrl: (value: string) => void;
   onChangeChatFolder: (value: string) => void;
   onChangeArticleFolder: (value: string) => void;
@@ -38,6 +40,7 @@ export function FeishuOAuthSection(props: {
     feishuPendingState,
     feishuLastError,
     feishuClientId,
+    feishuClientSecret,
     feishuTokenExchangeProxyUrl,
     feishuChatFolder,
     feishuArticleFolder,
@@ -46,6 +49,7 @@ export function FeishuOAuthSection(props: {
     onToggleAdvancedOpen,
     onConnectOrDisconnect,
     onChangeClientId,
+    onChangeClientSecret,
     onChangeTokenExchangeProxyUrl,
     onChangeChatFolder,
     onChangeArticleFolder,
@@ -132,6 +136,19 @@ export function FeishuOAuthSection(props: {
                 spellCheck={false}
                 placeholder="cli_xxx"
                 aria-label={t('feishuOAuthClientIdLabel')}
+                className={`${textInputClassName} tw-w-full`}
+              />
+            </SettingsFormRow>
+
+            <SettingsFormRow label={t('feishuOAuthClientSecretLabel')}>
+              <input
+                value={feishuClientSecret}
+                onChange={(e) => onChangeClientSecret(e.target.value)}
+                disabled={busy}
+                spellCheck={false}
+                type="password"
+                placeholder="••••••••"
+                aria-label={t('feishuOAuthClientSecretLabel')}
                 className={`${textInputClassName} tw-w-full`}
               />
             </SettingsFormRow>

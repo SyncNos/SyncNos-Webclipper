@@ -84,6 +84,8 @@ export function SettingsScene(props: SettingsSceneProps) {
     feishuLastError,
     feishuClientId,
     setFeishuClientId,
+    feishuClientSecret,
+    setFeishuClientSecret,
     feishuTokenExchangeProxyUrl,
     setFeishuTokenExchangeProxyUrl,
     feishuChatFolder,
@@ -267,6 +269,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           feishuPendingState={feishuPendingState}
           feishuLastError={feishuLastError}
           feishuClientId={feishuClientId}
+          feishuClientSecret={feishuClientSecret}
           feishuTokenExchangeProxyUrl={feishuTokenExchangeProxyUrl}
           feishuChatFolder={feishuChatFolder}
           feishuArticleFolder={feishuArticleFolder}
@@ -276,6 +279,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           }}
           onToggleAdvancedOpen={onToggleFeishuAdvancedOpen}
           onChangeClientId={setFeishuClientId}
+          onChangeClientSecret={setFeishuClientSecret}
           onChangeTokenExchangeProxyUrl={setFeishuTokenExchangeProxyUrl}
           onChangeChatFolder={setFeishuChatFolder}
           onChangeArticleFolder={setFeishuArticleFolder}

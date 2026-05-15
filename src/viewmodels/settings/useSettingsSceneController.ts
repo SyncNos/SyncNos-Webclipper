@@ -12,7 +12,7 @@ import { extractZipEntries } from '@services/sync/backup/zip-utils';
 import { disconnectNotion } from '@services/sync/notion/auth/settings-client';
 import { getNotionOAuthDefaults } from '@services/sync/notion/auth/oauth';
 import { disconnectFeishu } from '@services/sync/feishu/auth/settings-client';
-import { ensureDefaultFeishuOAuthProxyUrl, getFeishuOAuthDefaults } from '@services/sync/feishu/auth/oauth';
+import { getFeishuOAuthDefaults } from '@services/sync/feishu/auth/oauth';
 import {
   FEISHU_DEFAULTS,
   FEISHU_STORAGE_KEYS,
@@ -217,6 +217,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [feishuPendingState, setFeishuPendingState] = useState<string>('');
   const [feishuLastError, setFeishuLastError] = useState<string>('');
   const [feishuClientId, setFeishuClientId] = useState<string>('');
+  const [feishuClientSecret, setFeishuClientSecret] = useState<string>('');
   const [feishuTokenExchangeProxyUrl, setFeishuTokenExchangeProxyUrl] = useState<string>('');
   const [feishuAdvancedOpen, setFeishuAdvancedOpen] = useState(false);
   const [pollingFeishu, setPollingFeishu] = useState(false);
@@ -331,6 +332,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         'notion_parent_page_id',
         'notion_parent_page_title',
         'feishu_oauth_client_id',
+        'feishu_oauth_client_secret',
         'feishu_oauth_pending_state',
         'feishu_oauth_last_error',
         'feishu_oauth_token_exchange_proxy_url',
@@ -386,6 +388,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       setPollingFeishu(false);
     }
     setFeishuClientId(String(local?.feishu_oauth_client_id || ''));
+    setFeishuClientSecret(String(local?.feishu_oauth_client_secret || ''));
     setFeishuPendingState(String(local?.feishu_oauth_pending_state || ''));
     setFeishuLastError(String(local?.feishu_oauth_last_error || ''));
     setFeishuTokenExchangeProxyUrl(String(local?.feishu_oauth_token_exchange_proxy_url || ''));
@@ -687,27 +690,23 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     await runTask(
       async () => {
         const clientId = String(feishuClientId || '').trim();
+        const clientSecret = String(feishuClientSecret || '').trim();
         const proxyUrlRaw = String(feishuTokenExchangeProxyUrl || '').trim();
         const proxyUrl = proxyUrlRaw ? normalizeHttpsUrlOrEmpty(proxyUrlRaw) : '';
         if (proxyUrlRaw && !proxyUrl) throw new Error('Feishu token exchange proxy url must be https');
 
         await storageSet({
           feishu_oauth_client_id: clientId,
+          feishu_oauth_client_secret: clientSecret,
           feishu_oauth_token_exchange_proxy_url: proxyUrl,
         });
-        if (!proxyUrl) {
-          await ensureDefaultFeishuOAuthProxyUrl().catch(() => {});
-          const latest = await storageGet(['feishu_oauth_token_exchange_proxy_url']).catch(() => ({}) as any);
-          const resolved = String((latest as any)?.feishu_oauth_token_exchange_proxy_url || '').trim();
-          setFeishuTokenExchangeProxyUrl(resolved);
-        } else {
-          setFeishuTokenExchangeProxyUrl(proxyUrl);
-        }
+        setFeishuTokenExchangeProxyUrl(proxyUrl);
         setFeishuClientId(clientId);
+        setFeishuClientSecret(clientSecret);
       },
       { fallbackMessage: 'save feishu settings failed' },
     );
-  }, [feishuClientId, feishuTokenExchangeProxyUrl, runTask]);
+  }, [feishuClientId, feishuClientSecret, feishuTokenExchangeProxyUrl, runTask]);
 
   const onFeishuConnectOrDisconnect = useCallback(async () => {
     await runTask(async () => {
@@ -726,6 +725,12 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       if (!clientId) {
         setFeishuAdvancedOpen(true);
         throw new Error('Feishu OAuth client id not configured');
+      }
+      const clientSecret = String(feishuClientSecret || '').trim();
+      const proxyUrl = String(feishuTokenExchangeProxyUrl || '').trim();
+      if (!clientSecret && !proxyUrl) {
+        setFeishuAdvancedOpen(true);
+        throw new Error('Feishu OAuth requires client secret (direct) or token exchange proxy url (worker)');
       }
 
       const cfg = getFeishuOAuthDefaults();
@@ -746,7 +751,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       if (!opened) throw new Error('Failed to open Feishu OAuth tab');
       setPollingFeishu(true);
     });
-  }, [feishuClientId, refreshInternal, runTask]);
+  }, [feishuClientId, feishuClientSecret, feishuTokenExchangeProxyUrl, refreshInternal, runTask]);
 
   const feishuStatusText = useMemo(() => {
     if (feishuConnected == null) return t('statusUnknown');
@@ -1375,6 +1380,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     feishuLastError,
     feishuClientId,
     setFeishuClientId,
+    feishuClientSecret,
+    setFeishuClientSecret,
     feishuTokenExchangeProxyUrl,
     setFeishuTokenExchangeProxyUrl,
     feishuChatFolder,

@@ -492,9 +492,10 @@ export const zh: { [K in TranslationKey]: string } = {
   feishuPaths: '飞书路径',
   feishuPathsNote: '相对于云盘根目录的文件夹路径。支持嵌套文件夹，留空则使用默认路径。',
   feishuOAuthClientIdLabel: 'OAuth 客户端 ID',
+  feishuOAuthClientSecretLabel: 'OAuth 客户端密钥',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange 代理 URL',
   feishuAdvancedHint:
-    '连接前需配置 Client ID。代理 URL 仅允许 https；留空将使用内置官方 worker（无需在扩展中存储 app_secret）。',
+    '连接前需配置 Client ID。若填写 Client Secret，则会直接向飞书兑换/刷新 token（无需 worker）；否则需要配置 https 的代理 URL（worker），以在不把 app_secret 存入扩展的前提下完成 token exchange/refresh。',
   feishuWaitingHint: '请在打开的飞书授权页完成授权，然后返回这里。',
   syncStopped: '同步已停止',
   syncTo: '同步到',

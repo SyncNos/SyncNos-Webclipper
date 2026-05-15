@@ -497,9 +497,10 @@ export const en = {
   feishuPaths: 'Feishu Paths',
   feishuPathsNote: 'Drive-root-relative folder paths. Nested folders supported. Empty uses defaults.',
   feishuOAuthClientIdLabel: 'OAuth Client ID',
+  feishuOAuthClientSecretLabel: 'OAuth Client Secret',
   feishuTokenExchangeProxyUrlLabel: 'Token exchange proxy URL',
   feishuAdvancedHint:
-    'Client ID is required to connect. Proxy URL must be https; leave empty to use the built-in worker (no app_secret stored in extension).',
+    'Client ID is required to connect. If Client Secret is provided, token exchange/refresh will be performed directly (no worker required). Otherwise, configure a https proxy URL (worker) to exchange/refresh tokens without storing app_secret in the extension.',
   feishuWaitingHint: 'Complete Feishu authorization in the opened tab, then return here.',
   syncStopped: 'Sync stopped',
   syncTo: 'Sync to',
