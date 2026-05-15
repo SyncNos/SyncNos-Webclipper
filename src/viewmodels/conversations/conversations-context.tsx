@@ -405,6 +405,9 @@ type ConversationsAppState = {
   openConversationExternalByLoc: (input: { source: string; conversationKey: string }) => Promise<void>;
   openConversationExternalBySourceKey: (source: string, conversationKey: string) => Promise<void>;
   openConversationExternalById: (conversationId: number) => Promise<void>;
+  openConversationInListScopeByLoc: (input: { source: string; conversationKey: string }) => Promise<void>;
+  openConversationInListScopeBySourceKey: (source: string, conversationKey: string) => Promise<void>;
+  openConversationInListScopeById: (conversationId: number) => Promise<void>;
   loadMoreList: () => Promise<void>;
 
   refreshList: () => Promise<void>;
@@ -534,7 +537,7 @@ export function ConversationsProvider({
   }, []);
 
   const applyOpenTarget = useCallback(
-    (target: ConversationListOpenTarget | null) => {
+    (target: ConversationListOpenTarget | null, options?: { preserveListScope?: boolean }) => {
       if (!target) return;
       const id = Number((target as any).id);
       if (!Number.isFinite(id) || id <= 0) return;
@@ -546,8 +549,10 @@ export function ConversationsProvider({
           url: (target as any)?.url,
         }),
       };
-      setListSourceFilterKeyPersistent(LIST_SOURCE_KEY_ALL);
-      setListSiteFilterKeyPersistent(LIST_SITE_FILTER_ALL_KEY);
+      if (!options?.preserveListScope) {
+        setListSourceFilterKeyPersistent(LIST_SOURCE_KEY_ALL);
+        setListSiteFilterKeyPersistent(LIST_SITE_FILTER_ALL_KEY);
+      }
       setActiveConversationSnapshot(normalizedTarget);
       setActiveId(id);
       requestListLocate(id);
@@ -561,8 +566,8 @@ export function ConversationsProvider({
     ],
   );
 
-  const openConversationExternalBySourceKey = useCallback(
-    async (source: string, conversationKey: string) => {
+  const openConversationBySourceKey = useCallback(
+    async (source: string, conversationKey: string, options?: { preserveListScope?: boolean }) => {
       const safeSource = String(source || '').trim();
       const safeConversationKey = String(conversationKey || '').trim();
       if (!safeSource || !safeConversationKey) return;
@@ -572,9 +577,16 @@ export function ConversationsProvider({
 
       const target = await findConversationBySourceAndKey(safeSource, safeConversationKey).catch(() => null);
       if (requestSeq !== openTargetRequestSeqRef.current) return;
-      applyOpenTarget(target);
+      applyOpenTarget(target, options);
     },
     [applyOpenTarget],
+  );
+
+  const openConversationExternalBySourceKey = useCallback(
+    async (source: string, conversationKey: string) => {
+      await openConversationBySourceKey(source, conversationKey, { preserveListScope: false });
+    },
+    [openConversationBySourceKey],
   );
 
   const openConversationExternalByLoc = useCallback(
@@ -584,13 +596,27 @@ export function ConversationsProvider({
     [openConversationExternalBySourceKey],
   );
 
+  const openConversationInListScopeBySourceKey = useCallback(
+    async (source: string, conversationKey: string) => {
+      await openConversationBySourceKey(source, conversationKey, { preserveListScope: true });
+    },
+    [openConversationBySourceKey],
+  );
+
+  const openConversationInListScopeByLoc = useCallback(
+    async (input: { source: string; conversationKey: string }) => {
+      await openConversationInListScopeBySourceKey(input?.source, input?.conversationKey);
+    },
+    [openConversationInListScopeBySourceKey],
+  );
+
   const openConversationExternalById = useCallback(
     async (conversationId: number) => {
       const id = Number(conversationId);
       if (!Number.isFinite(id) || id <= 0) return;
       const loaded = items.find((conversation) => Number((conversation as any)?.id) === id) || null;
       if (loaded) {
-        applyOpenTarget(toOpenTargetFromConversation(loaded));
+        applyOpenTarget(toOpenTargetFromConversation(loaded), { preserveListScope: false });
         return;
       }
 
@@ -599,7 +625,27 @@ export function ConversationsProvider({
 
       const target = await findConversationById(id).catch(() => null);
       if (requestSeq !== openTargetRequestSeqRef.current) return;
-      applyOpenTarget(target);
+      applyOpenTarget(target, { preserveListScope: false });
+    },
+    [applyOpenTarget, items],
+  );
+
+  const openConversationInListScopeById = useCallback(
+    async (conversationId: number) => {
+      const id = Number(conversationId);
+      if (!Number.isFinite(id) || id <= 0) return;
+      const loaded = items.find((conversation) => Number((conversation as any)?.id) === id) || null;
+      if (loaded) {
+        applyOpenTarget(toOpenTargetFromConversation(loaded), { preserveListScope: true });
+        return;
+      }
+
+      const requestSeq = openTargetRequestSeqRef.current + 1;
+      openTargetRequestSeqRef.current = requestSeq;
+
+      const target = await findConversationById(id).catch(() => null);
+      if (requestSeq !== openTargetRequestSeqRef.current) return;
+      applyOpenTarget(target, { preserveListScope: true });
     },
     [applyOpenTarget, items],
   );
@@ -1203,6 +1249,9 @@ export function ConversationsProvider({
     openConversationExternalByLoc,
     openConversationExternalBySourceKey,
     openConversationExternalById,
+    openConversationInListScopeByLoc,
+    openConversationInListScopeBySourceKey,
+    openConversationInListScopeById,
     loadMoreList,
     refreshList,
     refreshActiveDetail,
