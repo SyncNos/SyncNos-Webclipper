@@ -500,7 +500,7 @@ export const en = {
   feishuOAuthClientSecretLabel: 'App Secret (Client Secret)',
   feishuTokenExchangeProxyUrlLabel: 'Proxy URL (Worker)',
   feishuAdvancedHint:
-    'To connect, enter App ID. Choose ONE: (1) Proxy URL (Worker): more secure, the extension won’t store App Secret; (2) App Secret: no worker needed, but the secret will be stored locally in the browser.',
+    'To connect, enter App ID. Choose ONE: (1) Proxy URL (Worker): more secure, no App Secret stored, but you usually need to deploy your own Worker; (2) App Secret: no Worker needed, but the secret will be stored locally in the browser.',
   feishuWaitingHint: 'Complete Feishu authorization in the opened tab, then return here.',
   syncStopped: 'Sync stopped',
   syncTo: 'Sync to',

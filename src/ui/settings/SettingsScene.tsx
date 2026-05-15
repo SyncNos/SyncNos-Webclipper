@@ -98,6 +98,7 @@ export function SettingsScene(props: SettingsSceneProps) {
     onSaveFeishuPaths,
     onSaveFeishuAdvancedSettings,
     onFeishuConnectOrDisconnect,
+    onOpenFeishuSetupGuide,
 
     chatWithPromptTemplate,
     setChatWithPromptTemplate,
@@ -293,6 +294,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           onConnectOrDisconnect={() => {
             void onFeishuConnectOrDisconnect();
           }}
+          onOpenSetupGuide={onOpenFeishuSetupGuide}
         />
       ) : null}
 

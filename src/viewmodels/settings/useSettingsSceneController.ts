@@ -1295,6 +1295,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     openHttpUrl('https://github.com/chiimagnus/SyncNos/blob/main/.github/guide/obsidian/LocalRestAPI.zh.md');
   }, []);
 
+  const onOpenFeishuSetupGuide = useCallback(() => {
+    openHttpUrl('https://github.com/chiimagnus/SyncNos/blob/main/.github/guide/feishu/DocxSync.zh.md');
+  }, []);
+
   const notionStatusText = useMemo(() => {
     if (notionConnected == null) return t('statusUnknown');
     if (notionConnected) {
@@ -1394,6 +1398,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     onSaveFeishuPaths,
     onSaveFeishuAdvancedSettings,
     onFeishuConnectOrDisconnect,
+    onOpenFeishuSetupGuide,
 
     obsidianSyncEnabled,
     onToggleObsidianSyncEnabled,

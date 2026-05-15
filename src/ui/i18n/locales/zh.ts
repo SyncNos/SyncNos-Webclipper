@@ -495,7 +495,7 @@ export const zh: { [K in TranslationKey]: string } = {
   feishuOAuthClientSecretLabel: 'App Secret（Client Secret）',
   feishuTokenExchangeProxyUrlLabel: '代理 URL（Worker）',
   feishuAdvancedHint:
-    '连接飞书需要先填 App ID（Client ID）。两种方式二选一：① 填“代理 URL”（Worker）：更安全，扩展不会保存 App Secret；② 填“Client Secret”（App Secret）：更省事，扩展会直连飞书完成登录与刷新（无需 Worker，但密钥会保存在本机）。',
+    '连接飞书需要先填 App ID（Client ID）。两种方式二选一：① 代理 URL（Worker）：更安全，不保存 App Secret，但通常需要你自己部署 Worker；② App Secret（Client Secret）：更省事，不用部署 Worker，但密钥会保存在本机。',
   feishuWaitingHint: '请在打开的飞书授权页完成授权，然后返回这里。',
   syncStopped: '同步已停止',
   syncTo: '同步到',

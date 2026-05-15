@@ -29,6 +29,7 @@ export function FeishuOAuthSection(props: {
   onChangeVideoFolder: (value: string) => void;
   onSavePaths: () => void;
   onSaveAdvanced: () => void;
+  onOpenSetupGuide: () => void;
 }) {
   const {
     busy,
@@ -56,6 +57,7 @@ export function FeishuOAuthSection(props: {
     onChangeVideoFolder,
     onSavePaths,
     onSaveAdvanced,
+    onOpenSetupGuide,
   } = props;
 
   const onEnterToSavePaths = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -173,7 +175,19 @@ export function FeishuOAuthSection(props: {
 
             <SettingsFormRow label={t('note')} align="start">
               <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-                {t('feishuAdvancedHint')}
+                {t('feishuAdvancedHint')}{' '}
+                <a
+                  className="tw-underline hover:tw-opacity-80"
+                  href="https://github.com/chiimagnus/SyncNos/blob/main/.github/guide/feishu/DocxSync.zh.md"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenSetupGuide();
+                  }}
+                >
+                  {t('openSetupGuide')}
+                </a>
               </div>
             </SettingsFormRow>
           </div>
