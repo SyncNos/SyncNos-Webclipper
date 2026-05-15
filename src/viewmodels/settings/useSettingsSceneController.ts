@@ -219,7 +219,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [feishuClientId, setFeishuClientId] = useState<string>('');
   const [feishuClientSecret, setFeishuClientSecret] = useState<string>('');
   const [feishuTokenExchangeProxyUrl, setFeishuTokenExchangeProxyUrl] = useState<string>('');
-  const [feishuAdvancedOpen, setFeishuAdvancedOpen] = useState(false);
   const [pollingFeishu, setPollingFeishu] = useState(false);
   const [feishuSyncEnabled, setFeishuSyncEnabled] = useState(true);
   const [feishuChatFolder, setFeishuChatFolder] = useState<string>('');
@@ -670,10 +669,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     [runTask],
   );
 
-  const onToggleFeishuAdvancedOpen = useCallback(() => {
-    setFeishuAdvancedOpen((v) => !v);
-  }, []);
-
   const normalizeHttpsUrlOrEmpty = (raw: string) => {
     const value = String(raw || '').trim();
     if (!value) return '';
@@ -723,13 +718,11 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
 
       const clientId = String(feishuClientId || '').trim();
       if (!clientId) {
-        setFeishuAdvancedOpen(true);
         throw new Error('Feishu OAuth client id not configured');
       }
       const clientSecret = String(feishuClientSecret || '').trim();
       const proxyUrl = String(feishuTokenExchangeProxyUrl || '').trim();
       if (!clientSecret && !proxyUrl) {
-        setFeishuAdvancedOpen(true);
         throw new Error('Feishu OAuth requires client secret (direct) or token exchange proxy url (worker)');
       }
 
@@ -1390,8 +1383,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
 
     feishuConnected,
     pollingFeishu,
-    feishuAdvancedOpen,
-    onToggleFeishuAdvancedOpen,
     feishuPendingState,
     feishuLastError,
     feishuClientId,

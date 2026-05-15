@@ -9,7 +9,6 @@ export function FeishuOAuthSection(props: {
   feishuStatusText: string;
   feishuConnected: boolean;
   pollingFeishu: boolean;
-  feishuAdvancedOpen: boolean;
   feishuPendingState: string;
   feishuLastError: string;
   feishuClientId: string;
@@ -20,7 +19,6 @@ export function FeishuOAuthSection(props: {
   feishuVideoFolder: string;
   setupGuideUrl: string;
   onToggleSyncEnabled: (enabled: boolean) => void;
-  onToggleAdvancedOpen: () => void;
   onConnectOrDisconnect: () => void;
   onChangeClientId: (value: string) => void;
   onChangeClientSecret: (value: string) => void;
@@ -38,7 +36,6 @@ export function FeishuOAuthSection(props: {
     feishuStatusText,
     feishuConnected,
     pollingFeishu,
-    feishuAdvancedOpen,
     feishuPendingState,
     feishuLastError,
     feishuClientId,
@@ -49,7 +46,6 @@ export function FeishuOAuthSection(props: {
     feishuVideoFolder,
     setupGuideUrl,
     onToggleSyncEnabled,
-    onToggleAdvancedOpen,
     onConnectOrDisconnect,
     onChangeClientId,
     onChangeClientSecret,
@@ -117,83 +113,68 @@ export function FeishuOAuthSection(props: {
           ) : null}
         </div>
 
-        <div className="tw-mt-3">
-          <button
-            type="button"
-            className={buttonClassName}
-            onClick={onToggleAdvancedOpen}
-            disabled={busy}
-            aria-expanded={feishuAdvancedOpen}
-            aria-controls="feishu-advanced-settings"
-          >
-            {feishuAdvancedOpen ? t('advancedHide') : t('advancedShow')}
-          </button>
-        </div>
+        <div id="feishu-advanced-settings" className="tw-mt-3 tw-grid tw-gap-2">
+          <SettingsFormRow label={t('feishuOAuthClientIdLabel')}>
+            <input
+              value={feishuClientId}
+              onChange={(e) => onChangeClientId(e.target.value)}
+              disabled={busy}
+              spellCheck={false}
+              placeholder="cli_xxx"
+              aria-label={t('feishuOAuthClientIdLabel')}
+              className={`${textInputClassName} tw-w-full`}
+            />
+          </SettingsFormRow>
 
-        {feishuAdvancedOpen ? (
-          <div id="feishu-advanced-settings" className="tw-mt-3 tw-grid tw-gap-2">
-            <SettingsFormRow label={t('feishuOAuthClientIdLabel')}>
-              <input
-                value={feishuClientId}
-                onChange={(e) => onChangeClientId(e.target.value)}
-                disabled={busy}
-                spellCheck={false}
-                placeholder="cli_xxx"
-                aria-label={t('feishuOAuthClientIdLabel')}
-                className={`${textInputClassName} tw-w-full`}
-              />
-            </SettingsFormRow>
+          <SettingsFormRow label={t('feishuOAuthClientSecretLabel')}>
+            <input
+              value={feishuClientSecret}
+              onChange={(e) => onChangeClientSecret(e.target.value)}
+              disabled={busy}
+              spellCheck={false}
+              type="password"
+              placeholder="••••••••"
+              aria-label={t('feishuOAuthClientSecretLabel')}
+              className={`${textInputClassName} tw-w-full`}
+            />
+          </SettingsFormRow>
 
-            <SettingsFormRow label={t('feishuOAuthClientSecretLabel')}>
-              <input
-                value={feishuClientSecret}
-                onChange={(e) => onChangeClientSecret(e.target.value)}
-                disabled={busy}
-                spellCheck={false}
-                type="password"
-                placeholder="••••••••"
-                aria-label={t('feishuOAuthClientSecretLabel')}
-                className={`${textInputClassName} tw-w-full`}
-              />
-            </SettingsFormRow>
+          <SettingsFormRow label={t('feishuTokenExchangeProxyUrlLabel')}>
+            <input
+              value={feishuTokenExchangeProxyUrl}
+              onChange={(e) => onChangeTokenExchangeProxyUrl(e.target.value)}
+              disabled={busy}
+              spellCheck={false}
+              placeholder="https://.../feishu/oauth/exchange"
+              aria-label={t('feishuTokenExchangeProxyUrlLabel')}
+              className={`${textInputClassName} tw-w-full`}
+            />
+          </SettingsFormRow>
 
-            <SettingsFormRow label={t('feishuTokenExchangeProxyUrlLabel')}>
-              <input
-                value={feishuTokenExchangeProxyUrl}
-                onChange={(e) => onChangeTokenExchangeProxyUrl(e.target.value)}
-                disabled={busy}
-                spellCheck={false}
-                placeholder="https://.../feishu/oauth/exchange"
-                aria-label={t('feishuTokenExchangeProxyUrlLabel')}
-                className={`${textInputClassName} tw-w-full`}
-              />
-            </SettingsFormRow>
-
-            <div className="tw-flex tw-justify-end">
-              <button type="button" className={buttonClassName} onClick={onSaveAdvanced} disabled={busy}>
-                {t('save')}
-              </button>
-            </div>
-
-            <SettingsFormRow label={t('note')} align="start">
-              <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-                {t('feishuAdvancedHint')}{' '}
-                <a
-                  className="tw-underline hover:tw-opacity-80"
-                  href={setupGuideUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onOpenSetupGuide();
-                  }}
-                >
-                  {t('openSetupGuide')}
-                </a>
-              </div>
-            </SettingsFormRow>
+          <div className="tw-flex tw-justify-end">
+            <button type="button" className={buttonClassName} onClick={onSaveAdvanced} disabled={busy}>
+              {t('save')}
+            </button>
           </div>
-        ) : null}
+
+          <SettingsFormRow label={t('note')} align="start">
+            <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
+              {t('feishuAdvancedHint')}{' '}
+              <a
+                className="tw-underline hover:tw-opacity-80"
+                href={setupGuideUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onOpenSetupGuide();
+                }}
+              >
+                {t('openSetupGuide')}
+              </a>
+            </div>
+          </SettingsFormRow>
+        </div>
       </section>
 
       <section className={cardClassName} aria-label={t('feishuPaths')}>
