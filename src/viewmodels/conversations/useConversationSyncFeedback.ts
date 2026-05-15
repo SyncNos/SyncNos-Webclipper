@@ -203,59 +203,33 @@ function toSummaryFromJob(job: SyncJobSnapshot): SyncRunSummary | null {
   };
 }
 
-const FEISHU_SINGLE_CONVERSATION_STAGE_ORDER = [
-  'preparing_queue',
-  'loading_conversation',
-  'preparing_sync',
-  'rebuilding_destination_page',
-  'creating_destination_page',
-  'uploading_message_blocks',
-  'finishing_current_item',
-] as const;
-
 function toFeedbackFromJob(job: SyncJobSnapshot): ConversationSyncFeedbackState {
   const completed = Math.max(
     Array.isArray(job.perConversation) ? job.perConversation.length : 0,
     (Number(job.okCount) || 0) + (Number(job.failCount) || 0),
   );
-  const conversationTotal = Math.max(completed, Array.isArray(job.conversationIds) ? job.conversationIds.length : 0);
+  const total = Math.max(completed, Array.isArray(job.conversationIds) ? job.conversationIds.length : 0);
   const failures = toFailureSummariesFromRows(job.perConversation);
   const warnings = toWarningSummariesFromRows(job.perConversation);
 
   if (job.status === 'running') {
-    // For single-conversation Feishu runs, the UI would otherwise show only "0/1" then "1/1".
-    // Derive a more granular progress in stage units so users can see intermediate progress.
-    const stageTotalForFeishuSingle =
-      job.provider === 'feishu' && conversationTotal <= 1 ? FEISHU_SINGLE_CONVERSATION_STAGE_ORDER.length : 0;
-    const resolvedStage = String(job.currentStage || '');
-    const stageIndexForFeishuSingle =
-      stageTotalForFeishuSingle > 0
-        ? Math.max(0, FEISHU_SINGLE_CONVERSATION_STAGE_ORDER.indexOf(resolvedStage as any))
-        : 0;
-    const total = stageTotalForFeishuSingle > 0 ? stageTotalForFeishuSingle : conversationTotal;
-    const done =
-      stageTotalForFeishuSingle > 0
-        ? Math.min(stageIndexForFeishuSingle, total)
-        : Math.min(completed, total || completed);
-
     return {
       provider: job.provider,
       phase: 'running',
       total,
-      done,
+      done: Math.min(completed, total || completed),
       currentConversationId: Number(job.currentConversationId) || null,
       currentConversationTitle: String(job.currentConversationTitle || ''),
       currentStage: String(job.currentStage || ''),
       failures,
       warnings,
-      message: buildRunningMessage(job.provider, done, total),
+      message: buildRunningMessage(job.provider, completed, total),
       updatedAt: Number(job.updatedAt) || Date.now(),
       summary: null,
     };
   }
 
   if (job.status === 'aborted') {
-    const total = conversationTotal;
     return {
       provider: job.provider,
       phase: 'failed',
@@ -272,7 +246,6 @@ function toFeedbackFromJob(job: SyncJobSnapshot): ConversationSyncFeedbackState 
     };
   }
 
-  const total = conversationTotal;
   return toTerminalFeedback(
     {
       provider: job.provider,
@@ -285,15 +258,6 @@ function toFeedbackFromJob(job: SyncJobSnapshot): ConversationSyncFeedbackState 
     },
     total,
   );
-}
-
-function clampRunningProgressMonotonic(current: ConversationSyncFeedbackState, next: ConversationSyncFeedbackState) {
-  if (current.phase !== 'running' || next.phase !== 'running') return next;
-  if (current.provider !== next.provider) return next;
-  if (!Number.isFinite(Number(current.total)) || !Number.isFinite(Number(next.total))) return next;
-  if (Number(current.total) !== Number(next.total)) return next;
-  if (!Number.isFinite(Number(current.done)) || !Number.isFinite(Number(next.done))) return next;
-  return { ...next, done: Math.max(Number(current.done), Number(next.done)) };
 }
 
 function pickPrimaryJob(
@@ -386,7 +350,7 @@ export function useConversationSyncFeedback(deps: UseConversationSyncFeedbackDep
         setActiveRun(null);
       }
       setFeedback((current) => {
-        if (job) return clampRunningProgressMonotonic(current, toFeedbackFromJob(job));
+        if (job) return toFeedbackFromJob(job);
         if (current.phase === 'running') return current;
         if (current.phase === 'failed' && current.summary == null) return current;
         return IDLE_FEEDBACK;
@@ -436,7 +400,7 @@ export function useConversationSyncFeedback(deps: UseConversationSyncFeedbackDep
         }
         setFeedback((current) => {
           if (current.phase !== 'running' || current.provider !== provider) return current;
-          return clampRunningProgressMonotonic(current, toFeedbackFromJob(status.job!));
+          return toFeedbackFromJob(status.job!);
         });
         if (status.job.status !== 'running') {
           runTokenRef.current += 1;
@@ -560,18 +524,17 @@ export function useConversationSyncFeedback(deps: UseConversationSyncFeedbackDep
         activeRunRef.current = nextRun;
         setActiveRun(nextRun);
 
-        const total = ids.length <= 1 ? FEISHU_SINGLE_CONVERSATION_STAGE_ORDER.length : ids.length;
         const runningFeedback: ConversationSyncFeedbackState = {
           provider,
           phase: 'running',
-          total,
+          total: ids.length,
           done: 0,
           currentConversationId: ids[0] || null,
           currentConversationTitle: '',
           currentStage: 'preparing_queue',
           failures: [],
           warnings: [],
-          message: buildRunningMessage(provider, 0, total),
+          message: buildRunningMessage(provider, 0, ids.length),
           updatedAt: Date.now(),
           summary: null,
         };
