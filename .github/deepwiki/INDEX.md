@@ -92,21 +92,3 @@
 ## Generation Metadata
 
 - [GENERATION.md](GENERATION.md)
-
-## 更新记录（Update Notes）
-
-- 2026-05-16：v1.7.0 深度更新——同步 manifest.version 到 `1.7.0`，补齐 Feishu Convert API 四阶段流水线（图片预处理 → Convert → block 插入 → 图片绑定）、OAuth scope（`docx:document docx:document.block:convert drive:drive`）、12 个 Feishu 专项测试、商店描述增加飞书、新增 `webclipper_sync_provider_feishu_enabled` 配置项；更新 `configuration.md`、`data-flow.md`、`architecture.md`、`api.md`、`dependencies.md`、`operations.md`、`troubleshooting.md`、`glossary.md`、`overview.md`、`testing.md`、`INDEX.md`、`GENERATION.md`。
-- 2026-05-14：补齐 Feishu（DocX）同步的最新事实（Convert API、图片上传插入、三类默认目录与自定义路径、`skipped_unchanged` 的 DocX 存在性校验、sync job 卡死中止与 `Open in Feishu`）；更新 `business-context.md`、`overview.md`、`data-flow.md`、`configuration.md`、`storage.md`、`troubleshooting.md`、`modules/webclipper.md`、`feishu-setup.md` 与本索引。
-- 2026-04-18：新增 `modules/videos.md` 路由页，补齐视频字幕采集、`video` kind、右键菜单与 `SyncNos-Videos` 的阅读路径；更新 `business-context.md`、`overview.md`、`modules/webclipper.md`、`INDEX.md`。
-- 2026-04-16：同步 `manifest.version` 到 `1.5.4`，并澄清 CI Node 22 / 发布 Node 20 的双环境说明；更新 `configuration.md`、`dependencies.md`、`security.md`、`GENERATION.md`。
-- 2026-04-05：同步 2026-04 重大架构变化（85 commits）——评论模块 React 迁移、Settings 顶部标签导航、AppShell listShell 重构、Notion/Obsidian 评论数同步、文章提取增强（bilibili 新增、小红书移除）、Chat with AI prompt 模板可配置；更新 `business-context.md`、`overview.md`、`architecture.md`、`modules/comments.md`、`GENERATION.md`。
-- 2026-04-09：同步 WebClipper 配置 / 存储 / 模块文档与 `DB_VERSION = 8`，补齐 Notion OAuth / anti-hotlink host permissions、Settings 顶部标签导航与 Inpage 阅读风格说明，并刷新 `configuration.md`、`modules/webclipper.md`、`GENERATION.md`、`PRIVACY.md`。
-- 2026-04-02：对齐会话详情动作槽位事实（`open / tools`）、更新图片缓存双开关（`ai_chat_cache_images_enabled` / `web_article_cache_images_enabled`）、同步 article comments 已进入 Notion/Obsidian 同步区段；并修复 deepwiki 内 `conversations-context.tsx` 路径到 `src/viewmodels/conversations/conversations-context.tsx`。
-- 2026-03-30：同步 WebClipper Settings section key（`aboutyou/aboutme`）与相关 deep-link（安装后 About Me、统计入口 About You）；补齐 Notion 设置侧链路（`LIST_PARENT_PAGES`、Parent Page 发现/resolve、OAuth pending/error 状态与断开清理）；并刷新 `configuration.md` 的版本事实源对齐规则。
-- 2026-03-29：同步 WebClipper 新行为与契约：inpage 双击从"打开 popup"调整为"打开页面内评论侧边栏"；补齐 `$ mention`（item-mention）配置键、消息契约与测试入口；更正 manifest icons 事实（`16/48/128` 仍存在，仅 `icon-128.png` 暴露为 `web_accessible_resources`）。
-- 2026-03-25：清理 deepwiki 内 WebClipper 旧目录引用并统一迁移到 `src/services/*` / `src/ui/i18n/*`；同步 comments locator 事实（移除不存在的 `quoteContext`）；更新 `GENERATION.md` 元数据。
-- 2026-03-22：同步 WebClipper settings 真路径、Chat with AI 真路径，并强调 `manifest.version` 以 `configuration.md` 为单一事实源维护。
-- 2026-03-19：Coverage Gaps 增加专项文档可点击链接，便于从索引直接跳转到仓库内技术文档。
-- 2026-03-19：补齐 `api.md`、`operations.md`、`security.md` 与 `glossary.md` 的索引级可达链接，消除页面可见性缺口。
-- 2026-03-19：新增 `modules/comments.md`，用于承载 WebClipper 文章评论 / 注释线程的本地事实层说明。
-- 2026-03-21：同步 WebClipper 文章评论线程进入 Zip v2 备份 / 导入说明，并补齐 `configuration.md` / `security.md` 的单一 `icon-128.png` 图标配置说明。
