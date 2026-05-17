@@ -8,7 +8,12 @@ export const XIAOHONGSHU_NOTE_SITE_SPEC: ArticleFetchSiteSpec = {
   publishedAtSelector: '.info .date span, .info .date',
   textSelector: '.content .note-text, .note-text, .content',
   textPrefer: 'innerText',
-  imageSelector: '.media-container img, .note-slider-img img, .img-container img',
+  imageSelectorCandidates: [
+    // Prefer Swiper real slides (loop mode clones can put the "last image" at DOM start).
+    '.swiper-wrapper .swiper-slide:not(.swiper-slide-duplicate) img',
+    // Fallback selectors for non-swiper layouts / legacy DOM.
+    '.media-container img, .note-slider-img img, .img-container img',
+  ],
   imageSrcAttributes: ['data-src', 'data-original', 'src'],
   imageSanitizer: 'none',
 };

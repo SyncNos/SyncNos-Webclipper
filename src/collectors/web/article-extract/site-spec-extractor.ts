@@ -103,22 +103,35 @@ export function extractBySiteSpec(spec: ArticleFetchSiteSpec, baseHref: string) 
   const text = spec.textSelector ? pickTextFromNode(root.querySelector(spec.textSelector), spec.textPrefer) : '';
 
   const urls: string[] = [];
-  if (spec.imageSelector) {
-    const images = Array.from(root.querySelectorAll(spec.imageSelector));
-    for (const img of images) {
-      const el = img as any;
-      let src = '';
-      const attrs = Array.isArray(spec.imageSrcAttributes) ? spec.imageSrcAttributes : [];
-      for (const attr of attrs) {
-        const value = el?.getAttribute?.(String(attr || '').trim()) || '';
-        if (value) {
-          src = value;
-          break;
+  const selectorCandidates = Array.isArray(spec.imageSelectorCandidates)
+    ? spec.imageSelectorCandidates.map((s) => String(s || '').trim()).filter(Boolean)
+    : [];
+  const selector = selectorCandidates.length ? '' : String(spec.imageSelector || '').trim();
+  const selectorsToTry = selectorCandidates.length ? selectorCandidates : selector ? [selector] : [];
+
+  if (selectorsToTry.length) {
+    const attrs = Array.isArray(spec.imageSrcAttributes) ? spec.imageSrcAttributes : [];
+    for (const imageSelector of selectorsToTry) {
+      const images = Array.from(root.querySelectorAll(imageSelector));
+      if (!images.length) continue;
+
+      for (const img of images) {
+        const el = img as any;
+        let src = '';
+        for (const attr of attrs) {
+          const value = el?.getAttribute?.(String(attr || '').trim()) || '';
+          if (value) {
+            src = value;
+            break;
+          }
         }
+        if (!src) src = el?.currentSrc || el?.src || '';
+        const url = sanitizeSiteImageUrl(src, baseHref, String(spec.imageSanitizer || 'none'));
+        if (url) urls.push(url);
       }
-      if (!src) src = el?.currentSrc || el?.src || '';
-      const url = sanitizeSiteImageUrl(src, baseHref, String(spec.imageSanitizer || 'none'));
-      if (url) urls.push(url);
+
+      // Stop at the first selector that yields any image URLs.
+      if (urls.length) break;
     }
   }
 
