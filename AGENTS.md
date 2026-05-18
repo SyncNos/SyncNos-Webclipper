@@ -70,11 +70,11 @@ npm run check            # 产物校验
 以下协议的完整规范、真源文件和扫描命令已迁移至 deepwiki 对应页面：
 
 - **圆角规范**：禁止裸 `border-radius: <px>`，使用 `--radius-*` token。细则见 `src/ui/AGENTS.md`。
-- **Markdown 阅读风格**（`markdown_reading_profile_v1`）：未知值必须 `normalize -> medium`。真源与扩展顺序见 [configuration.md](.github/deepwiki/configuration.md)。
-- **Anti-hotlink 规则**（`anti_hotlink_rules_v1`）：命中时自动补 referer 并缓存图片，不阻断主抓取。真源见 [configuration.md](.github/deepwiki/configuration.md)。
-- **会话分页**：必须走 `bootstrap + loadMore`，禁止全量读取。契约见 [modules/webclipper.md](.github/deepwiki/modules/webclipper.md)。
-- **评论侧栏选区附加**：`selectionchange` 自动触发，reply 输入框不触发。行为边界见 [modules/comments.md](.github/deepwiki/modules/comments.md)。
-- **`$` mention**：`$` 触发候选窗，`Tab/Enter` 插入。支持站点与键盘行为见 [modules/webclipper.md](.github/deepwiki/modules/webclipper.md)。
+- **Markdown 阅读风格**（`markdown_reading_profile_v1`）：未知值必须 `normalize -> medium`。真源与扩展顺序见 [configuration.md](docs/configuration.md)。
+- **Anti-hotlink 规则**（`anti_hotlink_rules_v1`）：命中时自动补 referer 并缓存图片，不阻断主抓取。真源见 [configuration.md](docs/configuration.md)。
+- **会话分页**：必须走 `bootstrap + loadMore`，禁止全量读取。契约见 [modules/webclipper.md](docs/modules/webclipper.md)。
+- **评论侧栏选区附加**：`selectionchange` 自动触发，reply 输入框不触发。行为边界见 [modules/comments.md](docs/modules/comments.md)。
+- **`$` mention**：`$` 触发候选窗，`Tab/Enter` 插入。支持站点与键盘行为见 [modules/webclipper.md](docs/modules/webclipper.md)。
 
 ## 贡献约定
 
@@ -87,8 +87,8 @@ npm run check            # 产物校验
 1. 先从代码和脚本确认实际行为，再更新文档，不根据旧文档互相抄写。
 2. 涉及仓库级行为变化时，优先同步这些入口文档：
    - `AGENTS.md`
-   - `.github/deepwiki/overview.md`
-   - `.github/deepwiki/overview.md`
+   - `docs/overview.md`
+   - `docs/overview.md`
    - `README.md`
 3. 若 WebClipper 改动涉及设置结构、视觉 tokens、主题模式或共享按钮/导航样式，再同步：
    - `src/ui/AGENTS.md`

@@ -42,7 +42,7 @@
 
 ## 操作演示视频
 
-[![SyncNos 操作演示视频](.github/deepwiki/assets/syncnos-demo-video.svg)](https://www.bilibili.com/video/BV1gjwQznEx7/)
+[![SyncNos 操作演示视频](docs/assets/syncnos-demo-video.svg)](https://www.bilibili.com/video/BV1gjwQznEx7/)
 
 ## 支持采集的来源
 
@@ -105,9 +105,9 @@ YouTube 和 Bilibili 视频页可采集页面已加载的字幕 / 转录内容�
 <!-- 保留你的截图，按需更新 -->
 
 WebClipper Popup：保存与浏览对话
-![WebClipper Popup](.github/deepwiki/assets/popup-screenshots.png)
+![WebClipper Popup](docs/assets/popup-screenshots.png)
 WebClipper Settings：备份与同步（Notion / Obsidian / 飞书）
-![WebClipper Settings](.github/deepwiki/assets/setting-screenshots.png)
+![WebClipper Settings](docs/assets/setting-screenshots.png)
 
 ## 支持
 

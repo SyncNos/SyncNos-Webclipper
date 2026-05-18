@@ -9,5 +9,5 @@
 | Branch name | `crh` (HEAD), `origin/crh` |
 | Generation timestamp | `2026-05-18 00:00:00 +0800` |
 | Output language | 中文 |
-| Generated directory | `.github/deepwiki/` |
+| Generated directory | `docs/` |
 | Update mode | Incremental sync — v1.7.1 Xiaohongshu image order fix + light mode token neutralization |
