@@ -44,7 +44,7 @@
 ### 版本号单一事实源（Single Source of Truth）
 
 - deepwiki 里 **只在本页**记录 WebClipper 的具体发版号（`manifest.version`）。
-- 其他页面（如 `dependencies.md` / `release.md` / `testing.md`）只引用本页，不再重复写死版本值。
+- 其他页面只引用本页，不再重复写死版本值。
 - 当版本变更时，只需要修改此处与源码 `wxt.config.ts`，避免多处文档漂移。
 
 - 扩展 UI 文案没有独立的“语言设置”键；`src/ui/i18n/index.ts` 会按 `navigator.language` 自动在 `en` / `zh` 间切换。

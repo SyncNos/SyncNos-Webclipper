@@ -4,7 +4,7 @@
 
 本页描述仓库内可验证的安全实践：凭据管理、备份边界、扩展权限、OAuth 交换、发布链路校验。
 
-> 若需先理解业务影响面，先读 [business-context.md](business-context.md)。
+> 若需先理解业务影响面，先读 [overview.md](overview.md)。
 
 ## 敏感数据面与落点
 

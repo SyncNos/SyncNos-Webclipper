@@ -34,8 +34,8 @@ npm run check            # 产物校验
 | 规范 | 路径 |
 | --- | --- |
 | 仓库总览 | `README.md` |
-| deepwiki 总入口 | `.github/deepwiki/INDEX.md` |
-| deepwiki 业务入口 | `.github/deepwiki/business-context.md` |
+| deepwiki 总入口 | `.github/deepwiki/overview.md` |
+| deepwiki 业务入口 | `.github/deepwiki/overview.md` |
 | 本文档（统一入口） | `AGENTS.md` |
 | WebClipper UI 规范 | `src/ui/AGENTS.md` |
 
@@ -43,11 +43,10 @@ npm run check            # 产物校验
 
 ### 先判断产品线
 
-- 开始任何仓库级理解、规划、评审或文档改动前，先读 `.github/deepwiki/business-context.md`；需要继续展开时，再从 `.github/deepwiki/INDEX.md` 进入对应专题页。
-- 一般情况下不需要全量通读 `.github/deepwiki/`；按 `.github/deepwiki/INDEX.md` 导航到最小必要页面即可。
+- 开始任何仓库级理解、规划、评审或文档改动前，先读 `.github/deepwiki/overview.md`，再按其中的「推荐阅读路径」进入对应专题页。
 - 修改扩展代码时，优先查看 `.github/deepwiki/modules/webclipper.md` 与本文档（`AGENTS.md`），先确认变更属于 `background`、`content`、`popup` 还是 `app`。
 - iOS/macOS 相关内容已迁移到独立仓库，本仓库不再承载 Apple 客户端代码更新。
-- 若改动影响共享业务说明或仓库级入口文档，代码确认后同步更新相关 `AGENTS.md`、`.github/deepwiki/INDEX.md`、`.github/deepwiki/business-context.md` 与 `README.md`。
+- 若改动影响共享业务说明或仓库级入口文档，代码确认后同步更新 `AGENTS.md`、`.github/deepwiki/overview.md` 与 `README.md`。
 
 ### WebClipper 工作流
 
@@ -134,8 +133,8 @@ npm run check            # 产物校验
 1. 先从代码和脚本确认实际行为，再更新文档，不根据旧文档互相抄写。
 2. 涉及仓库级行为变化时，优先同步这些入口文档：
    - `AGENTS.md`
-   - `.github/deepwiki/INDEX.md`
-   - `.github/deepwiki/business-context.md`
+   - `.github/deepwiki/overview.md`
+   - `.github/deepwiki/overview.md`
    - `README.md`
 3. 若 WebClipper 改动涉及设置结构、视觉 tokens、主题模式或共享按钮/导航样式，再同步：
    - `src/ui/AGENTS.md`
