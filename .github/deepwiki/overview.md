@@ -20,22 +20,6 @@ SyncNos 现在围绕“异构内容 → 稳定知识资产”展开的是 WebCli
 | `.github/workflows/` | CI / Release / 商店发布入口 | `release.yml`, `webclipper-release.yml`, `webclipper-amo-publish.yml`, `webclipper-cws-publish.yml`, `webclipper-edge-publish.yml` | 看真实交付链路而不是猜测。 |
 | `.github/scripts/webclipper/` | WebClipper 打包 / 发布脚本 | 打包 release assets、AMO source、AMO 发布 | 与 workflow 配套理解渠道差异。 |
 
-**2026-04 重大架构变化**：
-
-- **评论模块 React 迁移**：`src/ui/comments/react/` 新增完整 React 实现（~810 行），删除 legacy `render.ts`（543 行），引入 `panel-store.ts` + `focus-rules.ts` 架构。
-- **Settings 界面重构**：新增 `SettingsTopTabsNav.tsx`（窄屏顶部标签导航），支持关闭按钮，部分设置项改为 blur 自动保存；Inpage 分区承载阅读风格与 anti-hotlink 域名编辑。
-- **AppShell/ConversationsScene 重构**：引入 `listShell` 属性和 `CapturedListPaneShell` 组件，删除 `CapturedListSidebar.tsx`，popup/app 共享列表架构。
-- **Notion/Obsidian 评论数同步**：新增 `comment-metrics.ts`，Notion 写入 "Comment Threads" 属性，Obsidian frontmatter 写入 `comments_root_count`。
-- **文章提取增强**：新增 bilibili 动态支持，移除小红书适配器，优化 Discourse `<details>` code blocks 处理。
-- **视频字幕采集**：新增 YouTube / Bilibili 字幕抓取、`VideosSection.tsx` 设置分区、`Save video transcript` 右键菜单和 `video` conversation kind。
-
-**v1.7.0（2026-05）重大功能新增**：
-
-- **Feishu（DocX）同步**：完整的飞书文档同步链路，包括 OAuth 授权（支持 proxy worker 和直连两种模式）、Convert API（markdown → DocX blocks）、图片绑定（上传到 Drive 并绑定到 image blocks）、按 conversation kind 分流到三个默认目录（`SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`）、skip-unchanged 增量跳过（SHA-256 hash + DocX 可访问性校验）、Convert 失败回退纯文本 blocks。
-- **Feishu OAuth scope 升级**：新增 `docx:document.block:convert` 权限，支持 Convert API。
-- **Feishu 图片绑定流水线**：图片预处理（占位 URL 生成）→ Convert → 按位置顺序匹配 image blocks → 上传到 Drive → 绑定 file token；best-effort 策略，失败不阻断同步。
-- **12 个 Feishu 专项测试**：覆盖 API 错误规范化、重试逻辑、Convert block 树规范化、图片绑定流程、markdown 格式化、Drive 路径解析、folder 布局、skip-unchanged、warnings 去敏等。
-
 ## 关键入口文件
 
 | 入口 | 路径 | 作用 | 为什么先看这里 |
@@ -87,15 +71,6 @@ flowchart LR
   D --> G[Feishu DocX]
   D --> H[IndexedDB / chrome.storage.local]
 ```
-
-## 推荐导航
-
-- 如果你还没建立产品语义，先回到 [business-context.md](business-context.md)。
-- 如果你需要判断“代码应该改哪里”，先看 [architecture.md](architecture.md) 和对应 `modules/` 页面。
-- 如果你要改视频字幕采集，先看 [modules/videos.md](modules/videos.md) 再回到 [architecture.md](architecture.md) / [configuration.md](configuration.md)。
-- 如果你想理解“为什么本地有这些缓存 / mapping / backup 文件”，优先看 [storage.md](storage.md)。
-- 如果你要发布 WebClipper，优先看 [release.md](release.md)、[configuration.md](configuration.md) 和 [testing.md](testing.md)。
-- 如果你正在排查“配置没生效 / 按钮不显示 / workflow 失败 / 同步重建”，优先看 [troubleshooting.md](troubleshooting.md)。
 
 ## 常见误区
 

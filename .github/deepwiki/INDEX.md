@@ -57,7 +57,7 @@
 | 基础全景 | `overview.md`, `architecture.md`, `dependencies.md`, `data-flow.md` | 帮你建立仓库全貌、运行时边界和主链路。 |
 | 工程执行 | `configuration.md`, `testing.md`, `workflow.md` | 回答“如何配置、如何验证、如何协作”。 |
 | 产品模块 | `modules/webclipper.md`, `modules/videos.md` | 回答“改扩展去哪里”与“视频字幕采集去哪里”。 |
-| 专题页面 | [storage.md](storage.md), [release.md](release.md), [troubleshooting.md](troubleshooting.md), [api.md](api.md), [operations.md](operations.md), [security.md](security.md) | 回答“数据落点、交付链路、故障定位、API 契约、运维与安全边界”。 |
+| 专题页面 | [storage.md](storage.md), [release.md](release.md), [troubleshooting.md](troubleshooting.md), [api.md](api.md), [security.md](security.md) | 回答”数据落点、交付链路、故障定位、API 契约与安全边界”。 |
 | 参考 | [glossary.md](glossary.md), [GENERATION.md](GENERATION.md) | 统一术语与生成元数据。 |
 
 ## 页面地图（按问题导航）
@@ -80,7 +80,7 @@
 | 某个数据源 / collector / sync job 影响哪些系统？ | [architecture.md](architecture.md) | [data-flow.md](data-flow.md), [troubleshooting.md](troubleshooting.md) |
 | OAuth 交换、消息契约和外部 API 边界在哪里看？ | [api.md](api.md) | [dependencies.md](dependencies.md), [security.md](security.md) |
 | 权限、凭据、敏感数据保护策略在哪里看？ | [security.md](security.md) | [configuration.md](configuration.md), [workflow.md](workflow.md) |
-| 日常运行检查和故障处理 Runbook 在哪里看？ | [operations.md](operations.md) | [troubleshooting.md](troubleshooting.md), [release.md](release.md) |
+| 日常运行检查和故障处理 Runbook 在哪里看？ | [troubleshooting.md](troubleshooting.md) | [release.md](release.md), [testing.md](testing.md) |
 | 怎样验证发布不会炸？ | [release.md](release.md) | [configuration.md](configuration.md), [testing.md](testing.md) |
 
 ## Coverage Gaps

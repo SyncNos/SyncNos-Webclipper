@@ -1,7 +1,5 @@
 # 架构
 
-macOS/ 历史资料已归档；本页仅保留 WebClipper 的运行时、契约和恢复路径。
-
 ## 系统上下文
 
 SyncNos 仓库由三层共同构成：**WebClipper 运行时**、**本地事实与同步层**（IndexedDB / `chrome.storage.local` / Notion / Obsidian）、以及 **交付层**（GitHub Release / CWS / AMO）。理解架构时最重要的不是“有哪些目录”，而是“哪个运行时拥有哪类状态，以及哪些契约负责在运行时之间传递数据”。

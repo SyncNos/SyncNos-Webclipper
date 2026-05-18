@@ -1,7 +1,5 @@
 # 业务语境
 
-macOS/ 历史资料已归档；本页仅保留 WebClipper 的业务语义与本地事实源说明。
-
 ## 产品定位
 
 SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的 WebClipper 业务系统；浏览器扩展负责把 AI 对话与网页文章先保存为本地事实，再按需导出或同步到 Notion / Obsidian / Feishu（DocX）。
