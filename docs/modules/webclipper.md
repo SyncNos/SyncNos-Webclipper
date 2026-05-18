@@ -2,7 +2,6 @@
 
 ## 职责
 
-- 从支持 AI 站点采集对话、从普通网页抓正文，并把结果先写入本地浏览器数据库。
 - 从支持 AI 站点采集对话、从普通网页抓正文、从视频页采集字幕，并把结果先写入本地浏览器数据库。
 - 提供 popup / app / inpage / settings(videos) 四类用户入口，让用户进行保存、导出、备份、Notion 同步、Obsidian 同步、Feishu(DocX) 同步与设置管理。
 - 通过 MV3 的 background + content + popup + app 分层，保持“采集、持久化、同步、展示”边界清晰。
@@ -35,14 +34,7 @@
 | `src/services/conversations/data/storage-idb.ts` | 本地会话数据层 | 承载 IndexedDB 事实源 |
 | `src/services/conversations/background/handlers.ts` | 会话消息与图片回填路由 | 控制 `SYNC_CONVERSATION_MESSAGES` 的图片内联与 `BACKFILL_CONVERSATION_IMAGES` 消息处理 |
 | `src/services/conversations/background/image-backfill-job.ts` | 历史消息图片补全任务 | 复扫 conversation 消息并按 diff 增量回写 `contentMarkdown` |
-| `src/services/comments/background/handlers.ts` | 文章评论消息路由 | 处理评论增删改、回复与 inpage panel 通信 |
-| `src/services/comments/data/storage-idb.ts` | 文章评论存储层 | 承载 `article_comments` 的本地读写与查询 |
-| `src/services/comments/client/repo.ts` | 文章评论客户端仓库 | 为 UI 提供 comments 读写 API |
-| `src/ui/conversations/ArticleCommentsSection.tsx` | 文章详情评论区 | 在 article detail 中展示本地评论线程 |
-| `src/services/comments/threaded-comments-panel.ts` | threaded comments 面板 | 负责 comments 的线程渲染与交互 |
-| `src/ui/inpage/inpage-comments-panel-shadow.ts` | inpage comments 面板壳 | 让页面内评论面板运行在独立 shadow root 中 |
-| `src/services/bootstrap/inpage-comments-panel-content-handlers.ts` | inpage comments 内容脚手架 | 连接 content script 与 comments panel 逻辑，并通过 shared session 统一状态 |
-| `src/services/comments/sidebar/comment-sidebar-session.ts` | 评论侧边栏共享会话 | 统一 open / close / quote / focus / busy 语义 |
+| 评论相关文件 | 文章评论 / inpage panel / 侧边栏会话 | 详见 [modules/comments.md](comments.md) |
 | `src/platform/idb/schema.ts` | DB schema 与迁移 | 处理 NotionAI stable key migration、`article_comments`（v7 引入）与 list pagination indexes（DB_VERSION = 8） |
 | `src/services/sync/notion/notion-sync-orchestrator.ts` | Notion 同步编排 | 控制 DB / page / cursor / rebuild |
 | `src/services/sync/notion/auth/oauth.ts` | Notion OAuth | 处理 code exchange、state 校验、timeout/retry，并维护 OAuth 连接中的本地状态 |
@@ -143,23 +135,7 @@
 
 ## 本地数据与同步结构
 
-| 区域 | 主要实现 | 关键点 |
-| --- | --- | --- |
-| 本地会话库 | `src/services/conversations/data/storage-idb.ts` | `upsertConversation()` / `syncConversationMessages()` 负责 conversation + message 快照更新 |
-| Schema 与迁移 | `src/platform/idb/schema.ts` | `DB_NAME='webclipper'`, `DB_VERSION=8`，处理 NotionAI stable key、legacy article canonical key 迁移、legacy 字段清理、`article_comments` store 与 list pagination / filter 索引 |
-| 会话种类 | `src/services/protocols/conversation-kinds.ts` | `chat` 与 `article` 决定 Notion DB、Obsidian folder 与重建规则 |
-| 文章评论线程 | `src/services/comments/data/storage-idb.ts`, `src/services/comments/background/handlers.ts` | `article_comments` 负责 article 详情页的本地评论、回复与删除 |
-| Notion 同步 | `notion-sync-orchestrator.ts` | 需要 token + `notion_parent_page_id`，cursor 命中 append，否则 rebuild |
-| Obsidian 同步 | `obsidian-sync-orchestrator.ts` | 支持 `incremental_append`、`full_rebuild`、rename；PATCH 失败回退 `full_rebuild_fallback` |
-| Feishu 同步 | `feishu-sync-orchestrator.ts` | 需要 OAuth token；同步到 DocX：支持按类型分流到三类目录（默认根目录 `SyncNos-AIChats/WebArticles/Videos`，可自定义路径且不存在会自动创建），支持 Convert API（markdown→blocks）与图片上传插入；并基于内容 hash 做 `skipped_unchanged` 与“文档被删后自动新建” |
-| 备份导入导出 | `src/services/sync/backup/export.ts`, `src/services/sync/backup/import.ts`, `src/services/sync/backup/backup-utils.ts` | Zip v2、敏感键排除、merge import；会把 `article_comments` 一并归档 / 恢复 |
-
-- article 会话通过 `sourceType='article'` 标记，并保存单条 `article_body` 正文消息。
-- article 评论通过 `article_comments` 独立存储，并以 `canonicalUrl` + `conversationId` 组织线程；它是 article 会话的本地注释层，而不是新的远端同步目标。
-- Notion orchestrator 会按 kind 选择 `SyncNos-AI Chats` 或 `SyncNos-Web Articles` 数据库，并在数据库缓存失效时尝试恢复一次。
-- Obsidian orchestrator 在 patch 失败时不是直接报错，而是尽量回退全量重建，优先保证文件最终可恢复到正确状态。
-- Feishu orchestrator（DocX）基于 OAuth token 把 conversation 写入飞书云文档：默认会在云盘根目录创建/使用三类文件夹（`SyncNos-AIChats` / `SyncNos-WebArticles` / `SyncNos-Videos`），也可在 Settings 中分别自定义路径；同步时优先走 Convert API（markdown→DocX blocks）与图片上传插入（失败会回退为纯文本 blocks 写入）；并通过内容 hash 实现 `skipped_unchanged`，若目标 DocX 已删除/不可访问则自动创建新文档并更新 mapping。OAuth token 存在 `feishu_oauth_token_v1` 且会被备份排除；可选地在扩展端保存 `client_secret` 走直连 refresh，或不保存密钥改走 token exchange/refresh worker。
-- `schema.ts` 的升级链路采用 `oldVersion < 2 / < 4 / < 6 / < 8` 分段处理：分别覆盖 NotionAI key 归一、article canonical 归并、`conversations.description` 旧字段清理、`article_comments` store 保留与列表分页索引回填。
+详见 [storage.md](../storage.md)（IndexedDB schema、迁移、同步编排、备份排除策略）与 [data-flow.md](../data-flow.md)（来源 → 本地 → Notion/Obsidian/Feishu/导出全链路）。
 
 ## 设置与 UI 入口
 
@@ -175,34 +151,9 @@
 | i18n | `src/ui/i18n/index.ts`, `src/ui/i18n/locales/*.ts` | UI 文案自动根据浏览器语言在 `en` / `zh` 间切换 |
 | 页面内评论侧边栏打开 | `src/platform/messaging/ui-background-handlers.ts` | 双击 inpage 按钮发送 `UI_MESSAGE_TYPES.OPEN_CURRENT_TAB_INPAGE_COMMENTS_PANEL`，background 转发 `CONTENT_MESSAGE_TYPES.OPEN_INPAGE_COMMENTS_PANEL` 打开 panel；失败会提示用户点击工具栏图标进行评论 |
 
-- Settings controller 会负责读取 / 保存 `notion_parent_page_id`, `notion_parent_page_title`, `notion_ai_preferred_model_index`, `ai_chat_cache_images_enabled`, `web_article_cache_images_enabled`, `anti_hotlink_rules_v1`, `markdown_reading_profile_v1`，以及 Obsidian 连接参数。
-- Notion Parent Page 的下拉刷新不由 UI 直接请求 Notion API：Settings controller 会通过 background router 调用 `NOTION_MESSAGE_TYPES.LIST_PARENT_PAGES`，由 `settings-background-handlers.ts` 读取 token + 已保存 page id，并调用 `notion-parent-pages.ts` 统一分页/过滤/已保存 page resolve；429 会返回带 retry 提示的 message，并在 extra 中附带 `status/code/requestId` 便于排障。
-- `General` 分区现在承接了原来分散的“inpage + 自动保存”等设置；主题仅跟随系统 `prefers-color-scheme`（不再提供手动切换）。
-- `ai_chat_cache_images_enabled` 与 `web_article_cache_images_enabled` 是 `General` 分区里的独立开关：默认都为 `false`，分别影响 chat/article 的图片内联。
-- `Inpage` 分区承载 `markdown_reading_profile_v1` 与 `anti_hotlink_rules_v1`：前者只改 markdown 阅读样式，后者决定文章图片是否需要补 referer 并自动缓存。
-- `ai_chat_dollar_mention_enabled` 也是 `General` 分区的开关：默认 `true`；content controller 会监听 `chrome.storage.onChanged`，因此通常可在当前标签页热更新启停 `$ mention`（不要求刷新页面）。
-- Chat with AI 配置是新的一级设置分区，默认持久化 `chat_with_prompt_template_v1`, `chat_with_ai_platforms_v1`, `chat_with_max_chars_v1`，支持自定义平台、模板变量和截断长度。
-- detail header 的 `Chat with AI` 动作并不固定只有一个：只要某个平台在设置中 `enabled = true` 且当前 detail 有可用 messages，就会生成对应 `Chat with <platform>` 按钮；触发时先复制 payload，再打开平台首页。
-- article comments 只在 article detail 和 inpage panel 中出现；它们是本地评论线程，不占用 `Chat with AI`、`tools` 或 `open` 的动作槽位。
-- article comments 的“选区附加引用”属于根输入框行为：根输入框交互可覆盖/清空引用，reply 输入框仅负责回复文本输入，不应影响引用区。
-- detail header 的动作槽位由 `detail-header-action-types.ts` 统一定义为 `open / tools`；`ConversationDetailPane` 与 `DetailNavigationHeader` 都按同一槽位拆分渲染，Chat with AI 动作也落在 `tools`。
-- `conversations-context.tsx` 会在当前会话可用时注入 `cache-images` 工具动作：点击后调用 `backfillConversationImages()`，后台复扫消息并在成功后刷新当前 detail，同时反馈 `updatedMessages / downloadedCount / fromCacheCount`。
-- `src/viewmodels/settings/useSettingsSceneController.ts` 只在 `activeSection === 'aboutyou'` 且尚未加载过时调用 `getInsightStats()`；统计失败只回到设置页内的错误态，不会额外写缓存或发网络请求。
-- `SettingsScene.tsx` 会为 About You（Insight）分区放宽 detail 宽度到 `1120px`，因为这一页需要容纳双栏图表与排行布局。
-- `BackupSection.tsx` 的导入统计现在会展示 comments 相关数量，因此恢复验证时不能只看会话和图片缓存。
-- `ConversationsProvider` 是 popup 与 app 的共享数据入口；大多数 UI bug 都可以沿着 provider → storage → background handler 这条链排查。
-- `ConversationListPane.tsx` 会把来源筛选写入 `localStorage`（`webclipper_conversations_source_filter_key`），因此“为什么列表下次打开还停在 ChatGPT 过滤条件”是预期行为，不是脏状态。
-- 会话列表主链路已经切到分页：provider 维护 `loadingInitialList/loadingMoreList/listHasMore/listCursor`，列表 near-bottom 由 sentinel 自动 `loadMore`，不再允许回退全量读取。
-- `ConversationListPane.tsx` 的筛选和统计口径来自 `listFacets/listSummary`，不是从已加载子集反推；`Select All` 只覆盖当前已加载可见项，批量动作 tooltip 会显式提示该范围。
-- `ConversationListPane.tsx` 的 `source/site` 筛选已启用 `SelectMenu` 的 `adaptiveMaxHeight`：`SelectMenu` 会通过 `findNearestClippingRect()` 查找最近 overflow 裁剪容器，再按 `side='top'|'bottom'` 计算可用高度（最小 `80px`），所以 popup 底部条里的菜单高度会随可视区域动态变化。
-- `ConversationListPane.tsx` 底部 `today / total` 统计在提供 `onOpenInsightsSection` 回调时会变成可点击入口：popup 会跳 `'/settings?section=aboutyou'`，app 会在 HashRouter 内导航到同一路由。
-- `AppShell.tsx` 的 `loc` 参数消费已改为 provider 精确打开（`openConversationExternalByLoc`），不再依赖当前 loaded list 的 `items.find()`。
-- `ConversationsScene.tsx` 在窄屏下采用 list/detail 双路由；如果某个入口（例如 Insight Top conversations）需要直接开 detail，会通过 `pending-open.ts` 把目标写入一次性 payload（`conversationId`，可带 `source + conversationKey`），scene 初始化时优先走 source/key 精确打开，缺失时再回退 id。
-- detail header 的单槽位动作由 `DetailHeaderActionBar.tsx` 统一处理：槽位内单动作直出按钮、多动作自动折叠菜单；popup/app 的窄屏头部也沿用同一规则，不再出现“列表详情页和窄屏 header 行为不一致”。
-- AI chat 目录面板只在 `String(selected?.sourceType).toLowerCase() === 'chat'` 时显示：把手锚定在详情内容区右上角（header 下方或 hideHeader 内容容器顶部），hover 打开 overlay 面板，点击条目平滑滚动到对应 user 消息，自动高亮始终跟随“最接近视口中线”的 user 消息。
-- `Open in Obsidian` 的文件打开只走 Local REST API `POST /open/{filename}`；当 API 因 App 未启动不可达时，只用 `obsidian://open` 拉起桌面 App，随后再重试 REST API。
-- 文案国际化是运行时自动行为，不依赖用户手动切换设置：`i18n/index.ts` 只看 `navigator.language`，当前显式支持英文与中文两套 locale。
-- `background.ts` 现在只在首次安装时自动打开 About Me 分区（`/settings?section=aboutme`）；扩展更新后不再自动弹出设置页。
+- 各配置项的默认值、存储位置和行为边界见 [configuration.md](../configuration.md)。
+- detail header 动作槽位（`open / tools`）由 `detail-header-action-types.ts` 统一定义；Chat with AI 和 `cache-images` 都落在 `tools`。
+- `ConversationsProvider` 是 popup 与 app 的共享数据入口；大多数 UI bug 可沿 provider → storage → background handler 链排查。
 
 ## 修改热点与扩展点
 
@@ -218,28 +169,3 @@
 - **改 Notion / Obsidian 行为**：先看各 orchestrator，再看 `conversation-kinds.ts` 和 settings store。
 - **改 article 抓取**：先看 `article-fetch.ts`（background 侧注入/重试策略）+ `article-extract/engine.ts`（抽取顺序）+ `article-extract/markdown-turndown.ts`（统一转换），再确认保存后的 `sourceType` 和 message 结构没有变。
 - **改视频字幕采集**：先看 `modules/videos.md`、`video-transcript-interceptor.content.ts`、`video-transcript-bridge.content.ts`、`video-transcript-extract.ts`、`video-transcript-capture.ts`、`clipper-context-menu.ts`，再确认 `sourceType='video'`、`SyncNos-Videos` 以及空字幕提示都没有回退。
-
-## 测试与调试抓手
-
-| 场景 | 抓手 | 说明 |
-| --- | --- | --- |
-| TypeScript 契约回归 | `npm run compile` | 最先发现消息类型、collector 输出或 UI 调用问题 |
-| 会话 / mapping 迁移异常 | `schema.ts`, `schema-migration.test.ts` | 升级问题先看迁移逻辑 |
-| cursor / append / rebuild 异常 | `notion-sync-cursor.test.ts`, Notion / Obsidian orchestrators | 先判断是 mapping 问题还是目标系统问题 |
-| 当前页抓取异常 | `current-page-capture.ts`, `background-router-current-page-capture.test.ts`, `usePopupCurrentPageCapture.ts` | 看 capture state 判定、消息转发与按钮状态 |
-| inpage 行为异常 | `src/services/bootstrap/content.ts`, `src/services/bootstrap/content-controller.ts`, `src/ui/inpage/inpage-button-shadow.ts` | 看 gating、点击动作和 runtime invalidation |
-| `$ mention` 候选 / 插入异常 | `src/services/integrations/item-mention/**`, `src/platform/messaging/message-contracts.ts`, `tests/smoke/background-router-item-mention.test.ts` | 看站点门控（`features.dollarMention`）、设置开关、候选扫描限制与插入 markdown 构建 |
-| source/site 筛选下拉异常（高度、滚动、裁切） | `ConversationListPane.tsx`, `SelectMenu.tsx`, `MenuPopover.tsx` | 看 `adaptiveMaxHeight`、`findNearestClippingRect()` 与 `side` 设置是否一致 |
-| article 抓取失败 | `article-fetch.ts`, `article-fetch-background-handlers.ts`, `article-extract/engine.ts` | 先看 Defuddle/Readability 分支命中，再看 Turndown 清洗与 fallback |
-| article comments / 锚点异常 | `src/services/comments/data/storage-idb.ts`, `src/services/comments/background/handlers.ts`, `src/ui/conversations/ArticleCommentsSection.tsx`, `src/services/comments/threaded-comments-panel.ts`, `src/ui/inpage/inpage-comments-panel-shadow.ts` | 看 canonicalUrl 归一、reply / delete 路由与 shadow DOM 面板挂载 |
-| Chat with AI / 打开目标异常 | `chatwith-settings.ts`, `chatwith-detail-header-actions.ts`, `detail-header-actions.test.ts`, `app-detail-header-actions.test.ts` | 看模板变量、平台设置、槽位动作分发与 clipboard + 跳转行为 |
-| 详情工具动作异常（cache-images） | `src/viewmodels/conversations/conversations-context.tsx`, `src/services/conversations/background/handlers.ts`, `src/services/conversations/background/image-backfill-job.ts` | 看动作注入、`BACKFILL_CONVERSATION_IMAGES` 路由与回填计数是否一致 |
-| Insight 统计异常 | `insight-stats.ts`, `InsightSection.tsx`, `InsightPanel.tsx`, `insight-stats.test.ts`, `settings-sections.test.ts` | 先区分是 IndexedDB 读失败、聚合规则偏差、还是 Settings 导航 / 图表布局回归 |
-
-### AI Chat 目录面板手工验收清单
-
-1. 非 `chat` 会话（article/web）不显示目录把手或面板。
-2. `chat` 会话在 app + popup 都能看到右上角把手；hover 把手稳定展开 overlay 面板，面板打开时覆盖把手。
-3. 点击目录条目后，详情区平滑滚动到对应 user 消息（`block: center`）。
-4. 滚动过程中目录高亮应跟随“最接近视口中线”的 user 消息，宽屏/窄屏（`.route-scroll`）行为一致。
-5. 键盘可达：`Tab` 聚焦把手，`Enter/Space` 打开面板，`Esc` 关闭并把焦点还给把手。

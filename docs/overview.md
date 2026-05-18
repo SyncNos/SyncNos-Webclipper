@@ -1,7 +1,5 @@
 # 业务语境
 
-macOS/ 历史资料已归档；本页仅保留 WebClipper 的业务语义与本地事实源说明。
-
 ## 产品定位
 
 SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的 WebClipper 业务系统；浏览器扩展负责把 AI 对话与网页文章先保存为本地事实，再按需导出或同步到 Notion / Obsidian / Feishu（DocX）。
@@ -83,40 +81,13 @@ SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的
 | **评论操作需防重入且保持 root-only 选区语义** | Comments React 模块 | 评论保存/回复/删除如果并发会引发竞态和重复提交；reply 输入误触会污染引用区 | 使用 `actionInFlightRef` 和 `runBusyTask` 做防重入保护；删除改为二次确认模式；仅根输入框允许附加/清空选区引用 |
 | **评论级 Chat with AI 复制整条线程** | `chatwith-comment-actions.ts` | 单条评论发送到 AI 平台时需要带上下文才有意义 | 评论级 Chat with AI 会把该评论及其所有回复一起打包复制，而非仅复制单条 |
 
-## 仓库级术语
+## 输出流程
 
-| 术语 | 业务含义 | 技术落点 |
-| --- | --- | --- |
-| Parent Page | 用户在 Notion 中选定的上级页面，所有数据库 / 页面都挂在其下 | WebClipper 的 Notion 设置与同步器 |
-| 条目（Item） | 一个可同步对象，例如书、文章、会话 | WebClipper 的 conversation |
-| 内容片段 | 条目里的高亮、笔记、消息或正文 | WebClipper 的 messages |
-| Chat / Article kind | WebClipper 里两类会话 | `conversation-kinds.ts` 决定 Notion DB、Obsidian folder 与重建规则 |
-| Cursor | 表示上次同步到了哪里 | WebClipper 用 `lastSyncedMessageKey` / `lastSyncedSequence` |
-| 本地事实源 | 当前最可信的本地状态 | WebClipper 是 IndexedDB + `chrome.storage.local` |
-
-## 应该继续读哪里
-
-| 如果你接下来想做什么 | 下一页 | 为什么 |
-| --- | --- | --- |
-| 先搞清仓库目录、入口和主要产物 | [overview.md](overview.md) | 它回答"仓库里分别有什么"和"应该从哪进"。 |
-| 先看系统边界、消息契约和依赖方向 | [architecture.md](architecture.md) | 它回答"这些运行时如何连起来"。 |
-| 先看输入如何变成输出 | [data-flow.md](data-flow.md) | 它回答"哪些是事实源，哪些是派生产物"。 |
-| 要改扩展的采集、同步、设置或备份 | [modules/webclipper.md](modules/webclipper.md) | 它覆盖 background/content/popup/app、collectors、IndexedDB、sync orchestrators。 |
-| 要改评论模块（React 实现、防重入、Chat with AI） | [modules/comments.md](modules/comments.md) | 它覆盖 comments panel store、聚焦规则、删除确认、评论级 Chat with AI。 |
-| 要改扩展的本地统计、Settings Insight 或分布图 | [modules/webclipper.md](modules/webclipper.md), [storage.md](storage.md), [testing.md](testing.md) | 这些页面一起回答"统计从哪来、限制是什么、改完怎么验证"。 |
-| 要改视频字幕采集、右键菜单或 `video` kind | [modules/videos.md](modules/videos.md) | 它覆盖 YouTube/Bilibili 字幕提取、`SyncNos-Videos` 落点与空字幕提示。 |
-| 要改扩展的主题模式、Settings 分组、图片缓存设置（`ai_chat_cache_images_enabled` / `web_article_cache_images_enabled`）或会话详情动作 | [modules/webclipper.md](modules/webclipper.md), [configuration.md](configuration.md), [data-flow.md](data-flow.md) | 这些页面一起覆盖设置键、UI 路由、detail header 槽位动作、图片回填链路与共享状态。 |
-| 要查为什么配置没生效或发布失败 | [configuration.md](configuration.md), [release.md](release.md), [troubleshooting.md](troubleshooting.md) | 这些页面最接近真实错误发生点。 |
-
-## 业务上最容易误判的点
-
-- **WebClipper 的写入链路虽然同时涉及采集、同步与导出，但它们不是一套 UI / 一套存储 / 一套调度逻辑。** 扩展围绕 MV3 runtime、本地会话、popup/app UI 与多目标导出。
-- **WebClipper 的"同步"不是采集本身。** 采集先把内容落进本地库，同步只是本地库派生出的后续动作；文章评论是 local-first 注释层，但在 article 同步时会进入 Notion / Obsidian 的评论区段，并随 Zip v2 备份 / 导入保留。
-- **Insight 里的 clip 数量代表本地 IndexedDB 会话数，而不是 Notion 里已经存在的页面数。** 如果用户删了本地会话、没同步某些会话，或 Notion 侧做了手工变更，两边数字本来就可能不同。
-- **`Chat with AI` 不是"扩展替你把 prompt 发到目标模型"。** 它只负责在本地把 payload 组装好、复制到剪贴板并打开目标网站；后续提交仍由用户在目标站点完成；prompt 模板可在设置中自定义，支持 `{{article_title}}`、`{{conversation_markdown}}` 等变量。
-- **`cache-images` 不是"打开开关就自动补齐全部历史图片"。** `ai_chat_cache_images_enabled` / `web_article_cache_images_enabled` 主要影响后续采集；历史会话仍需在 detail 里手动触发工具动作回填。
-- **`视频字幕采集` 不是视频下载器。** 它只抓已经加载到页面里的字幕 / 转录内容；字幕没加载时应该回到“未检测到字幕，未保存”的提示，而不是强行成功。
-- **`$` mention 不是"去云端搜索/引用外部知识库"。** 它只在 ChatGPT/Notion AI 的输入框里从本地 conversations 过滤候选并插入同源 Markdown；`Tab/Enter` 插入，`Esc` 关闭保留文本。
-- **"能抓到内容"和"能稳定增量同步"不是一个问题。** 例如 Google AI Studio 因虚拟化列表而更依赖手动保存；article 会话则由 `updatedAt` 决定是否重建目标内容。
-- **评论模块已完成 React 迁移，不再是 DOM 直接操作。** 评论保存/回复/删除都有防重入保护；删除需二次确认；发送后自动聚焦并滚动到目标回复输入框；评论级 Chat with AI 会把整条线程上下文一起复制。
-- **Settings 窄屏使用顶部标签导航，宽屏使用侧边栏导航。** 部分设置项（如 Inpage Display Mode、Chat with AI 平台/模板/maxChars）改为 blur 自动保存，不再需要点击保存按钮。
+```mermaid
+flowchart LR
+  C[AI 对话 / 网页正文 / 视频字幕] --> D[WebClipper]
+  D --> E[Notion]
+  D --> F[Markdown / Zip / Obsidian]
+  D --> G[Feishu DocX]
+  D --> H[IndexedDB]
+```

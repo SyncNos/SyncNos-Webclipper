@@ -42,7 +42,7 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 
 ## Demo Video
 
-[![SyncNos demo video](.github/deepwiki/assets/syncnos-demo-video.svg)](https://www.bilibili.com/video/BV1gjwQznEx7/)
+[![SyncNos demo video](docs/assets/syncnos-demo-video.svg)](https://www.bilibili.com/video/BV1gjwQznEx7/)
 
 ## Supported Sources
 
@@ -103,10 +103,10 @@ YouTube and Bilibili video pages can capture already loaded subtitles/transcript
 ## Screenshots
 
 WebClipper Popup: save and browse conversations
-![WebClipper Popup](.github/deepwiki/assets/popup-screenshots.png)
+![WebClipper Popup](docs/assets/popup-screenshots.png)
 
 WebClipper Settings: backup and sync (Notion / Obsidian / Feishu)
-![WebClipper Settings](.github/deepwiki/assets/setting-screenshots.png)
+![WebClipper Settings](docs/assets/setting-screenshots.png)
 
 ## Support
 
