@@ -2,10 +2,13 @@
   color-scheme: light dark;
 
   /* ===== Design System Tokens (Light Mode) ===== */
-  /* Notion-like warm paper foundation with soft orange accent preserved. */
+  /* Neutral paper foundation with soft warm accent preserved. */
   /* Surface */
-  --bg-primary: rgb(248 243 234);
-  --bg-sunken: rgb(241 233 220);
+  /* NOTE: Keep light mode closer to the dark theme's neutral base (less yellow cast). */
+  /* White-first light mode: keep surfaces visually white (sidebar uses `--bg-sunken`). */
+  /* Page background: keep perceptually white but not identical to cards. */
+  --bg-primary: rgb(250 251 252);
+  --bg-sunken: rgb(255 255 255);
   --bg-card: rgb(255 255 255);
   --bg-overlay: rgba(0, 0, 0, 0.42);
 
@@ -47,9 +50,11 @@
   --info-foreground: rgb(255 255 255);
 
   /* Utility */
-  --border: rgb(224 214 200);
+  /* Slightly stronger divider for white-on-white surfaces. */
+  --border: rgb(210 216 226);
   --focus-ring: var(--accent);
-  --card-shadow: 0 8px 20px rgb(93 63 35 / 8%);
+  /* Neutral shadow (avoid warm cast on white surfaces). */
+  --card-shadow: 0 10px 24px rgb(0 0 0 / 10%);
   --surface-inset-highlight: rgb(255 255 255 / 55%);
 
   /* Markdown reading profiles */
