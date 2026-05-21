@@ -470,6 +470,7 @@ export const en = {
   detailHeaderCacheImagesCacheHits: 'cache hits',
   detailHeaderCacheImagesNoop: 'No images to cache.',
   detailHeaderCacheImagesFailed: 'Cache images failed',
+  detailWordCountLabel: 'Words',
 
   // Conversation sources / sync feedback
   sourceChatgpt: 'ChatGPT',
