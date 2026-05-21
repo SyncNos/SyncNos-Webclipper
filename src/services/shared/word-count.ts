@@ -42,4 +42,3 @@ export function countWordsFromMessages(
   if (!parts.length) return 0;
   return countWords(parts.join('\n'));
 }
-

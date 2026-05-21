@@ -33,4 +33,3 @@ describe('word-count', () => {
     expect(countWordsFromMessages([{ contentText: '' }, { contentMarkdown: 'x y' }])).toBe(2);
   });
 });
-
