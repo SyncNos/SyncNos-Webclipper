@@ -465,6 +465,7 @@ export const zh: { [K in TranslationKey]: string } = {
   detailHeaderCacheImagesCacheHits: '命中缓存',
   detailHeaderCacheImagesNoop: '没有可缓存的图片。',
   detailHeaderCacheImagesFailed: '缓存图片失败',
+  detailWordCountLabel: '字数',
 
   // Conversation sources / sync feedback
   sourceChatgpt: 'ChatGPT',
