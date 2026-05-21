@@ -12,6 +12,7 @@ import { buttonTintClassName, headerButtonClassName } from '@ui/shared/button-st
 import { tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { storageGet, storageOnChanged } from '@services/shared/storage';
+import { countWordsFromMessages } from '@services/shared/word-count';
 import {
   MARKDOWN_READING_PROFILE_STORAGE_KEY,
   normalizeStoredMarkdownReadingProfile,
@@ -188,6 +189,16 @@ export function ConversationDetailPane({
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const displayedUrl = String((selected as any)?.url || '').trim();
   const [markdownReadingProfile, setMarkdownReadingProfile] = useState(() => normalizeStoredMarkdownReadingProfile(''));
+  const wordCount = useMemo(() => {
+    if (!selected) return null;
+    if (!Array.isArray(detail?.messages) || !detail.messages.length) return null;
+    return countWordsFromMessages(detail.messages);
+  }, [detail?.messages, selected]);
+  const wordCountLabel = t('detailWordCountLabel');
+  const wordCountText =
+    wordCount != null && Number.isFinite(wordCount)
+      ? `${wordCountLabel} ${Math.max(0, Math.floor(wordCount)).toLocaleString()}`
+      : '';
 
   useEffect(() => {
     setUrlEditing(false);
@@ -400,6 +411,15 @@ export function ConversationDetailPane({
                         >
                           {displayedUrl || t('noLinkAvailable')}
                         </button>
+                        {wordCountText ? (
+                          <span
+                            className="tw-inline-flex tw-items-center tw-rounded-[var(--radius-chip)] tw-border tw-border-[var(--border)] tw-px-2 tw-py-0.5 tw-text-[10px] tw-font-extrabold tw-text-[var(--text-secondary)]"
+                            aria-label={wordCountText}
+                            {...tooltipAttrs(wordCountText)}
+                          >
+                            {wordCountText}
+                          </span>
+                        ) : null}
                       </>
                     )}
                   </div>
@@ -476,6 +496,18 @@ export function ConversationDetailPane({
             hideHeader ? 'tw-pt-3 md:tw-pt-4' : '',
           ].join(' ')}
         >
+          {wordCountText && (hideHeader || urlEditing) ? (
+            <div className="tw-flex tw-justify-end">
+              <span
+                className="tw-inline-flex tw-items-center tw-rounded-[var(--radius-chip)] tw-border tw-border-[var(--border)] tw-px-2 tw-py-0.5 tw-text-[10px] tw-font-extrabold tw-text-[var(--text-secondary)]"
+                aria-label={wordCountText}
+                {...tooltipAttrs(wordCountText)}
+              >
+                {wordCountText}
+              </span>
+            </div>
+          ) : null}
+
           {hideHeader && isChat ? (
             <div
               className="tw-absolute tw-right-3 tw-top-3 tw-z-30 md:tw-right-4 md:tw-top-4"
