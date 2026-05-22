@@ -66,4 +66,3 @@ describe('buildChatWithPayload', () => {
     expect(payload.endsWith('\n')).toBe(true);
   });
 });
-

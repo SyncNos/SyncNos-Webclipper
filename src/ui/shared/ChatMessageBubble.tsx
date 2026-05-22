@@ -244,8 +244,8 @@ export function ChatMessageBubble({
     '[&_code]:tw-px-[5px] [&_code]:tw-py-[1px] [&_code]:tw-rounded-[var(--radius-inline)] [&_code]:tw-bg-[color-mix(in_srgb,currentColor_12%,transparent)] [&_code]:tw-font-mono',
     '[&_kbd]:tw-inline-flex [&_kbd]:tw-items-center [&_kbd]:tw-rounded-[var(--radius-inline)] [&_kbd]:tw-border [&_kbd]:tw-border-[var(--border)] [&_kbd]:tw-bg-[color-mix(in_srgb,var(--bg-sunken)_55%,var(--bg-card))] [&_kbd]:tw-px-[6px] [&_kbd]:tw-py-[1px] [&_kbd]:tw-font-mono',
 
-    // Code blocks: keep contrast high in both light/dark bubbles.
-    '[&_pre]:tw-mt-0 [&_pre]:tw-mb-2 [&_pre]:tw-px-[10px] [&_pre]:tw-py-[8px] [&_pre]:tw-rounded-[var(--radius-inline)] [&_pre]:tw-border [&_pre]:tw-border-[var(--border)] [&_pre]:tw-bg-[color-mix(in_srgb,var(--bg-sunken)_55%,var(--bg-card))] [&_pre]:tw-overflow-auto',
+    // Code blocks: keep contrast high in both light/dark bubbles (light mode uses white surfaces).
+    '[&_pre]:tw-mt-0 [&_pre]:tw-mb-2 [&_pre]:tw-px-[10px] [&_pre]:tw-py-[8px] [&_pre]:tw-rounded-[var(--radius-inline)] [&_pre]:tw-border [&_pre]:tw-border-[var(--border)] [&_pre]:tw-bg-[color-mix(in_srgb,var(--bg-primary)_80%,var(--border))] [&_pre]:tw-overflow-auto',
     '[&_pre>code]:tw-block [&_pre>code]:tw-p-0 [&_pre>code]:tw-bg-transparent [&_pre>code]:tw-rounded-none',
 
     // Tables can be wider than the viewport; let the table itself scroll instead of the whole bubble.

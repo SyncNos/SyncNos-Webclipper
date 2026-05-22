@@ -65,6 +65,7 @@ describe('ChatMessageBubble', () => {
     const cls = extractMarkdownClass(html);
     expect(cls).toContain('[overflow-wrap:anywhere]');
     expect(cls).toContain('[&_pre]:tw-overflow-auto');
+    expect(cls).toContain('[&_pre]:tw-bg-[color-mix(in_srgb,var(--bg-primary)_80%,var(--border))]');
     expect(cls).toContain('[&_table]:tw-overflow-x-auto');
     expect(cls).toContain('[&_.syncnos-md-image-link]');
     expect(cls).toContain('[&_blockquote]:tw-relative');
