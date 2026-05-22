@@ -87,9 +87,10 @@ export function ChatWithAiSection(props: {
               onChange={(e) => onChangePromptTemplate(e.target.value)}
               aria-label={t('chatWithPromptTemplateAria')}
             />
-            <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)] tw-opacity-90">
-              {t('chatWithPromptTemplateHint')}
-            </div>
+            <details className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)] tw-opacity-90">
+              <summary className="tw-cursor-pointer tw-select-none">{t('chatWithPromptTemplateHintToggle')}</summary>
+              <div className="tw-mt-1 tw-whitespace-pre-wrap">{t('chatWithPromptTemplateHint')}</div>
+            </details>
           </div>
         </SettingsFormRow>
 

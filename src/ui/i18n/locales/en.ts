@@ -388,8 +388,16 @@ export const en = {
   chatWithSectionSubtitle: 'The generated prompt is copied to your clipboard and the selected AI site is opened in a new tab. Paste it into the chat box to send.',
   chatWithPromptTemplateLabel: 'Prompt template',
   chatWithPromptTemplateAria: 'Prompt template',
-  chatWithPromptTemplateHint:
-    'Variables (prefer {{var}} placeholders): article_title (title), article_url (source URL), article_content (main content), conversation_markdown (full Markdown), notion_url (synced Notion page URL; empty if not synced), feishu_url (synced Feishu doc URL; empty if not synced).',
+  chatWithPromptTemplateHintToggle: 'Variables (click to expand)',
+  chatWithPromptTemplateHint: [
+    'Variables (prefer {{var}} placeholders):',
+    '- {{article_title}}: title',
+    '- {{article_url}}: source URL',
+    '- {{article_content}}: main content (articles: body; chats: Markdown)',
+    '- {{conversation_markdown}}: full Markdown (title, metadata, messages)',
+    '- {{notion_url}}: synced Notion page URL (empty if not synced)',
+    '- {{feishu_url}}: synced Feishu doc URL (empty if not synced)',
+  ].join('\n'),
   chatWithPlatformsLabel: 'Platforms',
   chatWithPlatformsEnabled: 'Enabled',
   chatWithPlatformNameAriaPrefix: 'Platform name',
