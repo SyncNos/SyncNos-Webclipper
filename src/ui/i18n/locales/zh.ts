@@ -384,7 +384,7 @@ export const zh: { [K in TranslationKey]: string } = {
   chatWithPromptTemplateLabel: 'Prompt 模板',
   chatWithPromptTemplateAria: 'Prompt 模板',
   chatWithPromptTemplateHint:
-    '可用变量：article_content、article_title、article_url、conversation_markdown。推荐使用 {{article_content}} 这类占位符。',
+    '可用变量（推荐 {{var}} 写法）：article_title（标题）、article_url（原始网页 URL）、article_content（正文/主要内容）、conversation_markdown（完整 Markdown）、notion_url（同步到 Notion 后的页面 URL；未同步则为空）、feishu_url（同步到飞书后文档 URL；未同步则为空）。',
   chatWithPlatformsLabel: '平台',
   chatWithPlatformsEnabled: '启用',
   chatWithPlatformNameAriaPrefix: '平台名称',

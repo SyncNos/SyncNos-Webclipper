@@ -389,7 +389,7 @@ export const en = {
   chatWithPromptTemplateLabel: 'Prompt template',
   chatWithPromptTemplateAria: 'Prompt template',
   chatWithPromptTemplateHint:
-    'Variables: article_content, article_title, article_url, conversation_markdown. Prefer {{article_content}} style placeholders.',
+    'Variables (prefer {{var}} placeholders): article_title (title), article_url (source URL), article_content (main content), conversation_markdown (full Markdown), notion_url (synced Notion page URL; empty if not synced), feishu_url (synced Feishu doc URL; empty if not synced).',
   chatWithPlatformsLabel: 'Platforms',
   chatWithPlatformsEnabled: 'Enabled',
   chatWithPlatformNameAriaPrefix: 'Platform name',
