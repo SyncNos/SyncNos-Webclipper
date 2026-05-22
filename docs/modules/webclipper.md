@@ -54,7 +54,7 @@
 | `src/ui/styles/tokens.css` | 主题 tokens | 用 `prefers-color-scheme` 统一驱动亮/暗 token，popup / app / inpage 一致 |
 | `src/ui/shared/SelectMenu.tsx` | 共享下拉菜单组件 | 统一选项菜单键盘行为，并在 `adaptiveMaxHeight` 打开时按可裁剪容器动态计算高度 |
 | `src/ui/settings/sections/VideosSection.tsx` | 视频字幕设置页 | 解释支持范围、抓取步骤和失败提示 |
-| `src/ui/conversations/ConversationListPane.tsx` | 列表筛选、批量动作与来源持久化 | 控制 `source filter`、today/total 统计、导出/同步/删除菜单 |
+| `src/ui/conversations/ConversationListPane.tsx` | 列表筛选、批量动作与来源持久化 | 控制 `source filter`、列表底部统计（当日/总计）、导出/同步/删除菜单 |
 | `src/ui/conversations/DetailNavigationHeader.tsx` | 窄屏详情头动作容器 | 让 popup / app 窄屏 detail header 与主详情页共用同一套动作槽位策略 |
 | `src/ui/conversations/pending-open.ts` | 窄屏待打开会话桥接 | 让 Insight / 列表 / 路由在 narrow 模式下也能准确落到 detail |
 

@@ -89,6 +89,7 @@ YouTube and Bilibili video pages can capture already loaded subtitles/transcript
 - **Insight dashboard** — total clips, source breakdown, longest conversations — see your knowledge accumulate.
 - **Chat with AI** — copy local conversations/articles with customizable templates, platform list, and max-length controls.
 - **Video transcript capture** — save loaded YouTube / Bilibili subtitles with timestamps as local conversations.
+- **Localized store metadata** — extension name/short description are localized via `public/_locales/` (20 locales).
 - **$ Mention in AI chats** — type `$` on supported AI sites to search saved items and insert markdown snippets inline.
 - **Inpage quick actions** — single-click the inpage button to save current content; double-click to open the comments sidebar.
 - **Article comment threads** — local threaded comments for web articles (detail + inpage panel); use the sidebar "Quote selection" button to attach current selection as quote (empty selection clears quote), while clicking/focusing composers does not auto-attach; preserved in Zip v2 backup/restore and article sync flows.

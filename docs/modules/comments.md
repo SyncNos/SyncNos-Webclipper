@@ -175,7 +175,7 @@ const handleDelete = (commentId: string) => {
 | --- | --- | --- |
 | 保存根评论后 | 返回 `createdRootId`（如果 onSave 结果中包含），用于聚焦新创建的评论 | `resolveTargetRootIdFromSaveResult` 返回 `createdRootId` 或 null |
 | 回复评论后 | 自动聚焦并滚动到被回复的评论输入框 | `resolveTargetRootIdForReply` 返回目标 rootId |
-| 删除评论后 | 聚焦到相邻评论或输入框 | `resolvePendingFocusTarget` 查找最近的可用目标 |
+| 删除评论后 | 聚焦到相邻评论或输入框 | `resolvePendingFocusTarget` 查找就近的可用目标 |
 | Escape 键 | 关闭删除确认/菜单，保留输入框文本 | `escapeSignal` + `useLayoutEffect` 监听，使用 `lastHandledEscapeSignalRef` 去重 |
 
 **Escape 信号处理**：`ThreadedCommentsPanel` 同时监听 Escape 键关闭删除确认和 Chat with AI 菜单，通过 `lastFocusedComposerSignalRef` 和 `lastHandledEscapeSignalRef` 防止重复处理。

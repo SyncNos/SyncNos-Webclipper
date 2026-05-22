@@ -18,8 +18,8 @@
 | `entrypointsDir` | `wxt.config.ts` | `src/entrypoints` | 统一 background/content/popup/app 入口目录 |
 | 安装后引导策略 | `src/entrypoints/background.ts` | `install` 打开 `/settings?section=aboutme`；`update` 不自动开标签页 | 保留首次上手引导，同时避免升级打断当前会话 |
 | `inpage_display_mode` | `chrome.storage.local`, `src/services/bootstrap/content.ts` | 默认 `all`；兼容旧 `inpage_supported_only` | 控制 inpage 在 `supported / all / off` 三档中的显示范围 |
-| `SelectMenu.adaptiveMaxHeight` | `ui/shared/SelectMenu.tsx`, `ConversationListPane.tsx` | 默认 `false`；source/site 筛选启用为 `true` | 在菜单展开时基于最近可裁剪容器动态计算 `panelMaxHeight`，减少多余滚动条与裁切 |
-| `ai_chat_auto_save_enabled` | `chrome.storage.local` | 默认 `true` | 控制支持 AI 站点是否自动保存；开启时会在打开会话后尝试对最近窗口（`<=200`）做 backfill 补齐。若找不到可靠 overlap，会安全跳过并只写 console 日志（无 UI 提示）；关闭后仍可手动保存 |
+| `SelectMenu.adaptiveMaxHeight` | `ui/shared/SelectMenu.tsx`, `ConversationListPane.tsx` | 默认 `false`；source/site 筛选启用为 `true` | 在菜单展开时基于最邻近可裁剪容器动态计算 `panelMaxHeight`，减少多余滚动条与裁切 |
+| `ai_chat_auto_save_enabled` | `chrome.storage.local` | 默认 `true` | 控制支持 AI 站点是否自动保存；开启时会在打开会话后尝试对近 200 条范围（`<=200`）做 backfill 补齐。若找不到可靠 overlap，会安全跳过并只写 console 日志（无 UI 提示）；关闭后仍可手动保存 |
 | `ai_chat_dollar_mention_enabled` | `chrome.storage.local`, `src/services/bootstrap/content-controller.ts` | 默认 `true` | 控制支持站点的 `$ mention` 能力是否启用；关闭后 content script 会停止注入该交互（当前标签页可热更新） |
 | `ai_chat_cache_images_enabled` | `chrome.storage.local`, `src/services/conversations/background/handlers.ts` | 默认 `false` | 控制 chat 消息采集时是否尝试图片内联；历史会话可通过 detail header 的 `cache-images` 手动回填 |
 | `web_article_cache_images_enabled` | `chrome.storage.local`, `src/services/conversations/background/handlers.ts`, `src/collectors/web/article-fetch.ts` | 默认 `false` | 控制 article 消息采集时是否尝试图片内联；历史会话可通过 detail header 的 `cache-images` 手动回填 |
@@ -28,7 +28,7 @@
 | `notion_parent_page_id`, `notion_parent_page_title` | `chrome.storage.local`, `src/viewmodels/settings/useSettingsSceneController.ts` | 用户选择值 | 决定扩展 Notion 的写入根 |
 | `notion_oauth_client_id` | `chrome.storage.local`, `src/services/sync/notion/auth/oauth.ts` | 默认写入（best-effort） | Notion OAuth client id（扩展侧只保存 client id，不保存 secret） |
 | `notion_oauth_pending_state` | `chrome.storage.local`, `src/viewmodels/settings/useSettingsSceneController.ts` + `src/services/sync/notion/auth/oauth.ts` | 连接中临时值 | OAuth 发起后写入，用于回调 state 校验与 UI polling 停止条件 |
-| `notion_oauth_last_error` | `chrome.storage.local`, `src/viewmodels/settings/useSettingsSceneController.ts` + `src/services/sync/notion/auth/oauth.ts` | 空字符串或错误信息 | 记录最近一次 OAuth 回调/交换失败原因；UI 会据此展示状态并停止 polling |
+| `notion_oauth_last_error` | `chrome.storage.local`, `src/viewmodels/settings/useSettingsSceneController.ts` + `src/services/sync/notion/auth/oauth.ts` | 空字符串或错误信息 | 记录上一次 OAuth 回调/交换失败原因；UI 会据此展示状态并停止 polling |
 | `notion_ai_preferred_model_index` | `chrome.storage.local` | 空字符串或正整数 | 控制 Notion AI model picker 偏好 |
 | `chat_with_prompt_template_v1`, `chat_with_ai_platforms_v1`, `chat_with_max_chars_v1` | `src/services/integrations/chatwith/chatwith-settings.ts`, `chrome.storage.local` | 默认模板 + 平台清单 + `28000` | 控制 Chat with AI 的载荷模板、目标平台和截断长度 |
 | `webclipper_sync_provider_notion_enabled` | `chrome.storage.local`, `src/services/sync/sync-provider-gate.ts` | 默认启用（缺省值） | Notion 同步 provider 门控（显式写 `false` 表示禁用） |
@@ -78,7 +78,7 @@
 - **改了 `wxt.config.ts` 的 `manifest.version` 却没对齐 tag**：CWS / AMO workflow 会直接报 `manifest version mismatch`。
 - **以为扩展升级后会自动打开设置页**：`background.ts` 仅在首次安装（`details.reason === 'install'`）自动打开 About；更新不会自动弹出设置页。
 - **切了 `inpage_display_mode` 或 `ai_chat_auto_save_enabled` 但当前页不变**：这些开关在 content bootstrap / controller 启动时读取，当前页面不会热更新；必须刷新或新开页面。
-- **打开 AI 对话后本地历史仍有缺口**：auto-save backfill 只覆盖最近窗口（`<=200`）并依赖 overlap 对齐；若控制台出现 `auto-save backfill skipped: no overlap, incremental continues`，说明触发了安全跳过。建议先手动保存一次建立本地基线，再观察后续增量补齐。
+- **打开 AI 对话后本地历史仍有缺口**：auto-save backfill 只覆盖近 200 条范围（`<=200`）并依赖 overlap 对齐；若控制台出现 `auto-save backfill skipped: no overlap, incremental continues`，说明触发了安全跳过。建议先手动保存一次建立本地基线，再观察后续增量补齐。
 - **切了 `ai_chat_dollar_mention_enabled` 但当前页表现不一致**：该开关在 `content-controller.ts` 中会监听 `chrome.storage.onChanged`，通常无需刷新即可启停；但如果当前页因 `inpage_display_mode=off` 未启动 content controller，仍需刷新/重新进入支持站点后才会生效。
 - **打开 `ai_chat_cache_images_enabled` / `web_article_cache_images_enabled` 后旧会话图片仍是外链**：这些开关主要影响后续采集写入；历史消息需要在 detail 里手动触发 `cache-images` 才会回填。
 - **以为筛选下拉高度不再固定 `320px` 是样式异常**：`source/site` 筛选菜单现在显式启用 `adaptiveMaxHeight`，会随可视区域动态变化，这是预期行为。
@@ -101,7 +101,7 @@ Feishu 同步的配置分两类：
 | `feishu_oauth_client_secret` | `chrome.storage.local` | Feishu OAuth client secret（可选） | **敏感信息**：会被 Zip v2 备份排除；配置后扩展会优先走直连 token exchange/refresh（无需 Worker） |
 | `feishu_oauth_token_exchange_proxy_url` | `chrome.storage.local` | OAuth code exchange/refresh 代理 Worker URL | 默认由 `src/services/sync/feishu/auth/oauth.ts` 提供；当未配置 `feishu_oauth_client_secret` 时用它完成 exchange/refresh（避免在扩展端存 secret） |
 | `feishu_oauth_pending_state` | `chrome.storage.local` | OAuth state（防 CSRF） | 授权开始时写入、回调校验后清空 |
-| `feishu_oauth_last_error` | `chrome.storage.local` | 最近一次 OAuth 错误 | Settings 会展示并允许用户重新 Connect |
+| `feishu_oauth_last_error` | `chrome.storage.local` | 上一次 OAuth 错误 | Settings 会展示并允许用户重新 Connect |
 | `feishu_oauth_token_v1` | `chrome.storage.local` | OAuth token（access/refresh/expiresAt） | **敏感信息**：会被 Zip v2 备份排除 |
 | `feishu_chat_folder` | `chrome.storage.local` | chat 类型的目标路径（相对云盘根目录） | 默认 `SyncNos-AIChats`；不存在会自动创建 |
 | `feishu_article_folder` | `chrome.storage.local` | article 类型目标路径 | 默认 `SyncNos-WebArticles` |
@@ -145,7 +145,7 @@ export default defineConfig({
 });
 ```
 
-### 片段 3：筛选菜单会根据最近可裁剪容器动态计算可用高度
+### 片段 3：筛选菜单会根据最邻近可裁剪容器动态计算可用高度
 
 ```ts
 const clipRect = findNearestClippingRect(el);
