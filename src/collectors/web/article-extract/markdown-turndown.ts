@@ -64,6 +64,22 @@ function createTurndownService() {
   });
   applyTurndownGfm(turndown);
 
+  function extractPreformattedText(pre: HTMLElement) {
+    const directChildren = Array.from(pre.children || []);
+    const directCodeChildren = directChildren.filter(
+      (child) => String((child as any)?.tagName || '').toLowerCase() === 'code',
+    ) as HTMLElement[];
+
+    // WeChat rich_media "code snippet" renders each line in its own <code> sibling.
+    // Turndown's default "pre" handling (and our previous rule) only captured the first <code>.
+    if (directCodeChildren.length > 1) {
+      return directCodeChildren.map((el) => String(el.textContent || '')).join('\n');
+    }
+
+    const code = pre?.querySelector?.('code');
+    return String(code?.textContent || pre?.textContent || '');
+  }
+
   function isInsideTable(node: Node | null): boolean {
     const el = node && (node as any).nodeType === 1 ? (node as Element) : null;
     if (!el || typeof (el as any).closest !== 'function') return false;
@@ -103,7 +119,8 @@ function createTurndownService() {
       const pre = node as HTMLElement;
       const code = pre?.querySelector?.('code');
       const language = detectCodeLanguage(pre, code);
-      const value = String(code?.textContent || pre?.textContent || '')
+      const value = extractPreformattedText(pre)
+        .replace(/\u00a0/g, ' ')
         .replace(/\r\n/g, '\n')
         .trim();
       if (!value) return '\n';

@@ -2,6 +2,8 @@ import { storageGet, storageSet } from '@platform/storage/local';
 import { formatConversationMarkdown } from '@services/conversations/domain/markdown';
 import { getImageCacheAssetById } from '@services/conversations/data/image-cache-read';
 import type { Conversation, ConversationDetail } from '@services/conversations/domain/models';
+import { buildFeishuDocUrl } from '@services/integrations/openin/feishu-openin';
+import { buildNotionPageUrl } from '@services/integrations/openin/notion-openin';
 import { t } from '@i18n';
 
 export type ChatWithAiPlatform = {
@@ -324,6 +326,8 @@ export async function buildChatWithPayload(
     article_url: getConversationUrl(conversation),
     article_content: articleContent,
     conversation_markdown: conversationMarkdown,
+    notion_url: buildNotionPageUrl(conversation?.notionPageId),
+    feishu_url: buildFeishuDocUrl(conversation?.feishuDocId),
   };
 
   const rendered = renderChatWithTemplate(String(promptTemplate || ''), vars);

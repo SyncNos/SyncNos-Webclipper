@@ -383,8 +383,16 @@ export const zh: { [K in TranslationKey]: string } = {
   chatWithSectionSubtitle: '生成的内容会自动复制到剪贴板，并在新标签页打开所选 AI 平台；粘贴到输入框发送即可。',
   chatWithPromptTemplateLabel: 'Prompt 模板',
   chatWithPromptTemplateAria: 'Prompt 模板',
-  chatWithPromptTemplateHint:
-    '可用变量：article_content、article_title、article_url、conversation_markdown。推荐使用 {{article_content}} 这类占位符。',
+  chatWithPromptTemplateHintToggle: '可用变量（点击展开）',
+  chatWithPromptTemplateHint: [
+    '可用变量（推荐 {{var}} 写法）：',
+    '- {{article_title}}：标题',
+    '- {{article_url}}：原始网页 URL',
+    '- {{article_content}}：正文 / 主要内容（文章为正文；对话为 Markdown）',
+    '- {{conversation_markdown}}：完整 Markdown（包含标题、元信息与消息）',
+    '- {{notion_url}}：同步到 Notion 后的页面 URL（未同步则为空）',
+    '- {{feishu_url}}：同步到飞书后文档 URL（未同步则为空）',
+  ].join('\n'),
   chatWithPlatformsLabel: '平台',
   chatWithPlatformsEnabled: '启用',
   chatWithPlatformNameAriaPrefix: '平台名称',
