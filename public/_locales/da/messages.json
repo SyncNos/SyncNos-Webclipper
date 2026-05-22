@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "SyncNos - Gem i Notion/Obsidian/Feishu",
+    "description": "Udvidelsesnavn vist i Chrome Web Store og udvidelsesadministratoren"
+  },
+  "extDescription": {
+    "message": "SyncNos er en open source-webklipper, der gemmer AI-chats, webartikler og videoundertekster i Notion, Obsidian eller Feishu.",
+    "description": "Kort beskrivelse vist i Chrome Web Store og udvidelsesadministratoren (anbefalet <= 132 tegn)"
+  }
+}

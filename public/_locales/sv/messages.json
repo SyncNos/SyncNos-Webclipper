@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "SyncNos - Spara i Notion/Obsidian/Feishu",
+    "description": "Tilläggsnamn som visas i Chrome Web Store och i tilläggshanteraren"
+  },
+  "extDescription": {
+    "message": "SyncNos är en web clipper med öppen källkod som sparar AI-chattar, artiklar och videoundertexter till Notion, Obsidian eller Feishu.",
+    "description": "Kort beskrivning som visas i Chrome Web Store och i tilläggshanteraren (rekommenderat <= 132 tecken)"
+  }
+}
