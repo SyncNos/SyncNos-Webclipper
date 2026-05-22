@@ -28,7 +28,7 @@ SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的
 
 1. 用户打开 ChatGPT、Claude、Gemini、Google AI Studio、DeepSeek、Kimi、豆包、元宝、Poe、Notion AI、z.ai 等页面。
 2. content script 通过 collector 识别站点，把页面 DOM 统一成 `conversation + messages` 结构。
-3. background 把会话写入 IndexedDB；popup / app 读取同一份本地会话数据。开启 auto-save 时，content controller 在打开会话后还会尝试对最近窗口（`<=200`）做 backfill 补齐，让本地事实源更接近跨设备真实历史。
+3. background 把会话写入 IndexedDB；popup / app 读取同一份本地会话数据。开启 auto-save 时，content controller 在打开会话后还会尝试对近 200 条范围（`<=200`）做 backfill 补齐，让本地事实源更接近跨设备真实历史。
 4. 之后用户可以选择继续同步到 Notion / Feishu DocX、写入 Obsidian、导出 Markdown / Zip，或做备份 / 恢复。
 
 ### 旅程 2：普通网页先抓正文，再进入和 AI 对话并列的 article 流程
@@ -49,7 +49,7 @@ SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的
 
 ### 旅程 4：用户在 Settings 里查看自己的本地积累到底有多大
 
-1. 用户可以直接进入 WebClipper 的 `Settings → Insight`，也可以从会话列表底部 `today/total` 统计点击跳转到该分区。
+1. 用户可以直接进入 WebClipper 的 `Settings → Insight`，也可以从会话列表底部统计（当日/总计）点击跳转到该分区。
 2. 设置控制器仅在第一次进入该 section 时调用 `getInsightStats()`，从 IndexedDB 的 `conversations` 与 `messages` 现算本地统计。
 3. 仪表盘把结果展示为总 clips、AI Conversations、Web Articles、来源分布、文章域名分布和 Top 3 longest conversations。
 4. 这个视图是**只读的**：它帮助用户"看见积累"，但不会写回新缓存、不会发网络请求，也不会改变 Notion / Obsidian 的同步状态。

@@ -75,7 +75,7 @@
 3. 目录路径：优先读取 `feishu_chat_folder / feishu_article_folder / feishu_video_folder`（默认 `SyncNos-AIChats / SyncNos-WebArticles / SyncNos-Videos`），按 conversation kind 分流；若路径不存在，调用 Drive API 自动逐级创建目录并拿到 `folder_token`。
 4. 增量跳过：计算 markdown 的 sha256 与 mapping 的 `feishuLastContentHash` 比对；一致时仍会校验目标 DocX 是否可访问（避免“文档被删/进回收站但仍显示跳过”）。若不可访问则创建新 DocX 并更新 mapping。
 5. 写入策略（Convert API 四阶段流水线）：
-   - **阶段 A — 图片预处理**：扫描 markdown 中的 `![...](url)`，将 `data:` URL 和 `syncnos-asset://` URL 替换为占位 URL（`https://syncnos.invalid/<prefix>/<sha256>.<ext>`），同时构建有序的 `imageSourcesInOrder` 元数据数组。
+   - **阶段 A — 图片预处理**：扫描 markdown 中的图片语法（例如 `![alt](https://example.com/image.png)`），将 `data:` URL 和 `syncnos-asset://` URL 替换为占位 URL（`https://syncnos.invalid/<prefix>/<sha256>.<ext>`），同时构建有序的 `imageSourcesInOrder` 元数据数组。
    - **阶段 B — Convert API 调用**：`POST /docx/v1/documents/blocks/convert` 将 markdown 转为 DocX blocks；`normalizeConvertedBlocksPreorder()` 重排为父先于子的前序遍历；`sanitizeConvertedBlocksForInsert()` 剥离只读字段。
    - **阶段 C — Block 插入**：优先用 descendant insertion（按 `firstLevelBlockIds` 批量插入子树，每批 ≤1000 blocks）；回退到 flat children insertion（每批 20 blocks）；批间 350ms 节流。
    - **阶段 D — 图片绑定**：Convert 后按位置顺序匹配 image blocks（`block_type === 27`），逐个下载 → 上传到 Feishu Drive（`POST /drive/v1/medias/upload_all`，`parent_type: 'docx_image'`）→ 绑定 file token 到 block（`PATCH .../blocks/{id}` with `replace_image`）。上传/绑定均有 3 次重试（429/5xx/99991400），指数退避 300ms×3^(n-1)+jitter。
