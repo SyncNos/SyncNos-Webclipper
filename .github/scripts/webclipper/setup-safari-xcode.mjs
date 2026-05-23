@@ -326,7 +326,7 @@ function fixMessagesFormat() {
     
     // Fix name: convert object to simple string
     if (data.name && typeof data.name === "object" && "message" in data.name) {
-      data.name = data.name.message.substring(0, 35);
+      data.name = "SyncNos WebClipper";
       modified = true;
     }
     
