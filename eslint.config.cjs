@@ -10,6 +10,7 @@ module.exports = [
     ignores: [
       '.output/**',
       '.wxt/**',
+      '.safari-xcode/**',
       'dist/**',
       'dist-firefox/**',
       'node_modules/**',

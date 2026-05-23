@@ -14,7 +14,7 @@
  *   - `npm run build:safari` already executed (produces .output/safari-mv3/)
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { deflateSync, inflateSync } from 'node:zlib';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -266,6 +266,91 @@ function syncVersion() {
   }
 }
 
+// ── Category patch ──────────────────────────────────────────────────────────
+
+/**
+ * Adds LSApplicationCategoryType to the macOS app Info.plist.
+ * Required for App Store submission (ITMS-90242).
+ */
+function patchCategory() {
+  const plistPath = join(xcodeProjectDir, 'SyncNos', 'macOS (App)', 'Info.plist');
+  if (!existsSync(plistPath)) {
+    console.warn('[setup:safari] macOS Info.plist not found, skipping category patch');
+    return;
+  }
+
+  let plist = readFileSync(plistPath, 'utf-8');
+  if (plist.includes('LSApplicationCategoryType')) {
+    return; // already has category
+  }
+
+  // Insert before closing </dict>
+  plist = plist.replace(
+    '</dict>',
+    '\t<key>LSApplicationCategoryType</key>\n\t<string>public.app-category.productivity</string>\n</dict>',
+  );
+  writeFileSync(plistPath, plist);
+  console.log('[setup:safari] Added LSApplicationCategoryType to macOS Info.plist');
+}
+
+function extractManifestMsgKey(value) {
+  if (typeof value !== 'string') return null;
+  const m = value.match(/^__MSG_(.+)__$/);
+  return m?.[1] ?? null;
+}
+
+function validateSafariManifestLocalization() {
+  const resourcesDir = join(xcodeProjectDir, 'SyncNos', 'Shared (Extension)', 'Resources');
+  const manifestPath = join(resourcesDir, 'manifest.json');
+  const localesDir = join(resourcesDir, '_locales');
+
+  if (!existsSync(manifestPath) || !existsSync(localesDir)) {
+    console.warn('[setup:safari] Resources manifest/_locales missing, skipping localization validation');
+    return;
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+  } catch {
+    console.warn('[setup:safari] Failed to parse Resources/manifest.json, skipping localization validation');
+    return;
+  }
+
+  const nameKey = extractManifestMsgKey(manifest?.name);
+  const descriptionKey = extractManifestMsgKey(manifest?.description);
+  if (!nameKey && !descriptionKey) return;
+
+  const locales = readdirSync(localesDir).filter((d) => !d.startsWith('.'));
+  for (const locale of locales) {
+    const messagesPath = join(localesDir, locale, 'messages.json');
+    if (!existsSync(messagesPath)) continue;
+
+    let messages;
+    try {
+      messages = JSON.parse(readFileSync(messagesPath, 'utf-8'));
+    } catch {
+      throw new Error(`[setup:safari] Invalid JSON: ${messagesPath}`);
+    }
+
+    const name = nameKey ? messages?.[nameKey]?.message : null;
+    const desc = descriptionKey ? messages?.[descriptionKey]?.message : null;
+    if (nameKey && typeof name !== 'string') {
+      throw new Error(`[setup:safari] Missing localized name (__MSG_${nameKey}__) in ${messagesPath}`);
+    }
+    if (descriptionKey && typeof desc !== 'string') {
+      throw new Error(`[setup:safari] Missing localized description (__MSG_${descriptionKey}__) in ${messagesPath}`);
+    }
+
+    if (typeof name === 'string' && name.length > 40) {
+      throw new Error(`[setup:safari] __MSG_${nameKey}__ exceeds 40 chars in ${messagesPath}`);
+    }
+    if (typeof desc === 'string' && desc.length > 112) {
+      throw new Error(`[setup:safari] __MSG_${descriptionKey}__ exceeds 112 chars in ${messagesPath}`);
+    }
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 // Build converter args
@@ -302,6 +387,8 @@ try {
 //  extension icon is ~97% transparent)
 patchAppIcons();
 syncVersion();
+patchCategory();
+validateSafariManifestLocalization();
 
 console.log(`\n[setup:safari] Done. Xcode project at: ${xcodeProjectDir}/SyncNos`);
 console.log(

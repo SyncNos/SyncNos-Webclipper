@@ -1,6 +1,16 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveRepoRoot, resolveWebclipperRoot } from './script-utils.mjs';
+
+function extractManifestMsgKey(value) {
+  if (typeof value !== 'string') return null;
+  const m = value.match(/^__MSG_(.+)__$/);
+  return m?.[1] ?? null;
+}
+
+function stringLen(value) {
+  return Array.from(String(value ?? '')).length;
+}
 
 function parseArgs(argv) {
   const args = { root: null, manifest: null };
@@ -64,6 +74,36 @@ if (!manifest.icons?.['16'] || !manifest.icons?.['48'] || !manifest.icons?.['128
 for (const size of [16, 48, 128]) {
   const p = join(root, manifest.icons[String(size)]);
   if (!existsSync(p)) fail(`icon missing: ${manifest.icons[String(size)]}`);
+}
+
+const isSafariBuild = String(root).includes('safari-mv3');
+if (isSafariBuild) {
+  const localesRoot = join(root, '_locales');
+  const nameKey = extractManifestMsgKey(manifest.name);
+  const descriptionKey = extractManifestMsgKey(manifest.description);
+
+  if (!existsSync(localesRoot)) fail('_locales missing (Safari build expects localized name/description)');
+  if (!nameKey) fail('manifest.name must be localized for Safari builds');
+  if (!descriptionKey) fail('manifest.description must be localized for Safari builds');
+
+  const locales = readdirSync(localesRoot).filter((d) => !d.startsWith('.'));
+  for (const locale of locales) {
+    const messagesPath = join(localesRoot, locale, 'messages.json');
+    if (!existsSync(messagesPath)) fail(`messages.json missing: ${messagesPath}`);
+    let messages;
+    try {
+      messages = JSON.parse(readFileSync(messagesPath, 'utf-8'));
+    } catch (e) {
+      fail(`messages.json parse error: ${messagesPath}: ${e?.message || e}`);
+    }
+
+    const name = messages?.[nameKey]?.message;
+    const desc = messages?.[descriptionKey]?.message;
+    if (typeof name !== 'string') fail(`Missing __MSG_${nameKey}__ in ${messagesPath}`);
+    if (typeof desc !== 'string') fail(`Missing __MSG_${descriptionKey}__ in ${messagesPath}`);
+    if (stringLen(name) > 40) fail(`__MSG_${nameKey}__ exceeds 40 chars in ${messagesPath}`);
+    if (stringLen(desc) > 112) fail(`__MSG_${descriptionKey}__ exceeds 112 chars in ${messagesPath}`);
+  }
 }
 
 console.log('[check] ok');
