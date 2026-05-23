@@ -23,10 +23,16 @@ SyncNos-Webclipper/
 ```bash
 npm install              # 安装 WebClipper 依赖
 npm run dev              # 启动 WebClipper Chrome 开发模式
+npm run dev:firefox      # 启动 WebClipper Firefox 开发模式
+npm run dev:safari       # 启动 WebClipper Safari 开发模式
 npm run build            # 构建 WebClipper Chrome 产物
+npm run build:firefox    # 构建 WebClipper Firefox 产物
+npm run build:safari     # 构建 WebClipper Safari 产物（MV3）
+npm run setup:safari:xcode  # 生成/更新 Safari Web Extension Xcode 项目
 npm run compile          # TypeScript 编译检查
 npm run test             # 单元测试
-npm run check            # 产物校验
+npm run check            # 产物校验（Chrome）
+npm run check:safari     # 产物校验（Safari）
 ```
 
 ## WebClipper 分层与契约（必须遵守）
@@ -103,11 +109,14 @@ npm run check            # 产物校验
 - 安装依赖：`npm install`
 - Chrome 开发模式：`npm run dev`
 - Firefox 开发模式：`npm run dev:firefox`
+- Safari 开发模式：`npm run dev:safari`
 - TypeScript 编译检查：`npm run compile`
 - 单元测试：`npm run test`
 - Chrome 构建：`npm run build`
 - Firefox 构建：`npm run build:firefox`
-- 产物校验：`npm run check`
+- Safari 构建：`npm run build:safari`
+- Safari Xcode 项目生成：`npm run setup:safari:xcode`
+- 产物校验：`npm run check`（Chrome）、`npm run check:safari`（Safari）
 
 ### WebClipper 发布相关脚本
 

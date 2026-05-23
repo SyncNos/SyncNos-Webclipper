@@ -12,6 +12,7 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 [![Chrome Version](https://img.shields.io/chrome-web-store/v/hmgjflllphdffeocddjjcfllifhejpok)](https://chromewebstore.google.com/detail/syncnos-webclipper/hmgjflllphdffeocddjjcfllifhejpok)
 [![Edge Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fijkpghlfmkbjcgafapjcjahaikmnjncl&query=%24.version&label=Edge%20Add-ons&color=blue)](https://microsoftedge.microsoft.com/addons/detail/syncnosaiweb-clipper/ijkpghlfmkbjcgafapjcjahaikmnjncl)
 [![Firefox Version](https://img.shields.io/amo/v/syncnos-webclipper)](https://addons.mozilla.org/firefox/addon/syncnos-webclipper/)
+![Safari](https://img.shields.io/badge/Safari-16.4%2B-blue?logo=safari)
 [![Release Downloads](https://img.shields.io/github/downloads/chiimagnus/SyncNos/total)](https://github.com/chiimagnus/SyncNos/releases)
 
 </div>
@@ -32,11 +33,12 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 | Chrome | [Chrome Web Store](https://chromewebstore.google.com/detail/syncnos-webclipper/hmgjflllphdffeocddjjcfllifhejpok) |
 | Edge | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/syncnosaiweb-clipper/ijkpghlfmkbjcgafapjcjahaikmnjncl) |
 | Firefox | [Firefox AMO](https://addons.mozilla.org/firefox/addon/syncnos-webclipper/) |
+| Safari (macOS / iOS) | [Build from source](#safari) — requires Xcode 14.1+ |
 | Arc / Brave / other Chromium | Use the Chrome Web Store link |
 
 ## Get Started in 3 Steps
 
-1. **Install the extension** (Chrome / Edge / Firefox / Arc)
+1. **Install the extension** (Chrome / Edge / Firefox / Arc / [Safari](#safari))
 2. **Open any supported AI platform, web page, or video page** — the extension captures conversations, articles, and loaded subtitles in the background
 3. **Sync or export** — go to Settings to sync to Notion / Obsidian / Feishu, or export Markdown / Zip backups
 
@@ -108,6 +110,43 @@ WebClipper Popup: save and browse conversations
 
 WebClipper Settings: backup and sync (Notion / Obsidian / Feishu)
 ![WebClipper Settings](docs/assets/setting-screenshots.png)
+
+## Safari
+
+Safari Web Extensions must be wrapped in a native app via Xcode. Follow these steps to build and run SyncNos on Safari (macOS 13+ / iOS 16.4+):
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Build the Safari extension (MV3)
+npm run build:safari
+
+# 3. Generate the Xcode project (one-time or after rebuilds)
+npm run setup:safari:xcode
+
+# 4. Open in Xcode, set your Development Team, and Build & Run (⌘R)
+open .safari-xcode/SyncNos/SyncNos.xcodeproj
+```
+
+> **Note:** The `setup:safari:xcode` step copies the built extension into an Xcode project under `.safari-xcode/`. Re-run it after any code changes to keep the Xcode project in sync.
+
+### Safari development workflow
+
+```bash
+# Dev mode (rebuilds on file change, no Xcode project update)
+npm run dev:safari
+
+# After code changes, rebuild + update Xcode project:
+npm run build:safari && npm run setup:safari:xcode
+```
+
+### Safari limitations
+
+- **`tabGroups` API** — not available in Safari; tab grouping features are silently disabled via runtime feature detection.
+- **`world: "MAIN"` content scripts** — requires Safari 17.2+. Earlier Safari versions skip the video transcript interceptor.
+- **Service Worker lifecycle** — Safari may terminate the background service worker more aggressively than Chrome. The extension handles this gracefully via message-based communication.
+- **`declarativeNetRequest`** — used for anti-hotlink image proxying; Safari uses the base `declarativeNetRequest` permission instead of `declarativeNetRequestWithHostAccess`.
 
 ## Support
 

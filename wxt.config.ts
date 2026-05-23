@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { defineConfig } from 'wxt';
+import { defineConfig, type UserManifestFn } from 'wxt';
 
 const viteAlias = {
   '@ui': path.resolve('src/ui'),
@@ -41,42 +41,29 @@ function resolveChromiumBinaryForMac(): string | undefined {
 
 const chromeBinary = process.platform === 'darwin' ? resolveChromiumBinaryForMac() : undefined;
 
-export default defineConfig({
-  manifestVersion: 3,
-  modules: ['@wxt-dev/module-react'],
-  entrypointsDir: 'src/entrypoints',
-  webExt: chromeBinary ? { binaries: { chrome: chromeBinary } } : undefined,
-  vite: () => ({
-    define: {
-      __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__: JSON.stringify(process.env.SYNCNOS_FEISHU_OAUTH_CLIENT_ID ?? ''),
-      __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__: JSON.stringify(
-        process.env.SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL ?? '',
-      ),
-    },
-    resolve: {
-      alias: viteAlias,
-    },
-    build: {
-      // KaTeX/Recharts can legitimately push some chunks beyond Vite's default 500kB warning threshold.
-      // Keep the warning signal meaningful by using a higher, extension-appropriate limit.
-      chunkSizeWarningLimit: 2000,
-    },
-  }),
-  manifest: {
+const resolveManifest: UserManifestFn = (env) => {
+  const isSafari = env.browser === 'safari';
+
+  // Base permissions shared by all browsers.
+  const permissions: string[] = ['storage', 'contextMenus', 'tabs', 'webNavigation', 'activeTab', 'scripting'];
+
+  // `declarativeNetRequestWithHostAccess` is Chrome 128+; Safari uses the
+  // plain `declarativeNetRequest` permission instead.  The runtime code
+  // already feature-detects DNR and falls back to fetch when unavailable.
+  if (isSafari) {
+    permissions.push('declarativeNetRequest');
+  } else {
+    permissions.push('declarativeNetRequestWithHostAccess');
+    // `tabGroups` is Chrome-only; the runtime already feature-detects it.
+    permissions.push('tabGroups');
+  }
+
+  return {
     name: '__MSG_extName__',
     version: '1.7.3',
     description: '__MSG_extDescription__',
     default_locale: 'en',
-    permissions: [
-      'storage',
-      'contextMenus',
-      'tabs',
-      'tabGroups',
-      'webNavigation',
-      'activeTab',
-      'scripting',
-      'declarativeNetRequestWithHostAccess',
-    ],
+    permissions,
     host_permissions: [
       'https://chat.openai.com/*',
       'https://chatgpt.com/*',
@@ -130,5 +117,29 @@ export default defineConfig({
       48: 'icons/icon-48.png',
       128: 'icons/icon-128.png',
     },
-  },
+  };
+};
+
+export default defineConfig({
+  manifestVersion: 3,
+  modules: ['@wxt-dev/module-react'],
+  entrypointsDir: 'src/entrypoints',
+  webExt: chromeBinary ? { binaries: { chrome: chromeBinary } } : undefined,
+  vite: () => ({
+    define: {
+      __SYNCNOS_FEISHU_OAUTH_CLIENT_ID__: JSON.stringify(process.env.SYNCNOS_FEISHU_OAUTH_CLIENT_ID ?? ''),
+      __SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL__: JSON.stringify(
+        process.env.SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL ?? '',
+      ),
+    },
+    resolve: {
+      alias: viteAlias,
+    },
+    build: {
+      // KaTeX/Recharts can legitimately push some chunks beyond Vite's default 500kB warning threshold.
+      // Keep the warning signal meaningful by using a higher, extension-appropriate limit.
+      chunkSizeWarningLimit: 2000,
+    },
+  }),
+  manifest: resolveManifest,
 });

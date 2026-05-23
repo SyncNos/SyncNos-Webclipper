@@ -63,6 +63,7 @@
 | WebClipper CI Node 版本 | `webclipper-*.yml` | `20` | 保持构建与发布一致 |
 | CWS `publish_target` | `webclipper-cws-publish.yml` | `default` / `trustedTesters` | 控制 Chrome Web Store 发布范围 |
 | AMO channel | `webclipper-amo-publish.yml` | `listed` | 控制 Firefox 商店提交通道 |
+| Safari Xcode 项目 | `setup-safari-xcode.mjs` | `npm run setup:safari:xcode` | 生成 macOS/iOS Safari Web Extension Xcode 项目（需 Xcode 14.1+） |
 | 版本一致性规则 | `webclipper-amo-publish.yml`, `webclipper-cws-publish.yml`, `webclipper-edge-publish.yml` | `tag 去掉 v == manifest.version` | 阻止错误版本发布 |
 
 ## 权限与安全边界
