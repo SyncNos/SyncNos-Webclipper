@@ -230,6 +230,42 @@ function patchAppIcons() {
   console.log(`[setup:safari] Patched ${patched} App Icon files with dark background`);
 }
 
+// ── Version sync ────────────────────────────────────────────────────────────
+
+/**
+ * Reads the extension version from wxt.config.ts and patches
+ * MARKETING_VERSION in the generated Xcode project so the two never drift.
+ */
+function syncVersion() {
+  const wxtConfigPath = join(webclipperRoot, 'wxt.config.ts');
+  const pbxprojPath = join(xcodeProjectDir, 'SyncNos', 'SyncNos.xcodeproj', 'project.pbxproj');
+
+  if (!existsSync(wxtConfigPath)) {
+    console.warn('[setup:safari] wxt.config.ts not found, skipping version sync');
+    return;
+  }
+  if (!existsSync(pbxprojPath)) {
+    console.warn('[setup:safari] project.pbxproj not found, skipping version sync');
+    return;
+  }
+
+  const wxtSource = readFileSync(wxtConfigPath, 'utf-8');
+  const match = wxtSource.match(/version:\s*['"]([^'"]+)['"]/);
+  if (!match) {
+    console.warn('[setup:safari] Could not extract version from wxt.config.ts, skipping version sync');
+    return;
+  }
+
+  const version = match[1];
+  const pbxproj = readFileSync(pbxprojPath, 'utf-8');
+  const updated = pbxproj.replace(/MARKETING_VERSION = [^;]+;/g, 'MARKETING_VERSION = ' + version + ';');
+
+  if (updated !== pbxproj) {
+    writeFileSync(pbxprojPath, updated);
+    console.log('[setup:safari] Synced MARKETING_VERSION to ' + version);
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 // Build converter args
@@ -265,6 +301,7 @@ try {
 // (the converter's default icons have white padding because the source
 //  extension icon is ~97% transparent)
 patchAppIcons();
+syncVersion();
 
 console.log(`\n[setup:safari] Done. Xcode project at: ${xcodeProjectDir}/SyncNos`);
 console.log(
