@@ -1,12 +1,4 @@
 {
-  "extName": {
-    "message": "SyncNos - Lagre i Notion/Obsidian/Feishu",
-    "description": "Utvidelsesnavn som vises i Chrome Web Store og i utvidelsesbehandleren"
-  },
-  "extDescription": {
-    "message": "SyncNos er en åpen kildekode webklipper som lagrer AI-chatter, nettartikler og videoundertekster i Notion, Obsidian eller Feishu.",
-    "description": "Kort beskrivelse som vises i Chrome Web Store og i utvidelsesbehandleren (anbefalt <= 132 tegn)"
-  },
   "name": "SyncNos - Lagre i Notion/Obsidian/F",
   "description": "SyncNos er en åpen kildekode webklipper som lagrer AI-chatter, nettartikler og videoundertekster i N"
 }

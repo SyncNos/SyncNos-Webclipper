@@ -319,10 +319,22 @@ function fixMessagesFormat() {
     const data = JSON.parse(readFileSync(filepath, 'utf-8'));
     let modified = false;
 
-    // Fix name: convert { message, description } to simple string
-    if (data.name && typeof data.name === 'object' && 'message' in data.name) {
-      data.name = data.name.message.substring(0, 40);
+    // Remove Chrome-specific fields
+    for (const key of ["extName", "extDescription"]) {
+      if (key in data) { delete data[key]; modified = true; }
+    }
+    
+    // Fix name: convert object to simple string
+    if (data.name && typeof data.name === "object" && "message" in data.name) {
+      data.name = data.name.message.substring(0, 35);
       modified = true;
+    }
+    
+    // Fix description: convert object to simple string
+    if (data.description && typeof data.description === "object" && "message" in data.description) {
+      data.description = data.description.message.substring(0, 100);
+      modified = true;
+    }
     }
 
     // Fix description: convert { message, description } to simple string
