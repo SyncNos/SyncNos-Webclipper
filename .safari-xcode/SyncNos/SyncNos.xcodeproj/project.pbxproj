@@ -47,8 +47,8 @@
 		D8177ED32FC1732D002081D9 /* app.html in Resources */ = {isa = PBXBuildFile; fileRef = D8177EBF2FC1732D002081D9 /* app.html */; };
 		D8177ED42FC1732D002081D9 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = D8177EC02FC1732D002081D9 /* assets */; };
 		D8177ED52FC1732D002081D9 /* src in Resources */ = {isa = PBXBuildFile; fileRef = D8177EC12FC1732D002081D9 /* src */; };
-		D833D2D42FC1761E00E4F3A4 /* icon.png in Resources */ = {isa = PBXBuildFile; fileRef = D833D2D32FC1761E00E4F3A4 /* icon.png */; };
-		D833D2D52FC1761E00E4F3A4 /* icon.png in Resources */ = {isa = PBXBuildFile; fileRef = D833D2D32FC1761E00E4F3A4 /* icon.png */; };
+		D833D2D42FC1761E00E4F3A4 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = D833D2D32FC1761E00E4F3A4 /* Icon.png */; };
+		D833D2D52FC1761E00E4F3A4 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = D833D2D32FC1761E00E4F3A4 /* Icon.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -124,7 +124,7 @@
 		D8177EBF2FC1732D002081D9 /* app.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = app.html; path = Resources/app.html; sourceTree = "<group>"; };
 		D8177EC02FC1732D002081D9 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = Resources/assets; sourceTree = "<group>"; };
 		D8177EC12FC1732D002081D9 /* src */ = {isa = PBXFileReference; lastKnownFileType = folder; name = src; path = Resources/src; sourceTree = "<group>"; };
-		D833D2D32FC1761E00E4F3A4 /* icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon.png; sourceTree = "<group>"; };
+		D833D2D32FC1761E00E4F3A4 /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -187,7 +187,7 @@
 			children = (
 				D8177E5E2FC1732C002081D9 /* Main.html */,
 				D8177E612FC1732C002081D9 /* Style.css */,
-				D833D2D32FC1761E00E4F3A4 /* icon.png */,
+				D833D2D32FC1761E00E4F3A4 /* Icon.png */,
 				D8177E622FC1732C002081D9 /* Script.js */,
 			);
 			path = Resources;
@@ -407,7 +407,7 @@
 				D8177E992FC1732D002081D9 /* Main.html in Resources */,
 				D8177E9F2FC1732D002081D9 /* Script.js in Resources */,
 				D8177EA32FC1732D002081D9 /* Assets.xcassets in Resources */,
-				D833D2D52FC1761E00E4F3A4 /* icon.png in Resources */,
+				D833D2D52FC1761E00E4F3A4 /* Icon.png in Resources */,
 				D8177E772FC1732D002081D9 /* Main.storyboard in Resources */,
 				D8177E9D2FC1732D002081D9 /* Style.css in Resources */,
 			);
@@ -419,7 +419,7 @@
 			files = (
 				D8177E9E2FC1732D002081D9 /* Style.css in Resources */,
 				D8177E832FC1732D002081D9 /* Main.storyboard in Resources */,
-				D833D2D42FC1761E00E4F3A4 /* icon.png in Resources */,
+				D833D2D42FC1761E00E4F3A4 /* Icon.png in Resources */,
 				D8177EA02FC1732D002081D9 /* Script.js in Resources */,
 				D8177EA42FC1732D002081D9 /* Assets.xcassets in Resources */,
 				D8177E9A2FC1732D002081D9 /* Main.html in Resources */,

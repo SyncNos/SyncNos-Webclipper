@@ -294,6 +294,54 @@ function patchCategory() {
   console.log('[setup:safari] Added LSApplicationCategoryType to macOS Info.plist');
 }
 
+
+// ── Messages format fix ─────────────────────────────────────────────────────
+
+/**
+ * Safari expects `name` and `description` as simple strings in messages.json,
+ * but Chrome uses { message, description } objects. This function converts
+ * the Chrome format to Safari format for the Xcode project's locale files.
+ */
+function fixMessagesFormat() {
+  const localesDir = join(xcodeProjectDir, 'SyncNos', 'Shared (Extension)', 'Resources', '_locales');
+  if (!existsSync(localesDir)) {
+    console.warn('[setup:safari] _locales directory not found, skipping messages format fix');
+    return;
+  }
+
+  const { readdirSync } = require('node:fs');
+  let fixed = 0;
+
+  for (const locale of readdirSync(localesDir)) {
+    const filepath = join(localesDir, locale, 'messages.json');
+    if (!existsSync(filepath)) continue;
+
+    const data = JSON.parse(readFileSync(filepath, 'utf-8'));
+    let modified = false;
+
+    // Fix name: convert { message, description } to simple string
+    if (data.name && typeof data.name === 'object' && 'message' in data.name) {
+      data.name = data.name.message.substring(0, 40);
+      modified = true;
+    }
+
+    // Fix description: convert { message, description } to simple string
+    if (data.description && typeof data.description === 'object' && 'message' in data.description) {
+      data.description = data.description.message.substring(0, 112);
+      modified = true;
+    }
+
+    if (modified) {
+      writeFileSync(filepath, JSON.stringify(data, null, 2));
+      fixed++;
+    }
+  }
+
+  if (fixed > 0) {
+    console.log(`[setup:safari] Fixed messages.json format for ${fixed} locales`);
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 // Build converter args
@@ -331,6 +379,7 @@ try {
 patchAppIcons();
 syncVersion();
 patchCategory();
+fixMessagesFormat();
 
 console.log(`\n[setup:safari] Done. Xcode project at: ${xcodeProjectDir}/SyncNos`);
 console.log(

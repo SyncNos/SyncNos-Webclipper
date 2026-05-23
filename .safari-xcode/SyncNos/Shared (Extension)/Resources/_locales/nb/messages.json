@@ -7,12 +7,6 @@
     "message": "SyncNos er en åpen kildekode webklipper som lagrer AI-chatter, nettartikler og videoundertekster i Notion, Obsidian eller Feishu.",
     "description": "Kort beskrivelse som vises i Chrome Web Store og i utvidelsesbehandleren (anbefalt <= 132 tegn)"
   },
-  "name": {
-    "message": "SyncNos - Lagre i Notion/Obsidian/Feishu",
-    "description": "App name for Safari"
-  },
-  "description": {
-    "message": "SyncNos er en åpen kildekode webklipper som lagrer AI-chatter, nettartikler og videoundertekster i Notion, Obsid",
-    "description": "App description for Safari"
-  }
+  "name": "SyncNos - Lagre i Notion/Obsidian/Feishu",
+  "description": "SyncNos er en åpen kildekode webklipper som lagrer AI-chatter, nettartikler og videoundertekster i Notion, Obsid"
 }
