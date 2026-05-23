@@ -324,22 +324,24 @@ function fixMessagesFormat() {
       if (key in data) { delete data[key]; modified = true; }
     }
     
-    // Fix name: convert object to simple string
-    if (data.name && typeof data.name === "object" && "message" in data.name) {
-      data.name = "SyncNos WebClipper";
+    // Ensure name is Chrome-compatible message object with correct value
+    if (!data.name || typeof data.name !== "object" || !("message" in data.name)) {
+      data.name = { "message": "SyncNos WebClipper" };
+      modified = true;
+    } else if (data.name.message !== "SyncNos WebClipper") {
+      data.name.message = "SyncNos WebClipper";
       modified = true;
     }
     
-    // Fix description: convert object to simple string
-    if (data.description && typeof data.description === "object" && "message" in data.description) {
-      data.description = data.description.message.substring(0, 100);
+    // Ensure description is Chrome-compatible message object, truncated to 100 chars
+    if (!data.description || typeof data.description !== "object" || !("message" in data.description)) {
+      // Try to get from extDescription or use default
+      const desc = (data.extDescription && data.extDescription.message) || 
+                   "SyncNos is an open-source web clipper that saves AI chats, web articles, and video subtitles to Notion, Obsidian, or Feishu.";
+      data.description = { "message": desc.substring(0, 100) };
       modified = true;
-    }
-    }
-
-    // Fix description: convert { message, description } to simple string
-    if (data.description && typeof data.description === 'object' && 'message' in data.description) {
-      data.description = data.description.message.substring(0, 112);
+    } else if (data.description.message.length > 100) {
+      data.description.message = data.description.message.substring(0, 100);
       modified = true;
     }
 
@@ -353,6 +355,7 @@ function fixMessagesFormat() {
     console.log(`[setup:safari] Fixed messages.json format for ${fixed} locales`);
   }
 }
+
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
