@@ -14,7 +14,7 @@
  *   - `npm run build:safari` already executed (produces .output/safari-mv3/)
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { deflateSync, inflateSync } from 'node:zlib';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -294,65 +294,61 @@ function patchCategory() {
   console.log('[setup:safari] Added LSApplicationCategoryType to macOS Info.plist');
 }
 
+function extractManifestMsgKey(value) {
+  if (typeof value !== 'string') return null;
+  const m = value.match(/^__MSG_(.+)__$/);
+  return m?.[1] ?? null;
+}
 
-// ── Messages format fix ─────────────────────────────────────────────────────
+function validateSafariManifestLocalization() {
+  const resourcesDir = join(xcodeProjectDir, 'SyncNos', 'Shared (Extension)', 'Resources');
+  const manifestPath = join(resourcesDir, 'manifest.json');
+  const localesDir = join(resourcesDir, '_locales');
 
-/**
- * Safari expects `name` and `description` as simple strings in messages.json,
- * but Chrome uses { message, description } objects. This function converts
- * the Chrome format to Safari format for the Xcode project's locale files.
- */
-function fixMessagesFormat() {
-  const localesDir = join(xcodeProjectDir, 'SyncNos', 'Shared (Extension)', 'Resources', '_locales');
-  if (!existsSync(localesDir)) {
-    console.warn('[setup:safari] _locales directory not found, skipping messages format fix');
+  if (!existsSync(manifestPath) || !existsSync(localesDir)) {
+    console.warn('[setup:safari] Resources manifest/_locales missing, skipping localization validation');
     return;
   }
 
-  const { readdirSync } = require('node:fs');
-  let fixed = 0;
-
-  for (const locale of readdirSync(localesDir)) {
-    const filepath = join(localesDir, locale, 'messages.json');
-    if (!existsSync(filepath)) continue;
-
-    const data = JSON.parse(readFileSync(filepath, 'utf-8'));
-    let modified = false;
-
-    // Remove Chrome-specific fields
-    for (const key of ["extName", "extDescription"]) {
-      if (key in data) { delete data[key]; modified = true; }
-    }
-    
-    // Ensure name is Chrome-compatible message object with correct value
-    if (!data.name || typeof data.name !== "object" || !("message" in data.name)) {
-      data.name = { "message": "SyncNos WebClipper" };
-      modified = true;
-    } else if (data.name.message !== "SyncNos WebClipper") {
-      data.name.message = "SyncNos WebClipper";
-      modified = true;
-    }
-    
-    // Ensure description is Chrome-compatible message object, truncated to 100 chars
-    if (!data.description || typeof data.description !== "object" || !("message" in data.description)) {
-      // Try to get from extDescription or use default
-      const desc = (data.extDescription && data.extDescription.message) || 
-                   "SyncNos is an open-source web clipper that saves AI chats, web articles, and video subtitles to Notion, Obsidian, or Feishu.";
-      data.description = { "message": desc.substring(0, 100) };
-      modified = true;
-    } else if (data.description.message.length > 100) {
-      data.description.message = data.description.message.substring(0, 100);
-      modified = true;
-    }
-
-    if (modified) {
-      writeFileSync(filepath, JSON.stringify(data, null, 2));
-      fixed++;
-    }
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+  } catch (e) {
+    console.warn('[setup:safari] Failed to parse Resources/manifest.json, skipping localization validation');
+    return;
   }
 
-  if (fixed > 0) {
-    console.log(`[setup:safari] Fixed messages.json format for ${fixed} locales`);
+  const nameKey = extractManifestMsgKey(manifest?.name);
+  const descriptionKey = extractManifestMsgKey(manifest?.description);
+  if (!nameKey && !descriptionKey) return;
+
+  const locales = readdirSync(localesDir).filter((d) => !d.startsWith('.'));
+  for (const locale of locales) {
+    const messagesPath = join(localesDir, locale, 'messages.json');
+    if (!existsSync(messagesPath)) continue;
+
+    let messages;
+    try {
+      messages = JSON.parse(readFileSync(messagesPath, 'utf-8'));
+    } catch {
+      throw new Error(`[setup:safari] Invalid JSON: ${messagesPath}`);
+    }
+
+    const name = nameKey ? messages?.[nameKey]?.message : null;
+    const desc = descriptionKey ? messages?.[descriptionKey]?.message : null;
+    if (nameKey && typeof name !== 'string') {
+      throw new Error(`[setup:safari] Missing localized name (__MSG_${nameKey}__) in ${messagesPath}`);
+    }
+    if (descriptionKey && typeof desc !== 'string') {
+      throw new Error(`[setup:safari] Missing localized description (__MSG_${descriptionKey}__) in ${messagesPath}`);
+    }
+
+    if (typeof name === 'string' && name.length > 40) {
+      throw new Error(`[setup:safari] __MSG_${nameKey}__ exceeds 40 chars in ${messagesPath}`);
+    }
+    if (typeof desc === 'string' && desc.length > 112) {
+      throw new Error(`[setup:safari] __MSG_${descriptionKey}__ exceeds 112 chars in ${messagesPath}`);
+    }
   }
 }
 
@@ -394,7 +390,7 @@ try {
 patchAppIcons();
 syncVersion();
 patchCategory();
-fixMessagesFormat();
+validateSafariManifestLocalization();
 
 console.log(`\n[setup:safari] Done. Xcode project at: ${xcodeProjectDir}/SyncNos`);
 console.log(
