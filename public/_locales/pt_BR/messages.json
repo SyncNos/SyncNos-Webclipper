@@ -6,5 +6,13 @@
   "extDescription": {
     "message": "SyncNos é um web clipper de código aberto que salva chats de IA, artigos e legendas de vídeo no Notion, Obsidian ou Feishu.",
     "description": "Descrição curta exibida na Chrome Web Store e no gerenciador de extensões (recomendado <= 132 caracteres)"
+  },
+  "name": {
+    "message": "SyncNos - Salvar no Notion/Obsidian/Feis",
+    "description": "App name for Safari"
+  },
+  "description": {
+    "message": "SyncNos é um web clipper de código aberto que salva chats de IA, artigos e legendas de vídeo no Notion, Obsidian",
+    "description": "App description for Safari"
   }
 }

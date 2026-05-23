@@ -266,6 +266,34 @@ function syncVersion() {
   }
 }
 
+
+// ── Category patch ──────────────────────────────────────────────────────────
+
+/**
+ * Adds LSApplicationCategoryType to the macOS app Info.plist.
+ * Required for App Store submission (ITMS-90242).
+ */
+function patchCategory() {
+  const plistPath = join(xcodeProjectDir, 'SyncNos', 'macOS (App)', 'Info.plist');
+  if (!existsSync(plistPath)) {
+    console.warn('[setup:safari] macOS Info.plist not found, skipping category patch');
+    return;
+  }
+
+  let plist = readFileSync(plistPath, 'utf-8');
+  if (plist.includes('LSApplicationCategoryType')) {
+    return; // already has category
+  }
+
+  // Insert before closing </dict>
+  plist = plist.replace(
+    '</dict>',
+    '\t<key>LSApplicationCategoryType</key>\n\t<string>public.app-category.productivity</string>\n</dict>'
+  );
+  writeFileSync(plistPath, plist);
+  console.log('[setup:safari] Added LSApplicationCategoryType to macOS Info.plist');
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 // Build converter args
@@ -302,6 +330,7 @@ try {
 //  extension icon is ~97% transparent)
 patchAppIcons();
 syncVersion();
+patchCategory();
 
 console.log(`\n[setup:safari] Done. Xcode project at: ${xcodeProjectDir}/SyncNos`);
 console.log(
