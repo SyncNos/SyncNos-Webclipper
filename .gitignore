@@ -7,6 +7,7 @@ dist-edge/
 .DS_Store
 features/
 archived_features/
+build/
 
 demo/
 /Backend/.venv
