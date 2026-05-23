@@ -266,7 +266,6 @@ function syncVersion() {
   }
 }
 
-
 // ── Category patch ──────────────────────────────────────────────────────────
 
 /**
@@ -288,7 +287,7 @@ function patchCategory() {
   // Insert before closing </dict>
   plist = plist.replace(
     '</dict>',
-    '\t<key>LSApplicationCategoryType</key>\n\t<string>public.app-category.productivity</string>\n</dict>'
+    '\t<key>LSApplicationCategoryType</key>\n\t<string>public.app-category.productivity</string>\n</dict>',
   );
   writeFileSync(plistPath, plist);
   console.log('[setup:safari] Added LSApplicationCategoryType to macOS Info.plist');
@@ -351,7 +350,6 @@ function validateSafariManifestLocalization() {
     }
   }
 }
-
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
