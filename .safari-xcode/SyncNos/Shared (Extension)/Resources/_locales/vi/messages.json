@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos là web clipper mã nguồn mở giúp lưu chat AI, bài viết và phụ đề video vào Notion, Obsidian h"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos là web clipper mã nguồn mở giúp lưu chat AI, bài viết và phụ đề video vào Notion, Obsidian h"
+  }
 }

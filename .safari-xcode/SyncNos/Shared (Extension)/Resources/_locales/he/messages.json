@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos הוא Web Clipper בקוד פתוח ששומר שיחות AI, מאמרים וכתוביות וידאו ב-Notion, Obsidian או Feishu"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos הוא Web Clipper בקוד פתוח ששומר שיחות AI, מאמרים וכתוביות וידאו ב-Notion, Obsidian או Feishu"
+  }
 }

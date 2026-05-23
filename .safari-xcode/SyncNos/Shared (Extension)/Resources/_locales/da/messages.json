@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos er en open source-webklipper, der gemmer AI-chats, webartikler og videoundertekster i Notion"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos er en open source-webklipper, der gemmer AI-chats, webartikler og videoundertekster i Notion"
+  }
 }

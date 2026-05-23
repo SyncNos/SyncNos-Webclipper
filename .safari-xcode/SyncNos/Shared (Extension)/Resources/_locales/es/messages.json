@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos es un web clipper de código abierto que guarda chats de IA, artículos y subtítulos en Notion"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos es un web clipper de código abierto que guarda chats de IA, artículos y subtítulos en Notion"
+  }
 }

@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos est un web clipper open source : chats IA, articles et sous-titres dans Notion, Obsidian ou"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos est un web clipper open source : chats IA, articles et sous-titres dans Notion, Obsidian ou"
+  }
 }

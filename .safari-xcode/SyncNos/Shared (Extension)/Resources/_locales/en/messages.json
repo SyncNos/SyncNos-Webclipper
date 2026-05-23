@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos is an open-source web clipper that saves AI chats, web articles, and video subtitles to Noti"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos is an open-source web clipper that saves AI chats, web articles, and video subtitles to Noti"
+  }
 }

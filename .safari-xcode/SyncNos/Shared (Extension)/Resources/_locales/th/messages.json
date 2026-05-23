@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos เป็นเว็บคลิปเปอร์โอเพนซอร์สที่บันทึกแชท AI บทความ และคำบรรยายวิดีโอไปยัง Notion, Obsidian หร"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos เป็นเว็บคลิปเปอร์โอเพนซอร์สที่บันทึกแชท AI บทความ และคำบรรยายวิดีโอไปยัง Notion, Obsidian หร"
+  }
 }

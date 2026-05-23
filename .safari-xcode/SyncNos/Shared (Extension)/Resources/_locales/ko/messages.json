@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos는 오픈 소스 웹 클리퍼로 AI 채팅, 웹 아티클, 동영상 자막을 Notion, Obsidian 또는 Feishu에 저장합니다."
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos는 오픈 소스 웹 클리퍼로 AI 채팅, 웹 아티클, 동영상 자막을 Notion, Obsidian 또는 Feishu에 저장합니다."
+  }
 }

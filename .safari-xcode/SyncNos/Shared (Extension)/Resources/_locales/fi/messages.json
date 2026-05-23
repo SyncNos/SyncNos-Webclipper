@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos on avoimen lähdekoodin web-leikepöytä: AI-chatit, artikkelit ja videotekstitykset Notioniin,"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos on avoimen lähdekoodin web-leikepöytä: AI-chatit, artikkelit ja videotekstitykset Notioniin,"
+  }
 }

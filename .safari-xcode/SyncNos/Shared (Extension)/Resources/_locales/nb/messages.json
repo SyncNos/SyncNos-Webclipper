@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos er en åpen kildekode webklipper som lagrer AI-chatter, nettartikler og videoundertekster i N"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos er en åpen kildekode webklipper som lagrer AI-chatter, nettartikler og videoundertekster i N"
+  }
 }

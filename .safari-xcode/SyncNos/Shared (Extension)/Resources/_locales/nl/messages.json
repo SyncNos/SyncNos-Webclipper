@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos is een open-source web clipper die AI-chats, webartikelen en video-ondertitels opslaat in No"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos is een open-source web clipper die AI-chats, webartikelen en video-ondertitels opslaat in No"
+  }
 }

@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos è un web clipper open source che salva chat AI, articoli web e sottotitoli video su Notion,"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos è un web clipper open source che salva chat AI, articoli web e sottotitoli video su Notion,"
+  }
 }

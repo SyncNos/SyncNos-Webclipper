@@ -1,4 +1,8 @@
 {
-  "name": "SyncNos WebClipper",
-  "description": "SyncNos é um web clipper de código aberto que salva chats de IA, artigos e legendas de vídeo no Noti"
+  "name": {
+    "message": "SyncNos WebClipper"
+  },
+  "description": {
+    "message": "SyncNos é um web clipper de código aberto que salva chats de IA, artigos e legendas de vídeo no Noti"
+  }
 }
