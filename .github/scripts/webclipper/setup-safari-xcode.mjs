@@ -312,7 +312,7 @@ function validateSafariManifestLocalization() {
   let manifest;
   try {
     manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-  } catch (e) {
+  } catch {
     console.warn('[setup:safari] Failed to parse Resources/manifest.json, skipping localization validation');
     return;
   }

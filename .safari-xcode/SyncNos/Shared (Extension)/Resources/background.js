@@ -26987,12 +26987,10 @@ ${o}
           const c = e.getInstanceId();
           if ((await e.obsidianSyncOrchestrator.getSyncStatus({ instanceId: c }))?.job?.status === 'running')
             return (i(), t.err('sync already in progress', { code: 'sync_already_running' }));
-          const d = await e.obsidianSyncOrchestrator
-            .testConnection({ instanceId: c })
-            .catch((p) => ({
-              ok: !1,
-              error: { code: 'network_error', message: p?.message ? String(p.message) : 'connection test failed' },
-            }));
+          const d = await e.obsidianSyncOrchestrator.testConnection({ instanceId: c }).catch((p) => ({
+            ok: !1,
+            error: { code: 'network_error', message: p?.message ? String(p.message) : 'connection test failed' },
+          }));
           if (!d || d.ok !== !0) {
             i();
             const p = fI(d);

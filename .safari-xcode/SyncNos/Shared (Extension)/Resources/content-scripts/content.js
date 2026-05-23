@@ -56811,15 +56811,13 @@ ${b}
             (u.lastTitle = d),
             (u.lastUrl = c),
             (u.lastWindowIdentityHashes = y),
-            (u.lastTail = g
-              .slice(Math.max(0, g.length - t))
-              .map((z) => ({
-                key: z.stableIncomingKey || '',
-                role: z.role,
-                identityHash: z.identityHash,
-                text: z.text,
-                markdown: z.markdown,
-              }))),
+            (u.lastTail = g.slice(Math.max(0, g.length - t)).map((z) => ({
+              key: z.stableIncomingKey || '',
+              role: z.role,
+              identityHash: z.identityHash,
+              text: z.text,
+              markdown: z.markdown,
+            }))),
             b.length > 0 && b.length <= i)
           ) {
             const z = [],
