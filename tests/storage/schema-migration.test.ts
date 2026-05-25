@@ -97,7 +97,7 @@ describe('storage schema migration (v2 NotionAI thread id)', () => {
         conversationKey: stableKey,
         title: 'stable',
         // Intentionally missing `t` so this record would not be grouped by url parsing.
-        url: 'https://www.notion.so/chat',
+        url: 'https://app.notion.com/chat',
         warningFlags: [],
         lastCapturedAt: 10,
       }),
@@ -109,7 +109,7 @@ describe('storage schema migration (v2 NotionAI thread id)', () => {
         source: 'notionai',
         conversationKey: 'notionai_legacy',
         title: 'legacy',
-        url: `https://www.notion.so/SomePage-0123456789abcdef0123456789abcdef?t=${threadId}`,
+        url: `https://app.notion.com/SomePage-0123456789abcdef0123456789abcdef?t=${threadId}`,
         warningFlags: [],
         lastCapturedAt: 20,
       }),
@@ -157,7 +157,7 @@ describe('storage schema migration (v2 NotionAI thread id)', () => {
 
     // Canonical URL should be enforced on the remaining record.
     const remaining = convs.find((c) => c.conversationKey === stableKey);
-    expect(String(remaining.url)).toBe(`https://www.notion.so/chat?t=${threadId}&wfv=chat`);
+    expect(String(remaining.url)).toBe(`https://app.notion.com/chat?t=${threadId}&wfv=chat`);
   });
 
   it('migrates keep conversation mapping when conversationKey is rewritten to stableKey', async () => {
@@ -176,7 +176,7 @@ describe('storage schema migration (v2 NotionAI thread id)', () => {
         source: 'notionai',
         conversationKey: legacyKey,
         title: 'legacy',
-        url: `https://www.notion.so/SomePage-0123456789abcdef0123456789abcdef?t=${threadId}`,
+        url: `https://app.notion.com/SomePage-0123456789abcdef0123456789abcdef?t=${threadId}`,
         warningFlags: [],
         notionPageId: 'page_1',
         lastCapturedAt: 1,
@@ -206,7 +206,7 @@ describe('storage schema migration (v2 NotionAI thread id)', () => {
     const migrated = convs.find((c) => Number(c.id) === legacyId);
     expect(migrated).toBeTruthy();
     expect(String(migrated.conversationKey)).toBe(stableKey);
-    expect(String(migrated.url)).toBe(`https://www.notion.so/chat?t=${threadId}&wfv=chat`);
+    expect(String(migrated.url)).toBe(`https://app.notion.com/chat?t=${threadId}&wfv=chat`);
 
     // Mapping should follow the stable key.
     expect(maps.some((m) => m.source === 'notionai' && m.conversationKey === legacyKey)).toBe(false);

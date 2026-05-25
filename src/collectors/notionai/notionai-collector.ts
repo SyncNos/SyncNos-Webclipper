@@ -8,6 +8,19 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   const document = env.document;
   const location = env.location;
 
+  function isNotionWebHost(hostname: unknown): boolean {
+    const host = String(hostname || '')
+      .trim()
+      .toLowerCase();
+    if (!host) return false;
+    return (
+      host === 'notion.so' ||
+      host.endsWith('.notion.so') ||
+      host === 'app.notion.com' ||
+      host.endsWith('.app.notion.com')
+    );
+  }
+
   function findChatThreadIdFromHref(href: any): any {
     try {
       const u = new URL(String(href || location.href || ''));
@@ -23,7 +36,7 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
 
   function notionAiCanonicalChatUrl(threadId: any): any {
     if (!threadId) return '';
-    return `https://www.notion.so/chat?t=${threadId}&wfv=chat`;
+    return `https://app.notion.com/chat?t=${threadId}&wfv=chat`;
   }
 
   function hasChatSignals(scope: any): any {
@@ -34,7 +47,7 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
 
   function matches(loc: any): any {
     const hostname = loc && loc.hostname ? loc.hostname : location.hostname;
-    if (!/(^|\.)notion\.so$/.test(hostname)) return false;
+    if (!isNotionWebHost(hostname)) return false;
     // Important: do not activate on normal Notion pages, otherwise we can capture page blocks as "assistant" turns.
     return hasChatSignals(document);
   }
@@ -43,11 +56,11 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     const hostname = loc && loc.hostname ? loc.hostname : location.hostname;
     // UI eligibility: show the inpage button on Notion pages even before chat turns render.
     // Actual capture is still guarded by `isNotionAiPage()`.
-    return /(^|\.)notion\.so$/.test(hostname);
+    return isNotionWebHost(hostname);
   }
 
   function isNotionAiPage(): any {
-    return /(^|\.)notion\.so$/.test(location.hostname) && hasChatSignals(document);
+    return isNotionWebHost(location.hostname) && hasChatSignals(document);
   }
 
   function getAnyUserStepEl(scope?: any): any {
@@ -447,8 +460,8 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       const u = String(url || '').trim();
       if (!u) return false;
       // NotionAI user uploaded images often appear as:
-      // https://www.notion.so/image/attachment%3A...png?table=thread&id=...&...
-      if (!/^https?:\/\/[^/]*notion\.so\//i.test(u)) return false;
+      // https://app.notion.com/image/attachment%3A...png?table=thread&id=...&...
+      if (!/^https?:\/\/[^/]*(?:notion\.so|app\.notion\.com)\//i.test(u)) return false;
       if (!/\/image\/attachment%3a/i.test(u)) return false;
       if (!/[?&]table=thread(?:[&#]|$)/i.test(u)) return false;
       if (!/[?&]id=[0-9a-f-]{16,}/i.test(u)) return false;

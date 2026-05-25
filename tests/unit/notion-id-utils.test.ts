@@ -17,7 +17,7 @@ describe('notion-id-utils', () => {
   it('extracts database id from full notion url (prefers pathname over v=)', () => {
     expect(
       normalizeNotionDatabaseIdInput(
-        'https://www.notion.so/chiimagnus/346be9d6386a81748c6af9b7db455770?v=346be9d6386a81269331000cdd947d5e&source=copy_link',
+        'https://app.notion.com/chiimagnus/346be9d6386a81748c6af9b7db455770?v=346be9d6386a81269331000cdd947d5e&source=copy_link',
       ),
     ).toBe('346be9d6386a81748c6af9b7db455770');
   });
@@ -25,6 +25,6 @@ describe('notion-id-utils', () => {
   it('returns empty for non-id input', () => {
     expect(normalizeNotionDatabaseIdInput('')).toBe('');
     expect(normalizeNotionDatabaseIdInput('not an id')).toBe('');
-    expect(normalizeNotionDatabaseIdInput('https://www.notion.so/')).toBe('');
+    expect(normalizeNotionDatabaseIdInput('https://app.notion.com/')).toBe('');
   });
 });

@@ -42,7 +42,7 @@ beforeEach(() => {
        </body>
      </html>`,
     {
-      url: 'https://www.notion.so/',
+      url: 'https://app.notion.com/',
       pretendToBeVisual: true,
     },
   );

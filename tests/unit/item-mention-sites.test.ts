@@ -11,6 +11,7 @@ describe('item-mention sites', () => {
     const hosts = listMentionSupportedHosts();
     expect(hosts).toContain('chatgpt.com');
     expect(hosts).toContain('notion.so');
+    expect(hosts).toContain('app.notion.com');
   });
 
   it('matches subdomains', () => {
@@ -18,6 +19,7 @@ describe('item-mention sites', () => {
     expect(isMentionSupportedHost('chat.openai.com')).toBe(true);
     expect(isMentionSupportedHost('www.notion.so')).toBe(true);
     expect(isMentionSupportedHost('foo.notion.so')).toBe(true);
+    expect(isMentionSupportedHost('app.notion.com')).toBe(true);
   });
 
   it('does not enable for non-mention sites', () => {
@@ -41,6 +43,7 @@ describe('item-mention sites', () => {
     expect(pickMentionSupportedSiteIdByHostname('chatgpt.com')).toBe('chatgpt');
     expect(pickMentionSupportedSiteIdByHostname('claude.ai')).toBe('claude');
     expect(pickMentionSupportedSiteIdByHostname('www.notion.so')).toBe('notionai');
+    expect(pickMentionSupportedSiteIdByHostname('app.notion.com')).toBe('notionai');
     expect(pickMentionSupportedSiteIdByHostname('gemini.google.com')).toBe('gemini');
     expect(pickMentionSupportedSiteIdByHostname('chat.deepseek.com')).toBe('deepseek');
     expect(pickMentionSupportedSiteIdByHostname('kimi.moonshot.cn')).toBe('kimi');

@@ -26,7 +26,7 @@ const currentState = {
       kind: 'external-link' as const,
       provider: 'notion',
       slot: 'open',
-      href: 'https://www.notion.so/0123456789abcdef0123456789abcdef',
+      href: 'https://app.notion.com/0123456789abcdef0123456789abcdef',
       onTrigger: vi.fn(async () => {}),
     },
   ] as any[],
@@ -156,7 +156,7 @@ describe('ConversationDetailPane header actions', () => {
         provider: 'notion',
         kind: 'external-link',
         slot: 'open',
-        href: 'https://www.notion.so/0123456789abcdef0123456789abcdef',
+        href: 'https://app.notion.com/0123456789abcdef0123456789abcdef',
         onTrigger: vi.fn(async () => {}),
       },
     ];
@@ -179,7 +179,7 @@ describe('ConversationDetailPane header actions', () => {
         kind: 'external-link',
         provider: 'notion',
         slot: 'open',
-        href: 'https://www.notion.so/0123456789abcdef0123456789abcdef',
+        href: 'https://app.notion.com/0123456789abcdef0123456789abcdef',
         onTrigger: vi.fn(async () => {}),
       },
     ];
@@ -209,7 +209,7 @@ describe('ConversationDetailPane header actions', () => {
         provider: 'notion',
         kind: 'external-link',
         slot: 'open',
-        href: 'https://www.notion.so/0123456789abcdef0123456789abcdef',
+        href: 'https://app.notion.com/0123456789abcdef0123456789abcdef',
         onTrigger: vi.fn(async () => {}),
       },
       {

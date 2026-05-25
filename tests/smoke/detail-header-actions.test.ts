@@ -22,7 +22,7 @@ describe('detail-header-actions', () => {
   it('normalizes a hyphenated Notion page id into the canonical URL form', () => {
     expect(normalizeNotionPageId('01234567-89AB-CDEF-0123-456789ABCDEF')).toBe('0123456789abcdef0123456789abcdef');
     expect(buildNotionPageUrl('01234567-89AB-CDEF-0123-456789ABCDEF')).toBe(
-      'https://www.notion.so/0123456789abcdef0123456789abcdef',
+      'https://app.notion.com/0123456789abcdef0123456789abcdef',
     );
   });
 
@@ -73,10 +73,10 @@ describe('detail-header-actions', () => {
 
     expect(actions).toHaveLength(1);
     expect(actions[0]?.label).toBe(DETAIL_HEADER_ACTION_LABELS.openInNotion);
-    expect(actions[0]?.href).toBe('https://www.notion.so/0123456789abcdef0123456789abcdef');
+    expect(actions[0]?.href).toBe('https://app.notion.com/0123456789abcdef0123456789abcdef');
 
     await actions[0]?.onTrigger();
-    expect(openExternalUrl).toHaveBeenCalledWith('https://www.notion.so/0123456789abcdef0123456789abcdef');
+    expect(openExternalUrl).toHaveBeenCalledWith('https://app.notion.com/0123456789abcdef0123456789abcdef');
   });
 
   it('resolves an Obsidian-only destination when the note target is available', async () => {

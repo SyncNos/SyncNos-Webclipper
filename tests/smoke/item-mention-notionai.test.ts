@@ -33,7 +33,7 @@ beforeEach(() => {
   dom = new JSDOM(
     '<!doctype html><html><body><div data-testid="agent-send-message-button"></div><div role="textbox" data-content-editable-leaf="true" contenteditable="true"></div></body></html>',
     {
-      url: 'https://www.notion.so/',
+      url: 'https://app.notion.com/',
       pretendToBeVisual: true,
     },
   );

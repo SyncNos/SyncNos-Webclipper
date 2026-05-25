@@ -46,6 +46,7 @@ const SUPPORTED_HOST_SUFFIXES = Object.freeze([
   'yuanbao.tencent.com',
   'poe.com',
   'notion.so',
+  'app.notion.com',
 ]);
 
 function isSupportedHost(hostname: string): boolean {

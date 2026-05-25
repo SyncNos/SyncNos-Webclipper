@@ -66,7 +66,7 @@ describe('DetailHeaderActionBar', () => {
               provider: 'notion',
               kind: 'external-link',
               slot: 'open',
-              href: 'https://www.notion.so/example',
+              href: 'https://app.notion.com/example',
               onTrigger: vi.fn(async () => {}),
             },
           ],
@@ -90,7 +90,7 @@ describe('DetailHeaderActionBar', () => {
               provider: 'notion',
               kind: 'external-link',
               slot: 'open',
-              href: 'https://www.notion.so/example',
+              href: 'https://app.notion.com/example',
               onTrigger: vi.fn(async () => {}),
             },
             {
@@ -122,7 +122,7 @@ describe('DetailHeaderActionBar', () => {
               provider: 'notion',
               kind: 'external-link',
               slot: 'open',
-              href: 'https://www.notion.so/example',
+              href: 'https://app.notion.com/example',
               onTrigger: vi.fn(async () => {}),
             },
             {
@@ -171,7 +171,7 @@ describe('DetailHeaderActionBar', () => {
               provider: 'notion',
               kind: 'external-link',
               slot: 'open',
-              href: 'https://www.notion.so/example',
+              href: 'https://app.notion.com/example',
               onTrigger: vi.fn(async () => {
                 throw new Error('Failed to open Notion page');
               }),

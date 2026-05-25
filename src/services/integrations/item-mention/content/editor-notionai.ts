@@ -7,7 +7,11 @@ import type {
 import { clampRange, replaceTextRange } from '@services/integrations/item-mention/content/editor-adapter';
 
 function isNotionHost(hostname: string): boolean {
-  return /(^|\.)notion\.so$/.test(String(hostname || '').toLowerCase());
+  const host = String(hostname || '')
+    .trim()
+    .toLowerCase();
+  if (!host) return false;
+  return host === 'app.notion.com' || host.endsWith('.app.notion.com') || host === 'notion.so' || host.endsWith('.notion.so');
 }
 
 function hasNotionAiSignals(): boolean {
@@ -22,7 +26,7 @@ function hasNotionAiSignals(): boolean {
 function isNotionAiContext(): boolean {
   if (!isNotionHost(location?.hostname || '')) return false;
   const path = String(location?.pathname || '');
-  // `https://www.notion.so/chat?...` is the canonical Notion AI chat entry.
+  // `https://app.notion.com/chat?...` is the canonical Notion AI chat entry.
   if (path === '/chat' || path.startsWith('/chat/')) return true;
   return hasNotionAiSignals();
 }

@@ -19,7 +19,11 @@ function now() {
 }
 
 function isNotionHost() {
-  return /(^|\.)notion\.so$/.test(String(location.hostname || ''));
+  const host = String(location.hostname || '')
+    .trim()
+    .toLowerCase();
+  if (!host) return false;
+  return host === 'app.notion.com' || host.endsWith('.app.notion.com') || host === 'notion.so' || host.endsWith('.notion.so');
 }
 
 function isAutoModelLabel(text) {

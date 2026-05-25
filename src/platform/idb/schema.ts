@@ -144,7 +144,7 @@ function notionAiStableConversationKey(threadId: string): string {
 }
 
 function notionAiCanonicalChatUrl(threadId: string): string {
-  return threadId ? `https://www.notion.so/chat?t=${threadId}&wfv=chat` : '';
+  return threadId ? `https://app.notion.com/chat?t=${threadId}&wfv=chat` : '';
 }
 
 function migrateNotionAiThreadConversations({ db, tx }: MigrationContext): void {
