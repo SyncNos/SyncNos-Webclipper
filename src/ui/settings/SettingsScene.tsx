@@ -110,6 +110,8 @@ export function SettingsScene(props: SettingsSceneProps) {
 
     obsidianSyncEnabled,
     onToggleObsidianSyncEnabled,
+    obsidianAutoSyncEnabled,
+    onToggleObsidianAutoSyncEnabled,
 
     obsidianApiBaseUrl,
     setObsidianApiBaseUrl,
@@ -322,6 +324,7 @@ export function SettingsScene(props: SettingsSceneProps) {
         <ObsidianSettingsSection
           busy={busy}
           syncEnabled={obsidianSyncEnabled}
+          autoSyncEnabled={obsidianAutoSyncEnabled}
           apiBaseUrl={obsidianApiBaseUrl}
           authHeaderName={obsidianAuthHeaderName}
           apiKeyDraft={obsidianApiKeyDraft}
@@ -340,6 +343,9 @@ export function SettingsScene(props: SettingsSceneProps) {
           onChangeVideoFolder={setObsidianVideoFolder}
           onToggleSyncEnabled={(enabled) => {
             void onToggleObsidianSyncEnabled(enabled);
+          }}
+          onToggleAutoSyncEnabled={(enabled) => {
+            void onToggleObsidianAutoSyncEnabled(enabled);
           }}
           onSave={() => {
             void onSaveObsidianSettings();

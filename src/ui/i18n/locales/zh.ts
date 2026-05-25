@@ -496,6 +496,7 @@ export const zh: { [K in TranslationKey]: string } = {
   notionAutoSyncEnabledLabel: '自动同步',
   obsidianSyncEnabledLabel: '同步到 Obsidian',
   obsidianSyncEnabledHint: '已关闭 Obsidian 同步，您可以随时在设置中重新开启。',
+  obsidianAutoSyncEnabledLabel: '自动同步',
   feishuOAuth: '飞书 OAuth',
   feishuSyncEnabledLabel: '同步到飞书',
   feishuSyncEnabledHint: '已关闭飞书同步，您可以随时在设置中重新开启。',

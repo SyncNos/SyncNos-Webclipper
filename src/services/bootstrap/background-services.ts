@@ -24,7 +24,8 @@ import {
 
 import { conversationKinds } from '@services/protocols/conversation-kinds.ts';
 import { createNotionAutoSyncScheduler, type NotionAutoSyncScheduler } from '@services/sync/auto-sync/notion-auto-sync-scheduler';
-import { NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME } from '@services/sync/auto-sync/auto-sync-keys';
+import { createObsidianAutoSyncScheduler, type ObsidianAutoSyncScheduler } from '@services/sync/auto-sync/obsidian-auto-sync-scheduler';
+import { NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME, OBSIDIAN_AUTO_SYNC_DEBOUNCE_ALARM_NAME } from '@services/sync/auto-sync/auto-sync-keys';
 
 export type NotionSyncOrchestrator = {
   syncConversations: (input: { conversationIds?: unknown[]; instanceId: string }) => Promise<unknown>;
@@ -58,6 +59,7 @@ export type BackgroundServices = {
   feishuSyncOrchestrator: FeishuSyncOrchestrator;
   autoSync: {
     notionScheduler: NotionAutoSyncScheduler;
+    obsidianScheduler: ObsidianAutoSyncScheduler;
     onConversationChanged: (conversationId: number, reason: string) => Promise<void>;
     handleAlarm: (name: string) => Promise<void>;
   };
@@ -79,6 +81,15 @@ export function createBackgroundServices(deps: { getInstanceId: () => string }):
     getInstanceId: deps.getInstanceId,
     notionSyncOrchestrator,
   });
+  const obsidianScheduler = createObsidianAutoSyncScheduler({
+    getInstanceId: deps.getInstanceId,
+    obsidianSyncOrchestrator: {
+      syncConversations: obsidianSyncConversations,
+      getSyncStatus: async (input: { instanceId: string }) => getObsidianSyncStatus(input as any),
+      clearSyncStatus: async (input: { instanceId: string }) => clearObsidianSyncStatus(input as any),
+      testConnection: testObsidianConnection,
+    },
+  });
 
   return {
     articleFetchService,
@@ -87,12 +98,20 @@ export function createBackgroundServices(deps: { getInstanceId: () => string }):
     notionSyncOrchestrator,
     autoSync: {
       notionScheduler,
+      obsidianScheduler,
       onConversationChanged: async (conversationId: number, reason: string) => {
         await notionScheduler.enqueue(conversationId, reason);
+        await obsidianScheduler.enqueue(conversationId, reason);
       },
       handleAlarm: async (name: string) => {
-        if (String(name || '').trim() !== NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME) return;
-        await notionScheduler.flush();
+        const alarmName = String(name || '').trim();
+        if (alarmName === NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME) {
+          await notionScheduler.flush();
+          return;
+        }
+        if (alarmName === OBSIDIAN_AUTO_SYNC_DEBOUNCE_ALARM_NAME) {
+          await obsidianScheduler.flush();
+        }
       },
     },
     obsidianSyncOrchestrator: {

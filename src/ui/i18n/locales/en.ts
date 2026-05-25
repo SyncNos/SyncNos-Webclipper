@@ -501,6 +501,7 @@ export const en = {
   notionAutoSyncEnabledLabel: 'Auto sync',
   obsidianSyncEnabledLabel: 'Sync to Obsidian',
   obsidianSyncEnabledHint: 'Obsidian sync is disabled. You can re-enable it anytime in Settings.',
+  obsidianAutoSyncEnabledLabel: 'Auto sync',
   feishuOAuth: 'Feishu OAuth',
   feishuSyncEnabledLabel: 'Sync to Feishu',
   feishuSyncEnabledHint: 'Feishu sync is disabled. You can re-enable it anytime in Settings.',
