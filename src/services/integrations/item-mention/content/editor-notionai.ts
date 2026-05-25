@@ -11,7 +11,9 @@ function isNotionHost(hostname: string): boolean {
     .trim()
     .toLowerCase();
   if (!host) return false;
-  return host === 'app.notion.com' || host.endsWith('.app.notion.com') || host === 'notion.so' || host.endsWith('.notion.so');
+  return (
+    host === 'app.notion.com' || host.endsWith('.app.notion.com') || host === 'notion.so' || host.endsWith('.notion.so')
+  );
 }
 
 function hasNotionAiSignals(): boolean {
