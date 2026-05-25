@@ -23,6 +23,8 @@ import {
 } from '@services/sync/feishu/feishu-sync-orchestrator.ts';
 
 import { conversationKinds } from '@services/protocols/conversation-kinds.ts';
+import { createNotionAutoSyncScheduler, type NotionAutoSyncScheduler } from '@services/sync/auto-sync/notion-auto-sync-scheduler';
+import { NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME } from '@services/sync/auto-sync/auto-sync-keys';
 
 export type NotionSyncOrchestrator = {
   syncConversations: (input: { conversationIds?: unknown[]; instanceId: string }) => Promise<unknown>;
@@ -55,11 +57,13 @@ export type BackgroundServices = {
   obsidianSyncOrchestrator: ObsidianSyncOrchestrator;
   feishuSyncOrchestrator: FeishuSyncOrchestrator;
   autoSync: {
+    notionScheduler: NotionAutoSyncScheduler;
+    onConversationChanged: (conversationId: number, reason: string) => Promise<void>;
     handleAlarm: (name: string) => Promise<void>;
   };
 };
 
-export function createBackgroundServices(): BackgroundServices {
+export function createBackgroundServices(deps: { getInstanceId: () => string }): BackgroundServices {
   const notionSyncOrchestrator = createNotionSyncOrchestrator({
     tokenStore: { getToken: getNotionOAuthToken },
     storage: notionBackgroundStorage,
@@ -71,13 +75,25 @@ export function createBackgroundServices(): BackgroundServices {
     jobStore: notionSyncJobStore,
   });
 
+  const notionScheduler = createNotionAutoSyncScheduler({
+    getInstanceId: deps.getInstanceId,
+    notionSyncOrchestrator,
+  });
+
   return {
     articleFetchService,
     conversationKinds,
     notionSyncJobStore,
     notionSyncOrchestrator,
     autoSync: {
-      handleAlarm: async (_name: string) => {},
+      notionScheduler,
+      onConversationChanged: async (conversationId: number, reason: string) => {
+        await notionScheduler.enqueue(conversationId, reason);
+      },
+      handleAlarm: async (name: string) => {
+        if (String(name || '').trim() !== NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME) return;
+        await notionScheduler.flush();
+      },
     },
     obsidianSyncOrchestrator: {
       syncConversations: obsidianSyncConversations,

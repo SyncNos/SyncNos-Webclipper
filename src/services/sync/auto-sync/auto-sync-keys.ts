@@ -17,3 +17,6 @@ export function autoSyncEnabledStorageKey(provider: AutoSyncProviderId) {
 
 export const NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME = 'auto_sync_notion_debounce_v1' as const;
 
+export const NOTION_AUTO_SYNC_QUEUE_STORAGE_KEY = 'notion_auto_sync_queue_v1' as const;
+export const NOTION_AUTO_SYNC_DEBOUNCE_MS = 60_000;
+export const NOTION_AUTO_SYNC_QUEUE_MAX_ITEMS = 200;

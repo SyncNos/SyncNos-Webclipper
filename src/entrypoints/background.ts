@@ -35,7 +35,7 @@ async function openAboutSectionAfterInstall(): Promise<void> {
 }
 
 export default defineBackground(() => {
-  const services = createBackgroundServices();
+  const services = createBackgroundServices({ getInstanceId: getBackgroundInstanceId });
 
   const router = createBackgroundRouter({
     fallback: (msg) => ({
