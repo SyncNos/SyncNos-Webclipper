@@ -37,6 +37,7 @@ import { send } from '@services/shared/runtime';
 import { storageGet, storageOnChanged, storageRemove, storageSet } from '@services/shared/storage';
 import { openOrFocusExtensionAppTab } from '@services/shared/webext';
 import { setSyncProviderEnabled, syncProviderEnabledStorageKey } from '@services/sync/sync-provider-gate';
+import { NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY } from '@services/sync/auto-sync/auto-sync-keys';
 import {
   DEFAULT_CHAT_WITH_PLATFORMS,
   DEFAULT_CHAT_WITH_PROMPT_TEMPLATE,
@@ -211,6 +212,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [pollingNotion, setPollingNotion] = useState(false);
   const notionPagesAutoLoadRef = useRef(false);
   const [notionSyncEnabled, setNotionSyncEnabled] = useState(true);
+  const [notionAutoSyncEnabled, setNotionAutoSyncEnabled] = useState(false);
 
   // Feishu
   const [feishuConnected, setFeishuConnected] = useState<boolean | null>(null);
@@ -342,6 +344,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         NOTION_SYNC_PROVIDER_ENABLED_KEY,
         FEISHU_SYNC_PROVIDER_ENABLED_KEY,
         OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY,
+        NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY,
         'inpage_display_mode',
         'inpage_supported_only',
         'ai_chat_auto_save_enabled',
@@ -377,6 +380,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setNotionArticleDatabaseId(String(local?.[articleDbSpec.storageKey] || ''));
     setNotionVideoDatabaseId(String(local?.[videoDbSpec.storageKey] || ''));
     setNotionSyncEnabled(local?.[NOTION_SYNC_PROVIDER_ENABLED_KEY] !== false);
+    setNotionAutoSyncEnabled(local?.[NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY] === true);
     setFeishuSyncEnabled(local?.[FEISHU_SYNC_PROVIDER_ENABLED_KEY] !== false);
     setObsidianSyncEnabled(local?.[OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY] !== false);
 
@@ -445,6 +449,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       if (Object.prototype.hasOwnProperty.call(changes, NOTION_SYNC_PROVIDER_ENABLED_KEY)) {
         const nextValue = changes[NOTION_SYNC_PROVIDER_ENABLED_KEY]?.newValue;
         setNotionSyncEnabled(nextValue !== false);
+      }
+      if (Object.prototype.hasOwnProperty.call(changes, NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY)) {
+        const nextValue = changes[NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY]?.newValue;
+        setNotionAutoSyncEnabled(nextValue === true);
       }
       if (Object.prototype.hasOwnProperty.call(changes, OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY)) {
         const nextValue = changes[OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY]?.newValue;
@@ -638,6 +646,19 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
           setNotionSyncEnabled(enabled);
         },
         { fallbackMessage: 'save notion sync enabled failed' },
+      );
+    },
+    [runTask],
+  );
+
+  const onToggleNotionAutoSyncEnabled = useCallback(
+    async (enabled: boolean) => {
+      await runTask(
+        async () => {
+          await storageSet({ [NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY]: enabled });
+          setNotionAutoSyncEnabled(enabled);
+        },
+        { fallbackMessage: 'save notion auto sync enabled failed' },
       );
     },
     [runTask],
@@ -1360,6 +1381,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
 
     notionSyncEnabled,
     onToggleNotionSyncEnabled,
+    notionAutoSyncEnabled,
+    onToggleNotionAutoSyncEnabled,
 
     notionConnected,
     pollingNotion,

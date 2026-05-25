@@ -498,6 +498,7 @@ export const en = {
   providerFeishu: 'Feishu',
   notionSyncEnabledLabel: 'Sync to Notion',
   notionSyncEnabledHint: 'Notion sync is disabled. You can re-enable it anytime in Settings.',
+  notionAutoSyncEnabledLabel: 'Auto sync',
   obsidianSyncEnabledLabel: 'Sync to Obsidian',
   obsidianSyncEnabledHint: 'Obsidian sync is disabled. You can re-enable it anytime in Settings.',
   feishuOAuth: 'Feishu OAuth',

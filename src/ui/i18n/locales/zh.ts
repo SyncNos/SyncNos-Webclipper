@@ -493,6 +493,7 @@ export const zh: { [K in TranslationKey]: string } = {
   providerFeishu: '飞书',
   notionSyncEnabledLabel: '同步到 Notion',
   notionSyncEnabledHint: '已关闭 Notion 同步，您可以随时在设置中重新开启。',
+  notionAutoSyncEnabledLabel: '自动同步',
   obsidianSyncEnabledLabel: '同步到 Obsidian',
   obsidianSyncEnabledHint: '已关闭 Obsidian 同步，您可以随时在设置中重新开启。',
   feishuOAuth: '飞书 OAuth',

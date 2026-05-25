@@ -8,6 +8,7 @@ import { SelectMenu } from '@ui/shared/SelectMenu';
 export function NotionOAuthSection(props: {
   busy: boolean;
   syncEnabled: boolean;
+  autoSyncEnabled: boolean;
   notionStatusText: string;
   notionConnected: boolean;
   pollingNotion: boolean;
@@ -23,6 +24,7 @@ export function NotionOAuthSection(props: {
   notionPageOptions: NotionPageOption[];
   notionLogoUrl: string;
   onToggleSyncEnabled: (enabled: boolean) => void;
+  onToggleAutoSyncEnabled: (enabled: boolean) => void;
   onToggleAdvancedOpen: () => void;
   onConnectOrDisconnect: () => void;
   onSaveNotionParentPage: (id: string) => void;
@@ -36,6 +38,7 @@ export function NotionOAuthSection(props: {
   const {
     busy,
     syncEnabled,
+    autoSyncEnabled,
     notionStatusText,
     notionConnected,
     pollingNotion,
@@ -51,6 +54,7 @@ export function NotionOAuthSection(props: {
     notionPageOptions,
     notionLogoUrl,
     onToggleSyncEnabled,
+    onToggleAutoSyncEnabled,
     onToggleAdvancedOpen,
     onConnectOrDisconnect,
     onSaveNotionParentPage,
@@ -106,6 +110,22 @@ export function NotionOAuthSection(props: {
           </div>
         ) : null}
       </div>
+
+      {syncEnabled ? (
+        <div className="tw-mt-3" aria-label={t('notionAutoSyncEnabledLabel')}>
+          <SettingsFormRow label={t('notionAutoSyncEnabledLabel')}>
+            <input
+              id="notionAutoSyncEnabledToggle"
+              type="checkbox"
+              className={checkboxClassName}
+              checked={autoSyncEnabled}
+              disabled={busy}
+              aria-label={t('notionAutoSyncEnabledLabel')}
+              onChange={(e) => onToggleAutoSyncEnabled(e.target.checked)}
+            />
+          </SettingsFormRow>
+        </div>
+      ) : null}
 
       <div className="tw-mt-3" aria-label={t('parentPage')}>
         <SettingsFormRow label={t('parentPage')}>

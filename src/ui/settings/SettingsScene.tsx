@@ -44,6 +44,8 @@ export function SettingsScene(props: SettingsSceneProps) {
 
     notionSyncEnabled,
     onToggleNotionSyncEnabled,
+    notionAutoSyncEnabled,
+    onToggleNotionAutoSyncEnabled,
 
     notionConnected,
     pollingNotion,
@@ -202,6 +204,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           <NotionOAuthSection
             busy={busy}
             syncEnabled={notionSyncEnabled}
+            autoSyncEnabled={notionAutoSyncEnabled}
             notionStatusText={notionStatusText}
             notionConnected={!!notionConnected}
             pollingNotion={pollingNotion}
@@ -218,6 +221,9 @@ export function SettingsScene(props: SettingsSceneProps) {
             notionLogoUrl={getURL('icons/notion.svg' as any)}
             onToggleSyncEnabled={(enabled) => {
               void onToggleNotionSyncEnabled(enabled);
+            }}
+            onToggleAutoSyncEnabled={(enabled) => {
+              void onToggleNotionAutoSyncEnabled(enabled);
             }}
             onToggleAdvancedOpen={() => {
               onToggleNotionAdvancedOpen();
