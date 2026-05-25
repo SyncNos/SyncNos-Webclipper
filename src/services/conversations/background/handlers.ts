@@ -19,6 +19,10 @@ import {
   DEFAULT_ABOUT_YOU_USER_NAME,
   normalizeUserName,
 } from '@services/shared/user-profile';
+import {
+  AUTO_SYNC_CONVERSATION_CHANGED_REASONS,
+  type AutoSyncConversationChangedReason,
+} from '@services/sync/auto-sync/auto-sync-keys';
 
 type AnyRouter = {
   ok: (data: unknown) => any;
@@ -28,7 +32,7 @@ type AnyRouter = {
 };
 
 type ConversationHandlersDeps = {
-  onConversationChanged: (conversationId: number, reason: string) => void | Promise<void>;
+  onConversationChanged: (conversationId: number, reason: AutoSyncConversationChangedReason) => void | Promise<void>;
 };
 
 function fireAndForget(task: void | Promise<void>) {
@@ -185,7 +189,14 @@ export function registerConversationHandlers(router: AnyRouter, deps: Conversati
         reason: existed ? 'upsertConversation' : 'createConversation',
         conversationId,
       });
-      fireAndForget(deps.onConversationChanged(conversationId, existed ? 'upsertConversation' : 'createConversation'));
+      fireAndForget(
+        deps.onConversationChanged(
+          conversationId,
+          existed
+            ? AUTO_SYNC_CONVERSATION_CHANGED_REASONS.upsertConversation
+            : AUTO_SYNC_CONVERSATION_CHANGED_REASONS.createConversation,
+        ),
+      );
     }
     return router.ok({ ...(convo as any), __isNew: !existed });
   });
@@ -299,7 +310,7 @@ export function registerConversationHandlers(router: AnyRouter, deps: Conversati
       reason: 'upsert',
       conversationId,
     });
-    fireAndForget(deps.onConversationChanged(conversationId, 'syncConversationMessages'));
+    fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.syncConversationMessages));
     return router.ok(res);
   });
 
@@ -320,14 +331,14 @@ export function registerConversationHandlers(router: AnyRouter, deps: Conversati
         });
         if (progressEnqueued) return;
         progressEnqueued = true;
-        fireAndForget(deps.onConversationChanged(conversationId, 'backfillImages'));
+        fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.backfillImages));
       },
     });
     router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
       reason: 'upsert',
       conversationId,
     });
-    fireAndForget(deps.onConversationChanged(conversationId, 'backfillImages'));
+    fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.backfillImages));
     return router.ok(res);
   });
 

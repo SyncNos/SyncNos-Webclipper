@@ -42,6 +42,7 @@ import {
   NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY,
   OBSIDIAN_AUTO_SYNC_DEBOUNCE_ALARM_NAME,
   OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY,
+  type AutoSyncConversationChangedReason,
 } from '@services/sync/auto-sync/auto-sync-keys';
 import { storageGet } from '@services/shared/storage';
 
@@ -79,7 +80,7 @@ export type BackgroundServices = {
     notionScheduler: NotionAutoSyncScheduler;
     obsidianScheduler: ObsidianAutoSyncScheduler;
     feishuScheduler: FeishuAutoSyncScheduler;
-    onConversationChanged: (conversationId: number, reason: string) => Promise<void>;
+    onConversationChanged: (conversationId: number, reason: AutoSyncConversationChangedReason) => Promise<void>;
     handleAlarm: (name: string) => Promise<void>;
   };
 };
@@ -127,7 +128,7 @@ export function createBackgroundServices(deps: { getInstanceId: () => string }):
       notionScheduler,
       obsidianScheduler,
       feishuScheduler,
-      onConversationChanged: async (conversationId: number, reason: string) => {
+      onConversationChanged: async (conversationId: number, reason: AutoSyncConversationChangedReason) => {
         const local = await storageGet([
           NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY,
           OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY,

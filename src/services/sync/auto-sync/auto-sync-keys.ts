@@ -30,3 +30,14 @@ export const OBSIDIAN_AUTO_SYNC_QUEUE_MAX_ITEMS = 200;
 export const FEISHU_AUTO_SYNC_QUEUE_STORAGE_KEY = 'feishu_auto_sync_queue_v1' as const;
 export const FEISHU_AUTO_SYNC_DEBOUNCE_MS = 60_000;
 export const FEISHU_AUTO_SYNC_QUEUE_MAX_ITEMS = 200;
+
+export const AUTO_SYNC_CONVERSATION_CHANGED_REASONS = {
+  createConversation: 'createConversation',
+  upsertConversation: 'upsertConversation',
+  syncConversationMessages: 'syncConversationMessages',
+  backfillImages: 'backfillImages',
+  articleCommentChanged: 'articleCommentChanged',
+} as const;
+
+export type AutoSyncConversationChangedReason =
+  (typeof AUTO_SYNC_CONVERSATION_CHANGED_REASONS)[keyof typeof AUTO_SYNC_CONVERSATION_CHANGED_REASONS];
