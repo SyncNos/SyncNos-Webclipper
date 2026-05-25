@@ -310,7 +310,9 @@ export function registerConversationHandlers(router: AnyRouter, deps: Conversati
       reason: 'upsert',
       conversationId,
     });
-    fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.syncConversationMessages));
+    fireAndForget(
+      deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.syncConversationMessages),
+    );
     return router.ok(res);
   });
 
@@ -331,7 +333,9 @@ export function registerConversationHandlers(router: AnyRouter, deps: Conversati
         });
         if (progressEnqueued) return;
         progressEnqueued = true;
-        fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.backfillImages));
+        fireAndForget(
+          deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.backfillImages),
+        );
       },
     });
     router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {

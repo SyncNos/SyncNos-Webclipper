@@ -78,7 +78,10 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
         conversationId: comment.conversationId,
       });
       fireAndForget(
-        deps.onConversationChanged(Number(comment.conversationId), AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
+        deps.onConversationChanged(
+          Number(comment.conversationId),
+          AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged,
+        ),
       );
     }
 
@@ -97,7 +100,9 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
           reason: 'articleCommentDeleted',
           conversationId,
         });
-        fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged));
+        fireAndForget(
+          deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
+        );
       } else {
         router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
           reason: 'articleCommentDeleted',
@@ -117,7 +122,9 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
       reason: 'articleCommentAttached',
       conversationId,
     });
-    fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged));
+    fireAndForget(
+      deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
+    );
     return router.ok(res);
   });
 
@@ -136,7 +143,9 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
         fromCanonicalUrl,
         toCanonicalUrl,
       });
-      fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged));
+      fireAndForget(
+        deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
+      );
     } else {
       router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
         reason: 'articleCommentsMigrated',
