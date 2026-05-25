@@ -500,6 +500,7 @@ export const zh: { [K in TranslationKey]: string } = {
   feishuOAuth: '飞书 OAuth',
   feishuSyncEnabledLabel: '同步到飞书',
   feishuSyncEnabledHint: '已关闭飞书同步，您可以随时在设置中重新开启。',
+  feishuAutoSyncEnabledLabel: '自动同步',
   feishuPaths: '飞书路径',
   feishuPathsNote: '相对于云盘根目录的文件夹路径。支持嵌套文件夹，留空则使用默认路径。',
   feishuOAuthClientIdLabel: 'App ID（Client ID）',

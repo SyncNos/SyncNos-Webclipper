@@ -505,6 +505,7 @@ export const en = {
   feishuOAuth: 'Feishu OAuth',
   feishuSyncEnabledLabel: 'Sync to Feishu',
   feishuSyncEnabledHint: 'Feishu sync is disabled. You can re-enable it anytime in Settings.',
+  feishuAutoSyncEnabledLabel: 'Auto sync',
   feishuPaths: 'Feishu Paths',
   feishuPathsNote: 'Drive-root-relative folder paths. Nested folders supported. Empty uses defaults.',
   feishuOAuthClientIdLabel: 'App ID (Client ID)',

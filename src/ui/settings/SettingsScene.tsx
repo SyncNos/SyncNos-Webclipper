@@ -77,6 +77,8 @@ export function SettingsScene(props: SettingsSceneProps) {
 
     feishuSyncEnabled,
     onToggleFeishuSyncEnabled,
+    feishuAutoSyncEnabled,
+    onToggleFeishuAutoSyncEnabled,
 
     feishuConnected,
     pollingFeishu,
@@ -270,6 +272,7 @@ export function SettingsScene(props: SettingsSceneProps) {
         <FeishuOAuthSection
           busy={busy}
           syncEnabled={feishuSyncEnabled}
+          autoSyncEnabled={feishuAutoSyncEnabled}
           feishuStatusText={feishuStatusText}
           feishuConnected={!!feishuConnected}
           pollingFeishu={pollingFeishu}
@@ -284,6 +287,9 @@ export function SettingsScene(props: SettingsSceneProps) {
           setupGuideUrl={feishuSetupGuideUrl}
           onToggleSyncEnabled={(enabled) => {
             void onToggleFeishuSyncEnabled(enabled);
+          }}
+          onToggleAutoSyncEnabled={(enabled) => {
+            void onToggleFeishuAutoSyncEnabled(enabled);
           }}
           onChangeClientId={setFeishuClientId}
           onChangeClientSecret={setFeishuClientSecret}

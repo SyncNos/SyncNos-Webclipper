@@ -25,7 +25,12 @@ import {
 import { conversationKinds } from '@services/protocols/conversation-kinds.ts';
 import { createNotionAutoSyncScheduler, type NotionAutoSyncScheduler } from '@services/sync/auto-sync/notion-auto-sync-scheduler';
 import { createObsidianAutoSyncScheduler, type ObsidianAutoSyncScheduler } from '@services/sync/auto-sync/obsidian-auto-sync-scheduler';
-import { NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME, OBSIDIAN_AUTO_SYNC_DEBOUNCE_ALARM_NAME } from '@services/sync/auto-sync/auto-sync-keys';
+import { createFeishuAutoSyncScheduler, type FeishuAutoSyncScheduler } from '@services/sync/auto-sync/feishu-auto-sync-scheduler';
+import {
+  FEISHU_AUTO_SYNC_DEBOUNCE_ALARM_NAME,
+  NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME,
+  OBSIDIAN_AUTO_SYNC_DEBOUNCE_ALARM_NAME,
+} from '@services/sync/auto-sync/auto-sync-keys';
 
 export type NotionSyncOrchestrator = {
   syncConversations: (input: { conversationIds?: unknown[]; instanceId: string }) => Promise<unknown>;
@@ -60,6 +65,7 @@ export type BackgroundServices = {
   autoSync: {
     notionScheduler: NotionAutoSyncScheduler;
     obsidianScheduler: ObsidianAutoSyncScheduler;
+    feishuScheduler: FeishuAutoSyncScheduler;
     onConversationChanged: (conversationId: number, reason: string) => Promise<void>;
     handleAlarm: (name: string) => Promise<void>;
   };
@@ -90,6 +96,14 @@ export function createBackgroundServices(deps: { getInstanceId: () => string }):
       testConnection: testObsidianConnection,
     },
   });
+  const feishuScheduler = createFeishuAutoSyncScheduler({
+    getInstanceId: deps.getInstanceId,
+    feishuSyncOrchestrator: {
+      syncConversations: feishuSyncConversations,
+      getSyncStatus: async (input: { instanceId: string }) => getFeishuSyncStatus(input as any),
+      clearSyncStatus: async (input: { instanceId: string }) => clearFeishuSyncStatus(input as any),
+    },
+  });
 
   return {
     articleFetchService,
@@ -99,9 +113,11 @@ export function createBackgroundServices(deps: { getInstanceId: () => string }):
     autoSync: {
       notionScheduler,
       obsidianScheduler,
+      feishuScheduler,
       onConversationChanged: async (conversationId: number, reason: string) => {
         await notionScheduler.enqueue(conversationId, reason);
         await obsidianScheduler.enqueue(conversationId, reason);
+        await feishuScheduler.enqueue(conversationId, reason);
       },
       handleAlarm: async (name: string) => {
         const alarmName = String(name || '').trim();
@@ -111,6 +127,10 @@ export function createBackgroundServices(deps: { getInstanceId: () => string }):
         }
         if (alarmName === OBSIDIAN_AUTO_SYNC_DEBOUNCE_ALARM_NAME) {
           await obsidianScheduler.flush();
+          return;
+        }
+        if (alarmName === FEISHU_AUTO_SYNC_DEBOUNCE_ALARM_NAME) {
+          await feishuScheduler.flush();
         }
       },
     },
