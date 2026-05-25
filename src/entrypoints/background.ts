@@ -22,6 +22,7 @@ import { registerFeishuSettingsHandlers } from '@services/sync/feishu/settings-b
 import { onInstalled } from '@platform/runtime/runtime';
 import { openOrFocusExtensionAppTab } from '@platform/webext/extension-app';
 import { registerClipperContextMenu } from '@platform/context-menus/clipper-context-menu';
+import { onAlarm } from '@platform/alarms/alarms';
 
 let backgroundInstanceId: string | null = null;
 function getBackgroundInstanceId(): string {
@@ -92,6 +93,14 @@ export default defineBackground(() => {
     services?.notionSyncJobStore?.abortRunningJobIfFromOtherInstance?.(id)?.catch?.(() => {});
     obsidianSyncJobStore.abortRunningJobIfFromOtherInstance(id).catch(() => {});
     feishuSyncJobStore.abortRunningJobIfFromOtherInstance(id).catch(() => {});
+  } catch (_e) {
+    // ignore
+  }
+
+  try {
+    onAlarm((alarm) => {
+      void services.autoSync.handleAlarm(String(alarm?.name || ''));
+    });
   } catch (_e) {
     // ignore
   }

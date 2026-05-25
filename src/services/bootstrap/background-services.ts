@@ -54,6 +54,9 @@ export type BackgroundServices = {
   notionSyncOrchestrator: NotionSyncOrchestrator;
   obsidianSyncOrchestrator: ObsidianSyncOrchestrator;
   feishuSyncOrchestrator: FeishuSyncOrchestrator;
+  autoSync: {
+    handleAlarm: (name: string) => Promise<void>;
+  };
 };
 
 export function createBackgroundServices(): BackgroundServices {
@@ -73,6 +76,9 @@ export function createBackgroundServices(): BackgroundServices {
     conversationKinds,
     notionSyncJobStore,
     notionSyncOrchestrator,
+    autoSync: {
+      handleAlarm: async (_name: string) => {},
+    },
     obsidianSyncOrchestrator: {
       syncConversations: obsidianSyncConversations,
       getSyncStatus: async (input: { instanceId: string }) => getObsidianSyncStatus(input as any),
