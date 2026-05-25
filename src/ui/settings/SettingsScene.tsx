@@ -44,6 +44,8 @@ export function SettingsScene(props: SettingsSceneProps) {
 
     notionSyncEnabled,
     onToggleNotionSyncEnabled,
+    notionAutoSyncEnabled,
+    onToggleNotionAutoSyncEnabled,
 
     notionConnected,
     pollingNotion,
@@ -75,6 +77,8 @@ export function SettingsScene(props: SettingsSceneProps) {
 
     feishuSyncEnabled,
     onToggleFeishuSyncEnabled,
+    feishuAutoSyncEnabled,
+    onToggleFeishuAutoSyncEnabled,
 
     feishuConnected,
     pollingFeishu,
@@ -108,6 +112,8 @@ export function SettingsScene(props: SettingsSceneProps) {
 
     obsidianSyncEnabled,
     onToggleObsidianSyncEnabled,
+    obsidianAutoSyncEnabled,
+    onToggleObsidianAutoSyncEnabled,
 
     obsidianApiBaseUrl,
     setObsidianApiBaseUrl,
@@ -202,6 +208,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           <NotionOAuthSection
             busy={busy}
             syncEnabled={notionSyncEnabled}
+            autoSyncEnabled={notionAutoSyncEnabled}
             notionStatusText={notionStatusText}
             notionConnected={!!notionConnected}
             pollingNotion={pollingNotion}
@@ -218,6 +225,9 @@ export function SettingsScene(props: SettingsSceneProps) {
             notionLogoUrl={getURL('icons/notion.svg' as any)}
             onToggleSyncEnabled={(enabled) => {
               void onToggleNotionSyncEnabled(enabled);
+            }}
+            onToggleAutoSyncEnabled={(enabled) => {
+              void onToggleNotionAutoSyncEnabled(enabled);
             }}
             onToggleAdvancedOpen={() => {
               onToggleNotionAdvancedOpen();
@@ -262,6 +272,7 @@ export function SettingsScene(props: SettingsSceneProps) {
         <FeishuOAuthSection
           busy={busy}
           syncEnabled={feishuSyncEnabled}
+          autoSyncEnabled={feishuAutoSyncEnabled}
           feishuStatusText={feishuStatusText}
           feishuConnected={!!feishuConnected}
           pollingFeishu={pollingFeishu}
@@ -276,6 +287,9 @@ export function SettingsScene(props: SettingsSceneProps) {
           setupGuideUrl={feishuSetupGuideUrl}
           onToggleSyncEnabled={(enabled) => {
             void onToggleFeishuSyncEnabled(enabled);
+          }}
+          onToggleAutoSyncEnabled={(enabled) => {
+            void onToggleFeishuAutoSyncEnabled(enabled);
           }}
           onChangeClientId={setFeishuClientId}
           onChangeClientSecret={setFeishuClientSecret}
@@ -316,6 +330,7 @@ export function SettingsScene(props: SettingsSceneProps) {
         <ObsidianSettingsSection
           busy={busy}
           syncEnabled={obsidianSyncEnabled}
+          autoSyncEnabled={obsidianAutoSyncEnabled}
           apiBaseUrl={obsidianApiBaseUrl}
           authHeaderName={obsidianAuthHeaderName}
           apiKeyDraft={obsidianApiKeyDraft}
@@ -334,6 +349,9 @@ export function SettingsScene(props: SettingsSceneProps) {
           onChangeVideoFolder={setObsidianVideoFolder}
           onToggleSyncEnabled={(enabled) => {
             void onToggleObsidianSyncEnabled(enabled);
+          }}
+          onToggleAutoSyncEnabled={(enabled) => {
+            void onToggleObsidianAutoSyncEnabled(enabled);
           }}
           onSave={() => {
             void onSaveObsidianSettings();

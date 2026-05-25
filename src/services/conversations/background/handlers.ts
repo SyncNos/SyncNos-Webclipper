@@ -19,6 +19,10 @@ import {
   DEFAULT_ABOUT_YOU_USER_NAME,
   normalizeUserName,
 } from '@services/shared/user-profile';
+import {
+  AUTO_SYNC_CONVERSATION_CHANGED_REASONS,
+  type AutoSyncConversationChangedReason,
+} from '@services/sync/auto-sync/auto-sync-keys';
 
 type AnyRouter = {
   ok: (data: unknown) => any;
@@ -26,6 +30,14 @@ type AnyRouter = {
   register: (type: string, handler: (msg: any) => Promise<any> | any) => void;
   eventsHub?: { broadcast: (type: string, payload: unknown) => void };
 };
+
+type ConversationHandlersDeps = {
+  onConversationChanged: (conversationId: number, reason: AutoSyncConversationChangedReason) => void | Promise<void>;
+};
+
+function fireAndForget(task: void | Promise<void>) {
+  Promise.resolve(task).catch(() => {});
+}
 
 type ListQueryPayload = {
   sourceKey: string;
@@ -90,7 +102,7 @@ function parseListCursorPayload(value: unknown): ListCursorPayload | null {
   return { lastCapturedAt, id };
 }
 
-export function registerConversationHandlers(router: AnyRouter) {
+export function registerConversationHandlers(router: AnyRouter, deps: ConversationHandlersDeps) {
   const invalidArgument = (field: string, message: string, received: unknown) => {
     return router.err(message, {
       code: 'INVALID_ARGUMENT',
@@ -177,6 +189,14 @@ export function registerConversationHandlers(router: AnyRouter) {
         reason: existed ? 'upsertConversation' : 'createConversation',
         conversationId,
       });
+      fireAndForget(
+        deps.onConversationChanged(
+          conversationId,
+          existed
+            ? AUTO_SYNC_CONVERSATION_CHANGED_REASONS.upsertConversation
+            : AUTO_SYNC_CONVERSATION_CHANGED_REASONS.createConversation,
+        ),
+      );
     }
     return router.ok({ ...(convo as any), __isNew: !existed });
   });
@@ -290,6 +310,9 @@ export function registerConversationHandlers(router: AnyRouter) {
       reason: 'upsert',
       conversationId,
     });
+    fireAndForget(
+      deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.syncConversationMessages),
+    );
     return router.ok(res);
   });
 
@@ -297,6 +320,7 @@ export function registerConversationHandlers(router: AnyRouter) {
     const conversationId = Number(msg.conversationId);
     if (!Number.isFinite(conversationId) || conversationId <= 0) return router.err('invalid conversationId');
     const conversationUrl = String(msg?.conversationUrl || '').trim();
+    let progressEnqueued = false;
     const res = await backfillConversationImages({
       conversationId,
       conversationUrl,
@@ -307,12 +331,18 @@ export function registerConversationHandlers(router: AnyRouter) {
           reason: 'upsert',
           conversationId,
         });
+        if (progressEnqueued) return;
+        progressEnqueued = true;
+        fireAndForget(
+          deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.backfillImages),
+        );
       },
     });
     router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
       reason: 'upsert',
       conversationId,
     });
+    fireAndForget(deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.backfillImages));
     return router.ok(res);
   });
 

@@ -22,6 +22,7 @@ import { registerFeishuSettingsHandlers } from '@services/sync/feishu/settings-b
 import { onInstalled } from '@platform/runtime/runtime';
 import { openOrFocusExtensionAppTab } from '@platform/webext/extension-app';
 import { registerClipperContextMenu } from '@platform/context-menus/clipper-context-menu';
+import { onAlarm } from '@platform/alarms/alarms';
 
 let backgroundInstanceId: string | null = null;
 function getBackgroundInstanceId(): string {
@@ -34,7 +35,7 @@ async function openAboutSectionAfterInstall(): Promise<void> {
 }
 
 export default defineBackground(() => {
-  const services = createBackgroundServices();
+  const services = createBackgroundServices({ getInstanceId: getBackgroundInstanceId });
 
   const router = createBackgroundRouter({
     fallback: (msg) => ({
@@ -44,10 +45,14 @@ export default defineBackground(() => {
     }),
   });
 
-  registerConversationHandlers(router);
+  registerConversationHandlers(router, {
+    onConversationChanged: (conversationId, reason) => services.autoSync.onConversationChanged(conversationId, reason),
+  });
   registerItemMentionHandlers(router);
   registerChatWithBackgroundHandlers(router);
-  registerArticleCommentsHandlers(router);
+  registerArticleCommentsHandlers(router, {
+    onConversationChanged: (conversationId, reason) => services.autoSync.onConversationChanged(conversationId, reason),
+  });
   registerWebArticleHandlers(router);
   registerChatgptDeepResearchHandlers(router);
   registerNotionSettingsHandlers(router, {
@@ -92,6 +97,24 @@ export default defineBackground(() => {
     services?.notionSyncJobStore?.abortRunningJobIfFromOtherInstance?.(id)?.catch?.(() => {});
     obsidianSyncJobStore.abortRunningJobIfFromOtherInstance(id).catch(() => {});
     feishuSyncJobStore.abortRunningJobIfFromOtherInstance(id).catch(() => {});
+  } catch (_e) {
+    // ignore
+  }
+
+  try {
+    onAlarm((alarm) => {
+      void services.autoSync.handleAlarm(String(alarm?.name || ''));
+    });
+  } catch (_e) {
+    // ignore
+  }
+
+  // Best-effort flush for any overdue auto-sync queue items. This complements
+  // alarms-based wakeups and helps after extension reload / background restart.
+  try {
+    void services.autoSync.notionScheduler.flush();
+    void services.autoSync.obsidianScheduler.flush();
+    void services.autoSync.feishuScheduler.flush();
   } catch (_e) {
     // ignore
   }

@@ -38,6 +38,11 @@ import { storageGet, storageOnChanged, storageRemove, storageSet } from '@servic
 import { openOrFocusExtensionAppTab } from '@services/shared/webext';
 import { setSyncProviderEnabled, syncProviderEnabledStorageKey } from '@services/sync/sync-provider-gate';
 import {
+  NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY,
+  OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY,
+  FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY,
+} from '@services/sync/auto-sync/auto-sync-keys';
+import {
   DEFAULT_CHAT_WITH_PLATFORMS,
   DEFAULT_CHAT_WITH_PROMPT_TEMPLATE,
   loadChatWithSettings,
@@ -211,6 +216,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [pollingNotion, setPollingNotion] = useState(false);
   const notionPagesAutoLoadRef = useRef(false);
   const [notionSyncEnabled, setNotionSyncEnabled] = useState(true);
+  const [notionAutoSyncEnabled, setNotionAutoSyncEnabled] = useState(false);
 
   // Feishu
   const [feishuConnected, setFeishuConnected] = useState<boolean | null>(null);
@@ -221,6 +227,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [feishuTokenExchangeProxyUrl, setFeishuTokenExchangeProxyUrl] = useState<string>('');
   const [pollingFeishu, setPollingFeishu] = useState(false);
   const [feishuSyncEnabled, setFeishuSyncEnabled] = useState(true);
+  const [feishuAutoSyncEnabled, setFeishuAutoSyncEnabled] = useState(false);
   const [feishuChatFolder, setFeishuChatFolder] = useState<string>('');
   const [feishuArticleFolder, setFeishuArticleFolder] = useState<string>('');
   const [feishuVideoFolder, setFeishuVideoFolder] = useState<string>('');
@@ -236,6 +243,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [obsidianVideoFolder, setObsidianVideoFolder] = useState<string>('');
   const [obsidianStatus, setObsidianStatus] = useState<string>(t('statusIdle'));
   const [obsidianSyncEnabled, setObsidianSyncEnabled] = useState(true);
+  const [obsidianAutoSyncEnabled, setObsidianAutoSyncEnabled] = useState(false);
 
   // Backup
   const [exportStatus, setExportStatus] = useState<string>(t('statusIdle'));
@@ -342,6 +350,9 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         NOTION_SYNC_PROVIDER_ENABLED_KEY,
         FEISHU_SYNC_PROVIDER_ENABLED_KEY,
         OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY,
+        NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY,
+        OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY,
+        FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY,
         'inpage_display_mode',
         'inpage_supported_only',
         'ai_chat_auto_save_enabled',
@@ -377,8 +388,11 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setNotionArticleDatabaseId(String(local?.[articleDbSpec.storageKey] || ''));
     setNotionVideoDatabaseId(String(local?.[videoDbSpec.storageKey] || ''));
     setNotionSyncEnabled(local?.[NOTION_SYNC_PROVIDER_ENABLED_KEY] !== false);
+    setNotionAutoSyncEnabled(local?.[NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY] === true);
     setFeishuSyncEnabled(local?.[FEISHU_SYNC_PROVIDER_ENABLED_KEY] !== false);
+    setFeishuAutoSyncEnabled(local?.[FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY] === true);
     setObsidianSyncEnabled(local?.[OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY] !== false);
+    setObsidianAutoSyncEnabled(local?.[OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY] === true);
 
     const feishuStatus = unwrap(feishuRes);
     const feishuIsConnected = !!feishuStatus?.connected;
@@ -446,13 +460,25 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         const nextValue = changes[NOTION_SYNC_PROVIDER_ENABLED_KEY]?.newValue;
         setNotionSyncEnabled(nextValue !== false);
       }
+      if (Object.prototype.hasOwnProperty.call(changes, NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY)) {
+        const nextValue = changes[NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY]?.newValue;
+        setNotionAutoSyncEnabled(nextValue === true);
+      }
       if (Object.prototype.hasOwnProperty.call(changes, OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY)) {
         const nextValue = changes[OBSIDIAN_SYNC_PROVIDER_ENABLED_KEY]?.newValue;
         setObsidianSyncEnabled(nextValue !== false);
       }
+      if (Object.prototype.hasOwnProperty.call(changes, OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY)) {
+        const nextValue = changes[OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY]?.newValue;
+        setObsidianAutoSyncEnabled(nextValue === true);
+      }
       if (Object.prototype.hasOwnProperty.call(changes, FEISHU_SYNC_PROVIDER_ENABLED_KEY)) {
         const nextValue = changes[FEISHU_SYNC_PROVIDER_ENABLED_KEY]?.newValue;
         setFeishuSyncEnabled(nextValue !== false);
+      }
+      if (Object.prototype.hasOwnProperty.call(changes, FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY)) {
+        const nextValue = changes[FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY]?.newValue;
+        setFeishuAutoSyncEnabled(nextValue === true);
       }
       if (Object.prototype.hasOwnProperty.call(changes, MARKDOWN_READING_PROFILE_STORAGE_KEY)) {
         const nextValue = changes[MARKDOWN_READING_PROFILE_STORAGE_KEY]?.newValue;
@@ -643,6 +669,19 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     [runTask],
   );
 
+  const onToggleNotionAutoSyncEnabled = useCallback(
+    async (enabled: boolean) => {
+      await runTask(
+        async () => {
+          await storageSet({ [NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY]: enabled });
+          setNotionAutoSyncEnabled(enabled);
+        },
+        { fallbackMessage: 'save notion auto sync enabled failed' },
+      );
+    },
+    [runTask],
+  );
+
   const onToggleObsidianSyncEnabled = useCallback(
     async (enabled: boolean) => {
       await runTask(
@@ -656,6 +695,19 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     [runTask],
   );
 
+  const onToggleObsidianAutoSyncEnabled = useCallback(
+    async (enabled: boolean) => {
+      await runTask(
+        async () => {
+          await storageSet({ [OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY]: enabled });
+          setObsidianAutoSyncEnabled(enabled);
+        },
+        { fallbackMessage: 'save obsidian auto sync enabled failed' },
+      );
+    },
+    [runTask],
+  );
+
   const onToggleFeishuSyncEnabled = useCallback(
     async (enabled: boolean) => {
       await runTask(
@@ -664,6 +716,19 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
           setFeishuSyncEnabled(enabled);
         },
         { fallbackMessage: 'save feishu sync enabled failed' },
+      );
+    },
+    [runTask],
+  );
+
+  const onToggleFeishuAutoSyncEnabled = useCallback(
+    async (enabled: boolean) => {
+      await runTask(
+        async () => {
+          await storageSet({ [FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY]: enabled });
+          setFeishuAutoSyncEnabled(enabled);
+        },
+        { fallbackMessage: 'save feishu auto sync enabled failed' },
       );
     },
     [runTask],
@@ -1360,6 +1425,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
 
     notionSyncEnabled,
     onToggleNotionSyncEnabled,
+    notionAutoSyncEnabled,
+    onToggleNotionAutoSyncEnabled,
 
     notionConnected,
     pollingNotion,
@@ -1391,6 +1458,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
 
     feishuSyncEnabled,
     onToggleFeishuSyncEnabled,
+    feishuAutoSyncEnabled,
+    onToggleFeishuAutoSyncEnabled,
 
     feishuConnected,
     pollingFeishu,
@@ -1417,6 +1486,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
 
     obsidianSyncEnabled,
     onToggleObsidianSyncEnabled,
+    obsidianAutoSyncEnabled,
+    onToggleObsidianAutoSyncEnabled,
 
     obsidianApiBaseUrl,
     setObsidianApiBaseUrl,

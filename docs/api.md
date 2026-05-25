@@ -50,6 +50,17 @@
 | `getNotionSyncJobStatus` | 无 | `{ provider: 'notion', job, instanceId }` | 查询后台同步 job 状态（running / done / error 等以 job store 为准） |
 | `clearNotionSyncJobStatus` | 无 | `{ provider: 'notion', job: null, instanceId }` | 清空同步状态，便于 UI 重置提示 |
 
+## 自动同步（Auto Sync）
+
+自动同步是 background 内部能力（不通过 router 暴露新的消息类型）：当会话写入或 comments 变更发生时，会以 debounce 方式自动触发“同步当前会话”。
+
+- **开关**：按 provider 分开存储，默认关闭：
+  - `notion_auto_sync_enabled_v1`
+  - `obsidian_auto_sync_enabled_v1`
+  - `feishu_auto_sync_enabled_v1`
+- **调度与队列**：队列与 alarm 名称集中定义在 `src/services/sync/auto-sync/auto-sync-keys.ts`，并通过 MV3 `alarms` 做一次性唤醒 flush（非定期任务）。
+- **同步范围**：仅同步被影响的 `conversationId`。
+
 ## ITEM_MENTION（$ mention）关键消息
 
 | 消息类型 | 入参关键字段 | 返回 | 说明 |

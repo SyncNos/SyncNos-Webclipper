@@ -31,7 +31,7 @@ export function createTestBackgroundRouter() {
     }),
   });
 
-  registerConversationHandlers(router);
+  registerConversationHandlers(router, { onConversationChanged: async () => {} });
   registerWebArticleHandlers(router);
   registerChatWithBackgroundHandlers(router);
   registerNotionSettingsHandlers(router, { notionSyncJobStore, conversationKinds });

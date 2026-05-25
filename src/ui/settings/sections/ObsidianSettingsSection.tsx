@@ -7,6 +7,7 @@ import { SettingsFormRow } from '@ui/settings/sections/SettingsFormRow';
 export function ObsidianSettingsSection(props: {
   busy: boolean;
   syncEnabled: boolean;
+  autoSyncEnabled: boolean;
   apiBaseUrl: string;
   authHeaderName: string;
   apiKeyDraft: string;
@@ -24,6 +25,7 @@ export function ObsidianSettingsSection(props: {
   onChangeArticleFolder: (v: string) => void;
   onChangeVideoFolder: (v: string) => void;
   onToggleSyncEnabled: (enabled: boolean) => void;
+  onToggleAutoSyncEnabled: (enabled: boolean) => void;
   onSave: () => void;
   onSaveApiKey: () => void;
   onTest: () => void;
@@ -32,6 +34,7 @@ export function ObsidianSettingsSection(props: {
   const {
     busy,
     syncEnabled,
+    autoSyncEnabled,
     apiBaseUrl,
     authHeaderName,
     apiKeyDraft,
@@ -49,6 +52,7 @@ export function ObsidianSettingsSection(props: {
     onChangeArticleFolder,
     onChangeVideoFolder,
     onToggleSyncEnabled,
+    onToggleAutoSyncEnabled,
     onSave,
     onSaveApiKey,
     onTest,
@@ -94,6 +98,20 @@ export function ObsidianSettingsSection(props: {
               <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
                 {t('obsidianSyncEnabledHint')}
               </div>
+            </SettingsFormRow>
+          ) : null}
+
+          {syncEnabled ? (
+            <SettingsFormRow label={t('obsidianAutoSyncEnabledLabel')}>
+              <input
+                id="obsidianAutoSyncEnabledToggle"
+                type="checkbox"
+                className={checkboxClassName}
+                checked={autoSyncEnabled}
+                disabled={busy}
+                aria-label={t('obsidianAutoSyncEnabledLabel')}
+                onChange={(e) => onToggleAutoSyncEnabled(e.target.checked)}
+              />
             </SettingsFormRow>
           ) : null}
 

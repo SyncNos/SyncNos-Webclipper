@@ -45,7 +45,7 @@ function createRouter() {
       error: { message: `unknown message type: ${msg?.type}`, extra: null },
     }),
   });
-  registerConversationHandlers(router as any);
+  registerConversationHandlers(router as any, { onConversationChanged: async () => {} });
   return router;
 }
 

@@ -50,3 +50,4 @@ web-ext.config.ts
 
 .codegraph/
 metadata/
+_temp/

@@ -14,6 +14,10 @@ import {
   DEFAULT_ABOUT_YOU_USER_NAME,
   normalizeUserName,
 } from '@services/shared/user-profile';
+import {
+  AUTO_SYNC_CONVERSATION_CHANGED_REASONS,
+  type AutoSyncConversationChangedReason,
+} from '@services/sync/auto-sync/auto-sync-keys';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 
 type AnyRouter = {
@@ -23,7 +27,15 @@ type AnyRouter = {
   eventsHub?: { broadcast: (type: string, payload: unknown) => void };
 };
 
-export function registerArticleCommentsHandlers(router: AnyRouter) {
+type ArticleCommentsHandlersDeps = {
+  onConversationChanged: (conversationId: number, reason: AutoSyncConversationChangedReason) => void | Promise<void>;
+};
+
+function fireAndForget(task: void | Promise<void>) {
+  Promise.resolve(task).catch(() => {});
+}
+
+export function registerArticleCommentsHandlers(router: AnyRouter, deps: ArticleCommentsHandlersDeps) {
   router.register(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, async (msg) => {
     const canonicalUrl = canonicalizeArticleUrl(msg?.canonicalUrl);
     const conversationId = Number(msg?.conversationId);
@@ -65,6 +77,12 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
         reason: 'articleCommentAdded',
         conversationId: comment.conversationId,
       });
+      fireAndForget(
+        deps.onConversationChanged(
+          Number(comment.conversationId),
+          AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged,
+        ),
+      );
     }
 
     return router.ok(comment);
@@ -82,6 +100,9 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
           reason: 'articleCommentDeleted',
           conversationId,
         });
+        fireAndForget(
+          deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
+        );
       } else {
         router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
           reason: 'articleCommentDeleted',
@@ -101,6 +122,9 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
       reason: 'articleCommentAttached',
       conversationId,
     });
+    fireAndForget(
+      deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
+    );
     return router.ok(res);
   });
 
@@ -119,6 +143,9 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
         fromCanonicalUrl,
         toCanonicalUrl,
       });
+      fireAndForget(
+        deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
+      );
     } else {
       router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
         reason: 'articleCommentsMigrated',

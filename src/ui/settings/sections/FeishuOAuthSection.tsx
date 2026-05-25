@@ -6,6 +6,7 @@ import { SettingsFormRow } from '@ui/settings/sections/SettingsFormRow';
 export function FeishuOAuthSection(props: {
   busy: boolean;
   syncEnabled: boolean;
+  autoSyncEnabled: boolean;
   feishuStatusText: string;
   feishuConnected: boolean;
   pollingFeishu: boolean;
@@ -19,6 +20,7 @@ export function FeishuOAuthSection(props: {
   feishuVideoFolder: string;
   setupGuideUrl: string;
   onToggleSyncEnabled: (enabled: boolean) => void;
+  onToggleAutoSyncEnabled: (enabled: boolean) => void;
   onConnectOrDisconnect: () => void;
   onChangeClientId: (value: string) => void;
   onChangeClientSecret: (value: string) => void;
@@ -33,6 +35,7 @@ export function FeishuOAuthSection(props: {
   const {
     busy,
     syncEnabled,
+    autoSyncEnabled,
     feishuStatusText,
     feishuConnected,
     pollingFeishu,
@@ -46,6 +49,7 @@ export function FeishuOAuthSection(props: {
     feishuVideoFolder,
     setupGuideUrl,
     onToggleSyncEnabled,
+    onToggleAutoSyncEnabled,
     onConnectOrDisconnect,
     onChangeClientId,
     onChangeClientSecret,
@@ -118,6 +122,22 @@ export function FeishuOAuthSection(props: {
             </div>
           ) : null}
         </div>
+
+        {syncEnabled ? (
+          <div className="tw-mt-3" aria-label={t('feishuAutoSyncEnabledLabel')}>
+            <SettingsFormRow label={t('feishuAutoSyncEnabledLabel')}>
+              <input
+                id="feishuAutoSyncEnabledToggle"
+                type="checkbox"
+                className={checkboxClassName}
+                checked={autoSyncEnabled}
+                disabled={busy}
+                aria-label={t('feishuAutoSyncEnabledLabel')}
+                onChange={(e) => onToggleAutoSyncEnabled(e.target.checked)}
+              />
+            </SettingsFormRow>
+          </div>
+        ) : null}
 
         <div id="feishu-advanced-settings" className="tw-mt-3 tw-grid tw-gap-2">
           <SettingsFormRow label={t('feishuOAuthClientIdLabel')}>
