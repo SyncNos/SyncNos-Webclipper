@@ -109,5 +109,15 @@ export default defineBackground(() => {
     // ignore
   }
 
+  // Best-effort flush for any overdue auto-sync queue items. This complements
+  // alarms-based wakeups and helps after extension reload / background restart.
+  try {
+    void services.autoSync.notionScheduler.flush();
+    void services.autoSync.obsidianScheduler.flush();
+    void services.autoSync.feishuScheduler.flush();
+  } catch (_e) {
+    // ignore
+  }
+
   router.start();
 });
