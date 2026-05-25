@@ -1,4 +1,4 @@
-import { unzipSync, zip, type ZipOptions, type Zippable } from 'fflate';
+import { unzipSync, zipSync, type ZipOptions, type Zippable } from 'fflate';
 
 function normalizeEntryName(name: unknown, fallback: string) {
   const raw = String(name || '').trim() || fallback;
@@ -30,13 +30,13 @@ export function isUnsafeZipEntryName(name: unknown) {
   return false;
 }
 
-function zipToUint8Array(data: Zippable, opts: ZipOptions): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    zip(data, opts, (err, out) => {
-      if (err) reject(err);
-      else resolve(out);
-    });
-  });
+function zipToUint8Array(data: Zippable, opts: ZipOptions): Uint8Array {
+  // IMPORTANT:
+  // - Firefox extension pages enforce a strict CSP that blocks `blob:` workers by default.
+  // - `fflate.zip()` transparently switches to async `deflate()` (workerized) for large files,
+  //   which then fails under that CSP and can leave the callback unresolved.
+  // - `zipSync()` avoids workers entirely and is therefore CSP-safe across browsers.
+  return zipSync(data, opts);
 }
 
 function normalizeRezippedTopLevelFolder(entries: Map<string, Uint8Array>): Map<string, Uint8Array> {
@@ -101,7 +101,7 @@ export async function createZipBlob(entries: ZipInputEntry[]): Promise<Blob> {
     }
   }
 
-  const zipBytes = await zipToUint8Array(zippable, { level: 9, mem: 8 });
+  const zipBytes = zipToUint8Array(zippable, { level: 9, mem: 8 });
   return new Blob([new Uint8Array(zipBytes)], { type: 'application/zip' });
 }
 

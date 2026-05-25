@@ -30,11 +30,14 @@ function createCollectorHarness() {
 
 describe('notionai-collector', () => {
   it('exposes inpageMatches for early UI eligibility', () => {
-    const dom = new JSDOM('<body></body>', { url: 'https://www.notion.so/0123456789abcdef0123456789abcdef' });
+    const dom = new JSDOM('<body></body>', { url: 'https://app.notion.com/0123456789abcdef0123456789abcdef' });
     setupDom(dom);
     const { collector, registry } = createCollectorHarness();
 
     expect(typeof collector.__test.inpageMatches).toBe('function');
+    expect(
+      collector.__test.inpageMatches({ hostname: 'app.notion.com', pathname: '/', href: 'https://app.notion.com/' }),
+    ).toBe(true);
     expect(
       collector.__test.inpageMatches({ hostname: 'www.notion.so', pathname: '/', href: 'https://www.notion.so/' }),
     ).toBe(true);
@@ -43,24 +46,24 @@ describe('notionai-collector', () => {
     ).toBe(false);
 
     const active = registry.pickActive({
-      hostname: 'www.notion.so',
+      hostname: 'app.notion.com',
       pathname: '/0123456789abcdef0123456789abcdef',
-      href: 'https://www.notion.so/0123456789abcdef0123456789abcdef',
+      href: 'https://app.notion.com/0123456789abcdef0123456789abcdef',
     });
     expect(active).toBe(null);
   });
 
   it('becomes active only when chat turn signals exist', () => {
     const dom = new JSDOM('<body><div data-agent-chat-user-step-id="u1"></div></body>', {
-      url: 'https://www.notion.so/0123456789abcdef0123456789abcdef',
+      url: 'https://app.notion.com/0123456789abcdef0123456789abcdef',
     });
     setupDom(dom);
     const { registry } = createCollectorHarness();
 
     const active = registry.pickActive({
-      hostname: 'www.notion.so',
+      hostname: 'app.notion.com',
       pathname: '/0123456789abcdef0123456789abcdef',
-      href: 'https://www.notion.so/0123456789abcdef0123456789abcdef',
+      href: 'https://app.notion.com/0123456789abcdef0123456789abcdef',
     });
     expect(active && active.id).toBe('notionai');
   });
@@ -79,7 +82,7 @@ describe('notionai-collector', () => {
     `;
 
     const dom = new JSDOM(`<body>${html}</body>`, {
-      url: `https://www.notion.so/chiimagnus/Some-Page-0123456789abcdef0123456789abcdef?t=${threadId}`,
+      url: `https://app.notion.com/chiimagnus/Some-Page-0123456789abcdef0123456789abcdef?t=${threadId}`,
     });
     setupDom(dom);
     const { collector } = createCollectorHarness();
@@ -87,11 +90,11 @@ describe('notionai-collector', () => {
     const snap = collector.capture();
     expect(snap).toBeTruthy();
     expect(snap.conversation.conversationKey).toBe(`notionai_t_${threadId}`);
-    expect(snap.conversation.url).toBe(`https://www.notion.so/chat?t=${threadId}&wfv=chat`);
+    expect(snap.conversation.url).toBe(`https://app.notion.com/chat?t=${threadId}&wfv=chat`);
   });
 
   it('uses the first user step id as fallback conversationKey seed when `t` is missing', () => {
-    const pageUrl = 'https://www.notion.so/chiimagnus/Page-0123456789abcdef0123456789abcdef';
+    const pageUrl = 'https://app.notion.com/chiimagnus/Page-0123456789abcdef0123456789abcdef';
     const htmlFor = (stepId: string) => `
       <div data-agent-chat-user-step-id="${stepId}">
         <div data-content-editable-leaf="true">你好</div>
@@ -121,7 +124,7 @@ describe('notionai-collector', () => {
     const html = `<div data-agent-chat-user-step-id="u1"><div style="padding-top: 6px; padding-bottom: 6px; padding-inline: 14px; border-radius: 16px;"><div data-content-editable-leaf="true">我们来看看这个 <a href="/343be9d6386a806b9a55ea7833f2c0b5?pvs=24" class="notion-page-mention-token notion-text-mention-token notion-focusable-token notion-enable-hover" contenteditable="false" tabindex="0"><span class="notion-page-mention-token__title">全自主鸿蒙智能探地雷达地质建模与隐患检测预警技术研发与应用示范</span></a></div></div></div><div class="autolayout-col autolayout-fill-width"><div data-block-id="a1"><div data-content-editable-leaf="true">assistant</div></div></div>`;
 
     const dom = new JSDOM(`<body>${html}</body>`, {
-      url: 'https://www.notion.so/chiimagnus/Some-Page-0123456789abcdef0123456789abcdef',
+      url: 'https://app.notion.com/chiimagnus/Some-Page-0123456789abcdef0123456789abcdef',
     });
     setupDom(dom);
     const { collector } = createCollectorHarness();
@@ -133,7 +136,7 @@ describe('notionai-collector', () => {
     expect(user).toBeTruthy();
     expect(user.contentText).toContain('我们来看看这个');
     expect(user.contentMarkdown).toContain(
-      '[全自主鸿蒙智能探地雷达地质建模与隐患检测预警技术研发与应用示范](https://www.notion.so/chiimagnus/343be9d6386a806b9a55ea7833f2c0b5)',
+      '[全自主鸿蒙智能探地雷达地质建模与隐患检测预警技术研发与应用示范](https://app.notion.com/chiimagnus/343be9d6386a806b9a55ea7833f2c0b5)',
     );
   });
 });

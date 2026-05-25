@@ -115,7 +115,7 @@ describe('notion-sync-service image uploads', () => {
         type: 'image',
         image: {
           type: 'external',
-          external: { url: 'https://www.notion.so/image/attachment%3Aabc.png?table=thread&id=1' },
+          external: { url: 'https://app.notion.com/image/attachment%3Aabc.png?table=thread&id=1' },
         },
       },
     ];
@@ -164,7 +164,7 @@ describe('notion-sync-service image uploads', () => {
         type: 'image',
         image: {
           type: 'external',
-          external: { url: 'https://www.notion.so/image/attachment%3Aabc.png?table=thread&id=1' },
+          external: { url: 'https://app.notion.com/image/attachment%3Aabc.png?table=thread&id=1' },
         },
       },
     ];

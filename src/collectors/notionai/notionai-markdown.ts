@@ -78,7 +78,7 @@ function resolveNotionHref(href: any): string {
     const url = new URL(raw, baseHref);
     const pathname = String(url.pathname || '');
     const pageIdMatch = pathname.match(/^\/(?:([0-9a-f]{32})|([^/?#]+)\/([0-9a-f]{32}))(?:$|[/?#])/i);
-    if (pageIdMatch && /(^|\.)notion\.so$/i.test(url.hostname)) {
+    if (pageIdMatch && /(^|\.)((notion\.so)|(app\.notion\.com))$/i.test(url.hostname)) {
       const workspaceSlug = notionWorkspaceSlugFromPath(
         (typeof location !== 'undefined' && location && location.pathname) || '',
       );

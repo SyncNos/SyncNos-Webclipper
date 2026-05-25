@@ -27,7 +27,7 @@ export const SUPPORTED_AI_CHAT_SITES: SupportedAiChatSite[] = [
   { id: 'doubao', name: 'Doubao', hosts: ['doubao.com'], features: { dollarMention: true } },
   { id: 'yuanbao', name: 'Yuanbao', hosts: ['yuanbao.tencent.com'], features: { dollarMention: true } },
   { id: 'poe', name: 'Poe', hosts: ['poe.com'], features: { dollarMention: true } },
-  { id: 'notionai', name: 'Notion AI', hosts: ['notion.so'], features: { dollarMention: true } },
+  { id: 'notionai', name: 'Notion AI', hosts: ['notion.so', 'app.notion.com'], features: { dollarMention: true } },
   { id: 'zai', name: 'z.ai', hosts: ['chat.z.ai'], features: { dollarMention: true } },
 ] as const;
 

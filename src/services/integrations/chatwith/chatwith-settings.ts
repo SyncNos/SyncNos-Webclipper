@@ -32,7 +32,7 @@ export const DEFAULT_CHAT_WITH_PLATFORMS: ChatWithAiPlatform[] = [
   { id: 'doubao', name: 'Doubao', url: 'https://www.doubao.com/', enabled: false },
   { id: 'yuanbao', name: 'Yuanbao', url: 'https://yuanbao.tencent.com/', enabled: false },
   { id: 'poe', name: 'Poe', url: 'https://poe.com/', enabled: false },
-  { id: 'notionai', name: 'NotionAI', url: 'https://www.notion.so/', enabled: false },
+  { id: 'notionai', name: 'NotionAI', url: 'https://app.notion.com/', enabled: false },
   { id: 'zai', name: 'z.ai', url: 'https://z.ai/', enabled: false },
   { id: 'googleaistudio', name: 'Google AI Studio', url: 'https://aistudio.google.com/', enabled: false },
 ];

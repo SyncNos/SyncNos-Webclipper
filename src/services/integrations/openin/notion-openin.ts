@@ -12,7 +12,7 @@ export function normalizeNotionPageId(pageId?: string | null): string {
 
 export function buildNotionPageUrl(pageId?: string | null): string {
   const normalizedPageId = normalizeNotionPageId(pageId);
-  return normalizedPageId ? `https://www.notion.so/${normalizedPageId}` : '';
+  return normalizedPageId ? `https://app.notion.com/${normalizedPageId}` : '';
 }
 
 export function buildNotionOpenInAction({
