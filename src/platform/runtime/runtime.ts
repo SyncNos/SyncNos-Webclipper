@@ -1,5 +1,6 @@
 const INVALIDATED_MESSAGE = 'Extension context invalidated';
 const INVALIDATED_RE = /Extension context invalidated/i;
+const DEFAULT_SEND_MESSAGE_TIMEOUT_MS = 60_000;
 
 function toError(err: unknown, fallbackMessage: string): Error {
   if (err instanceof Error) return err;
@@ -11,7 +12,45 @@ export function isInvalidContextError(err: unknown): boolean {
   return INVALIDATED_RE.test(message);
 }
 
-export async function sendMessage<TResponse = unknown>(message: unknown): Promise<TResponse> {
+type SendMessageOptions = {
+  timeoutMs?: number;
+};
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  const ms = Number(timeoutMs);
+  if (!Number.isFinite(ms) || ms <= 0) return promise;
+
+  return new Promise<T>((resolve, reject) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+
+    promise.then(
+      (value) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+export async function sendMessage<TResponse = unknown>(
+  message: unknown,
+  options: SendMessageOptions = {},
+): Promise<TResponse> {
+  const timeoutMs =
+    options.timeoutMs == null ? DEFAULT_SEND_MESSAGE_TIMEOUT_MS : Math.max(0, Number(options.timeoutMs) || 0);
   const anyGlobal = globalThis as any;
 
   // Prefer promise-based `browser.*` when available (WXT/dev polyfill).
@@ -20,7 +59,7 @@ export async function sendMessage<TResponse = unknown>(message: unknown): Promis
     if (maybeBrowser?.runtime?.sendMessage) {
       const out = maybeBrowser.runtime.sendMessage(message as any);
       if (out && typeof out.then === 'function') {
-        return (await out) as TResponse;
+        return (await withTimeout(out as Promise<TResponse>, timeoutMs, 'runtime.sendMessage')) as TResponse;
       }
     }
   } catch (err) {
@@ -30,17 +69,18 @@ export async function sendMessage<TResponse = unknown>(message: unknown): Promis
   // Fallback: callback-based `chrome.*` (Chrome stable API surface).
   const maybeChrome = anyGlobal.chrome;
   if (maybeChrome?.runtime?.sendMessage) {
-    return (await new Promise((resolve, reject) => {
+    const p = new Promise<TResponse>((resolve, reject) => {
       try {
         maybeChrome.runtime.sendMessage(message as any, (response: any) => {
           const runtimeError = maybeChrome.runtime?.lastError;
           if (runtimeError) return reject(new Error(String(runtimeError.message || runtimeError)));
-          resolve(response);
+          resolve(response as TResponse);
         });
       } catch (e) {
         reject(e);
       }
-    })) as TResponse;
+    });
+    return await withTimeout(p, timeoutMs, 'runtime.sendMessage');
   }
 
   throw new Error(INVALIDATED_MESSAGE);
