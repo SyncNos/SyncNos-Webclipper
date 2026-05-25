@@ -77,7 +77,7 @@ export function createNotionAutoSyncScheduler(
     getInstanceId: deps.getInstanceId,
     isProviderEnabled: () => isSyncProviderEnabled('notion'),
     syncConversations: async (conversationIds, instanceId) => {
-      const local = await infra.storage.get(['notion_parent_page_id']).catch(() => ({} as any));
+      const local = await infra.storage.get(['notion_parent_page_id']).catch(() => ({}) as any);
       const token = await getNotionOAuthToken().catch(() => null);
       const parentPageId = String((local as any)?.notion_parent_page_id || '').trim();
       if (!token || !(token as any).accessToken) throw new Error('notion not connected');
@@ -89,4 +89,3 @@ export function createNotionAutoSyncScheduler(
     },
   });
 }
-

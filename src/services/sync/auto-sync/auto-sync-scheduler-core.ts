@@ -54,7 +54,12 @@ function pickEarliestDueAt(queue: QueueMap): number | null {
 
 function normalizeIds(ids: string[]) {
   return Array.from(
-    new Set(ids.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0).map((x) => Math.floor(x))),
+    new Set(
+      ids
+        .map((x) => Number(x))
+        .filter((x) => Number.isFinite(x) && x > 0)
+        .map((x) => Math.floor(x)),
+    ),
   );
 }
 
@@ -91,7 +96,7 @@ export function createAutoSyncSchedulerCore(config: {
   } = config;
 
   const readQueue = async (): Promise<QueueMap> => {
-    const res = await infra.storage.get([queueStorageKey]).catch(() => ({} as any));
+    const res = await infra.storage.get([queueStorageKey]).catch(() => ({}) as any);
     return normalizeQueue((res as any)?.[queueStorageKey]);
   };
 
@@ -113,7 +118,7 @@ export function createAutoSyncSchedulerCore(config: {
     const id = Number(conversationId);
     if (!Number.isFinite(id) || id <= 0) return;
 
-    const local = await infra.storage.get([enabledStorageKey]).catch(() => ({} as any));
+    const local = await infra.storage.get([enabledStorageKey]).catch(() => ({}) as any);
     const autoSyncEnabled = (local as any)?.[enabledStorageKey] === true;
     if (!autoSyncEnabled) return;
 
@@ -148,7 +153,7 @@ export function createAutoSyncSchedulerCore(config: {
       return;
     }
 
-    const local = await infra.storage.get([enabledStorageKey]).catch(() => ({} as any));
+    const local = await infra.storage.get([enabledStorageKey]).catch(() => ({}) as any);
     const autoSyncEnabled = (local as any)?.[enabledStorageKey] === true;
     const providerEnabled = await isProviderEnabled().catch(() => false);
 
@@ -192,4 +197,3 @@ export function createAutoSyncSchedulerCore(config: {
 
   return { enqueue, flush };
 }
-

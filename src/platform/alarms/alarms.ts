@@ -67,4 +67,3 @@ export function onAlarm(listener: (alarm: Alarm) => void): () => void {
     }
   };
 }
-

@@ -14,6 +14,7 @@ module.exports = [
       'dist/**',
       'dist-firefox/**',
       'node_modules/**',
+      '_temp/**',
       'cloudflare-workers/**',
       'public/src/vendor/**',
     ],

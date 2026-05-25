@@ -49,4 +49,3 @@ export function createObsidianAutoSyncScheduler(
       deps.obsidianSyncOrchestrator.syncConversations({ conversationIds, instanceId } as any) as any,
   });
 }
-

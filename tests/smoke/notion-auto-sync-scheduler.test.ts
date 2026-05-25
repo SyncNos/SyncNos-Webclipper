@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createNotionAutoSyncScheduler } from '@services/sync/auto-sync/notion-auto-sync-scheduler';
-import { NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY, NOTION_AUTO_SYNC_QUEUE_STORAGE_KEY } from '@services/sync/auto-sync/auto-sync-keys';
+import {
+  NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY,
+  NOTION_AUTO_SYNC_QUEUE_STORAGE_KEY,
+} from '@services/sync/auto-sync/auto-sync-keys';
 
 const storageState: Record<string, any> = {};
 
@@ -69,7 +72,12 @@ beforeEach(() => {
   });
 
   gateMocks.isSyncProviderEnabled.mockResolvedValue(true);
-  tokenStoreMocks.getNotionOAuthToken.mockResolvedValue({ accessToken: 'token', workspaceId: 'w', workspaceName: 'W', createdAt: Date.now() });
+  tokenStoreMocks.getNotionOAuthToken.mockResolvedValue({
+    accessToken: 'token',
+    workspaceId: 'w',
+    workspaceName: 'W',
+    createdAt: Date.now(),
+  });
   alarmsMocks.isAlarmsAvailable.mockReturnValue(false);
   alarmsMocks.create.mockReset();
   alarmsMocks.clear.mockResolvedValue(true);
@@ -131,4 +139,3 @@ describe('notion-auto-sync-scheduler', () => {
     expect(jobArg?.failCount).toBe(1);
   });
 });
-

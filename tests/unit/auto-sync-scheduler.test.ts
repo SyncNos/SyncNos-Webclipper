@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createAutoSyncSchedulerCore, type AutoSyncSchedulerInfra } from '@services/sync/auto-sync/auto-sync-scheduler-core';
+import {
+  createAutoSyncSchedulerCore,
+  type AutoSyncSchedulerInfra,
+} from '@services/sync/auto-sync/auto-sync-scheduler-core';
 
 function makeInfra(startNow = 1_000_000) {
   let now = startNow;
@@ -175,4 +178,3 @@ describe('auto-sync-scheduler-core', () => {
     expect(after).toBeGreaterThan(before);
   });
 });
-

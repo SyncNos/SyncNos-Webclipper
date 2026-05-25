@@ -23,9 +23,18 @@ import {
 } from '@services/sync/feishu/feishu-sync-orchestrator.ts';
 
 import { conversationKinds } from '@services/protocols/conversation-kinds.ts';
-import { createNotionAutoSyncScheduler, type NotionAutoSyncScheduler } from '@services/sync/auto-sync/notion-auto-sync-scheduler';
-import { createObsidianAutoSyncScheduler, type ObsidianAutoSyncScheduler } from '@services/sync/auto-sync/obsidian-auto-sync-scheduler';
-import { createFeishuAutoSyncScheduler, type FeishuAutoSyncScheduler } from '@services/sync/auto-sync/feishu-auto-sync-scheduler';
+import {
+  createNotionAutoSyncScheduler,
+  type NotionAutoSyncScheduler,
+} from '@services/sync/auto-sync/notion-auto-sync-scheduler';
+import {
+  createObsidianAutoSyncScheduler,
+  type ObsidianAutoSyncScheduler,
+} from '@services/sync/auto-sync/obsidian-auto-sync-scheduler';
+import {
+  createFeishuAutoSyncScheduler,
+  type FeishuAutoSyncScheduler,
+} from '@services/sync/auto-sync/feishu-auto-sync-scheduler';
 import {
   FEISHU_AUTO_SYNC_DEBOUNCE_ALARM_NAME,
   NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME,

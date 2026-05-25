@@ -49,4 +49,3 @@ export function createFeishuAutoSyncScheduler(
       deps.feishuSyncOrchestrator.syncConversations({ conversationIds, instanceId } as any) as any,
   });
 }
-

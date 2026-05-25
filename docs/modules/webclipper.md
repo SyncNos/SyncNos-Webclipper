@@ -169,3 +169,15 @@
 - **改 Notion / Obsidian 行为**：先看各 orchestrator，再看 `conversation-kinds.ts` 和 settings store。
 - **改 article 抓取**：先看 `article-fetch.ts`（background 侧注入/重试策略）+ `article-extract/engine.ts`（抽取顺序）+ `article-extract/markdown-turndown.ts`（统一转换），再确认保存后的 `sourceType` 和 message 结构没有变。
 - **改视频字幕采集**：先看 `modules/videos.md`、`video-transcript-interceptor.content.ts`、`video-transcript-bridge.content.ts`、`video-transcript-extract.ts`、`video-transcript-capture.ts`、`clipper-context-menu.ts`，再确认 `sourceType='video'`、`SyncNos-Videos` 以及空字幕提示都没有回退。
+
+## 自动同步（Auto Sync）
+
+自动同步是 **事件驱动** 的：当会话内容写入（包括增量 auto-save）或 article comments 发生变更时，background 会在一个 debounce 窗口后，自动触发对应 provider 的“同步当前会话”。
+
+- **设置位置**：Settings → Notion / Obsidian / Feishu 的同步区域内。
+- **显示规则**：只有当「同步到 XXX」被开启时，才会显示「自动同步」开关。
+- **默认值**：所有 provider 的自动同步都默认关闭。
+- **触发源**：会话 upsert / 写入消息 / 图片回填（backfill）/ comments add-delete-migrate。
+- **同步范围**：仅同步发生变更的 `conversationId`（不会自动全量同步全部会话）。
+- **调度策略**：debounce（当前实现为 60s），并使用 MV3 `alarms` 做一次性唤醒调度（不是定时任务；实际触发时间可能有延迟）。
+- **反馈方式**：复用现有 sync job store，最终在会话列表页的 `ConversationSyncFeedbackNotice` 展示 running / failed / success。
