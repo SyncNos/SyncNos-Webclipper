@@ -36,10 +36,14 @@ import {
   type FeishuAutoSyncScheduler,
 } from '@services/sync/auto-sync/feishu-auto-sync-scheduler';
 import {
+  FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY,
   FEISHU_AUTO_SYNC_DEBOUNCE_ALARM_NAME,
   NOTION_AUTO_SYNC_DEBOUNCE_ALARM_NAME,
+  NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY,
   OBSIDIAN_AUTO_SYNC_DEBOUNCE_ALARM_NAME,
+  OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY,
 } from '@services/sync/auto-sync/auto-sync-keys';
+import { storageGet } from '@services/shared/storage';
 
 export type NotionSyncOrchestrator = {
   syncConversations: (input: { conversationIds?: unknown[]; instanceId: string }) => Promise<unknown>;
@@ -124,9 +128,20 @@ export function createBackgroundServices(deps: { getInstanceId: () => string }):
       obsidianScheduler,
       feishuScheduler,
       onConversationChanged: async (conversationId: number, reason: string) => {
-        await notionScheduler.enqueue(conversationId, reason);
-        await obsidianScheduler.enqueue(conversationId, reason);
-        await feishuScheduler.enqueue(conversationId, reason);
+        const local = await storageGet([
+          NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY,
+          OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY,
+          FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY,
+        ]).catch(() => ({}));
+        if ((local as any)?.[NOTION_AUTO_SYNC_ENABLED_STORAGE_KEY] === true) {
+          void notionScheduler.enqueue(conversationId, reason);
+        }
+        if ((local as any)?.[OBSIDIAN_AUTO_SYNC_ENABLED_STORAGE_KEY] === true) {
+          void obsidianScheduler.enqueue(conversationId, reason);
+        }
+        if ((local as any)?.[FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY] === true) {
+          void feishuScheduler.enqueue(conversationId, reason);
+        }
       },
       handleAlarm: async (name: string) => {
         const alarmName = String(name || '').trim();

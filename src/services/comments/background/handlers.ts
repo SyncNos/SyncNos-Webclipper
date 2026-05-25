@@ -27,6 +27,10 @@ type ArticleCommentsHandlersDeps = {
   onConversationChanged: (conversationId: number, reason: string) => void | Promise<void>;
 };
 
+function fireAndForget(task: void | Promise<void>) {
+  Promise.resolve(task).catch(() => {});
+}
+
 export function registerArticleCommentsHandlers(router: AnyRouter, deps: ArticleCommentsHandlersDeps) {
   router.register(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, async (msg) => {
     const canonicalUrl = canonicalizeArticleUrl(msg?.canonicalUrl);
@@ -69,7 +73,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
         reason: 'articleCommentAdded',
         conversationId: comment.conversationId,
       });
-      await deps.onConversationChanged(Number(comment.conversationId), 'articleCommentChanged');
+      fireAndForget(deps.onConversationChanged(Number(comment.conversationId), 'articleCommentChanged'));
     }
 
     return router.ok(comment);
@@ -87,7 +91,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
           reason: 'articleCommentDeleted',
           conversationId,
         });
-        await deps.onConversationChanged(conversationId, 'articleCommentChanged');
+        fireAndForget(deps.onConversationChanged(conversationId, 'articleCommentChanged'));
       } else {
         router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
           reason: 'articleCommentDeleted',
@@ -107,7 +111,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
       reason: 'articleCommentAttached',
       conversationId,
     });
-    await deps.onConversationChanged(conversationId, 'articleCommentChanged');
+    fireAndForget(deps.onConversationChanged(conversationId, 'articleCommentChanged'));
     return router.ok(res);
   });
 
@@ -126,7 +130,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
         fromCanonicalUrl,
         toCanonicalUrl,
       });
-      await deps.onConversationChanged(conversationId, 'articleCommentChanged');
+      fireAndForget(deps.onConversationChanged(conversationId, 'articleCommentChanged'));
     } else {
       router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
         reason: 'articleCommentsMigrated',

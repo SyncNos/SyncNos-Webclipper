@@ -31,6 +31,10 @@ type ConversationHandlersDeps = {
   onConversationChanged: (conversationId: number, reason: string) => void | Promise<void>;
 };
 
+function fireAndForget(task: void | Promise<void>) {
+  Promise.resolve(task).catch(() => {});
+}
+
 type ListQueryPayload = {
   sourceKey: string;
   siteKey: string;
@@ -181,7 +185,7 @@ export function registerConversationHandlers(router: AnyRouter, deps: Conversati
         reason: existed ? 'upsertConversation' : 'createConversation',
         conversationId,
       });
-      await deps.onConversationChanged(conversationId, existed ? 'upsertConversation' : 'createConversation');
+      fireAndForget(deps.onConversationChanged(conversationId, existed ? 'upsertConversation' : 'createConversation'));
     }
     return router.ok({ ...(convo as any), __isNew: !existed });
   });
@@ -295,7 +299,7 @@ export function registerConversationHandlers(router: AnyRouter, deps: Conversati
       reason: 'upsert',
       conversationId,
     });
-    await deps.onConversationChanged(conversationId, 'syncConversationMessages');
+    fireAndForget(deps.onConversationChanged(conversationId, 'syncConversationMessages'));
     return router.ok(res);
   });
 
@@ -316,14 +320,14 @@ export function registerConversationHandlers(router: AnyRouter, deps: Conversati
         });
         if (progressEnqueued) return;
         progressEnqueued = true;
-        await deps.onConversationChanged(conversationId, 'backfillImages');
+        fireAndForget(deps.onConversationChanged(conversationId, 'backfillImages'));
       },
     });
     router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
       reason: 'upsert',
       conversationId,
     });
-    await deps.onConversationChanged(conversationId, 'backfillImages');
+    fireAndForget(deps.onConversationChanged(conversationId, 'backfillImages'));
     return router.ok(res);
   });
 
