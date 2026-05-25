@@ -23,7 +23,11 @@ type AnyRouter = {
   eventsHub?: { broadcast: (type: string, payload: unknown) => void };
 };
 
-export function registerArticleCommentsHandlers(router: AnyRouter) {
+type ArticleCommentsHandlersDeps = {
+  onConversationChanged: (conversationId: number, reason: string) => void | Promise<void>;
+};
+
+export function registerArticleCommentsHandlers(router: AnyRouter, deps: ArticleCommentsHandlersDeps) {
   router.register(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, async (msg) => {
     const canonicalUrl = canonicalizeArticleUrl(msg?.canonicalUrl);
     const conversationId = Number(msg?.conversationId);
@@ -65,6 +69,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
         reason: 'articleCommentAdded',
         conversationId: comment.conversationId,
       });
+      await deps.onConversationChanged(Number(comment.conversationId), 'articleCommentChanged');
     }
 
     return router.ok(comment);
@@ -82,6 +87,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
           reason: 'articleCommentDeleted',
           conversationId,
         });
+        await deps.onConversationChanged(conversationId, 'articleCommentChanged');
       } else {
         router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
           reason: 'articleCommentDeleted',
@@ -101,6 +107,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
       reason: 'articleCommentAttached',
       conversationId,
     });
+    await deps.onConversationChanged(conversationId, 'articleCommentChanged');
     return router.ok(res);
   });
 
@@ -119,6 +126,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter) {
         fromCanonicalUrl,
         toCanonicalUrl,
       });
+      await deps.onConversationChanged(conversationId, 'articleCommentChanged');
     } else {
       router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
         reason: 'articleCommentsMigrated',

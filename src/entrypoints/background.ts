@@ -45,10 +45,14 @@ export default defineBackground(() => {
     }),
   });
 
-  registerConversationHandlers(router);
+  registerConversationHandlers(router, {
+    onConversationChanged: (conversationId, reason) => services.autoSync.onConversationChanged(conversationId, reason),
+  });
   registerItemMentionHandlers(router);
   registerChatWithBackgroundHandlers(router);
-  registerArticleCommentsHandlers(router);
+  registerArticleCommentsHandlers(router, {
+    onConversationChanged: (conversationId, reason) => services.autoSync.onConversationChanged(conversationId, reason),
+  });
   registerWebArticleHandlers(router);
   registerChatgptDeepResearchHandlers(router);
   registerNotionSettingsHandlers(router, {
