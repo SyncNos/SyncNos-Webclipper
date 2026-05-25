@@ -177,4 +177,29 @@ describe('auto-sync-scheduler-core', () => {
     const after = infraPack.storage[QUEUE_KEY]['1'];
     expect(after).toBeGreaterThan(before);
   });
+
+  it('flushes due items on enqueue when alarms are unavailable (best-effort fallback)', async () => {
+    infraPack.storage[ENABLED_KEY] = true;
+
+    // Make alarms unavailable.
+    (infraPack.infra.alarms as any).isAvailable = () => false;
+
+    // Seed a due item (e.g. queued while background was asleep).
+    infraPack.storage[QUEUE_KEY] = { '1': infraPack.infra.now() - 1 };
+
+    const scheduler = createAutoSyncSchedulerCore({
+      queueStorageKey: QUEUE_KEY,
+      enabledStorageKey: ENABLED_KEY,
+      alarmName: ALARM_NAME,
+      debounceMs: 60_000,
+      maxItems: 200,
+      infra: infraPack.infra,
+      getInstanceId: () => 'i-5',
+      isProviderEnabled,
+      syncConversations,
+    });
+
+    await scheduler.enqueue(2, 'activity');
+    expect(syncConversations).toHaveBeenCalledWith([1], 'i-5');
+  });
 });

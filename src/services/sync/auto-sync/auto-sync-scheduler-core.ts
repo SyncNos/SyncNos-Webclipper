@@ -139,6 +139,13 @@ export function createAutoSyncSchedulerCore(config: {
     const nextQueue = trimQueue({ ...queue, [key]: nextDueAt }, maxItems);
     await writeQueue(nextQueue);
     await scheduleNextAlarm(nextQueue);
+
+    // Best-effort fallback when `alarms` API is unavailable: we cannot wake the
+    // background to flush at `dueAt`, so we opportunistically flush any due
+    // items whenever we have an activity signal (enqueue).
+    if (!infra.alarms.isAvailable()) {
+      await flush();
+    }
   };
 
   const flush = async () => {
