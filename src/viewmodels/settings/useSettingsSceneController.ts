@@ -1269,7 +1269,36 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setExportStatus(t('backupExporting'));
     await runTask(
       async () => {
-        const result = await exportBackupZipV2();
+        // Show coarse-grained progress. Export uses `zipSync()` (CSP-safe on Firefox),
+        // so the UI cannot update continuously while the synchronous zip step is running.
+        const stageLabel = (stage: string) => {
+          switch (stage) {
+            case 'open_db':
+              return '1/6';
+            case 'read_db':
+              return '2/6';
+            case 'read_storage':
+              return '3/6';
+            case 'assemble_files':
+              return '4/6';
+            case 'zip':
+              return '5/6';
+            case 'finalize':
+              return '6/6';
+            default:
+              return '';
+          }
+        };
+
+        // Ensure status paint happens before the potentially long synchronous zip step.
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+        const result = await exportBackupZipV2({
+          onProgress: ({ stage }) => {
+            const label = stageLabel(stage);
+            if (label) setExportStatus(`${t('backupExporting')} (${label})`);
+          },
+        });
         const url = URL.createObjectURL(result.blob);
         const anchor = document.createElement('a');
         anchor.href = url;

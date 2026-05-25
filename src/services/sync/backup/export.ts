@@ -171,8 +171,17 @@ export type BackupZipV2ExportResult = {
   };
 };
 
-export async function exportBackupZipV2(): Promise<BackupZipV2ExportResult> {
+export type BackupZipV2ExportProgress = {
+  stage: 'open_db' | 'read_db' | 'read_storage' | 'assemble_files' | 'zip' | 'finalize';
+};
+
+export async function exportBackupZipV2(
+  options: { onProgress?: (p: BackupZipV2ExportProgress) => void } = {},
+): Promise<BackupZipV2ExportResult> {
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+  onProgress?.({ stage: 'open_db' });
   const db = await openDb();
+  onProgress?.({ stage: 'read_db' });
   const { t, stores } = tx(
     db,
     ['conversations', 'messages', 'sync_mappings', 'image_cache', 'article_comments'],
@@ -185,6 +194,7 @@ export async function exportBackupZipV2(): Promise<BackupZipV2ExportResult> {
   const articleComments = (await reqToPromise(stores.article_comments.getAll() as any)) as AnyRecord[];
   await txDone(t);
 
+  onProgress?.({ stage: 'read_storage' });
   const rawStorage = await storageGetAll();
   const storageLocal = filterStorageForBackup(rawStorage);
 
@@ -258,6 +268,7 @@ export async function exportBackupZipV2(): Promise<BackupZipV2ExportResult> {
     uniqueKeyByConversationId.set(cid, uk);
   }
 
+  onProgress?.({ stage: 'assemble_files' });
   for (const [source, convos] of sources.entries()) {
     const safeSource = sanitizeZipPathPart(source.toLowerCase(), 'unknown');
     const used = usedPathsBySource.get(safeSource) || new Set<string>();
@@ -453,7 +464,9 @@ export async function exportBackupZipV2(): Promise<BackupZipV2ExportResult> {
 
   const stamp = buildLocalTimestampForFilename();
   const filename = `SyncNos-Backup-${stamp}.zip`;
+  onProgress?.({ stage: 'zip' });
   const blob = await createZipBlob(files);
+  onProgress?.({ stage: 'finalize' });
 
   try {
     await storageSet({ [LAST_BACKUP_EXPORT_AT_STORAGE_KEY]: exportedAtMs });
