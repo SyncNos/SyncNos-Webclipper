@@ -1,5 +1,6 @@
 import { t } from '@i18n';
 import { buttonIconCircleGhostClassName } from '@ui/shared/button-styles';
+import { extractSelectionText, extractUserSelectionText } from '@services/shared/dom/selection';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
@@ -57,7 +58,8 @@ function buildNodePathSignature(node: Node | null | undefined): string {
 
 function buildSelectionSignature(selection: Selection | null | undefined): string {
   if (!selection || Number(selection.rangeCount || 0) <= 0) return 'empty';
-  const text = String(selection.toString() || '').trim();
+  const direct = extractSelectionText(selection, { trim: true, maxLen: 200 });
+  const text = direct.text || extractUserSelectionText({ trim: true, maxLen: 200 }).text;
   if (!text) return 'empty';
   const anchorPath = buildNodePathSignature(selection.anchorNode);
   const focusPath = buildNodePathSignature(selection.focusNode);
@@ -398,10 +400,14 @@ export function ThreadedCommentsPanel({
         if (isCommentsSelectionDebugEnabled()) {
           let textLen = 0;
           let rangeCount = 0;
+          let method = 'none';
           try {
             const sel = globalThis.getSelection?.();
             rangeCount = Number((sel as any)?.rangeCount || 0) || 0;
-            textLen = String(sel?.toString?.() || '').trim().length;
+            const extracted = extractSelectionText(sel, { trim: true, maxLen: 4000 });
+            const fallback = extracted.text ? null : extractUserSelectionText({ trim: true, maxLen: 4000 });
+            method = fallback?.text ? fallback.method : extracted.method;
+            textLen = (fallback?.text || extracted.text).length;
           } catch (_e) {
             // ignore
           }
@@ -409,6 +415,7 @@ export function ThreadedCommentsPanel({
             signatureKind: nextSignature === 'empty' ? 'empty' : 'non-empty',
             selectionTextLen: textLen,
             selectionRangeCount: rangeCount,
+            selectionTextMethod: method,
           });
         }
         requestComposerSelection('auto', nextSignature);
@@ -420,16 +427,21 @@ export function ThreadedCommentsPanel({
       if (isCommentsSelectionDebugEnabled()) {
         let textLen = 0;
         let rangeCount = 0;
+        let method = 'none';
         try {
           const sel = globalThis.getSelection?.();
           rangeCount = Number((sel as any)?.rangeCount || 0) || 0;
-          textLen = String(sel?.toString?.() || '').trim().length;
+          const extracted = extractSelectionText(sel, { trim: true, maxLen: 4000 });
+          const fallback = extracted.text ? null : extractUserSelectionText({ trim: true, maxLen: 4000 });
+          method = fallback?.text ? fallback.method : extracted.method;
+          textLen = (fallback?.text || extracted.text).length;
         } catch (_e) {
           // ignore
         }
         debugCommentsSelection('selectionchange', {
           selectionTextLen: textLen,
           selectionRangeCount: rangeCount,
+          selectionTextMethod: method,
         });
       }
     };
