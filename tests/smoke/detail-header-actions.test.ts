@@ -85,7 +85,9 @@ describe('detail-header-actions', () => {
     expect(actions[0]?.href).toBe('https://app.notion.com/p/chiimagnus/0123456789abcdef0123456789abcdef');
 
     await actions[0]?.onTrigger();
-    expect(openExternalUrl).toHaveBeenCalledWith('https://app.notion.com/p/chiimagnus/0123456789abcdef0123456789abcdef');
+    expect(openExternalUrl).toHaveBeenCalledWith(
+      'https://app.notion.com/p/chiimagnus/0123456789abcdef0123456789abcdef',
+    );
   });
 
   it('resolves an Obsidian-only destination when the note target is available', async () => {

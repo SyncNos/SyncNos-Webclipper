@@ -63,4 +63,3 @@ export function extractNotionWorkspaceSlugFromUrl(input: unknown): string {
     return '';
   }
 }
-
