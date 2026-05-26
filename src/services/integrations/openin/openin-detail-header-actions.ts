@@ -82,7 +82,24 @@ export async function resolveOpenInDetailHeaderActions({
   ]);
 
   if (notionEnabled) {
-    const notionAction = buildNotionOpenInAction({ conversation, port, labels: DETAIL_HEADER_ACTION_LABELS });
+    let convo = conversation;
+    if (
+      convo &&
+      (!safeString((convo as any).notionPageUrl) || !safeString((convo as any).notionWorkspaceSlug)) &&
+      safeString((convo as any).notionPageId)
+    ) {
+      const mappingRes = await getSyncMappingByConversation(Number((convo as any).id) || 0).catch(() => null);
+      const pageUrl = safeString(mappingRes?.mapping?.notionPageUrl);
+      const workspaceSlug = safeString(mappingRes?.mapping?.notionWorkspaceSlug);
+      if (pageUrl || workspaceSlug) {
+        convo = {
+          ...(convo as any),
+          ...(pageUrl ? { notionPageUrl: pageUrl } : null),
+          ...(workspaceSlug ? { notionWorkspaceSlug: workspaceSlug } : null),
+        } as any;
+      }
+    }
+    const notionAction = buildNotionOpenInAction({ conversation: convo, port, labels: DETAIL_HEADER_ACTION_LABELS });
     if (notionAction) actions.push(notionAction);
   }
 

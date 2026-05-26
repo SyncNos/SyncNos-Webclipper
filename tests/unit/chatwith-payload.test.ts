@@ -30,7 +30,7 @@ describe('buildChatWithPayload', () => {
       'Notion={{notion_url}}\nFeishu={{feishu_url}}\nURL={{article_url}}',
     );
 
-    expect(payload).toContain('Notion=https://app.notion.com/0123456789abcdef0123456789abcdef');
+    expect(payload).toContain('Notion=https://www.notion.so/0123456789abcdef0123456789abcdef');
     expect(payload).toContain('Feishu=https://www.feishu.cn/docx/docxToken');
     expect(payload).toContain('URL=https://example.com/x');
     expect(payload.endsWith('\n')).toBe(true);

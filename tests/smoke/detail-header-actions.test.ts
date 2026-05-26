@@ -22,8 +22,16 @@ describe('detail-header-actions', () => {
   it('normalizes a hyphenated Notion page id into the canonical URL form', () => {
     expect(normalizeNotionPageId('01234567-89AB-CDEF-0123-456789ABCDEF')).toBe('0123456789abcdef0123456789abcdef');
     expect(buildNotionPageUrl('01234567-89AB-CDEF-0123-456789ABCDEF')).toBe(
-      'https://app.notion.com/0123456789abcdef0123456789abcdef',
+      'https://www.notion.so/0123456789abcdef0123456789abcdef',
     );
+  });
+
+  it('builds an app deep-link when workspace slug is available', () => {
+    expect(
+      buildNotionPageUrl('01234567-89AB-CDEF-0123-456789ABCDEF', {
+        workspaceSlug: 'chiimagnus',
+      }),
+    ).toBe('https://app.notion.com/p/chiimagnus/0123456789abcdef0123456789abcdef');
   });
 
   it('returns no actions when neither Notion nor Obsidian is available', async () => {
@@ -62,6 +70,7 @@ describe('detail-header-actions', () => {
         conversationKey: 'conv-2',
         title: 'Conversation',
         notionPageId: '01234567-89ab-cdef-0123-456789abcdef',
+        notionWorkspaceSlug: 'chiimagnus',
       },
       port: {
         openExternalUrl,
@@ -73,10 +82,12 @@ describe('detail-header-actions', () => {
 
     expect(actions).toHaveLength(1);
     expect(actions[0]?.label).toBe(DETAIL_HEADER_ACTION_LABELS.openInNotion);
-    expect(actions[0]?.href).toBe('https://app.notion.com/0123456789abcdef0123456789abcdef');
+    expect(actions[0]?.href).toBe('https://app.notion.com/p/chiimagnus/0123456789abcdef0123456789abcdef');
 
     await actions[0]?.onTrigger();
-    expect(openExternalUrl).toHaveBeenCalledWith('https://app.notion.com/0123456789abcdef0123456789abcdef');
+    expect(openExternalUrl).toHaveBeenCalledWith(
+      'https://app.notion.com/p/chiimagnus/0123456789abcdef0123456789abcdef',
+    );
   });
 
   it('resolves an Obsidian-only destination when the note target is available', async () => {
