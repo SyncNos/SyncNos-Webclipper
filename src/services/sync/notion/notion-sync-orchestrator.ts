@@ -2,6 +2,7 @@
 import type { NotionServices } from '@services/sync/notion/notion-services.ts';
 import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
 import { getNotionOAuthToken } from '@services/sync/notion/auth/token-store';
+import { extractNotionWorkspaceSlugFromUrl } from '@services/sync/notion/notion-url-utils';
 import { conversationKinds as builtInConversationKinds } from '@services/protocols/conversation-kinds.ts';
 import notionDbManagerDefault from '@services/sync/notion/notion-db-manager.ts';
 import notionSyncJobStoreDefault from '@services/sync/notion/notion-sync-job-store.ts';
@@ -683,6 +684,19 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
             pageUsable = false;
           }
           if (!pageUsable) pageId = '';
+          if (pageUsable && existingPage && (existingPage as any).url) {
+            const pageUrl = String((existingPage as any).url || '').trim();
+            const slug = extractNotionWorkspaceSlugFromUrl(pageUrl);
+            // Persist best-effort URL metadata for "Open in Notion" without requiring a re-create.
+            if (pageUrl) {
+              await storage
+                .setConversationNotionPageId(id, pageId, {
+                  notionPageUrl: pageUrl,
+                  ...(slug ? { notionWorkspaceSlug: slug } : null),
+                })
+                .catch(() => {});
+            }
+          }
         }
 
         if (!pageId) {
@@ -736,7 +750,12 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
           pageId = created && created.id ? created.id : '';
           if (!pageId) throw new Error('create page failed');
 
-          await storage.setConversationNotionPageId(id, pageId);
+          const createdUrl = created && created.url ? String(created.url) : '';
+          const createdSlug = extractNotionWorkspaceSlugFromUrl(createdUrl);
+          await storage.setConversationNotionPageId(id, pageId, {
+            ...(createdUrl ? { notionPageUrl: createdUrl } : null),
+            ...(createdSlug ? { notionWorkspaceSlug: createdSlug } : null),
+          });
 
           await writeRunningJob({
             currentConversationId: id,

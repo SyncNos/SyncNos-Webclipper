@@ -1410,7 +1410,11 @@ export async function patchSyncMapping(conversationId: number, patch: Record<str
   return true;
 }
 
-export async function setConversationNotionPageId(conversationId: number, notionPageId: string): Promise<true> {
+export async function setConversationNotionPageId(
+  conversationId: number,
+  notionPageId: string,
+  meta?: { notionPageUrl?: string; notionWorkspaceSlug?: string },
+): Promise<true> {
   const id = Number(conversationId);
   if (!Number.isFinite(id) || id <= 0) throw new Error('invalid conversationId');
 
@@ -1420,6 +1424,12 @@ export async function setConversationNotionPageId(conversationId: number, notion
   if (!conversation) throw new Error('conversation not found');
 
   conversation.notionPageId = notionPageId || '';
+  if (meta && typeof meta === 'object') {
+    const url = safeString(meta.notionPageUrl);
+    const slug = safeString(meta.notionWorkspaceSlug);
+    if (url) conversation.notionPageUrl = url;
+    if (slug) conversation.notionWorkspaceSlug = slug;
+  }
   await reqToPromise(stores.conversations.put(conversation));
 
   const source = String(conversation.source || '').trim();
@@ -1429,11 +1439,15 @@ export async function setConversationNotionPageId(conversationId: number, notion
     const existing = (await reqToPromise(idx.get([source, conversationKey]) as any)) as any;
     const preserved: any = existing && typeof existing === 'object' ? { ...existing } : {};
     if (preserved && typeof preserved === 'object') delete preserved.id;
+    const nextNotionPageUrl = meta && typeof meta === 'object' ? safeString(meta.notionPageUrl) : '';
+    const nextNotionWorkspaceSlug = meta && typeof meta === 'object' ? safeString(meta.notionWorkspaceSlug) : '';
     const payload: any = withOptionalId(existing && existing.id, {
       ...preserved,
       source,
       conversationKey,
       notionPageId: notionPageId || '',
+      ...(nextNotionPageUrl ? { notionPageUrl: nextNotionPageUrl } : null),
+      ...(nextNotionWorkspaceSlug ? { notionWorkspaceSlug: nextNotionWorkspaceSlug } : null),
       updatedAt: Date.now(),
     });
     if (existing) await reqToPromise(stores.sync_mappings.put(payload));

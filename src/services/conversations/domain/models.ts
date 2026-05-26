@@ -11,6 +11,8 @@ export type Conversation = {
   publishedAt?: string;
   warningFlags?: string[];
   notionPageId?: string;
+  notionPageUrl?: string;
+  notionWorkspaceSlug?: string;
   feishuDocId?: string;
   lastCapturedAt?: number;
   commentThreadCount?: number;

@@ -326,7 +326,10 @@ export async function buildChatWithPayload(
     article_url: getConversationUrl(conversation),
     article_content: articleContent,
     conversation_markdown: conversationMarkdown,
-    notion_url: buildNotionPageUrl(conversation?.notionPageId),
+    notion_url: buildNotionPageUrl(conversation?.notionPageId, {
+      workspaceSlug: conversation?.notionWorkspaceSlug,
+      pageUrl: conversation?.notionPageUrl,
+    }),
     feishu_url: buildFeishuDocUrl(conversation?.feishuDocId),
   };
 
