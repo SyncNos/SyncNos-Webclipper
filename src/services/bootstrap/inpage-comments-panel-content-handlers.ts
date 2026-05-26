@@ -4,6 +4,7 @@ import { createArticleCommentsSidebarController } from '@services/comments/sideb
 import { createArticleCommentsSidebarInpageAdapter } from '@services/comments/sidebar/article-comments-sidebar-inpage-adapter';
 import { buildArticleCommentLocatorFromRange } from '@services/comments/locator';
 import { normalizePositiveInt } from '@services/shared/numbers';
+import { extractSelectionText, extractUserSelectionText, isSelectionLikelyWithinRoot } from '@services/shared/dom/selection';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 import { getInpageCommentsPanelApi } from '@ui/inpage/inpage-comments-panel-shadow';
 
@@ -12,26 +13,27 @@ type RuntimeClient = {
 };
 
 function isSelectionWithinLocatorRoot(selection: Selection | null, locatorRoot: Element | null): boolean {
-  if (!selection || !locatorRoot) return false;
-  const anchorNode = selection.anchorNode;
-  const focusNode = selection.focusNode;
-  if (!anchorNode || !focusNode) return false;
-  try {
-    return locatorRoot.contains(anchorNode) && locatorRoot.contains(focusNode);
-  } catch (_e) {
-    return false;
-  }
+  return isSelectionLikelyWithinRoot(selection, locatorRoot);
 }
 
-function pickQuoteFromSelection(): string {
+function pickQuoteFromSelection(): { text: string; method: string; rangeCount: number } {
   try {
     const selection = globalThis.getSelection?.();
+    const rangeCount = Number((selection as any)?.rangeCount || 0) || 0;
     const locatorRoot = document.body || document.documentElement;
-    if (!isSelectionWithinLocatorRoot(selection || null, locatorRoot)) return '';
-    const text = selection ? String(selection.toString() || '') : '';
-    return text.trim();
+    if (!isSelectionWithinLocatorRoot(selection || null, locatorRoot)) {
+      // Still allow quoting when the selection is within an active iframe (common for reader views),
+      // but do not attempt locator building for cross-document ranges.
+      const extractedFromUser = extractUserSelectionText({ trim: true, maxLen: 4000 });
+      if (extractedFromUser.text) return { text: extractedFromUser.text, method: extractedFromUser.method, rangeCount };
+      return { text: '', method: 'none', rangeCount };
+    }
+    const extracted = extractSelectionText(selection || null, { trim: true, maxLen: 4000 });
+    if (extracted.text) return { text: extracted.text, method: extracted.method, rangeCount };
+    const fallback = extractUserSelectionText({ trim: true, maxLen: 4000 });
+    return { text: fallback.text, method: fallback.text ? fallback.method : extracted.method, rangeCount };
   } catch (_e) {
-    return '';
+    return { text: '', method: 'none', rangeCount: 0 };
   }
 }
 
@@ -61,7 +63,7 @@ function pickLocatorFromSelection(): any | null {
     const locatorRoot = document.body || document.documentElement;
     if (!isSelectionWithinLocatorRoot(selection, locatorRoot)) return null;
     const range = selection.getRangeAt(0);
-    const text = String(selection.toString() || '').trim();
+    const text = extractSelectionText(selection, { trim: true, maxLen: 4000 }).text;
     if (!text) return null;
     return buildArticleCommentLocatorFromRange({
       env: 'inpage',
@@ -77,9 +79,26 @@ function resolveInpageSelectionPayload(): {
   selectionText: string;
   locator: any | null;
 } {
-  const selectionText = pickQuoteFromSelection();
+  const selection = pickQuoteFromSelection();
+  const selectionText = selection.text;
   if (!selectionText) {
-    debugSelection('resolve_selection', { ok: false, reason: 'empty_text' });
+    let anchorNodeType: number | null = null;
+    let focusNodeType: number | null = null;
+    try {
+      const sel = globalThis.getSelection?.();
+      anchorNodeType = typeof (sel as any)?.anchorNode?.nodeType === 'number' ? (sel as any).anchorNode.nodeType : null;
+      focusNodeType = typeof (sel as any)?.focusNode?.nodeType === 'number' ? (sel as any).focusNode.nodeType : null;
+    } catch (_e) {
+      // ignore
+    }
+    debugSelection('resolve_selection', {
+      ok: false,
+      reason: 'empty_text',
+      selectionRangeCount: selection.rangeCount,
+      selectionTextMethod: selection.method,
+      anchorNodeType,
+      focusNodeType,
+    });
     return { selectionText: '', locator: null };
   }
   const locator = pickLocatorFromSelection();

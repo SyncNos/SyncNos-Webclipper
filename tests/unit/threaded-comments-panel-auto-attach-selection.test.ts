@@ -126,6 +126,44 @@ describe('Threaded comments panel auto-attach selection trigger', () => {
     mounted.cleanup();
   });
 
+  it('requests selection when Selection.toString() is empty but Range contains text (Firefox quirk)', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+
+    const textNode = document.createElement('p');
+    textNode.textContent = 'Quote from range';
+    document.body.appendChild(textNode);
+
+    const onComposerSelectionRequest = vi.fn();
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: true });
+    mounted.api.setHandlers({ onComposerSelectionRequest } as any);
+
+    const selectionMock = {
+      rangeCount: 1,
+      anchorNode: textNode.firstChild,
+      focusNode: textNode.firstChild,
+      anchorOffset: 0,
+      focusOffset: 5,
+      toString: () => '',
+      getRangeAt: () => {
+        const range = document.createRange();
+        range.selectNodeContents(textNode);
+        return range;
+      },
+      removeAllRanges: () => {},
+      addRange: () => {},
+    } as any;
+    Object.defineProperty(globalThis, 'getSelection', { configurable: true, value: () => selectionMock as Selection });
+
+    document.dispatchEvent(new window.Event('selectionchange'));
+    document.dispatchEvent(new window.Event('pointerup'));
+    await flushReactScheduler();
+
+    expect(onComposerSelectionRequest).toHaveBeenCalledTimes(1);
+
+    mounted.cleanup();
+  });
+
   it('commits keyboard selection only after modifier is released (shift + arrow)', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
