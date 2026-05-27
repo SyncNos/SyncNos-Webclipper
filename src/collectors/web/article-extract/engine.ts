@@ -48,14 +48,91 @@ function readMeta(selectors: string[]) {
   return '';
 }
 
+function readElementText(el: Element | Document | null): string {
+  if (!el) return '';
+  return normalizeText((el as any).innerText || (el as any).textContent || '');
+}
+
+function isSkippableRootCandidate(el: Element): boolean {
+  const name = String((el as any)?.tagName || '').toLowerCase();
+  return name === 'script' || name === 'style' || name === 'noscript';
+}
+
+function pickPrimaryRootFromBody() {
+  const body = document.body as any;
+  if (!body || !body.children) return null;
+
+  const hasInnerText = typeof body.innerText === 'string';
+
+  // `innerText` is preferred (excludes scripts/styles), but some environments (e.g. JSDOM) only provide `textContent`.
+  // Strip obvious noise so the heuristic is stable across runtimes.
+  const bodyTextLen = hasInnerText
+    ? normalizeText(body.innerText).length
+    : (() => {
+        const bodyClone = body.cloneNode(true) as Element;
+        try {
+          bodyClone.querySelectorAll?.('script,style,noscript')?.forEach?.((node: any) => node?.remove?.());
+        } catch (_e) {
+          // ignore clone clean failures
+        }
+        return readElementText(bodyClone).length;
+      })();
+  if (bodyTextLen < 800) return null;
+
+  const children = Array.from(body.children || []) as Element[];
+  let best: Element | null = null;
+  let bestTextLen = 0;
+  for (const child of children) {
+    if (!child || isSkippableRootCandidate(child)) continue;
+    const len = hasInnerText
+      ? normalizeText((child as any).innerText).length
+      : (() => {
+          const clone = child.cloneNode(true) as Element;
+          try {
+            clone.querySelectorAll?.('script,style,noscript')?.forEach?.((node: any) => node?.remove?.());
+          } catch (_e) {
+            // ignore clone clean failures
+          }
+          return readElementText(clone).length;
+        })();
+    if (len <= bestTextLen) continue;
+    best = child;
+    bestTextLen = len;
+  }
+
+  if (!best || bestTextLen < 800) return null;
+
+  // If a single direct child contains almost all visible text, prefer it over `<body>` to avoid layout/noise wrappers.
+  if (bestTextLen >= Math.max(800, Math.floor(bodyTextLen * 0.72))) return best;
+  return null;
+}
+
 function pickRoot() {
   return (
     document.querySelector('#js_content') ||
     document.querySelector('article') ||
     document.querySelector('main') ||
+    document.querySelector('[role="main"]') ||
+    document.querySelector('#__next') ||
+    document.querySelector('#root') ||
+    pickPrimaryRootFromBody() ||
     document.body ||
     document.documentElement
   );
+}
+
+function shouldTreatExtractionAsPartial(candidateTextLen: number, rootTextLen: number): boolean {
+  if (!(candidateTextLen > 0) || !(rootTextLen > 0)) return false;
+
+  // Only run this heuristic on long pages, and only when the extracted text is clearly much shorter.
+  if (rootTextLen < 8_000) return false;
+  if (candidateTextLen > 3_000) return false;
+
+  const ratio = candidateTextLen / rootTextLen;
+  if (ratio >= 0.3) return false;
+
+  const delta = rootTextLen - candidateTextLen;
+  return delta >= 3_200;
 }
 
 function fallbackExtract(baseHref: string) {
@@ -92,9 +169,13 @@ function fallbackExtract(baseHref: string) {
     "meta[property='article:author']",
     "meta[property='og:article:author']",
   ]);
-  const text = normalizeText((root as any).innerText || '');
-  if (!text) return null;
-  const fallbackHtml = buildHtml('', text);
+
+  const text = readElementText(root as any);
+  const htmlBody = normalizeText((root as any)?.innerHTML || '');
+  if (!text && !htmlBody) return null;
+
+  // Prefer DOM HTML when available so headings/lists/links survive markdown conversion.
+  const fallbackHtml = buildHtml(htmlBody, text);
   const markdown = htmlToMarkdownTurndown(fallbackHtml, baseHref) || normalizeText(text);
   return {
     title,
@@ -132,7 +213,7 @@ async function waitForDomStabilized(timeoutMs: number, minTextLength: number) {
 
   while (Date.now() < deadline) {
     const root = pickRoot();
-    const text = root ? normalizeText((root as any).innerText || '') : '';
+    const text = root ? readElementText(root as any) : '';
     const nodeCount =
       root && typeof (root as any).querySelectorAll === 'function' ? (root as any).querySelectorAll('*').length : 0;
     const sample = {
@@ -353,14 +434,24 @@ export async function extractWebArticleFromCurrentPage(options: ExtractOptions =
 
   const defuddle = isWechatShareMediaPage() ? null : extractByDefuddle(baseHref);
   if (defuddle) {
-    const markdown = htmlToMarkdownTurndown(defuddle.contentHTML, baseHref) || normalizeText(defuddle.textContent);
-    return withDiscourseOpWarning(
-      {
-        ...defuddle,
-        contentMarkdown: markdown,
-      },
-      discourseOpMissingOnCurrentPage,
-    );
+    const rootTextLen = readElementText(pickRoot() as any).length;
+    const candidateTextLen = normalizeText(defuddle.textContent || '').length;
+    if (shouldTreatExtractionAsPartial(candidateTextLen, rootTextLen)) {
+      console.info('[ArticleExtract] defuddle extraction looks partial, continue with other strategies', {
+        url: baseHref,
+        candidateTextLen,
+        rootTextLen,
+      });
+    } else {
+      const markdown = htmlToMarkdownTurndown(defuddle.contentHTML, baseHref) || normalizeText(defuddle.textContent);
+      return withDiscourseOpWarning(
+        {
+          ...defuddle,
+          contentMarkdown: markdown,
+        },
+        discourseOpMissingOnCurrentPage,
+      );
+    }
   }
 
   const readability = extractByReadability(baseHref);

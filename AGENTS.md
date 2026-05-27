@@ -94,7 +94,6 @@ npm run check:safari     # 产物校验（Safari）
 2. 涉及仓库级行为变化时，优先同步这些入口文档：
    - `AGENTS.md`
    - `docs/overview.md`
-   - `docs/overview.md`
    - `README.md`
 3. 若 WebClipper 改动涉及设置结构、视觉 tokens、主题模式或共享按钮/导航样式，再同步：
    - `src/ui/AGENTS.md`

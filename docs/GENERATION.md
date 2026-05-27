@@ -4,10 +4,10 @@
 
 | Field | Value |
 | --- | --- |
-| Repository | `chiimagnus/SyncNos` |
-| Commit hash | `b93f6e3f9723dfa57744ccd6d0a27a1db4351baa` |
-| Branch name | `main` |
-| Generation timestamp | `2026-05-23 10:44:58 +0800` |
+| Repository | `SyncNos/SyncNos-Webclipper` |
+| Commit hash | 0153b0a05b9f012ee16716d5540c2e8ff5e53ea8 |
+| Branch name | `crh1` |
+| Generation timestamp | `2026-05-27 15:37:54 +0800` |
 | Output language | 中文 |
 | Generated directory | `docs/` |
-| Update mode | Safari browser support — architecture, configuration, and GENERATION sync |
+| Update mode | Docs reconciliation — repo links + configuration version + data-flow sync |

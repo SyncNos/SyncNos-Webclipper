@@ -4,7 +4,11 @@ import { createArticleCommentsSidebarController } from '@services/comments/sideb
 import { createArticleCommentsSidebarInpageAdapter } from '@services/comments/sidebar/article-comments-sidebar-inpage-adapter';
 import { buildArticleCommentLocatorFromRange } from '@services/comments/locator';
 import { normalizePositiveInt } from '@services/shared/numbers';
-import { extractSelectionText, extractUserSelectionText, isSelectionLikelyWithinRoot } from '@services/shared/dom/selection';
+import {
+  extractSelectionText,
+  extractUserSelectionText,
+  isSelectionLikelyWithinRoot,
+} from '@services/shared/dom/selection';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 import { getInpageCommentsPanelApi } from '@ui/inpage/inpage-comments-panel-shadow';
 

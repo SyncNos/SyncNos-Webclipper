@@ -14,7 +14,7 @@
 | 配置项 | 位置 | 当前值 / 默认 | 作用 |
 | --- | --- | --- | --- |
 | `manifestVersion` | `wxt.config.ts` | `3` | 扩展固定在 MV3 模式 |
-| `manifest.version` | `wxt.config.ts` | `1.7.0` | 商店 workflow 校验的版本事实源 |
+| `manifest.version` | `wxt.config.ts` | `1.8.3` | 商店 workflow 校验的版本事实源 |
 | `entrypointsDir` | `wxt.config.ts` | `src/entrypoints` | 统一 background/content/popup/app 入口目录 |
 | 安装后引导策略 | `src/entrypoints/background.ts` | `install` 打开 `/settings?section=aboutme`；`update` 不自动开标签页 | 保留首次上手引导，同时避免升级打断当前会话 |
 | `inpage_display_mode` | `chrome.storage.local`, `src/services/bootstrap/content.ts` | 默认 `all`；兼容旧 `inpage_supported_only` | 控制 inpage 在 `supported / all / off` 三档中的显示范围 |
@@ -70,7 +70,7 @@
 
 | 面 | 真实配置 | 安全意图 | 备注 |
 | --- | --- | --- | --- |
-| 扩展权限 | `storage`, `contextMenus`, `tabs`, `tabGroups`, `webNavigation`, `activeTab`, `scripting`, `declarativeNetRequestWithHostAccess` | 尽量只保留采集、会话分组、图片防盗链与本地保存所需能力 | 新增权限必须解释原因 |
+| 扩展权限 | `storage`, `contextMenus`, `tabs`, `webNavigation`, `activeTab`, `scripting`, `alarms` + (`tabGroups` 仅 Chromium) + (`declarativeNetRequest*`：Safari 用 `declarativeNetRequest`，其余用 `declarativeNetRequestWithHostAccess`) | 尽量只保留采集、会话分组、图片防盗链与本地保存所需能力 | 新增权限必须解释原因 |
 | 扩展 host permissions | 支持站点 + Notion + Notion OAuth worker / GitHub Pages + anti-hotlink CDN + `http://*/*` + `https://*/*` | 允许 content script 在运行时自行判断是否激活，并支持手动文章抓取、图片缓存与 Notion 同步 | UI 级别由 `inpage_display_mode` 做 gating（并兼容回读旧 `inpage_supported_only`） |
 | 备份导入导出 | denylist + 前缀过滤 | 防止 OAuth token 跟随备份扩散 | Zip v2 仍保留非敏感运行设置 |
 
@@ -121,29 +121,24 @@ Feishu 同步的配置分两类：
 
 ## 示例片段
 
-### 片段 1：WebClipper 的 manifest 权限和 host permissions 由 `wxt.config.ts` 直接声明
+### 片段 1：`wxt.config.ts` 用 `UserManifestFn` 生成 manifest（含 Safari/Chromium 权限差异）
 
 ```ts
-manifest: {
-  version: '<manifest.version>',
-  permissions: ['storage', 'contextMenus', 'tabs', 'tabGroups', 'webNavigation', 'activeTab', 'scripting', 'declarativeNetRequestWithHostAccess'],
-  host_permissions: [
-    'https://chat.openai.com/*',
-    'https://api.notion.com/*',
-    'https://syncnos-notion-oauth.chiimagnus.workers.dev/*',
-    'https://cdnfile.sspai.com/*',
-    'http://*/*',
-    'https://*/*',
-  ]
-}
-```
+const resolveManifest: UserManifestFn = (env) => {
+  const isSafari = env.browser === 'safari';
 
-### 片段 2：WebClipper 的版本事实源由 `wxt.config.ts` 维护
+  const permissions = ['storage', 'contextMenus', 'tabs', 'webNavigation', 'activeTab', 'scripting', 'alarms'];
+  if (isSafari) permissions.push('declarativeNetRequest');
+  else permissions.push('declarativeNetRequestWithHostAccess', 'tabGroups');
 
-```ts
-export default defineConfig({
-  manifest: { version: '1.7.0' },
-});
+  return {
+    version: '1.8.3',
+    permissions,
+    host_permissions: [/* ... */],
+  };
+};
+
+export default defineConfig({ manifest: resolveManifest });
 ```
 
 ### 片段 3：筛选菜单会根据最邻近可裁剪容器动态计算可用高度
