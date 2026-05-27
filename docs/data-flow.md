@@ -85,7 +85,7 @@
 | 备份导入导出 | IndexedDB + `chrome.storage.local` | 以 Zip v2 为主，导入是 merge 而不是覆盖；会一并保留 `image_cache` 与 `article_comments` | 供迁移 / 恢复使用的本地备份 |
 
 - 对 WebClipper 而言，外部目标都不是事实源；**事实源只有 IndexedDB 与非敏感 `chrome.storage.local`**。
-- `conversationKinds` 当前定义了 `chat` 和 `article` 两种 kind：前者默认进入 `SyncNos-AI Chats` / `SyncNos-AIChats`，后者进入 `SyncNos-Web Articles` / `SyncNos-WebArticles`。
+- `conversationKinds` 当前定义了 `chat` / `article` / `video` 三种 kind：分别默认进入 `SyncNos-AI Chats` / `SyncNos-AIChats`、`SyncNos-Web Articles` / `SyncNos-WebArticles`、`SyncNos-Videos`。
 
 ### Notion：OAuth 连接、Parent Page 刷新与手动同步
 

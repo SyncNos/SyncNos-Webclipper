@@ -1,5 +1,17 @@
 # 业务语境
 
+## 快速导航
+
+- [架构](architecture.md)
+- [数据流](data-flow.md)
+- [配置](configuration.md)
+- [存储](storage.md)
+- [依赖](dependencies.md)
+- [安全](security.md)
+- [模块：WebClipper](modules/webclipper.md)
+- [模块：Comments](modules/comments.md)
+- [模块：Videos](modules/videos.md)
+
 ## 产品定位
 
 SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的 WebClipper 业务系统；浏览器扩展负责把 AI 对话与网页文章先保存为本地事实，再按需导出或同步到 Notion / Obsidian / Feishu（DocX）。
