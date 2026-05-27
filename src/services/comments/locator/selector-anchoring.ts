@@ -3,6 +3,43 @@ import TextQuoteAnchor from 'dom-anchor-text-quote';
 
 import type { ArticleCommentLocator, ArticleCommentLocatorEnv } from '@services/comments/domain/models';
 
+function isLocatorDebugEnabled(): boolean {
+  const anyGlobal = globalThis as any;
+  if (anyGlobal.__SYNCNOS_DEBUG_COMMENTS_SELECTION__ === true) return true;
+  try {
+    return String(anyGlobal.localStorage?.getItem?.('__SYNCNOS_DEBUG_COMMENTS_SELECTION__') || '') === '1';
+  } catch (_e) {
+    return false;
+  }
+}
+
+function debugLocator(event: string, payload: Record<string, unknown>) {
+  if (!isLocatorDebugEnabled()) return;
+  try {
+    console.log('[CommentsLocator]', event, payload);
+  } catch (_e) {
+    // ignore
+  }
+}
+
+function normalizeAnchorText(text: unknown): string {
+  const raw = String(text ?? '');
+  if (!raw) return '';
+  return raw
+    .replace(/\r\n?/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\u200b\u200c\u200d\ufeff]/g, '')
+    .replace(/[ \t\n]+/g, ' ')
+    .trim();
+}
+
+function rangeTextMatchesExact(range: Range, expectedExact: string): boolean {
+  const expected = normalizeAnchorText(expectedExact);
+  if (!expected) return true;
+  const actual = normalizeAnchorText((range as any).toString?.());
+  return actual === expected;
+}
+
 export function buildArticleCommentLocatorFromRange(input: {
   env: ArticleCommentLocatorEnv;
   root: Element;
@@ -16,13 +53,37 @@ export function buildArticleCommentLocatorFromRange(input: {
   if (!range || typeof (range as any).cloneRange !== 'function') return null;
 
   try {
-    const quote = TextQuoteAnchor.fromRange(root, range).toSelector?.();
+    const quoteAnchor = TextQuoteAnchor.fromRange(root, range);
+    const quote = (quoteAnchor as any)?.toSelector?.();
+    const positionFromRange = (TextPositionAnchor as any)?.fromRange?.(root, range);
+    const positionFromQuote = (quoteAnchor as any)?.toPositionAnchor?.()?.toSelector?.();
     const position =
-      TextPositionAnchor.fromRange?.(root, range)?.toSelector?.() ??
-      TextQuoteAnchor.fromRange(root, range).toPositionAnchor?.()?.toSelector?.();
+      (positionFromRange &&
+        typeof positionFromRange === 'object' &&
+        typeof (positionFromRange as any).start === 'number' &&
+        typeof (positionFromRange as any).end === 'number' &&
+        Number.isFinite((positionFromRange as any).start) &&
+        Number.isFinite((positionFromRange as any).end)
+        ? { type: 'TextPositionSelector', start: (positionFromRange as any).start, end: (positionFromRange as any).end }
+        : null) ?? positionFromQuote;
 
-    if (!quote || typeof quote !== 'object') return null;
-    if (!position || typeof position !== 'object') return null;
+    if (!quote || typeof quote !== 'object') {
+      debugLocator('build_locator_invalid_quote', {
+        env,
+        quoteType: typeof quote,
+        quoteAnchorType: quoteAnchor ? typeof quoteAnchor : 'null',
+      });
+      return null;
+    }
+    if (!position || typeof position !== 'object') {
+      debugLocator('build_locator_invalid_position', {
+        env,
+        positionType: typeof position,
+        positionFromRangeType: positionFromRange ? typeof positionFromRange : 'null',
+        positionFromQuoteType: positionFromQuote ? typeof positionFromQuote : 'null',
+      });
+      return null;
+    }
 
     return {
       v: 1,
@@ -30,7 +91,14 @@ export function buildArticleCommentLocatorFromRange(input: {
       quote: quote as any,
       position: position as any,
     };
-  } catch (_e) {
+  } catch (e) {
+    debugLocator('build_locator_failed', {
+      env,
+      error: e instanceof Error ? e.message : String(e || ''),
+      rootTag: String((root as any)?.tagName || ''),
+      rootTextLen: Number(String((root as any)?.textContent || '').length) || 0,
+      rangeTextLen: Number(String((range as any)?.toString?.() || '').length) || 0,
+    });
     return null;
   }
 }
@@ -49,27 +117,31 @@ export function restoreRangeFromArticleCommentLocator(input: {
   if (!quoteSelector || typeof quoteSelector !== 'object') return null;
 
   const hint = Number((locator as any)?.position?.start);
-  const expectedExact = String((quoteSelector as any)?.exact || '').trim();
+  const expectedExact = String((quoteSelector as any)?.exact || '');
 
-  try {
+  const attempts: Array<() => Range | null> = [];
+  attempts.push(() => {
     const anchor = (TextQuoteAnchor as any).fromSelector(root, quoteSelector);
     const range = (anchor as any).toRange?.(Number.isFinite(hint) ? { hint } : undefined);
-    if (!range) return null;
-    if (expectedExact && String((range as any).toString?.() || '').trim() !== expectedExact) return null;
-    return range as Range;
-  } catch (_e) {
-    // ignore and fallback
-  }
+    return range ? (range as Range) : null;
+  });
 
   const positionSelector = (locator as any).position;
   if (positionSelector && typeof positionSelector === 'object') {
-    try {
+    attempts.push(() => {
       const range = (TextPositionAnchor as any).toRange?.(root, positionSelector);
-      if (!range) return null;
-      if (expectedExact && String((range as any).toString?.() || '').trim() !== expectedExact) return null;
-      return range as Range;
+      return range ? (range as Range) : null;
+    });
+  }
+
+  for (const buildRange of attempts) {
+    try {
+      const range = buildRange();
+      if (!range) continue;
+      if (!rangeTextMatchesExact(range, expectedExact)) continue;
+      return range;
     } catch (_e) {
-      return null;
+      // ignore and fallback
     }
   }
 
