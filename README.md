@@ -111,53 +111,6 @@ WebClipper Popup: save and browse conversations
 WebClipper Settings: backup and sync (Notion / Obsidian / Feishu)
 ![WebClipper Settings](docs/assets/setting-screenshots.png)
 
-## Safari
-
-Safari Web Extensions must be wrapped in a native app via Xcode. Follow these steps to build and run SyncNos on Safari (macOS 13+ / iOS 16.4+):
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Build the Safari extension (MV3)
-npm run build:safari
-
-# 3. Generate the Xcode project (one-time or after rebuilds)
-npm run setup:safari:xcode
-
-# 4. Open in Xcode, set your Development Team, and Build & Run (⌘R)
-open .safari-xcode/SyncNos/SyncNos.xcodeproj
-```
-
-> **Note:** The `setup:safari:xcode` step copies the built extension into an Xcode project under `.safari-xcode/`. Re-run it after any code changes to keep the Xcode project in sync.
-
-### Safari development workflow
-
-```bash
-# Dev mode (rebuilds on file change, no Xcode project update)
-npm run dev:safari
-
-# After code changes, rebuild + update Xcode project:
-npm run build:safari && npm run setup:safari:xcode
-```
-
-### Safari limitations
-
-- **`tabGroups` API** — not available in Safari; tab grouping features are silently disabled via runtime feature detection.
-- **`world: "MAIN"` content scripts** — requires Safari 17.2+. Earlier Safari versions skip the video transcript interceptor.
-- **Service Worker lifecycle** — Safari may terminate the background service worker more aggressively than Chrome. The extension handles this gracefully via message-based communication.
-- **`declarativeNetRequest`** — used for anti-hotlink image proxying; Safari uses the base `declarativeNetRequest` permission instead of `declarativeNetRequestWithHostAccess`.
-
-## Development (Build from Source)
-
-```bash
-npm install
-npm run dev
-npm run build
-```
-
-- Zen (Firefox engine): `npm run build:zen` outputs `.output/*-zen.xpi` (see `docs/debug/zen-xpi.md` for unsigned install notes).
-
 ## Support
 
 SyncNos is a one-person project, built with care.
