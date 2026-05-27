@@ -28,7 +28,7 @@ function normalizeAnchorText(text: unknown): string {
   return raw
     .replace(/\r\n?/g, '\n')
     .replace(/\u00a0/g, ' ')
-    .replace(/[\u200b\u200c\u200d\ufeff]/g, '')
+    .replace(/(?:\u200b|\u200c|\u200d|\ufeff)/g, '')
     .replace(/[ \t\n]+/g, ' ')
     .trim();
 }
