@@ -47,6 +47,21 @@ describe('notion article comments blocks', () => {
     expect(picked?.id).toBe('b2');
   });
 
+  it('locates toggle headings even when is_toggleable is missing', async () => {
+    const notionSections = await loadNotionSectionBlocks();
+    const legacyToggleHeading = {
+      object: 'block',
+      id: 'b_legacy',
+      type: 'heading_2',
+      has_children: true,
+      heading_2: {
+        rich_text: [{ type: 'text', text: { content: 'Conversations' }, plain_text: 'Conversations' }],
+      },
+    };
+    const picked = notionSections.findToggleHeadingBlock([legacyToggleHeading], 'Conversations');
+    expect(picked?.id).toBe('b_legacy');
+  });
+
   it('renders comments into quote + bullet blocks', async () => {
     const renderer = await loadNotionCommentsRenderer();
     const res = renderer.buildNotionCommentsBlocks([

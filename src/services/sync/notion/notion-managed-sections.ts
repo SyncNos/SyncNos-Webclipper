@@ -1,7 +1,9 @@
 import {
   buildToggleHeadingBlock,
-  findToggleHeadingBlock,
+  findHeadingBlocksByTitle,
+  isToggleHeadingBlock,
   listBlockChildren,
+  retrieveBlock,
   archiveBlock,
 } from '@services/sync/notion/notion-section-blocks.ts';
 
@@ -86,8 +88,20 @@ export async function ensureSectionHeadingBlockId(input: {
   if (fromMapping) return { headingBlockId: fromMapping, discoveredBy: 'mapping' };
 
   const children = await listBlockChildren(input.accessToken, input.pageId);
-  const found = findToggleHeadingBlock(children, title);
-  const foundId = safeString(found?.id);
+  const candidates = findHeadingBlocksByTitle(children, title);
+  let foundId = safeString(candidates.find((block) => isToggleHeadingBlock(block))?.id);
+  if (!foundId && candidates.length) {
+    for (const candidate of candidates) {
+      const candidateId = safeString((candidate as any)?.id);
+      if (!candidateId) continue;
+      const full = await retrieveBlock(input.accessToken, candidateId).catch(() => null);
+      if (!full) continue;
+      if (!isToggleHeadingBlock(full)) continue;
+      foundId = candidateId;
+      break;
+    }
+  }
+
   if (foundId) {
     await maybePersistHeadingIdToMapping(input, anchors, sectionId, foundId);
     return { headingBlockId: foundId, discoveredBy: 'scan' };
@@ -152,8 +166,19 @@ export async function recoverSectionHeadingBlockId(input: {
   const title = safeString(input?.section?.title);
   if (!title) throw new Error('invalid section spec');
   const children = await listBlockChildren(input.accessToken, input.pageId);
-  const found = findToggleHeadingBlock(children, title);
-  const foundId = safeString(found?.id);
+  const candidates = findHeadingBlocksByTitle(children, title);
+  let foundId = safeString(candidates.find((block) => isToggleHeadingBlock(block))?.id);
+  if (!foundId && candidates.length) {
+    for (const candidate of candidates) {
+      const candidateId = safeString((candidate as any)?.id);
+      if (!candidateId) continue;
+      const full = await retrieveBlock(input.accessToken, candidateId).catch(() => null);
+      if (!full) continue;
+      if (!isToggleHeadingBlock(full)) continue;
+      foundId = candidateId;
+      break;
+    }
+  }
   if (foundId) return foundId;
   const appended = await input.notionSyncService.appendChildren(input.accessToken, input.pageId, [
     buildToggleHeadingBlock(title, input.section.level),

@@ -28,7 +28,7 @@ function normalizeAnchorText(text: unknown): string {
   return raw
     .replace(/\r\n?/g, '\n')
     .replace(/\u00a0/g, ' ')
-    .replace(/[\u200b\u200c\u200d\ufeff]/g, '')
+    .replace(/(?:\u200b|\u200c|\u200d|\ufeff)/g, '')
     .replace(/[ \t\n]+/g, ' ')
     .trim();
 }
@@ -59,11 +59,11 @@ export function buildArticleCommentLocatorFromRange(input: {
     const positionFromQuote = (quoteAnchor as any)?.toPositionAnchor?.()?.toSelector?.();
     const position =
       (positionFromRange &&
-        typeof positionFromRange === 'object' &&
-        typeof (positionFromRange as any).start === 'number' &&
-        typeof (positionFromRange as any).end === 'number' &&
-        Number.isFinite((positionFromRange as any).start) &&
-        Number.isFinite((positionFromRange as any).end)
+      typeof positionFromRange === 'object' &&
+      typeof (positionFromRange as any).start === 'number' &&
+      typeof (positionFromRange as any).end === 'number' &&
+      Number.isFinite((positionFromRange as any).start) &&
+      Number.isFinite((positionFromRange as any).end)
         ? { type: 'TextPositionSelector', start: (positionFromRange as any).start, end: (positionFromRange as any).end }
         : null) ?? positionFromQuote;
 

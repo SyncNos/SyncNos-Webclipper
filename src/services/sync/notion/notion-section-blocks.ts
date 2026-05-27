@@ -34,6 +34,11 @@ function headingTypeForLevel(level: ToggleHeadingLevel): 'heading_1' | 'heading_
   return 'heading_3';
 }
 
+function isHeadingType(type: unknown): type is 'heading_1' | 'heading_2' | 'heading_3' {
+  const t = safeString(type);
+  return t === 'heading_1' || t === 'heading_2' || t === 'heading_3';
+}
+
 export function buildToggleHeadingBlock(title: string, level: ToggleHeadingLevel = 2) {
   const resolvedTitle = safeString(title);
   const type = headingTypeForLevel(level);
@@ -64,6 +69,12 @@ export async function listBlockChildren(accessToken: string, blockId: string): P
   return out;
 }
 
+export async function retrieveBlock(accessToken: string, blockId: string): Promise<any> {
+  const id = safeString(blockId);
+  if (!id) throw new Error('missing blockId');
+  return notionFetch({ accessToken, method: 'GET', path: `/v1/blocks/${encodeURIComponent(id)}` } as any);
+}
+
 export async function archiveBlock(accessToken: string, blockId: string): Promise<any> {
   const id = safeString(blockId);
   if (!id) throw new Error('missing blockId');
@@ -71,18 +82,33 @@ export async function archiveBlock(accessToken: string, blockId: string): Promis
   return notionFetch({ accessToken, method: 'DELETE', path: `/v1/blocks/${id}` } as any);
 }
 
-function isToggleHeadingBlock(block: any): boolean {
+export function isToggleHeadingBlock(block: any): boolean {
   if (isArchivedBlock(block)) return false;
   const type = safeString(block?.type);
-  if (type !== 'heading_1' && type !== 'heading_2' && type !== 'heading_3') return false;
+  if (!isHeadingType(type)) return false;
   const payload = (block as any)?.[type];
-  return !!payload && (payload as any).is_toggleable === true;
+  if (!payload) return false;
+  const isToggleable = (payload as any).is_toggleable;
+  if (isToggleable === true) return true;
+  // Some Notion API responses (or older API versions) may omit `is_toggleable` even for toggle headings.
+  // When the block already has children, treat it as a toggle heading so we can re-discover anchors and
+  // avoid appending duplicate section headings on subsequent sync runs.
+  if (isToggleable == null && (block as any)?.has_children === true) return true;
+  return false;
 }
 
 function toggleHeadingTitle(block: any): string {
   const type = safeString(block?.type);
   const payload = type ? (block as any)?.[type] : null;
   return readPlainTextFromRichText(payload?.rich_text);
+}
+
+export function isHeadingBlock(block: any): boolean {
+  if (isArchivedBlock(block)) return false;
+  const type = safeString(block?.type);
+  if (!isHeadingType(type)) return false;
+  const payload = (block as any)?.[type];
+  return !!payload;
 }
 
 export function findToggleHeadingBlock(children: any[], title: string): any | null {
@@ -95,4 +121,18 @@ export function findToggleHeadingBlock(children: any[], title: string): any | nu
     if (toggleHeadingTitle(block) === needle) return block;
   }
   return null;
+}
+
+export function findHeadingBlocksByTitle(children: any[], title: string): any[] {
+  const list = Array.isArray(children) ? children : [];
+  const needle = safeString(title);
+  if (!needle) return [];
+  const out: any[] = [];
+  for (const block of list) {
+    if (!block || typeof block !== 'object') continue;
+    if (!isHeadingBlock(block)) continue;
+    if (toggleHeadingTitle(block) !== needle) continue;
+    out.push(block);
+  }
+  return out;
 }
