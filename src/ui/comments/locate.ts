@@ -214,9 +214,7 @@ function nudgeScrollTowardsHint(hint: number, rootEl: Element): void {
 export function createThreadLocateController(options: ThreadLocateControllerOptions) {
   const locateHighlighter = createLocateHighlighter();
 
-  type LocateAttemptResult =
-    | { ok: true }
-    | { ok: false; reason: string; extra?: Record<string, unknown> | null };
+  type LocateAttemptResult = { ok: true } | { ok: false; reason: string; extra?: Record<string, unknown> | null };
 
   function locateThreadRootOnce(rootItem: ThreadedCommentItem, rootEl: Element): LocateAttemptResult {
     const locator = rootItem?.locator;

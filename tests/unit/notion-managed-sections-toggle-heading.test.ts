@@ -73,4 +73,3 @@ describe('notion managed sections', () => {
     expect(patchSyncMapping).toHaveBeenCalledTimes(1);
   });
 });
-
