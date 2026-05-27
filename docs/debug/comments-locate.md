@@ -21,7 +21,7 @@ globalThis.__SYNCNOS_DEBUG_COMMENTS_SELECTION__ = true;
 
 ## 3) 导出对应评论记录（含 locator）
 
-在同一个 Console 执行下方脚本，它会列出最近 20 条根评论（`parentId == null`）及其 `locator` 摘要。
+在同一个 Console 执行下方脚本，它会列出按 `createdAt` 倒序的 20 条根评论（`parentId == null`）及其 `locator` 摘要。
 请把输出复制给我，并说明你点击定位的是哪条 `id`。
 
 ```js
@@ -80,4 +80,3 @@ globalThis.__SYNCNOS_DEBUG_COMMENTS_SELECTION__ = true;
   };
 })()
 ```
-

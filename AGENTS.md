@@ -24,9 +24,11 @@ SyncNos-Webclipper/
 npm install              # 安装 WebClipper 依赖
 npm run dev              # 启动 WebClipper Chrome 开发模式
 npm run dev:firefox      # 启动 WebClipper Firefox 开发模式
+npm run dev:zen          # 启动 WebClipper Zen（Firefox 内核）开发模式
 npm run dev:safari       # 启动 WebClipper Safari 开发模式
 npm run build            # 构建 WebClipper Chrome 产物
 npm run build:firefox    # 构建 WebClipper Firefox 产物
+npm run build:zen        # 构建并产出 Zen 可安装的 unsigned `.xpi`
 npm run build:safari     # 构建 WebClipper Safari 产物（MV3）
 npm run setup:safari:xcode  # 生成/更新 Safari Web Extension Xcode 项目
 npm run compile          # TypeScript 编译检查
@@ -84,6 +86,7 @@ npm run check:safari     # 产物校验（Safari）
 
 ## 贡献约定
 
+- 所有 shell 命令一律以 `rtk` 前缀执行（- Rust Token Killer）。
 - 默认不查看、不编辑 i18n 字段（除非明确要求）。
 - Commit message 用 Conventional Commits（如 `refactor:`/`feat:`/`fix:`），一次改动尽量做到可编译、可回滚。
 - 重构优先拆成可独立验证的小步：每步至少跑 `npm run compile`。
@@ -108,11 +111,13 @@ npm run check:safari     # 产物校验（Safari）
 - 安装依赖：`npm install`
 - Chrome 开发模式：`npm run dev`
 - Firefox 开发模式：`npm run dev:firefox`
+- Zen 开发模式：`npm run dev:zen`
 - Safari 开发模式：`npm run dev:safari`
 - TypeScript 编译检查：`npm run compile`
 - 单元测试：`npm run test`
 - Chrome 构建：`npm run build`
 - Firefox 构建：`npm run build:firefox`
+- Zen 构建（输出 `.output/*-zen.xpi`）：`npm run build:zen`
 - Safari 构建：`npm run build:safari`
 - Safari Xcode 项目生成：`npm run setup:safari:xcode`
 - 产物校验：`npm run check`（Chrome）、`npm run check:safari`（Safari）

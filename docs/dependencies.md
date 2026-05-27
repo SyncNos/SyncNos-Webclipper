@@ -45,6 +45,8 @@
 | `npm run test` | `package.json` | Vitest 单元测试 | 游标、迁移、Markdown、存储逻辑 |
 | `npm run build` | `package.json` | 生成 Chrome / Edge 构建产物 | `check` 之前的基础步骤 |
 | `npm run check` | `package.json` | build 后跑 `check-dist.mjs` | 验证 dist 完整性与关键引用 |
+| `npm run dev:zen` | `package.json`, `wxt.config.zen.ts` | 用 Zen（Firefox 内核）启动开发模式 | 可用 `WXT_ZEN_BINARY` 指定 Zen 可执行文件路径 |
+| `npm run build:zen` | `package.json`, `.github/scripts/webclipper/package-zen-xpi.mjs` | 构建并产出 Zen 可安装的 `.xpi` | 产物：`.output/webclipper-<manifest.version>-zen.xpi`；会注入 `browser_specific_settings.gecko.id`，安装见 `debug/zen-xpi.md` |
 | `node .github/scripts/webclipper/package-release-assets.mjs` | `.github/scripts/webclipper/` | 打包 Chrome / Edge / Firefox 正式附件 | workflow 直接复用 |
 
 ## 版本与兼容性规则

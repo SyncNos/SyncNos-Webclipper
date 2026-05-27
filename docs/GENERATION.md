@@ -5,9 +5,9 @@
 | Field | Value |
 | --- | --- |
 | Repository | `SyncNos/SyncNos-Webclipper` |
-| Commit hash | 0153b0a05b9f012ee16716d5540c2e8ff5e53ea8 |
-| Branch name | `crh1` |
-| Generation timestamp | `2026-05-27 15:37:54 +0800` |
+| Commit hash | 1c09d3ed39f0565d3019d799c1663f7a8cab1ca2 |
+| Branch name | `crh` |
+| Generation timestamp | `2026-05-28 00:36:06 +0800` |
 | Output language | 中文 |
 | Generated directory | `docs/` |
-| Update mode | Docs reconciliation — repo links + configuration version + data-flow sync |
+| Update mode | Docs reconciliation — Zen XPI build/install notes + quick-nav sync |

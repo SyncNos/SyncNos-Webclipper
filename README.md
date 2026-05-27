@@ -148,6 +148,16 @@ npm run build:safari && npm run setup:safari:xcode
 - **Service Worker lifecycle** — Safari may terminate the background service worker more aggressively than Chrome. The extension handles this gracefully via message-based communication.
 - **`declarativeNetRequest`** — used for anti-hotlink image proxying; Safari uses the base `declarativeNetRequest` permission instead of `declarativeNetRequestWithHostAccess`.
 
+## Development (Build from Source)
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+- Zen (Firefox engine): `npm run build:zen` outputs `.output/*-zen.xpi` (see `docs/debug/zen-xpi.md` for unsigned install notes).
+
 ## Support
 
 SyncNos is a one-person project, built with care.
