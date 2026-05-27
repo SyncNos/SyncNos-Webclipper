@@ -1,12 +1,20 @@
 import { ARTICLE_MESSAGE_TYPES, UI_EVENT_TYPES } from '@platform/messaging/message-contracts';
 import { fetchActiveTabArticle, resolveOrCaptureActiveTabArticle } from '@collectors/web/article-fetch';
 import { DISCOURSE_OP_NOT_FOUND_ERROR, isDiscourseOpNotFoundErrorMessage } from '@collectors/web/article-fetch-errors';
+import {
+  AUTO_SYNC_CONVERSATION_CHANGED_REASONS,
+  type AutoSyncConversationChangedReason,
+} from '@services/sync/auto-sync/auto-sync-keys';
 
 type AnyRouter = {
   ok: (data: unknown) => any;
   err: (message: string, extra?: unknown) => any;
   register: (type: string, handler: (msg: any) => Promise<any> | any) => void;
   eventsHub?: { broadcast: (type: string, payload: unknown) => void };
+};
+
+type WebArticleHandlersDeps = {
+  onConversationChanged?: (conversationId: number, reason: AutoSyncConversationChangedReason) => void | Promise<void>;
 };
 
 function normalizeArticleFetchError(error: unknown, fallback: string): string {
@@ -17,7 +25,11 @@ function normalizeArticleFetchError(error: unknown, fallback: string): string {
   return message || fallback;
 }
 
-export function registerWebArticleHandlers(router: AnyRouter) {
+function fireAndForget(task: void | Promise<void>) {
+  Promise.resolve(task).catch(() => {});
+}
+
+export function registerWebArticleHandlers(router: AnyRouter, deps: WebArticleHandlersDeps = {}) {
   router.register(ARTICLE_MESSAGE_TYPES.FETCH_ACTIVE_TAB, async (msg) => {
     try {
       const data = await fetchActiveTabArticle({ tabId: msg?.tabId });
@@ -28,6 +40,9 @@ export function registerWebArticleHandlers(router: AnyRouter) {
           reason: 'articleFetch',
           conversationId,
         });
+        fireAndForget(
+          deps.onConversationChanged?.(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.syncConversationMessages),
+        );
       }
 
       return router.ok(data);
@@ -47,6 +62,9 @@ export function registerWebArticleHandlers(router: AnyRouter) {
           reason: 'articleFetch',
           conversationId,
         });
+        fireAndForget(
+          deps.onConversationChanged?.(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.syncConversationMessages),
+        );
       }
 
       return router.ok(data);

@@ -53,7 +53,9 @@ export default defineBackground(() => {
   registerArticleCommentsHandlers(router, {
     onConversationChanged: (conversationId, reason) => services.autoSync.onConversationChanged(conversationId, reason),
   });
-  registerWebArticleHandlers(router);
+  registerWebArticleHandlers(router, {
+    onConversationChanged: (conversationId, reason) => services.autoSync.onConversationChanged(conversationId, reason),
+  });
   registerChatgptDeepResearchHandlers(router);
   registerNotionSettingsHandlers(router, {
     notionSyncJobStore: services.notionSyncJobStore,
