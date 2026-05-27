@@ -1,37 +1,38 @@
-import { copyFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveRepoRoot, resolveWebclipperRoot } from './script-utils.mjs';
+import { resolveRepoRoot, resolveWebclipperRoot, run } from './script-utils.mjs';
 
-function findLatestFirefoxZip(outDir) {
-  const entries = readdirSync(outDir, { withFileTypes: true })
-    .filter((d) => d.isFile())
-    .map((d) => d.name)
-    .filter((name) => name.endsWith('-firefox.zip'));
-
-  if (entries.length === 0) return null;
-
-  const withMtime = entries
-    .map((name) => {
-      const p = join(outDir, name);
-      return { name, p, mtimeMs: statSync(p).mtimeMs };
-    })
-    .sort((a, b) => b.mtimeMs - a.mtimeMs);
-
-  return withMtime[0];
+function readJson(p) {
+  return JSON.parse(readFileSync(p, 'utf-8'));
 }
 
 const repoRoot = resolveRepoRoot(import.meta.url);
 const webclipperRoot = resolveWebclipperRoot(repoRoot);
-const outDir = join(webclipperRoot, '.output');
 
-const latest = findLatestFirefoxZip(outDir);
-if (!latest) {
-  throw new Error(`[build] missing firefox zip in ${outDir} (expected "*-firefox.zip")`);
+const outDir = join(webclipperRoot, '.output');
+const wxtOut = join(outDir, 'firefox-mv3');
+if (!existsSync(wxtOut)) {
+  throw new Error(`[build] wxt output missing: ${wxtOut}`);
 }
 
-const xpiName = latest.name.replace(/-firefox\.zip$/, '-zen.xpi');
-const xpiPath = join(outDir, xpiName);
+const manifestPath = join(wxtOut, 'manifest.json');
+if (!existsSync(manifestPath)) {
+  throw new Error(`[build] manifest missing: ${manifestPath}`);
+}
 
-copyFileSync(latest.p, xpiPath);
+const manifest = readJson(manifestPath);
+const version = String(manifest?.version || '').trim();
+if (!version) {
+  throw new Error(`[build] failed to read manifest version from: ${manifestPath}`);
+}
+
+const xpiPath = join(outDir, `webclipper-${version}-zen.xpi`);
+
+// Clean up zip artifacts created by `wxt zip` (older build:zen behavior).
+rmSync(join(outDir, `webclipper-${version}-firefox.zip`), { force: true });
+rmSync(join(outDir, `webclipper-${version}-sources.zip`), { force: true });
+
+rmSync(xpiPath, { force: true });
+run('zip', ['-r', '-q', xpiPath, '.'], wxtOut);
+
 console.log(`[build] packaged: ${xpiPath}`);
-
