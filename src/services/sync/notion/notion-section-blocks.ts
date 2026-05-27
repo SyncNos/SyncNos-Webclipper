@@ -76,7 +76,14 @@ function isToggleHeadingBlock(block: any): boolean {
   const type = safeString(block?.type);
   if (type !== 'heading_1' && type !== 'heading_2' && type !== 'heading_3') return false;
   const payload = (block as any)?.[type];
-  return !!payload && (payload as any).is_toggleable === true;
+  if (!payload) return false;
+  const isToggleable = (payload as any).is_toggleable;
+  if (isToggleable === true) return true;
+  // Some Notion API responses (or older API versions) may omit `is_toggleable` even for toggle headings.
+  // When the block already has children, treat it as a toggle heading so we can re-discover anchors and
+  // avoid appending duplicate section headings on subsequent sync runs.
+  if (isToggleable == null && (block as any)?.has_children === true) return true;
+  return false;
 }
 
 function toggleHeadingTitle(block: any): string {
