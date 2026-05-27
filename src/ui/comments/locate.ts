@@ -22,6 +22,25 @@ type LocatorLike = {
   } | null;
 };
 
+function isLocateDebugEnabled(): boolean {
+  const anyGlobal = globalThis as any;
+  if (anyGlobal.__SYNCNOS_DEBUG_COMMENTS_SELECTION__ === true) return true;
+  try {
+    return String(anyGlobal.localStorage?.getItem?.('__SYNCNOS_DEBUG_COMMENTS_SELECTION__') || '') === '1';
+  } catch (_e) {
+    return false;
+  }
+}
+
+function debugLocate(event: string, payload: Record<string, unknown>) {
+  if (!isLocateDebugEnabled()) return;
+  try {
+    console.log('[CommentsLocate]', event, payload);
+  } catch (_e) {
+    // ignore
+  }
+}
+
 function readLocator(value: unknown): LocatorLike | null {
   if (!value || typeof value !== 'object') return null;
   return value as LocatorLike;
@@ -195,49 +214,84 @@ function nudgeScrollTowardsHint(hint: number, rootEl: Element): void {
 export function createThreadLocateController(options: ThreadLocateControllerOptions) {
   const locateHighlighter = createLocateHighlighter();
 
-  function locateThreadRootOnce(rootItem: ThreadedCommentItem, rootEl: Element): boolean {
+  type LocateAttemptResult =
+    | { ok: true }
+    | { ok: false; reason: string; extra?: Record<string, unknown> | null };
+
+  function locateThreadRootOnce(rootItem: ThreadedCommentItem, rootEl: Element): LocateAttemptResult {
     const locator = rootItem?.locator;
-    if (!isArticleCommentLocator(locator)) return false;
+    if (!isArticleCommentLocator(locator)) {
+      return { ok: false, reason: 'invalid_locator' };
+    }
 
     const env = readLocatorEnv(locator);
     const expectedEnv = String(options.locatorEnv || '').trim();
-    if (!expectedEnv || env !== expectedEnv) return false;
+    if (!expectedEnv) return { ok: false, reason: 'missing_expected_env' };
+    if (env !== expectedEnv) return { ok: false, reason: 'env_mismatch', extra: { env, expectedEnv } };
 
     try {
       const range = restoreRangeFromArticleCommentLocator({ root: rootEl, locator });
-      if (!range) return false;
-      return scrollRangeIntoView(range, locateHighlighter);
+      if (!range) {
+        return {
+          ok: false,
+          reason: 'restore_range_failed',
+          extra: {
+            hasQuoteExact: Boolean(String((locator as any)?.quote?.exact || '').trim()),
+            hintStart: readLocatorHint(locator),
+          },
+        };
+      }
+      const scrolled = scrollRangeIntoView(range, locateHighlighter);
+      return scrolled ? { ok: true } : { ok: false, reason: 'scroll_failed' };
     } catch (_e) {
-      return false;
+      return { ok: false, reason: 'exception' };
     }
   }
 
   const locateThreadRootWithRetry = async (rootItem: ThreadedCommentItem): Promise<boolean> => {
     const locator = rootItem?.locator;
-    if (!isArticleCommentLocator(locator)) return false;
+    if (!isArticleCommentLocator(locator)) {
+      debugLocate('locate_rejected', { reason: 'invalid_locator' });
+      return false;
+    }
 
     const env = readLocatorEnv(locator);
     const expectedEnv = String(options.locatorEnv || '').trim();
-    if (!expectedEnv || env !== expectedEnv) return false;
+    if (!expectedEnv) {
+      debugLocate('locate_rejected', { reason: 'missing_expected_env' });
+      return false;
+    }
+    if (env !== expectedEnv) {
+      debugLocate('locate_rejected', { reason: 'env_mismatch', env, expectedEnv });
+      return false;
+    }
 
     const pickedRoot = options.pickLocatorRoot();
-    if (expectedEnv === 'app' && !pickedRoot) return false;
+    if (expectedEnv === 'app' && !pickedRoot) {
+      debugLocate('locate_rejected', { reason: 'missing_locator_root', expectedEnv });
+      return false;
+    }
     const rootEl = pickedRoot || document.body || document.documentElement;
     if (!rootEl) return false;
 
-    const ok = locateThreadRootOnce(rootItem, rootEl);
-    if (ok) return true;
+    const attempt1 = locateThreadRootOnce(rootItem, rootEl);
+    if (attempt1.ok) return true;
+    debugLocate('locate_attempt_failed', { attempt: 1, reason: attempt1.reason, extra: attempt1.extra || null });
 
-    if (expectedEnv !== 'inpage') return false;
     const hint = readLocatorHint(locator);
     if (hint != null) nudgeScrollTowardsHint(hint, rootEl);
 
     await sleep(120);
-    const ok2 = locateThreadRootOnce(rootItem, rootEl);
-    if (ok2) return true;
+    const attempt2 = locateThreadRootOnce(rootItem, rootEl);
+    if (attempt2.ok) return true;
+    debugLocate('locate_attempt_failed', { attempt: 2, reason: attempt2.reason, extra: attempt2.extra || null });
 
     await sleep(260);
-    return locateThreadRootOnce(rootItem, rootEl);
+    const attempt3 = locateThreadRootOnce(rootItem, rootEl);
+    if (!attempt3.ok) {
+      debugLocate('locate_attempt_failed', { attempt: 3, reason: attempt3.reason, extra: attempt3.extra || null });
+    }
+    return attempt3.ok;
   };
 
   return {

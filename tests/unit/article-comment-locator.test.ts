@@ -58,4 +58,34 @@ describe('article-comment-locator', () => {
     const restored = locator ? restoreRangeFromArticleCommentLocator({ root, locator }) : null;
     expect(restored?.toString()).toBe('world');
   });
+
+  it('restores range when exact differs only by whitespace', () => {
+    document.body.innerHTML = '<div id="root">Hello world</div>';
+    const root = document.getElementById('root') as HTMLElement;
+
+    const baseLocator = buildArticleCommentLocatorFromRange({
+      env: 'app',
+      root,
+      range: (() => {
+        const textNode = root.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(textNode, 0);
+        range.setEnd(textNode, 11);
+        return range;
+      })(),
+    });
+
+    expect(baseLocator).toBeTruthy();
+
+    const locator = {
+      ...(baseLocator as any),
+      quote: {
+        ...(baseLocator as any).quote,
+        exact: 'Hello\nworld',
+      },
+    };
+
+    const restored = restoreRangeFromArticleCommentLocator({ root, locator });
+    expect(restored?.toString()).toBe('Hello world');
+  });
 });
