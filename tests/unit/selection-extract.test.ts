@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest';
 
-import { extractSelectionText, extractUserSelectionText, isSelectionLikelyWithinRoot } from '@services/shared/dom/selection';
+import {
+  extractSelectionText,
+  extractUserSelectionText,
+  isSelectionLikelyWithinRoot,
+} from '@services/shared/dom/selection';
 
 describe('shared/dom/selection', () => {
   test('extractSelectionText: returns none for null selection', () => {
@@ -43,7 +47,10 @@ describe('shared/dom/selection', () => {
       }),
     } as any;
 
-    expect(extractSelectionText(selection, { trim: true })).toEqual({ text: 'cloned text', method: 'clone_textContent' });
+    expect(extractSelectionText(selection, { trim: true })).toEqual({
+      text: 'cloned text',
+      method: 'clone_textContent',
+    });
   });
 
   test('extractSelectionText: respects maxLen', () => {
