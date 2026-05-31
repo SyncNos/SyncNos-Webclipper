@@ -393,7 +393,8 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       if (!assistantWrapper) {
         const byChildren = findTupleAndAssistantByChildren(userStep, boundaryRoot || null);
         const tuple = byChildren.tuple || findMessageTupleFromUserStep(userStep, effectiveScope) || null;
-        assistantWrapper = byChildren.assistantWrapper || (tuple ? findAssistantWrapperFromTuple(tuple, userStep) : null);
+        assistantWrapper =
+          byChildren.assistantWrapper || (tuple ? findAssistantWrapperFromTuple(tuple, userStep) : null);
       }
 
       if (assistantWrapper) pushUnique(assistantWrapper);
@@ -641,7 +642,9 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       const candidates = findCandidateRoots();
       const picked = pickBestRoot(candidates);
       const boundaryRoot = picked.root && picked.root !== document ? picked.root : null;
-      const boundaryUserCount = boundaryRoot ? boundaryRoot.querySelectorAll('[data-agent-chat-user-step-id]').length : 0;
+      const boundaryUserCount = boundaryRoot
+        ? boundaryRoot.querySelectorAll('[data-agent-chat-user-step-id]').length
+        : 0;
       const listRoot = findTurnsListRoot(seed, boundaryRoot, boundaryUserCount);
       return listRoot || picked.root || document.scrollingElement || document.documentElement || document.body;
     },

@@ -181,7 +181,14 @@ describe('notionai-collector', () => {
 
     const snap = collector.capture();
     expect(snap).toBeTruthy();
-    expect(snap.messages.map((m: any) => m && m.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'user', 'assistant']);
+    expect(snap.messages.map((m: any) => m && m.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+    ]);
     expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual(['U1', 'A1', 'U2', 'A2', 'U3', 'A3']);
   });
 
