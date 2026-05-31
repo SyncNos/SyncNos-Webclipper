@@ -86,15 +86,15 @@ Endpoints:
 From the repo root (requires Cloudflare Wrangler set up):
 
 ```bash
-rtk cd cloudflare-workers/syncnos-feishu-oauth
-rtk npx wrangler deploy
+cd cloudflare-workers/syncnos-feishu-oauth
+npx wrangler deploy
 ```
 
 Then set the secret (do NOT commit it to git):
 
 ```bash
-rtk cd cloudflare-workers/syncnos-feishu-oauth
-rtk npx wrangler secret put FEISHU_CLIENT_SECRET
+cd cloudflare-workers/syncnos-feishu-oauth
+npx wrangler secret put FEISHU_CLIENT_SECRET
 ```
 
 ### 2.3 What URL to paste into WebClipper

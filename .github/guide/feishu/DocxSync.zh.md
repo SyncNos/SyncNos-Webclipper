@@ -91,15 +91,15 @@ https://chiimagnus.github.io/syncnos-oauth/callback
 在仓库根目录执行（需要你本机已登录 Cloudflare / 配好 wrangler）：
 
 ```bash
-rtk cd cloudflare-workers/syncnos-feishu-oauth
-rtk npx wrangler deploy
+cd cloudflare-workers/syncnos-feishu-oauth
+npx wrangler deploy
 ```
 
 然后把 App Secret 写入 Worker secret（不要提交到 git）：
 
 ```bash
-rtk cd cloudflare-workers/syncnos-feishu-oauth
-rtk npx wrangler secret put FEISHU_CLIENT_SECRET
+cd cloudflare-workers/syncnos-feishu-oauth
+npx wrangler secret put FEISHU_CLIENT_SECRET
 ```
 
 ### 2.3 Worker URL 填什么
