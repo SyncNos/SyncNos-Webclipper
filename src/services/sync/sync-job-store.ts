@@ -92,22 +92,27 @@ export function isRunningSyncJob(job: SyncJobSnapshot | null | undefined, staleM
 export async function abortRunningSyncJobIfFromOtherInstance(
   provider: SyncProvider,
   instanceId: string,
+  staleMs?: number,
 ): Promise<SyncJobSnapshot | null> {
   const current = await getSyncJob(provider);
   if (!current || current.status !== 'running') return current;
   const jobInstanceId = current.instanceId ? String(current.instanceId) : '';
-  if (!jobInstanceId || jobInstanceId !== String(instanceId || '')) {
-    const now = Date.now();
-    const aborted: SyncJobSnapshot = {
-      ...current,
-      provider,
-      status: 'aborted',
-      updatedAt: now,
-      finishedAt: now,
-      abortedReason: 'extension reloaded',
-    };
-    await setSyncJob(provider, aborted);
-    return aborted;
-  }
-  return current;
+  if (!jobInstanceId || jobInstanceId === String(instanceId || '')) return current;
+
+  // Do not abort a still-active job from another background instance. Treat it as running
+  // unless it is stale, otherwise concurrent background contexts could keep aborting each
+  // other's jobs and cause duplicate sync writes.
+  if (isRunningSyncJob(current, staleMs)) return current;
+
+  const now = Date.now();
+  const aborted: SyncJobSnapshot = {
+    ...current,
+    provider,
+    status: 'aborted',
+    updatedAt: now,
+    finishedAt: now,
+    abortedReason: 'extension reloaded',
+  };
+  await setSyncJob(provider, aborted);
+  return aborted;
 }

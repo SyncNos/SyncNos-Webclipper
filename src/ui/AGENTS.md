@@ -50,7 +50,7 @@
 ## 4. 自检命令（手动）
 
 ```bash
-rtk rg -n "src/platform|/platform/" src/ui
-rtk rg -n "border-radius:\\s*[0-9]|tw-rounded-\\[" src/ui src/entrypoints
-rtk rg -n -- "--radius-" src/ui/styles/tokens.css
+rg -n "src/platform|/platform/" src/ui
+rg -n "border-radius:\\s*[0-9]|tw-rounded-\\[" src/ui src/entrypoints
+rg -n -- "--radius-" src/ui/styles/tokens.css
 ```

@@ -51,10 +51,15 @@ describe('notion-sync-orchestrator kind routing', () => {
     // @ts-expect-error test global
     globalThis.chrome = mockChromeStorage();
 
+    let currentJob: any = null;
     const jobStore = {
-      abortRunningJobIfFromOtherInstance: async () => null,
-      isRunningJob: () => false,
-      setJob: async () => true,
+      getJob: async () => currentJob,
+      abortRunningJobIfFromOtherInstance: async () => currentJob,
+      isRunningJob: (job: any) => job && job.status === 'running',
+      setJob: async (job: any) => {
+        currentJob = job;
+        return true;
+      },
     };
 
     const tokenStore = { getToken: async () => ({ accessToken: 't' }) };
@@ -168,10 +173,15 @@ describe('notion-sync-orchestrator kind routing', () => {
     // @ts-expect-error test global
     globalThis.chrome = mockChromeStorage();
 
+    let currentJob: any = null;
     const jobStore = {
-      abortRunningJobIfFromOtherInstance: async () => null,
-      isRunningJob: () => false,
-      setJob: async () => true,
+      getJob: async () => currentJob,
+      abortRunningJobIfFromOtherInstance: async () => currentJob,
+      isRunningJob: (job: any) => job && job.status === 'running',
+      setJob: async (job: any) => {
+        currentJob = job;
+        return true;
+      },
     };
 
     const tokenStore = { getToken: async () => ({ accessToken: 't' }) };

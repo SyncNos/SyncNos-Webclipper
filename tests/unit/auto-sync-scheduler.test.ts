@@ -153,6 +153,46 @@ describe('auto-sync-scheduler-core', () => {
     expect(infraPack.storage[QUEUE_KEY]).toEqual({});
   });
 
+  it('dedupes concurrent flush calls (non-reentrant)', async () => {
+    infraPack.storage[ENABLED_KEY] = true;
+    infraPack.storage[QUEUE_KEY] = { '1': infraPack.infra.now() - 1 };
+
+    let resolveSync: (() => void) | null = null;
+    const syncPromise = new Promise<void>((resolve) => {
+      resolveSync = resolve;
+    });
+    let markSyncCalled: (() => void) | null = null;
+    const syncCalled = new Promise<void>((resolve) => {
+      markSyncCalled = resolve;
+    });
+    syncConversations.mockImplementation(() => {
+      markSyncCalled?.();
+      return syncPromise;
+    });
+
+    const scheduler = createAutoSyncSchedulerCore({
+      queueStorageKey: QUEUE_KEY,
+      enabledStorageKey: ENABLED_KEY,
+      alarmName: ALARM_NAME,
+      debounceMs: 60_000,
+      maxItems: 200,
+      infra: infraPack.infra,
+      getInstanceId: () => 'i-6',
+      isProviderEnabled,
+      syncConversations,
+    });
+
+    const p1 = scheduler.flush();
+    const p2 = scheduler.flush();
+    expect(p2).toBe(p1);
+    await syncCalled;
+    expect(syncConversations).toHaveBeenCalledTimes(1);
+
+    resolveSync?.();
+    await p1;
+    expect(infraPack.storage[QUEUE_KEY]).toEqual({});
+  });
+
   it('keeps queue when sync_already_running is thrown (reschedules due items)', async () => {
     infraPack.storage[ENABLED_KEY] = true;
     infraPack.storage[QUEUE_KEY] = { '1': infraPack.infra.now() - 1 };
