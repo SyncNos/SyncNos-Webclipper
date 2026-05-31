@@ -148,7 +148,9 @@ export function createAutoSyncSchedulerCore(config: {
     }
   };
 
-  const flush = async () => {
+  let flushRun: Promise<void> | null = null;
+
+  const flushOnce = async () => {
     const now = infra.now();
     const instanceId = getInstanceId();
     const queue = await readQueue();
@@ -200,6 +202,16 @@ export function createAutoSyncSchedulerCore(config: {
       await writeQueue(restQueue);
       await scheduleNextAlarm(restQueue);
     }
+  };
+
+  const flush = () => {
+    if (flushRun) return flushRun;
+    const run = flushOnce();
+    flushRun = run;
+    void run.finally(() => {
+      if (flushRun === run) flushRun = null;
+    });
+    return run;
   };
 
   return { enqueue, flush };

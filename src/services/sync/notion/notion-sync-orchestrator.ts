@@ -447,6 +447,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
     const conversationIds = input ? input.conversationIds : undefined;
     if (
       !notionJobStore ||
+      typeof notionJobStore.getJob !== 'function' ||
       typeof notionJobStore.abortRunningJobIfFromOtherInstance !== 'function' ||
       typeof notionJobStore.isRunningJob !== 'function' ||
       typeof notionJobStore.setJob !== 'function'
@@ -454,34 +455,69 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
       throw new Error('notion sync job store missing');
     }
 
-    const existingJob = await notionJobStore.abortRunningJobIfFromOtherInstance(instanceId);
-    if (notionJobStore.isRunningJob(existingJob)) throw buildAlreadyRunningError();
-
-    const token = await (notionTokenStore && notionTokenStore.getToken
-      ? notionTokenStore.getToken()
-      : Promise.resolve(null));
-    if (!token || !token.accessToken) throw new Error('notion not connected');
-
-    const parentPageId = await getNotionParentPageId();
-    if (!parentPageId) throw new Error('missing parentPageId');
-
     const ids = Array.isArray(conversationIds)
-      ? conversationIds.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0)
+      ? Array.from(
+          new Set(
+            conversationIds
+              .map((x) => Number(x))
+              .filter((x) => Number.isFinite(x) && x > 0)
+              .map((x) => Math.floor(x)),
+          ),
+        )
       : [];
     if (!ids.length) throw new Error('no conversationIds');
 
-    if (!storage) throw new Error('storage module missing');
-    if (!notionSyncService) throw new Error('notion sync service missing');
-    if (!notionDbManager || !notionDbManager.ensureDatabase) throw new Error('notion db manager missing');
-    if (!conversationKinds || typeof conversationKinds.pick !== 'function')
-      throw new Error('conversation kinds missing');
+    const jobId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const jobStartedAt = Date.now();
 
-    const dbIdByKindId = new Map();
-    const dbIdPromiseByKindId = new Map();
-    const recoveredMissingDbByStorageKey = new Set();
-    const dbRecoveryPromiseByStorageKey = new Map();
+    const existingJob = await notionJobStore.abortRunningJobIfFromOtherInstance(instanceId);
+    if (notionJobStore.isRunningJob(existingJob)) throw buildAlreadyRunningError();
 
-    async function ensureDbForKind(kind) {
+    // Claim the running job as early as possible to prevent concurrent sync runs (auto / manual)
+    // from racing past the "already running" check and duplicating pages/blocks in Notion.
+    await notionJobStore.setJob({
+      id: jobId,
+      provider: SYNC_PROVIDER,
+      instanceId,
+      status: 'running',
+      startedAt: jobStartedAt,
+      updatedAt: jobStartedAt,
+      finishedAt: null,
+      conversationIds: ids,
+      currentConversationId: ids[0] || undefined,
+      currentConversationTitle: undefined,
+      currentStage: ids.length ? 'preparing_queue' : '',
+      okCount: 0,
+      failCount: 0,
+      perConversation: [],
+    });
+
+    const claimedJob = normalizeJob(await notionJobStore.getJob());
+    if (!claimedJob || claimedJob.status !== 'running' || String((claimedJob as any).id || '') !== jobId) {
+      throw buildAlreadyRunningError();
+    }
+
+    try {
+      const token = await (notionTokenStore && notionTokenStore.getToken
+        ? notionTokenStore.getToken()
+        : Promise.resolve(null));
+      if (!token || !token.accessToken) throw new Error('notion not connected');
+
+      const parentPageId = await getNotionParentPageId();
+      if (!parentPageId) throw new Error('missing parentPageId');
+
+      if (!storage) throw new Error('storage module missing');
+      if (!notionSyncService) throw new Error('notion sync service missing');
+      if (!notionDbManager || !notionDbManager.ensureDatabase) throw new Error('notion db manager missing');
+      if (!conversationKinds || typeof conversationKinds.pick !== 'function')
+        throw new Error('conversation kinds missing');
+
+      const dbIdByKindId = new Map();
+      const dbIdPromiseByKindId = new Map();
+      const recoveredMissingDbByStorageKey = new Set();
+      const dbRecoveryPromiseByStorageKey = new Map();
+
+      async function ensureDbForKind(kind) {
       const existing = dbIdByKindId.get(kind.id);
       if (existing) return String(existing);
       const pending = dbIdPromiseByKindId.get(kind.id);
@@ -503,7 +539,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
       }
     }
 
-    async function recoverDbForStorageKey(kind, dbSpec) {
+      async function recoverDbForStorageKey(kind, dbSpec) {
       const storageKey = String(dbSpec && dbSpec.storageKey ? dbSpec.storageKey : '');
       const pending = dbRecoveryPromiseByStorageKey.get(storageKey);
       if (pending) return pending;
@@ -528,58 +564,56 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
       }
     }
 
-    const resultSlots = ids.map(() => null);
-    const jobId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    const jobStartedAt = Date.now();
-    let runningJobWriteChain = Promise.resolve(true);
+      const resultSlots = ids.map(() => null);
+      let runningJobWriteChain = Promise.resolve(true);
 
-    function currentResults() {
-      return resultSlots.filter(Boolean);
-    }
+      function currentResults() {
+        return resultSlots.filter(Boolean);
+      }
 
-    function setResultAt(index, result) {
-      resultSlots[index] = result;
-      return result;
-    }
+      function setResultAt(index, result) {
+        resultSlots[index] = result;
+        return result;
+      }
 
-    async function writeRunningJob(partial = {}) {
-      runningJobWriteChain = runningJobWriteChain
-        .catch(() => true)
-        .then(async () => {
-          const results = currentResults();
-          await notionJobStore.setJob({
-            id: jobId,
-            provider: SYNC_PROVIDER,
-            instanceId,
-            status: 'running',
-            startedAt: jobStartedAt,
-            updatedAt: Date.now(),
-            finishedAt: null,
-            conversationIds: ids,
-            okCount: results.filter((r) => r.ok).length,
-            failCount: results.filter((r) => !r.ok).length,
-            perConversation: toPerConversationSnapshot(results),
-            ...partial,
+      async function writeRunningJob(partial = {}) {
+        runningJobWriteChain = runningJobWriteChain
+          .catch(() => true)
+          .then(async () => {
+            const results = currentResults();
+            await notionJobStore.setJob({
+              id: jobId,
+              provider: SYNC_PROVIDER,
+              instanceId,
+              status: 'running',
+              startedAt: jobStartedAt,
+              updatedAt: Date.now(),
+              finishedAt: null,
+              conversationIds: ids,
+              okCount: results.filter((r) => r.ok).length,
+              failCount: results.filter((r) => !r.ok).length,
+              perConversation: toPerConversationSnapshot(results),
+              ...partial,
+            });
+            return true;
           });
-          return true;
-        });
-      await runningJobWriteChain;
-    }
+        await runningJobWriteChain;
+      }
 
-    await writeRunningJob({
-      currentConversationId: ids[0] || undefined,
-      currentStage: ids.length ? 'preparing_queue' : '',
-    });
-
-    async function processConversation(id, index) {
-      const trace = createConversationTrace(id);
-      const warnings: any[] = [];
-      let conversationTitle = '';
       await writeRunningJob({
-        currentConversationId: id,
-        currentConversationTitle: conversationTitle,
-        currentStage: 'loading_conversation',
+        currentConversationId: ids[0] || undefined,
+        currentStage: ids.length ? 'preparing_queue' : '',
       });
+
+      async function processConversation(id, index) {
+        const trace = createConversationTrace(id);
+        const warnings: any[] = [];
+        let conversationTitle = '';
+        await writeRunningJob({
+          currentConversationId: id,
+          currentConversationTitle: conversationTitle,
+          currentStage: 'loading_conversation',
+        });
 
       try {
         trace.mark('load conversation');
@@ -1517,41 +1551,76 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
       }
     }
 
-    const queue = ids.map((id, index) => ({ id, index }));
-    let cursorIndex = 0;
-    const workerCount = Math.max(1, Math.min(SYNC_CONVERSATION_CONCURRENCY, queue.length));
-    await Promise.all(
-      Array.from({ length: workerCount }, async () => {
-        for (;;) {
-          const next = queue[cursorIndex];
-          cursorIndex += 1;
-          if (!next) return;
-          await processConversation(next.id, next.index);
-        }
-      }),
-    );
+      const queue = ids.map((id, index) => ({ id, index }));
+      let cursorIndex = 0;
+      const workerCount = Math.max(1, Math.min(SYNC_CONVERSATION_CONCURRENCY, queue.length));
+      await Promise.all(
+        Array.from({ length: workerCount }, async () => {
+          for (;;) {
+            const next = queue[cursorIndex];
+            cursorIndex += 1;
+            if (!next) return;
+            await processConversation(next.id, next.index);
+          }
+        }),
+      );
 
-    const results = currentResults();
-    const okCount = results.filter((r) => r.ok).length;
-    const failCount = results.length - okCount;
-    const failures = buildFailureSummaries(results);
-    await notionJobStore.setJob({
-      id: jobId,
-      provider: SYNC_PROVIDER,
-      instanceId,
-      status: 'done',
-      startedAt: jobStartedAt,
-      updatedAt: Date.now(),
-      finishedAt: Date.now(),
-      conversationIds: ids,
-      currentConversationId: undefined,
-      currentConversationTitle: undefined,
-      currentStage: undefined,
-      okCount,
-      failCount,
-      perConversation: toPerConversationSnapshot(results),
-    });
-    return { provider: SYNC_PROVIDER, results, okCount, failCount, failures, jobId, instanceId };
+      const results = currentResults();
+      const okCount = results.filter((r) => r.ok).length;
+      const failCount = results.length - okCount;
+      const failures = buildFailureSummaries(results);
+      await notionJobStore.setJob({
+        id: jobId,
+        provider: SYNC_PROVIDER,
+        instanceId,
+        status: 'done',
+        startedAt: jobStartedAt,
+        updatedAt: Date.now(),
+        finishedAt: Date.now(),
+        conversationIds: ids,
+        currentConversationId: undefined,
+        currentConversationTitle: undefined,
+        currentStage: undefined,
+        okCount,
+        failCount,
+        perConversation: toPerConversationSnapshot(results),
+      });
+      return { provider: SYNC_PROVIDER, results, okCount, failCount, failures, jobId, instanceId };
+    } catch (e) {
+      const now = Date.now();
+      try {
+        const message = normalizeNotionSyncError(e);
+        const results = ids.map((conversationId) => ({
+          conversationId,
+          conversationTitle: '',
+          ok: false,
+          mode: 'failed',
+          appended: 0,
+          error: message || 'sync failed',
+          warnings: [],
+          at: now,
+        }));
+        await notionJobStore.setJob({
+          id: jobId,
+          provider: SYNC_PROVIDER,
+          instanceId,
+          status: 'done',
+          startedAt: jobStartedAt,
+          updatedAt: now,
+          finishedAt: now,
+          conversationIds: ids,
+          currentConversationId: undefined,
+          currentConversationTitle: undefined,
+          currentStage: undefined,
+          okCount: 0,
+          failCount: ids.length,
+          perConversation: toPerConversationSnapshot(results),
+        });
+      } catch (_err) {
+        // ignore
+      }
+      throw e;
+    }
   }
 
   return {
