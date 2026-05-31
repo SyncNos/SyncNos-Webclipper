@@ -158,6 +158,33 @@ describe('notionai-collector', () => {
     ]);
   });
 
+  it('does not drop newly appended turns when chat history is split across multiple list roots', () => {
+    const html = `
+      <div id="list1">
+        <div class="u-item"><div data-agent-chat-user-step-id="u1"><div data-content-editable-leaf="true">U1</div></div></div>
+        <div class="a-item"><div data-block-id="a1"><div data-content-editable-leaf="true">A1</div></div></div>
+        <div class="u-item"><div data-agent-chat-user-step-id="u2"><div data-content-editable-leaf="true">U2</div></div></div>
+        <div class="a-item"><div data-block-id="a2"><div data-content-editable-leaf="true">A2</div></div></div>
+      </div>
+
+      <div id="list2">
+        <div class="u-item"><div data-agent-chat-user-step-id="u3"><div data-content-editable-leaf="true">U3</div></div></div>
+        <div class="a-item"><div data-block-id="a3"><div data-content-editable-leaf="true">A3</div></div></div>
+      </div>
+    `;
+
+    const dom = new JSDOM(`<body>${html}</body>`, {
+      url: 'https://app.notion.com/chiimagnus/Some-Page-0123456789abcdef0123456789abcdef',
+    });
+    setupDom(dom);
+    const { collector } = createCollectorHarness();
+
+    const snap = collector.capture();
+    expect(snap).toBeTruthy();
+    expect(snap.messages.map((m: any) => m && m.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'user', 'assistant']);
+    expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual(['U1', 'A1', 'U2', 'A2', 'U3', 'A3']);
+  });
+
   it('resolves relative notion page mentions to full markdown links', () => {
     const html = `<div data-agent-chat-user-step-id="u1"><div style="padding-top: 6px; padding-bottom: 6px; padding-inline: 14px; border-radius: 16px;"><div data-content-editable-leaf="true">我们来看看这个 <a href="/343be9d6386a806b9a55ea7833f2c0b5?pvs=24" class="notion-page-mention-token notion-text-mention-token notion-focusable-token notion-enable-hover" contenteditable="false" tabindex="0"><span class="notion-page-mention-token__title">全自主鸿蒙智能探地雷达地质建模与隐患检测预警技术研发与应用示范</span></a></div></div></div><div class="autolayout-col autolayout-fill-width"><div data-block-id="a1"><div data-content-editable-leaf="true">assistant</div></div></div>`;
 
