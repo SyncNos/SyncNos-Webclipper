@@ -67,6 +67,11 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     return (scope || document).querySelector('[data-agent-chat-user-step-id]');
   }
 
+  function getLastUserStepEl(scope?: any): any {
+    const steps: any[] = Array.from((scope || document).querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
+    return steps.length ? steps[steps.length - 1] : null;
+  }
+
   function findScrollContainerFromSeed(seed: any): any {
     if (!seed) return null;
     let el = seed.parentElement;
@@ -86,7 +91,7 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   }
 
   function findScrollContainer(): any {
-    return findScrollContainerFromSeed(getAnyUserStepEl());
+    return findScrollContainerFromSeed(getLastUserStepEl() || getAnyUserStepEl());
   }
 
   function isVisible(el: any): any {
@@ -109,7 +114,8 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   }
 
   function findCandidateRoots(): any {
-    const seeds: any[] = Array.from(document.querySelectorAll('[data-agent-chat-user-step-id]')).slice(0, 20) as any[];
+    const allSteps: any[] = Array.from(document.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
+    const seeds: any[] = allSteps.slice(Math.max(0, allSteps.length - 20)) as any[];
     if (!seeds.length) return [];
     const set = new Set();
     for (const s of seeds) {
@@ -308,45 +314,60 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   }
 
   function getTurnWrappers(root: any): any {
-    const uniqueNodes = new Set();
     const scope = root || document;
     const userSteps: any[] = Array.from(scope.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
     if (!userSteps.length) return [];
 
-    const listRoot = findTurnsListRoot(userSteps[0], scope === document ? null : scope, userSteps.length);
-    if (listRoot) {
-      const inListSteps: any[] = Array.from(listRoot.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
-      for (const step of inListSteps) {
-        const userItem = directChildContaining(listRoot, step);
-        const assistantItem = userItem ? findNextAssistantContainerFromUserItem(userItem, listRoot) : null;
-        uniqueNodes.add(step);
-        if (assistantItem) uniqueNodes.add(assistantItem);
+    const ordered: any[] = [];
+    const seen = new Set<any>();
+    const pushUnique = (node: any) => {
+      if (!node || seen.has(node)) return;
+      seen.add(node);
+      ordered.push(node);
+    };
+
+    // Important: Notion AI chat UIs may render "user" and "assistant" DOM nodes in different subtrees (or reorder them),
+    // so the raw DOM order is not a reliable proxy for conversation order. We anchor on user steps (which are ordered)
+    // and then attach their corresponding assistant wrappers, preserving the intended `user -> assistant` alternation.
+    //
+    // Also, Notion may virtualize chat history into multiple list containers. A single inferred "list root" can miss
+    // newly appended turns. We still try to use a list root when it helps pairing, but we always iterate all user steps
+    // to guarantee coverage.
+    const boundaryRoot = scope === document ? null : scope;
+    const seedCandidates = [userSteps[0], userSteps[Math.floor(userSteps.length / 2)], userSteps[userSteps.length - 1]]
+      .filter(Boolean)
+      .filter((x, idx, arr) => arr.indexOf(x) === idx);
+    let listRoot: any = null;
+    let listRootCoverage = 0;
+    for (const seed of seedCandidates) {
+      const candidate = findTurnsListRoot(seed, boundaryRoot, userSteps.length);
+      if (!candidate || !candidate.querySelectorAll) continue;
+      const count = candidate.querySelectorAll('[data-agent-chat-user-step-id]').length;
+      if (count > listRootCoverage) {
+        listRoot = candidate;
+        listRootCoverage = count;
       }
-    } else {
-      for (const userStep of userSteps) {
-        // Important: tuple/assistant may render outside the chosen scroll container.
-        // Still anchor on user steps within `scope` to avoid capturing sidebar/page blocks.
+    }
+
+    for (const userStep of userSteps) {
+      pushUnique(userStep);
+
+      let assistantWrapper: any = null;
+      if (listRoot && listRoot.contains && listRoot.contains(userStep)) {
+        const userItem = directChildContaining(listRoot, userStep);
+        assistantWrapper = userItem ? findNextAssistantContainerFromUserItem(userItem, listRoot) : null;
+      }
+
+      if (!assistantWrapper) {
         const byChildren = findTupleAndAssistantByChildren(userStep);
         const tuple = byChildren.tuple || findMessageTupleFromUserStep(userStep, document) || null;
-        const assistantWrapper =
-          byChildren.assistantWrapper || (tuple ? findAssistantWrapperFromTuple(tuple, userStep) : null);
-        uniqueNodes.add(userStep);
-        if (assistantWrapper) uniqueNodes.add(assistantWrapper);
+        assistantWrapper = byChildren.assistantWrapper || (tuple ? findAssistantWrapperFromTuple(tuple, userStep) : null);
       }
+
+      if (assistantWrapper) pushUnique(assistantWrapper);
     }
 
-    const finalNodes: any[] = [];
-    for (const node of Array.from(uniqueNodes) as any[]) {
-      const isChild = finalNodes.some((parent) => parent.contains(node));
-      if (!isChild) finalNodes.push(node);
-    }
-
-    const DOCUMENT_POSITION_FOLLOWING = window?.Node?.DOCUMENT_POSITION_FOLLOWING ?? 4;
-    finalNodes.sort((a, b) => {
-      if (a === b) return 0;
-      return a.compareDocumentPosition(b) & DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-    });
-    return finalNodes;
+    return ordered;
   }
 
   function roleFromWrapper(wrapper: any): any {
@@ -440,7 +461,11 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     const picked = pickBestRoot(candidates);
     const root = picked.root;
     const wrappersInRoot: any[] = root ? getTurnWrappers(root) : [];
-    const wrappers: any[] = wrappersInRoot.length ? wrappersInRoot : getTurnWrappers(document);
+    // Notion AI chat turns may render across multiple nested/portaled containers. Even when a "best" scroll
+    // container is found, it can miss newly appended turns, causing auto-save to drop user messages.
+    // Always derive the wrapper order from the full document so we never miss visible turns.
+    const wrappersDoc: any[] = getTurnWrappers(document) || [];
+    const wrappers: any[] = wrappersDoc.length ? wrappersDoc : wrappersInRoot;
     if (!wrappers.length) return null;
 
     const messages: any[] = [];
@@ -577,7 +602,17 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
 
   const collector: any = {
     capture,
-    getRoot: () => pickBestRoot(findCandidateRoots()).root,
+    getRoot: () => {
+      if (!isNotionAiPage()) return null;
+      const seed = getLastUserStepEl(document) || getAnyUserStepEl(document);
+      if (!seed) return null;
+      const candidates = findCandidateRoots();
+      const picked = pickBestRoot(candidates);
+      const boundaryRoot = picked.root && picked.root !== document ? picked.root : null;
+      const boundaryUserCount = boundaryRoot ? boundaryRoot.querySelectorAll('[data-agent-chat-user-step-id]').length : 0;
+      const listRoot = findTurnsListRoot(seed, boundaryRoot, boundaryUserCount);
+      return listRoot || picked.root || document.scrollingElement || document.documentElement || document.body;
+    },
     __test: {
       matches,
       inpageMatches,
