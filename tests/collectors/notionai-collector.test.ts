@@ -185,6 +185,33 @@ describe('notionai-collector', () => {
     expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual(['U1', 'A1', 'U2', 'A2', 'U3', 'A3']);
   });
 
+  it('does not capture workspace blocks as assistant before the first assistant reply renders', () => {
+    const html = `
+      <div id="layout">
+        <div id="workspace">
+          <div data-block-id="p1"><div data-content-editable-leaf="true">Workspace Block 1</div></div>
+          <div data-block-id="p2"><div data-content-editable-leaf="true">Workspace Block 2</div></div>
+        </div>
+
+        <div id="chat-panel">
+          <div data-agent-chat-user-step-id="u1"><div data-content-editable-leaf="true">User message</div></div>
+          <div role="button" data-testid="agent-send-message-button"></div>
+        </div>
+      </div>
+    `;
+
+    const dom = new JSDOM(`<body>${html}</body>`, {
+      url: 'https://app.notion.com/chat?t=0123456789abcdef0123456789abcdef&wfv=chat',
+    });
+    setupDom(dom);
+    const { collector } = createCollectorHarness();
+
+    const snap = collector.capture();
+    expect(snap).toBeTruthy();
+    expect(snap.messages.map((m: any) => m && m.role)).toEqual(['user']);
+    expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual(['User message']);
+  });
+
   it('resolves relative notion page mentions to full markdown links', () => {
     const html = `<div data-agent-chat-user-step-id="u1"><div style="padding-top: 6px; padding-bottom: 6px; padding-inline: 14px; border-radius: 16px;"><div data-content-editable-leaf="true">我们来看看这个 <a href="/343be9d6386a806b9a55ea7833f2c0b5?pvs=24" class="notion-page-mention-token notion-text-mention-token notion-focusable-token notion-enable-hover" contenteditable="false" tabindex="0"><span class="notion-page-mention-token__title">全自主鸿蒙智能探地雷达地质建模与隐患检测预警技术研发与应用示范</span></a></div></div></div><div class="autolayout-col autolayout-fill-width"><div data-block-id="a1"><div data-content-editable-leaf="true">assistant</div></div></div>`;
 
