@@ -8,6 +8,9 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   const document = env.document;
   const location = env.location;
 
+  const NOTION_AI_CHAT_CHROME_SELECTOR =
+    '[data-testid="agent-send-message-button"], [data-testid="unified-chat-model-button"]';
+
   function isNotionWebHost(hostname: unknown): boolean {
     const host = String(hostname || '')
       .trim()
@@ -70,6 +73,25 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   function getLastUserStepEl(scope?: any): any {
     const steps: any[] = Array.from((scope || document).querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
     return steps.length ? steps[steps.length - 1] : null;
+  }
+
+  function findChatBoundaryRootFromUserStep(userStep: any): any {
+    if (!userStep) return null;
+    let el = userStep;
+    for (let depth = 0; depth < 60 && el; depth += 1) {
+      try {
+        if (
+          el.querySelector?.('[data-agent-chat-user-step-id]') &&
+          el.querySelector?.(NOTION_AI_CHAT_CHROME_SELECTOR)
+        ) {
+          return el;
+        }
+      } catch (_e) {
+        // ignore
+      }
+      el = el.parentElement;
+    }
+    return null;
   }
 
   function findScrollContainerFromSeed(seed: any): any {
@@ -234,13 +256,14 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     return null;
   }
 
-  function findTupleAndAssistantByChildren(userStep: any): any {
+  function findTupleAndAssistantByChildren(userStep: any, boundaryRoot?: any): any {
     if (!userStep) return { tuple: null, assistantWrapper: null };
     let el = userStep;
 
     for (let depth = 0; depth < 40 && el && el.parentElement; depth += 1) {
       el = el.parentElement;
       if (!el || !el.children) continue;
+      if (boundaryRoot && el === boundaryRoot.parentElement) break;
 
       const userSteps = el.querySelectorAll ? el.querySelectorAll('[data-agent-chat-user-step-id]') : [];
       if (!userSteps || userSteps.length !== 1 || userSteps[0] !== userStep) continue;
@@ -315,7 +338,13 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
 
   function getTurnWrappers(root: any): any {
     const scope = root || document;
-    const userSteps: any[] = Array.from(scope.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
+    const initialUserSteps: any[] = Array.from(scope.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
+    if (!initialUserSteps.length) return [];
+
+    const boundaryScope =
+      scope === document ? findChatBoundaryRootFromUserStep(initialUserSteps[initialUserSteps.length - 1]) : null;
+    const effectiveScope = boundaryScope && boundaryScope.querySelector ? boundaryScope : scope;
+    const userSteps: any[] = Array.from(effectiveScope.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
     if (!userSteps.length) return [];
 
     const ordered: any[] = [];
@@ -333,14 +362,17 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     // Also, Notion may virtualize chat history into multiple list containers. A single inferred "list root" can miss
     // newly appended turns. We still try to use a list root when it helps pairing, but we always iterate all user steps
     // to guarantee coverage.
-    const boundaryRoot = scope === document ? null : scope;
+    const boundaryRoot = effectiveScope === document ? null : effectiveScope;
+    const totalUserStepsInBoundary = boundaryRoot
+      ? boundaryRoot.querySelectorAll('[data-agent-chat-user-step-id]').length
+      : userSteps.length;
     const seedCandidates = [userSteps[0], userSteps[Math.floor(userSteps.length / 2)], userSteps[userSteps.length - 1]]
       .filter(Boolean)
       .filter((x, idx, arr) => arr.indexOf(x) === idx);
     let listRoot: any = null;
     let listRootCoverage = 0;
     for (const seed of seedCandidates) {
-      const candidate = findTurnsListRoot(seed, boundaryRoot, userSteps.length);
+      const candidate = findTurnsListRoot(seed, boundaryRoot, totalUserStepsInBoundary);
       if (!candidate || !candidate.querySelectorAll) continue;
       const count = candidate.querySelectorAll('[data-agent-chat-user-step-id]').length;
       if (count > listRootCoverage) {
@@ -359,8 +391,8 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       }
 
       if (!assistantWrapper) {
-        const byChildren = findTupleAndAssistantByChildren(userStep);
-        const tuple = byChildren.tuple || findMessageTupleFromUserStep(userStep, document) || null;
+        const byChildren = findTupleAndAssistantByChildren(userStep, boundaryRoot || null);
+        const tuple = byChildren.tuple || findMessageTupleFromUserStep(userStep, effectiveScope) || null;
         assistantWrapper = byChildren.assistantWrapper || (tuple ? findAssistantWrapperFromTuple(tuple, userStep) : null);
       }
 
