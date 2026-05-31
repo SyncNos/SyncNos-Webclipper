@@ -308,10 +308,20 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   }
 
   function getTurnWrappers(root: any): any {
-    const uniqueNodes = new Set();
     const scope = root || document;
     const userSteps: any[] = Array.from(scope.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
     if (!userSteps.length) return [];
+
+    // Important: Notion AI chat UIs may render "user" and "assistant" DOM nodes in different subtrees (or reorder them),
+    // so the raw DOM order is not a reliable proxy for conversation order. We anchor on user steps (which are ordered)
+    // and then attach their corresponding assistant wrappers, preserving the intended `user -> assistant` alternation.
+    const ordered: any[] = [];
+    const seen = new Set<any>();
+    const pushUnique = (node: any) => {
+      if (!node || seen.has(node)) return;
+      seen.add(node);
+      ordered.push(node);
+    };
 
     const listRoot = findTurnsListRoot(userSteps[0], scope === document ? null : scope, userSteps.length);
     if (listRoot) {
@@ -319,8 +329,8 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       for (const step of inListSteps) {
         const userItem = directChildContaining(listRoot, step);
         const assistantItem = userItem ? findNextAssistantContainerFromUserItem(userItem, listRoot) : null;
-        uniqueNodes.add(step);
-        if (assistantItem) uniqueNodes.add(assistantItem);
+        pushUnique(step);
+        if (assistantItem) pushUnique(assistantItem);
       }
     } else {
       for (const userStep of userSteps) {
@@ -330,23 +340,12 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
         const tuple = byChildren.tuple || findMessageTupleFromUserStep(userStep, document) || null;
         const assistantWrapper =
           byChildren.assistantWrapper || (tuple ? findAssistantWrapperFromTuple(tuple, userStep) : null);
-        uniqueNodes.add(userStep);
-        if (assistantWrapper) uniqueNodes.add(assistantWrapper);
+        pushUnique(userStep);
+        if (assistantWrapper) pushUnique(assistantWrapper);
       }
     }
 
-    const finalNodes: any[] = [];
-    for (const node of Array.from(uniqueNodes) as any[]) {
-      const isChild = finalNodes.some((parent) => parent.contains(node));
-      if (!isChild) finalNodes.push(node);
-    }
-
-    const DOCUMENT_POSITION_FOLLOWING = window?.Node?.DOCUMENT_POSITION_FOLLOWING ?? 4;
-    finalNodes.sort((a, b) => {
-      if (a === b) return 0;
-      return a.compareDocumentPosition(b) & DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-    });
-    return finalNodes;
+    return ordered;
   }
 
   function roleFromWrapper(wrapper: any): any {
