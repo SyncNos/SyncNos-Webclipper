@@ -12,7 +12,7 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 [![Chrome Version](https://img.shields.io/chrome-web-store/v/hmgjflllphdffeocddjjcfllifhejpok)](https://chromewebstore.google.com/detail/syncnos-webclipper/hmgjflllphdffeocddjjcfllifhejpok)
 [![Edge Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fijkpghlfmkbjcgafapjcjahaikmnjncl&query=%24.version&label=Edge%20Add-ons&color=blue)](https://microsoftedge.microsoft.com/addons/detail/syncnosaiweb-clipper/ijkpghlfmkbjcgafapjcjahaikmnjncl)
 [![Firefox Version](https://img.shields.io/amo/v/syncnos-webclipper)](https://addons.mozilla.org/firefox/addon/syncnos-webclipper/)
-![Safari](https://img.shields.io/badge/Safari-16.4%2B-blue?logo=safari)
+![Safari](https://img.shields.io/badge/Safari-blue?logo=safari)
 [![Release Downloads](https://img.shields.io/github/downloads/SyncNos/SyncNos-Webclipper/total)](https://github.com/SyncNos/SyncNos-Webclipper/releases)
 
 </div>
@@ -30,17 +30,10 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 
 | Channel | Download |
 | --- | --- |
-| Chrome | [Chrome Web Store](https://chromewebstore.google.com/detail/syncnos-webclipper/hmgjflllphdffeocddjjcfllifhejpok) |
+| Chrome、Arc / Brave / other Chromium  | [Chrome Web Store](https://chromewebstore.google.com/detail/syncnos-webclipper/hmgjflllphdffeocddjjcfllifhejpok) |
 | Edge | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/syncnosaiweb-clipper/ijkpghlfmkbjcgafapjcjahaikmnjncl) |
-| Firefox | [Firefox AMO](https://addons.mozilla.org/firefox/addon/syncnos-webclipper/) |
-| Safari (macOS / iOS) | [Build from source](#safari) — requires Xcode 14.1+ |
-| Arc / Brave / other Chromium | Use the Chrome Web Store link |
-
-## Get Started in 3 Steps
-
-1. **Install the extension** (Chrome / Edge / Firefox / Arc / [Safari](#safari))
-2. **Open any supported AI platform, web page, or video page** — the extension captures conversations, articles, and loaded subtitles in the background
-3. **Sync or export** — go to Settings to sync to Notion / Obsidian / Feishu, or export Markdown / Zip backups
+| Firefox | [Firefox](https://addons.mozilla.org/firefox/addon/syncnos-webclipper/) |
+| Safari (macOS / iOS) | Build from source — requires Xcode 14.1+ |
 
 ## Demo Video
 
