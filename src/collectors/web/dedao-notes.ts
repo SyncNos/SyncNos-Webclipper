@@ -194,25 +194,72 @@ async function closeOpenNoteModal(doc: Document) {
   await wait(FALLBACK_CLOSE_WAIT_MS);
 }
 
-function clickElement(el: Element) {
+function dispatchPointerSequence(node: Element, point?: { clientX: number; clientY: number }) {
+  const common = {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    clientX: point?.clientX || 0,
+    clientY: point?.clientY || 0,
+  };
+
+  const pointerCtor = (globalThis as any).PointerEvent;
+  try {
+    if (typeof pointerCtor === 'function') {
+      node.dispatchEvent(
+        new pointerCtor('pointerdown', { ...common, pointerId: 1, pointerType: 'mouse', isPrimary: true }),
+      );
+      node.dispatchEvent(
+        new pointerCtor('pointerup', { ...common, pointerId: 1, pointerType: 'mouse', isPrimary: true }),
+      );
+    }
+  } catch (_error) {
+    // ignore
+  }
+
+  try {
+    node.dispatchEvent(new MouseEvent('mousedown', common));
+    node.dispatchEvent(new MouseEvent('mouseup', common));
+    node.dispatchEvent(new MouseEvent('click', common));
+  } catch (_error) {
+    // ignore
+  }
+}
+
+function resolveClickableTargets(el: Element): Array<{ node: Element; point?: { clientX: number; clientY: number } }> {
+  const rect = (el as HTMLElement).getBoundingClientRect?.();
+  if (rect && rect.width > 0 && rect.height > 0) {
+    const clientX = rect.left + Math.min(rect.width / 2, Math.max(1, rect.width - 1));
+    const clientY = rect.top + Math.min(rect.height / 2, Math.max(1, rect.height - 1));
+    const stack = typeof document.elementsFromPoint === 'function' ? document.elementsFromPoint(clientX, clientY) : [];
+    const targets = stack
+      .filter(Boolean)
+      .slice(0, 6)
+      .map((node) => ({ node, point: { clientX, clientY } }));
+    if (targets.length) return targets;
+  }
+
   const target = el as any;
-  const attempts = [target, target?.parentElement, target?.ownerSVGElement].filter(Boolean);
-  for (const node of attempts) {
+  return [target, target?.parentElement, target?.ownerSVGElement].filter(Boolean).map((node) => ({ node }));
+}
+
+function clickElement(el: Element) {
+  const attempts = resolveClickableTargets(el);
+  for (const { node, point } of attempts) {
     try {
-      if (typeof node.click === 'function') {
-        node.click();
-        return;
+      if (typeof (node as any).click === 'function') {
+        (node as any).click();
       }
     } catch (_error) {
       // ignore
     }
-    try {
-      node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-      return;
-    } catch (_error) {
-      // ignore
-    }
+    dispatchPointerSequence(node, point);
   }
+  return attempts.map(({ node }) => ({
+    tag: String((node as any)?.tagName || ''),
+    className: String((node as any)?.className?.baseVal || (node as any)?.className || ''),
+    text: safeText((node as any)?.textContent || '').slice(0, 80),
+  }));
 }
 
 export async function extractDedaoNotesByMarkerFallback(doc: Document, loc: Location | URL): Promise<DedaoExtractedNote[]> {
@@ -246,12 +293,13 @@ export async function extractDedaoNotesByMarkerFallback(doc: Document, loc: Loca
   try {
     for (const target of markerTargets) {
       lastPayload = null;
-      clickElement(target);
+      const clickedTargets = clickElement(target);
       await wait(FALLBACK_CLICK_WAIT_MS);
 
       const note = normalizeNoteFromMarkerPayload(lastPayload, doc);
       console.info('[DedaoNotes] marker click result', {
         text: safeText((target as any)?.textContent || ''),
+        clickedTargets,
         hadPayload: Boolean(lastPayload),
         externalId: note?.externalId || '',
         quoteLen: note?.quoteText?.length || 0,
