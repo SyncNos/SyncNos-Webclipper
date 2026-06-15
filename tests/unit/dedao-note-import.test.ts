@@ -149,4 +149,60 @@ describe('dedao note import service', () => {
       errorMessage: 'timed out',
     });
   });
+
+  it('preserves malformed payload semantics and fails open on repo errors', async () => {
+    const malformed = await importDedaoArticleNotes(
+      {
+        canonicalUrl: 'https://www.dedao.cn/course/article?id=1',
+        conversationId: 42,
+      },
+      {
+        extractNotes: vi.fn(async () => ({
+          __syncnos: true,
+          type: 'SYNCNOS_DEDAO_GUI_NOTES_RESPONSE',
+          requestId: 'req-3',
+          ok: false,
+          status: 'malformed_payload',
+          notes: [],
+          error: {
+            code: 'malformed_payload',
+            message: 'bad payload',
+            recoverable: true,
+          },
+        })),
+      },
+    );
+    expect(malformed).toMatchObject({
+      bridgeStatus: 'malformed_payload',
+      importedCount: 0,
+      errorMessage: 'bad payload',
+    });
+
+    const repoFailure = await importDedaoArticleNotes(
+      {
+        canonicalUrl: 'https://www.dedao.cn/course/article?id=1',
+        conversationId: 42,
+      },
+      {
+        extractNotes: vi.fn(async () => ({
+          __syncnos: true,
+          type: 'SYNCNOS_DEDAO_GUI_NOTES_RESPONSE',
+          requestId: 'req-4',
+          ok: true,
+          status: 'success',
+          error: null,
+          notes: [{ externalId: 'n-1', quoteText: '摘录', commentText: '笔记' }],
+        })),
+        listExisting: vi.fn(async () => {
+          throw new Error('comments repo unavailable');
+        }),
+      },
+    );
+
+    expect(repoFailure).toMatchObject({
+      bridgeStatus: 'failed_open',
+      importedCount: 0,
+      errorMessage: 'comments repo unavailable',
+    });
+  });
 });
