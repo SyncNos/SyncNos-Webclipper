@@ -49,15 +49,17 @@ describe('dedao gui notes model', () => {
     const deduped = dedupeDedaoGuiNotes([
       { externalId: 'abc', quoteText: 'q1', commentText: 'c1' },
       { externalId: 'abc', quoteText: 'q1 changed', commentText: 'c1 changed' },
-      { externalId: '', quoteText: 'q2', commentText: 'c2' },
-      { externalId: '', quoteText: ' q2 ', commentText: ' c2 ' },
+      { externalId: '', quoteText: 'q2', commentText: 'c2', markerVisitKey: 'm1' },
+      { externalId: '', quoteText: ' q2 ', commentText: ' c2 ', markerVisitKey: 'm1' },
+      { externalId: '', quoteText: 'q2', commentText: 'c2', markerVisitKey: 'm2' },
       { externalId: '', quoteText: 'q3', commentText: 'c3' },
       { externalId: '', quoteText: '', commentText: 'c4' },
     ]);
 
     expect(deduped).toEqual([
       { externalId: 'abc', quoteText: 'q1', commentText: 'c1' },
-      { externalId: '', quoteText: 'q2', commentText: 'c2' },
+      { externalId: '', quoteText: 'q2', commentText: 'c2', markerVisitKey: 'm1' },
+      { externalId: '', quoteText: 'q2', commentText: 'c2', markerVisitKey: 'm2' },
       { externalId: '', quoteText: 'q3', commentText: 'c3' },
     ]);
 

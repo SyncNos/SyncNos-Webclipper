@@ -153,7 +153,7 @@ function dispatchMouseSequence(target: EventTarget, point?: DedaoGuiNotePoint) {
   }
 }
 
-function resolveClickTargets(doc: Document, marker: DedaoGuiNoteMarker): EventTarget[] {
+function resolveClickTargets(doc: Document, marker: DedaoGuiNoteMarker, point: DedaoGuiNotePoint): EventTarget[] {
   const targets: EventTarget[] = [];
   const seen = new Set<EventTarget>();
 
@@ -168,9 +168,8 @@ function resolveClickTargets(doc: Document, marker: DedaoGuiNoteMarker): EventTa
 
   const pointApi = (doc as any).elementsFromPoint;
   if (typeof pointApi === 'function') {
-    for (const point of marker.candidatePoints) {
-      const hits = pointApi.call(doc, point.x, point.y);
-      if (!Array.isArray(hits)) continue;
+    const hits = pointApi.call(doc, point.x, point.y);
+    if (Array.isArray(hits)) {
       for (const hit of hits) add(hit);
     }
   }
@@ -178,14 +177,27 @@ function resolveClickTargets(doc: Document, marker: DedaoGuiNoteMarker): EventTa
   return targets;
 }
 
+function findNearbyQuoteText(marker: DedaoGuiNoteMarker): string {
+  let current = marker.element.closest?.('svg')?.previousElementSibling || null;
+  let hops = 0;
+
+  while (current && hops < 3) {
+    const tag = String((current as HTMLElement).tagName || '').toUpperCase();
+    if (tag === 'P' || tag === 'LI' || tag === 'BLOCKQUOTE') {
+      return normalizeDedaoGuiText((current as HTMLElement).innerText || current.textContent || '');
+    }
+    current = current.previousElementSibling;
+    hops += 1;
+  }
+
+  return '';
+}
+
 function defaultReadQuoteText(doc: Document, marker: DedaoGuiNoteMarker): string {
   const selection = doc.defaultView?.getSelection?.();
   const fromSelection = normalizeDedaoGuiText(selection?.toString?.());
   if (fromSelection) return fromSelection;
-
-  const articleTextNode = marker.element.closest?.('svg')?.previousElementSibling;
-  const fromNearby = normalizeDedaoGuiText((articleTextNode as any)?.textContent || '');
-  return fromNearby;
+  return findNearbyQuoteText(marker);
 }
 
 async function waitForNoteContent(
@@ -207,24 +219,28 @@ async function defaultClickMarker(
   marker: DedaoGuiNoteMarker,
   options: Required<Pick<DedaoGuiNotesExtractorOptions, 'document' | 'waitTimeoutMs' | 'pollIntervalMs'>>,
 ): Promise<DedaoGuiNoteInteractionResult | null> {
-  const clickTargets = resolveClickTargets(options.document, marker);
-  for (const target of clickTargets) {
-    dispatchMouseSequence(target, marker.candidatePoints[0]);
-  }
+  const perPointTimeoutMs = Math.max(options.pollIntervalMs, Math.floor(options.waitTimeoutMs / Math.max(1, marker.candidatePoints.length)));
 
-  const noteNode = await waitForNoteContent(options.document, options.waitTimeoutMs, options.pollIntervalMs);
-  if (!noteNode) {
+  for (const point of marker.candidatePoints) {
+    const clickTargets = resolveClickTargets(options.document, marker, point);
+    for (const target of clickTargets) {
+      dispatchMouseSequence(target, point);
+    }
+
+    const noteNode = await waitForNoteContent(options.document, perPointTimeoutMs, options.pollIntervalMs);
+    if (!noteNode) continue;
+
     return {
-      opened: false,
-      failureReason: 'note_content_not_found',
+      opened: true,
+      markerText: marker.text,
+      commentText: normalizeDedaoGuiText(noteNode.innerText || noteNode.textContent || ''),
+      quoteText: defaultReadQuoteText(options.document, marker),
     };
   }
 
   return {
-    opened: true,
-    markerText: marker.text,
-    commentText: normalizeDedaoGuiText(noteNode.innerText || noteNode.textContent || ''),
-    quoteText: defaultReadQuoteText(options.document, marker),
+    opened: false,
+    failureReason: 'note_content_not_found',
   };
 }
 
@@ -274,41 +290,48 @@ export async function extractDedaoGuiNotesFromDocument(
     if (visitedMarkerKeys.has(marker.visitKey)) continue;
     visitedMarkerKeys.add(marker.visitKey);
 
-    const clicked = (await clickMarker(marker)) || null;
-    const openedNote = (await readCurrentNote({ document: doc, marker })) || null;
-
-    const merged = {
-      markerText: marker.text,
-      ...clicked,
-      ...openedNote,
-      quoteText:
-        normalizeDedaoGuiText(openedNote?.quoteText) ||
-        normalizeDedaoGuiText(clicked?.quoteText) ||
-        defaultReadQuoteText(doc, marker),
-      commentText:
-        normalizeDedaoGuiText(openedNote?.commentText) || normalizeDedaoGuiText(clicked?.commentText),
-      externalId: normalizeDedaoGuiText(openedNote?.externalId) || normalizeDedaoGuiText(clicked?.externalId),
-      range: normalizeDedaoGuiText(openedNote?.range) || normalizeDedaoGuiText(clicked?.range),
-    };
-
-    const normalized = normalizeDedaoGuiNote(merged);
-    if (normalized) {
-      collected.push(normalized);
-      debugLog?.('marker_collected', {
-        markerIndex: marker.index,
-        externalId: normalized.externalId,
-        quoteLen: normalized.quoteText.length,
-        commentLen: normalized.commentText.length,
-      });
-    } else {
-      debugLog?.('marker_skipped', {
+    try {
+      const clicked = (await clickMarker(marker)) || null;
+      const openedNote = (await readCurrentNote({ document: doc, marker })) || null;
+      const merged = {
+        markerText: marker.text,
+        markerVisitKey: marker.visitKey,
+        ...clicked,
+        ...openedNote,
+        quoteText:
+          normalizeDedaoGuiText(openedNote?.quoteText) ||
+          normalizeDedaoGuiText(clicked?.quoteText) ||
+          defaultReadQuoteText(doc, marker),
+        commentText:
+          normalizeDedaoGuiText(openedNote?.commentText) || normalizeDedaoGuiText(clicked?.commentText),
+        externalId: normalizeDedaoGuiText(openedNote?.externalId) || normalizeDedaoGuiText(clicked?.externalId),
+        range: normalizeDedaoGuiText(openedNote?.range) || normalizeDedaoGuiText(clicked?.range),
+      };
+      const normalized = normalizeDedaoGuiNote(merged);
+      if (normalized) {
+        collected.push(normalized);
+        debugLog?.('marker_collected', {
+          markerIndex: marker.index,
+          externalId: normalized.externalId,
+          quoteLen: normalized.quoteText.length,
+          commentLen: normalized.commentText.length,
+        });
+      } else {
+        debugLog?.('marker_skipped', {
+          markerIndex: marker.index,
+          visitKey: marker.visitKey,
+          opened: Boolean(clicked?.opened || openedNote?.opened),
+        });
+      }
+    } catch (error) {
+      debugLog?.('marker_error', {
         markerIndex: marker.index,
         visitKey: marker.visitKey,
-        opened: Boolean(clicked?.opened || openedNote?.opened),
+        reason: error instanceof Error ? error.message : String(error || 'unknown error'),
       });
+    } finally {
+      await closeCurrentNote({ document: doc, marker });
     }
-
-    await closeCurrentNote({ document: doc, marker });
   }
 
   const deduped = dedupeDedaoGuiNotes(collected);

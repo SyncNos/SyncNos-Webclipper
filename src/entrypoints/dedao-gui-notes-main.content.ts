@@ -2,9 +2,11 @@ import {
   DEDAO_GUI_NOTES_BRIDGE_TYPES,
   createDedaoGuiNotesBridgeFailureResponse,
   createDedaoGuiNotesBridgeSuccessResponse,
+  isDedaoGuiNotesBridgeResponse,
   type DedaoGuiNotesBridgeRequest,
   type DedaoGuiNotesBridgeResponse,
 } from '@collectors/web/dedao-gui-notes-bridge-contract';
+import { dedupeDedaoGuiNotes, normalizeDedaoGuiNote, type DedaoGuiNoteInput } from '@collectors/web/dedao-gui-notes-model';
 import { extractDedaoGuiNotesFromDocument } from '@collectors/web/dedao-gui-notes-dom-extractor';
 
 export const DEDAO_GUI_NOTES_MAIN_WORLD_MATCHES = [
@@ -76,6 +78,28 @@ async function withTimeout<T>(task: Promise<T>, timeoutMs: number): Promise<T> {
   }
 }
 
+function normalizeBridgeNotesPayload(payload: unknown) {
+  if (!Array.isArray(payload)) {
+    return {
+      ok: false as const,
+      reason: 'extractor returned non-array payload',
+    };
+  }
+
+  const normalized = payload.map((item) => normalizeDedaoGuiNote(item as DedaoGuiNoteInput));
+  if (normalized.some((item) => item == null)) {
+    return {
+      ok: false as const,
+      reason: 'extractor returned malformed note payload',
+    };
+  }
+
+  return {
+    ok: true as const,
+    notes: dedupeDedaoGuiNotes(normalized),
+  };
+}
+
 export async function executeDedaoGuiNotesBridgeRequest(
   request: DedaoGuiNotesBridgeRequest,
   deps: {
@@ -99,16 +123,26 @@ export async function executeDedaoGuiNotesBridgeRequest(
   const timeoutMs = Math.max(100, Math.floor(Number(request.timeoutMs) || DEFAULT_BRIDGE_TIMEOUT_MS));
 
   try {
-    const notes = await withTimeout(
+    const rawNotes = await withTimeout(
       extractNotes({
         document: deps.document || document,
         waitTimeoutMs: timeoutMs,
       }),
       timeoutMs,
     );
+    const normalizedPayload = normalizeBridgeNotesPayload(rawNotes);
+    if (!normalizedPayload.ok) {
+      return createDedaoGuiNotesBridgeFailureResponse({
+        requestId: request.requestId,
+        status: 'malformed_payload',
+        code: 'malformed_payload',
+        message: normalizedPayload.reason,
+        recoverable: true,
+      });
+    }
     return createDedaoGuiNotesBridgeSuccessResponse({
       requestId: request.requestId,
-      notes,
+      notes: normalizedPayload.notes,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || 'unknown error');

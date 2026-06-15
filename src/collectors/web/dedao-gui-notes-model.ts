@@ -4,6 +4,7 @@ export type DedaoGuiNote = {
   commentText: string;
   range?: string;
   markerText?: string;
+  markerVisitKey?: string;
 };
 
 export type DedaoGuiNoteInput = Partial<DedaoGuiNote> | null | undefined;
@@ -34,6 +35,7 @@ export function normalizeDedaoGuiNote(input: DedaoGuiNoteInput): DedaoGuiNote | 
   const externalId = normalizeDedaoGuiText(input.externalId);
   const range = normalizeDedaoGuiText(input.range);
   const markerText = normalizeDedaoGuiText(input.markerText);
+  const markerVisitKey = normalizeDedaoGuiText(input.markerVisitKey);
 
   return {
     externalId,
@@ -41,6 +43,7 @@ export function normalizeDedaoGuiNote(input: DedaoGuiNoteInput): DedaoGuiNote | 
     commentText,
     ...(range ? { range } : {}),
     ...(markerText ? { markerText } : {}),
+    ...(markerVisitKey ? { markerVisitKey } : {}),
   };
 }
 
@@ -63,7 +66,11 @@ export function dedupeDedaoGuiNotes(inputs: DedaoGuiNoteInput[]): DedaoGuiNote[]
     if (note.externalId) {
       if (seenExternalIds.has(note.externalId)) continue;
       seenExternalIds.add(note.externalId);
-    } else if (seenContentKeys.has(contentKey)) {
+    } else {
+      const fallbackIdentity = note.markerVisitKey ? `${note.markerVisitKey}::${contentKey}` : contentKey;
+      if (seenContentKeys.has(fallbackIdentity)) continue;
+      seenContentKeys.add(fallbackIdentity);
+      normalized.push(note);
       continue;
     }
 

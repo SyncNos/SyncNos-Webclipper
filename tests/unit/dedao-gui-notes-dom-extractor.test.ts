@@ -112,6 +112,7 @@ describe('dedao gui notes dom extractor', () => {
         quoteText: '第一段摘录',
         commentText: '第一条笔记',
         markerText: '笔记',
+        markerVisitKey: expect.any(String),
       },
     ]);
   });
@@ -137,6 +138,121 @@ describe('dedao gui notes dom extractor', () => {
 
     expect(result).toEqual([]);
     expect(document.querySelector(DEDAO_GUI_NOTE_CONTENT_SELECTOR)).not.toBeNull();
+  });
+
+  it('continues after one marker throws and still closes each marker', async () => {
+    installDom(`
+      <html><body>
+        <p>第一段原文</p>
+        <svg><text class="em-highlight-tag-text">笔记</text></svg>
+        <p>第二段原文</p>
+        <svg><text class="em-highlight-tag-text">笔记</text></svg>
+      </body></html>
+    `);
+
+    const markers = Array.from(document.querySelectorAll('text.em-highlight-tag-text'));
+    setRect(markers[0], { left: 20, top: 40, right: 44, bottom: 54 });
+    setRect(markers[1], { left: 20, top: 80, right: 44, bottom: 94 });
+
+    const closeCurrentNote = vi.fn();
+    const result = await extractDedaoGuiNotesFromDocument({
+      document,
+      clickMarker: vi.fn(async (marker) => {
+        if (marker.index === 0) throw new Error('boom');
+        return {
+          opened: true,
+          externalId: 'n-2',
+          quoteText: '第二段摘录',
+          commentText: '第二条笔记',
+        };
+      }),
+      closeCurrentNote,
+    });
+
+    expect(result).toEqual([
+      {
+        externalId: 'n-2',
+        quoteText: '第二段摘录',
+        commentText: '第二条笔记',
+        markerText: '笔记',
+        markerVisitKey: expect.any(String),
+      },
+    ]);
+    expect(closeCurrentNote).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries real click points and preserves same-content notes from different marker positions', async () => {
+    installDom(`
+      <html><body>
+        <p>第一段原文</p>
+        <svg id="svg-1"><text class="em-highlight-tag-text">笔记</text></svg>
+        <p>第二段原文</p>
+        <svg id="svg-2"><text class="em-highlight-tag-text">笔记</text></svg>
+      </body></html>
+    `);
+
+    const markers = Array.from(document.querySelectorAll('text.em-highlight-tag-text'));
+    setRect(markers[0], { left: 40, top: 100, right: 64, bottom: 114 });
+    setRect(markers[1], { left: 40, top: 200, right: 64, bottom: 214 });
+
+    const popup = document.createElement('div');
+    popup.className = 'notes-edit-content';
+    document.body.appendChild(popup);
+    popup.textContent = '';
+
+    const markerByY = new Map([
+      [100, { quoteText: '同一摘录', commentText: '同一笔记' }],
+      [200, { quoteText: '同一摘录', commentText: '同一笔记' }],
+    ]);
+
+    (document as any).elementsFromPoint = (x: number, y: number) => {
+      const marker = y >= 190 ? markers[1] : markers[0];
+      const overlay = document.createElement('button');
+      overlay.addEventListener('click', (event: Event) => {
+        const mouseEvent = event as MouseEvent;
+        const markerTop = y >= 190 ? 200 : 100;
+        if (mouseEvent.clientX === 52 && mouseEvent.clientY === markerTop - 8) {
+          popup.textContent = markerByY.get(markerTop)!.commentText;
+          const selectionValue = markerByY.get(markerTop)!.quoteText;
+          document.defaultView!.getSelection = () =>
+            ({
+              toString: () => selectionValue,
+            }) as Selection;
+        }
+      });
+      return [overlay, marker];
+    };
+
+    const result = await extractDedaoGuiNotesFromDocument({ document, waitTimeoutMs: 200, pollIntervalMs: 10 });
+    expect(result).toHaveLength(2);
+    expect(result[0]?.commentText).toBe('同一笔记');
+    expect(result[1]?.commentText).toBe('同一笔记');
+    expect(result[0]?.markerVisitKey).not.toBe(result[1]?.markerVisitKey);
+  });
+
+  it('uses only nearby text blocks for quote fallback', async () => {
+    installDom(`
+      <html><body>
+        <div class="wrapper">无关容器</div>
+        <div><span>不是文本块</span></div>
+        <svg><text class="em-highlight-tag-text">笔记</text></svg>
+        <div class="notes-edit-content">只有笔记正文</div>
+      </body></html>
+    `);
+
+    const marker = document.querySelector('text.em-highlight-tag-text');
+    setRect(marker, { left: 20, top: 40, right: 44, bottom: 54 });
+    document.defaultView!.getSelection = () =>
+      ({
+        toString: () => '',
+      }) as Selection;
+
+    const result = await extractDedaoGuiNotesFromDocument({
+      document,
+      clickMarker: vi.fn(async () => ({ opened: true })),
+    });
+
+    expect(result).toEqual([]);
   });
 
   it('emits debug events only when a logger is provided', async () => {
@@ -234,6 +350,33 @@ describe('dedao gui notes main-world bridge', () => {
       ok: false,
       status: 'malformed_payload',
       requestId: 'req-2',
+    });
+  });
+
+  it('returns malformed_payload when extractor returns malformed runtime data', async () => {
+    installDom('<html><body></body></html>');
+    vi.resetModules();
+    (globalThis as any).defineContentScript = (config: unknown) => config;
+
+    const mod = await import('../../src/entrypoints/dedao-gui-notes-main.content');
+    const malformed = await mod.executeDedaoGuiNotesBridgeRequest(
+      {
+        __syncnos: true,
+        type: 'SYNCNOS_DEDAO_GUI_NOTES_REQUEST',
+        requestId: 'req-3',
+        timeoutMs: 500,
+      },
+      {
+        document,
+        locationHref: 'https://www.dedao.cn/course/article?id=1',
+        extractNotes: vi.fn(async () => [{} as any]),
+      },
+    );
+
+    expect(malformed).toMatchObject({
+      ok: false,
+      status: 'malformed_payload',
+      requestId: 'req-3',
     });
   });
 
