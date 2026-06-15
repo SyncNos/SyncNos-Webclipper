@@ -8,6 +8,7 @@ import {
 } from '@collectors/web/dedao-gui-notes-bridge-contract';
 import { dedupeDedaoGuiNotes, normalizeDedaoGuiNote, type DedaoGuiNoteInput } from '@collectors/web/dedao-gui-notes-model';
 import { extractDedaoGuiNotesFromDocument } from '@collectors/web/dedao-gui-notes-dom-extractor';
+import { isDedaoArticleUrl } from '@services/shared/dedao-article-url';
 
 export const DEDAO_GUI_NOTES_MAIN_WORLD_MATCHES = [
   'https://www.dedao.cn/course/article*',
@@ -24,17 +25,6 @@ type RequestParseResult =
   | { ok: true; request: DedaoGuiNotesBridgeRequest }
   | { ok: false; requestId: string; reason: string }
   | { ok: false; requestId: ''; reason: string };
-
-export function isDedaoArticleUrl(raw: string): boolean {
-  try {
-    const parsed = new URL(String(raw || ''));
-    const host = String(parsed.hostname || '').toLowerCase();
-    const isDedaoHost = host === 'www.dedao.cn' || host === 'dedao.cn' || host === 'm.dedao.cn';
-    return isDedaoHost && parsed.pathname === '/course/article';
-  } catch (_error) {
-    return false;
-  }
-}
 
 function parseBridgeRequest(data: unknown): RequestParseResult {
   if (!data || typeof data !== 'object') return { ok: false, requestId: '', reason: 'payload must be object' };

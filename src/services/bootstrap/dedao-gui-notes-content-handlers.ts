@@ -5,6 +5,7 @@ import {
   isDedaoGuiNotesBridgeResponse,
   type DedaoGuiNotesBridgeResponse,
 } from '@collectors/web/dedao-gui-notes-bridge-contract';
+import { isDedaoArticleUrl } from '@services/shared/dedao-article-url';
 
 type ApiResponse<T> = {
   ok: boolean;
@@ -29,16 +30,6 @@ function err(message: unknown, extra?: unknown): ApiResponse<null> {
 
 function buildRequestId() {
   return `dedao_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function isDedaoArticleUrl(raw: string): boolean {
-  try {
-    const parsed = new URL(String(raw || ''));
-    const host = String(parsed.hostname || '').toLowerCase();
-    return (host === 'www.dedao.cn' || host === 'dedao.cn' || host === 'm.dedao.cn') && parsed.pathname === '/course/article';
-  } catch (_error) {
-    return false;
-  }
 }
 
 async function requestDedaoGuiNotesFromMainWorld(timeoutMs: number): Promise<DedaoGuiNotesBridgeResponse> {

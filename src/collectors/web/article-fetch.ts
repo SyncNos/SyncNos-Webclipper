@@ -15,6 +15,7 @@ import { getAntiHotlinkRulesSnapshot, includesAnyAntiHotlinkDomain } from '@plat
 import { CONTENT_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { importDedaoArticleNotes } from '@services/web-article/dedao-note-import';
 import type { DedaoGuiNotesBridgeResponse } from '@collectors/web/dedao-gui-notes-bridge-contract';
+import { isDedaoArticleUrl } from '@services/shared/dedao-article-url';
 import {
   buildDiscourseTopicFloorUrl,
   isSameDiscourseTopicFloorUrl,
@@ -95,16 +96,6 @@ function countWords(text: string) {
     // ignore and fallback
   }
   return value.split(/\s+/).filter(Boolean).length;
-}
-
-function isDedaoArticleUrl(raw: string) {
-  try {
-    const parsed = new URL(String(raw || ''));
-    const host = String(parsed.hostname || '').toLowerCase();
-    return (host === 'www.dedao.cn' || host === 'dedao.cn' || host === 'm.dedao.cn') && parsed.pathname === '/course/article';
-  } catch (_error) {
-    return false;
-  }
 }
 
 function fallbackTitle(url: string, tabTitle: unknown) {
