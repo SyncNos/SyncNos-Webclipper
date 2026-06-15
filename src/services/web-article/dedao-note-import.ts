@@ -1,8 +1,8 @@
 import {
   addArticleComment,
   listArticleCommentsByCanonicalUrl,
-  type ArticleCommentDto,
-} from '@services/comments/client/repo';
+} from '@services/comments/data/storage';
+import type { ArticleComment } from '@services/comments/domain/models';
 import {
   buildDedaoGuiNoteContentKey,
   dedupeDedaoGuiNotes,
@@ -25,13 +25,13 @@ export type DedaoNoteImportSummary = {
 
 type ImportDeps = {
   extractNotes: () => Promise<DedaoGuiNotesBridgeResponse>;
-  listExisting?: (canonicalUrl: string) => Promise<ArticleCommentDto[]>;
+  listExisting?: (canonicalUrl: string) => Promise<ArticleComment[]>;
   addRootComment?: (input: {
     canonicalUrl: string;
     conversationId: number | null;
     quoteText: string;
     commentText: string;
-  }) => Promise<ArticleCommentDto>;
+  }) => Promise<ArticleComment>;
 };
 
 function emptySummary(input: {
