@@ -34,12 +34,22 @@ function createRequestId(): string {
 
 async function requestDedaoNotesViaMainWorld(timeoutMs = 1_500): Promise<DedaoExtractedNote[]> {
   const requestId = createRequestId();
+  console.info('[DedaoNotes][Content] main-world request', {
+    requestId,
+    url: String(location.href || ''),
+    timeoutMs,
+  });
 
   return await new Promise((resolve) => {
     let settled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const finish = (notes: DedaoExtractedNote[]) => {
+      console.info('[DedaoNotes][Content] main-world response', {
+        requestId,
+        url: String(location.href || ''),
+        extractedCount: Array.isArray(notes) ? notes.length : 0,
+      });
       if (settled) return;
       settled = true;
       try {
@@ -92,6 +102,9 @@ export function registerDedaoNotesExtractContentHandlers() {
         if (!isDedaoArticleLikePage(location)) return [];
         const notes = await requestDedaoNotesViaMainWorld(Number(msg?.payload?.timeoutMs) || undefined);
         if (Array.isArray(notes) && notes.length) return notes;
+        console.info('[DedaoNotes][Content] fallback to isolated extraction', {
+          url: String(location.href || ''),
+        });
         return await extractDedaoNotesFromPage(document, location);
       })
       .then((data) => sendResponse(ok(data)))

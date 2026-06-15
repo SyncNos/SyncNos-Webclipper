@@ -214,6 +214,11 @@ async function importDedaoNotesForArticle(input: {
   if (!isDedaoArticleUrl(input.canonicalUrl)) return 0;
 
   const notes = await extractDedaoNotesOnTab(input.tabId);
+  console.info('[DedaoNotes][ArticleFetch] extraction result', {
+    conversationId: input.conversationId,
+    url: input.canonicalUrl,
+    extractedCount: Array.isArray(notes) ? notes.length : 0,
+  });
   if (!Array.isArray(notes) || !notes.length) return 0;
 
   const existing = await listArticleCommentsByCanonicalUrl(input.canonicalUrl);
@@ -224,13 +229,17 @@ async function importDedaoNotesForArticle(input: {
   );
 
   let imported = 0;
+  let skippedDuplicates = 0;
   for (const note of notes) {
     const quoteText = normalizeText(note?.quoteText || '');
     const commentText = normalizeText(note?.commentText || '');
     if (!quoteText || !commentText) continue;
 
     const dedupeKey = normalizeDedaoCommentKey({ quoteText, commentText });
-    if (existingKeys.has(dedupeKey)) continue;
+    if (existingKeys.has(dedupeKey)) {
+      skippedDuplicates += 1;
+      continue;
+    }
 
     await addArticleComment({
       parentId: null,
@@ -242,6 +251,15 @@ async function importDedaoNotesForArticle(input: {
     existingKeys.add(dedupeKey);
     imported += 1;
   }
+
+  console.info('[DedaoNotes][ArticleFetch] import summary', {
+    conversationId: input.conversationId,
+    url: input.canonicalUrl,
+    extractedCount: notes.length,
+    importedCount: imported,
+    skippedDuplicates,
+    existingRootCount: existingKeys.size - imported,
+  });
 
   return imported;
 }

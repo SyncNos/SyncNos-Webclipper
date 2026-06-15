@@ -219,17 +219,23 @@ export async function extractDedaoNotesByMarkerFallback(doc: Document, loc: Loca
   if (!doc || !isDedaoArticleLikePage(loc)) return [];
 
   const markerTargets = collectMarkerTargets(doc);
+  console.info('[DedaoNotes] marker fallback scan', {
+    url: String((loc as any)?.href || ''),
+    markerCount: markerTargets.length,
+  });
   if (!markerTargets.length) return [];
 
   const results: DedaoExtractedNote[] = [];
   const seenIds = new Set<string>();
   const originalConsoleLog = console.log.bind(console);
   let lastPayload: any = null;
+  let triggerCount = 0;
 
   console.log = function (...args: any[]) {
     try {
       if (args[0] === 'markerLineClick' && args[1] && typeof args[1] === 'object') {
         lastPayload = args[1];
+        triggerCount += 1;
       }
     } catch (_error) {
       // ignore
@@ -244,6 +250,13 @@ export async function extractDedaoNotesByMarkerFallback(doc: Document, loc: Loca
       await wait(FALLBACK_CLICK_WAIT_MS);
 
       const note = normalizeNoteFromMarkerPayload(lastPayload, doc);
+      console.info('[DedaoNotes] marker click result', {
+        text: safeText((target as any)?.textContent || ''),
+        hadPayload: Boolean(lastPayload),
+        externalId: note?.externalId || '',
+        quoteLen: note?.quoteText?.length || 0,
+        commentLen: note?.commentText?.length || 0,
+      });
       if (note && !seenIds.has(note.externalId)) {
         seenIds.add(note.externalId);
         results.push(note);
@@ -255,11 +268,22 @@ export async function extractDedaoNotesByMarkerFallback(doc: Document, loc: Loca
     console.log = originalConsoleLog;
   }
 
+  console.info('[DedaoNotes] marker fallback done', {
+    url: String((loc as any)?.href || ''),
+    markerCount: markerTargets.length,
+    markerLineClickCount: triggerCount,
+    extractedCount: results.length,
+  });
+
   return results;
 }
 
 export async function extractDedaoNotesFromPage(doc: Document, loc: Location | URL): Promise<DedaoExtractedNote[]> {
   const direct = extractDedaoNotesFromDocument(doc, loc);
+  console.info('[DedaoNotes] direct read result', {
+    url: String((loc as any)?.href || ''),
+    extractedCount: direct.length,
+  });
   if (direct.length) return direct;
   return await extractDedaoNotesByMarkerFallback(doc, loc);
 }

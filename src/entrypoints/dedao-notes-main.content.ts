@@ -33,6 +33,12 @@ export default defineContentScript({
         notes = [];
       }
 
+      console.info('[DedaoNotes][MainWorld] response ready', {
+        requestId,
+        url: String(location.href || ''),
+        extractedCount: Array.isArray(notes) ? notes.length : 0,
+      });
+
       try {
         window.postMessage(
           {
