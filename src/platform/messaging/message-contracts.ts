@@ -67,6 +67,7 @@ export const CONTENT_MESSAGE_TYPES = {
   OPEN_INPAGE_COMMENTS_PANEL: 'openInpageCommentsPanel',
   EXTRACT_WEB_ARTICLE: 'extractWebArticle',
   CAPTURE_VIDEO_TRANSCRIPT: 'captureVideoTranscript',
+  EXTRACT_DEDAO_GUI_NOTES: 'extractDedaoGuiNotes',
 } as const;
 
 export const COMMENTS_MESSAGE_TYPES = {
