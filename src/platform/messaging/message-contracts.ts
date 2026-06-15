@@ -67,6 +67,7 @@ export const CONTENT_MESSAGE_TYPES = {
   OPEN_INPAGE_COMMENTS_PANEL: 'openInpageCommentsPanel',
   EXTRACT_WEB_ARTICLE: 'extractWebArticle',
   CAPTURE_VIDEO_TRANSCRIPT: 'captureVideoTranscript',
+  EXTRACT_DEDAO_GUI_NOTES: 'extractDedaoGuiNotes',
 } as const;
 
 export const COMMENTS_MESSAGE_TYPES = {
@@ -102,6 +103,7 @@ export const messageContracts = {
   CURRENT_PAGE_MESSAGE_TYPES,
   ITEM_MENTION_MESSAGE_TYPES,
   CHATWITH_MESSAGE_TYPES,
+  CONTENT_MESSAGE_TYPES,
   COMMENTS_MESSAGE_TYPES,
   UI_MESSAGE_TYPES,
   UI_EVENT_TYPES,
@@ -117,6 +119,7 @@ export type ChatgptMessageType = (typeof CHATGPT_MESSAGE_TYPES)[keyof typeof CHA
 export type CurrentPageMessageType = (typeof CURRENT_PAGE_MESSAGE_TYPES)[keyof typeof CURRENT_PAGE_MESSAGE_TYPES];
 export type ItemMentionMessageType = (typeof ITEM_MENTION_MESSAGE_TYPES)[keyof typeof ITEM_MENTION_MESSAGE_TYPES];
 export type ChatWithMessageType = (typeof CHATWITH_MESSAGE_TYPES)[keyof typeof CHATWITH_MESSAGE_TYPES];
+export type ContentMessageType = (typeof CONTENT_MESSAGE_TYPES)[keyof typeof CONTENT_MESSAGE_TYPES];
 export type CommentsMessageType = (typeof COMMENTS_MESSAGE_TYPES)[keyof typeof COMMENTS_MESSAGE_TYPES];
 export type UiMessageType = (typeof UI_MESSAGE_TYPES)[keyof typeof UI_MESSAGE_TYPES];
 export type UiEventType = (typeof UI_EVENT_TYPES)[keyof typeof UI_EVENT_TYPES];
@@ -132,5 +135,6 @@ export type MessageType =
   | CurrentPageMessageType
   | ItemMentionMessageType
   | ChatWithMessageType
+  | ContentMessageType
   | CommentsMessageType
   | UiMessageType;
