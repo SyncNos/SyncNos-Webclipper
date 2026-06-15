@@ -1,5 +1,5 @@
 import { CONTENT_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
-import { extractDedaoNotesFromDocument, isDedaoArticleLikePage, type DedaoExtractedNote } from '@collectors/web/dedao-notes';
+import { extractDedaoNotesFromPage, isDedaoArticleLikePage, type DedaoExtractedNote } from '@collectors/web/dedao-notes';
 
 type ApiResponse<T> = {
   ok: boolean;
@@ -92,7 +92,7 @@ export function registerDedaoNotesExtractContentHandlers() {
         if (!isDedaoArticleLikePage(location)) return [];
         const notes = await requestDedaoNotesViaMainWorld(Number(msg?.payload?.timeoutMs) || undefined);
         if (Array.isArray(notes) && notes.length) return notes;
-        return extractDedaoNotesFromDocument(document, location);
+        return await extractDedaoNotesFromPage(document, location);
       })
       .then((data) => sendResponse(ok(data)))
       .catch((error) => sendResponse(err((error as any)?.message ?? error)));

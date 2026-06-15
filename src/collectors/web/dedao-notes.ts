@@ -15,6 +15,8 @@ type WalkState = {
 const MAX_ARRAY_ITEMS = 200;
 const MAX_OBJECT_KEYS = 40;
 const MAX_DEPTH = 5;
+const FALLBACK_CLICK_WAIT_MS = 220;
+const FALLBACK_CLOSE_WAIT_MS = 120;
 
 function safeText(value: unknown): string {
   return String(value || '')
@@ -127,4 +129,137 @@ export function extractDedaoNotesFromDocument(doc: Document, loc: Location | URL
   }
 
   return state.results;
+}
+
+function collectMarkerTargets(doc: Document): Element[] {
+  const candidates = Array.from(doc.querySelectorAll('text.em-highlight-tag-text, text, .em-highlight-tag-text'));
+  const out: Element[] = [];
+  const seen = new Set<Element>();
+
+  for (const el of candidates) {
+    const text = safeText((el as any)?.textContent || '');
+    if (text !== '笔记') continue;
+    const target = (el as any)?.closest?.('svg, g, text') || el;
+    if (!target || seen.has(target)) continue;
+    seen.add(target);
+    out.push(target);
+  }
+
+  return out;
+}
+
+function normalizeNoteFromMarkerPayload(payload: any, doc: Document): DedaoExtractedNote | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const normalized = normalizeNoteCandidate({
+    ...payload?.meta,
+    content: payload?.content,
+    range: payload?.range,
+    id: payload?.id,
+  });
+  if (normalized?.commentText) return normalized;
+
+  const fallbackText = safeText(doc.querySelector('.notes-edit-content')?.textContent || '');
+  if (!fallbackText) return null;
+
+  const externalId = safeText(payload?.meta?.logId) || safeText(payload?.meta?.feedId) || safeText(payload?.id);
+  const quoteText = safeText(payload?.content);
+  if (!externalId || !quoteText) return null;
+
+  return {
+    externalId,
+    quoteText,
+    commentText: fallbackText,
+    range: safeText(payload?.range) || undefined,
+    articleId: payload?.meta?.extra?.articleId ?? payload?.meta?.detailId,
+    articleTitle: safeText(payload?.meta?.extra?.articleTitle || ''),
+  };
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
+}
+
+async function closeOpenNoteModal(doc: Document) {
+  const closeBtn = doc.querySelector('.note-close-btn') as HTMLElement | null;
+  if (!closeBtn) return;
+  try {
+    closeBtn.click();
+  } catch (_error) {
+    try {
+      closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    } catch (_error2) {
+      // ignore
+    }
+  }
+  await wait(FALLBACK_CLOSE_WAIT_MS);
+}
+
+function clickElement(el: Element) {
+  const target = el as any;
+  const attempts = [target, target?.parentElement, target?.ownerSVGElement].filter(Boolean);
+  for (const node of attempts) {
+    try {
+      if (typeof node.click === 'function') {
+        node.click();
+        return;
+      }
+    } catch (_error) {
+      // ignore
+    }
+    try {
+      node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+      return;
+    } catch (_error) {
+      // ignore
+    }
+  }
+}
+
+export async function extractDedaoNotesByMarkerFallback(doc: Document, loc: Location | URL): Promise<DedaoExtractedNote[]> {
+  if (!doc || !isDedaoArticleLikePage(loc)) return [];
+
+  const markerTargets = collectMarkerTargets(doc);
+  if (!markerTargets.length) return [];
+
+  const results: DedaoExtractedNote[] = [];
+  const seenIds = new Set<string>();
+  const originalConsoleLog = console.log.bind(console);
+  let lastPayload: any = null;
+
+  console.log = function (...args: any[]) {
+    try {
+      if (args[0] === 'markerLineClick' && args[1] && typeof args[1] === 'object') {
+        lastPayload = args[1];
+      }
+    } catch (_error) {
+      // ignore
+    }
+    return originalConsoleLog(...args);
+  };
+
+  try {
+    for (const target of markerTargets) {
+      lastPayload = null;
+      clickElement(target);
+      await wait(FALLBACK_CLICK_WAIT_MS);
+
+      const note = normalizeNoteFromMarkerPayload(lastPayload, doc);
+      if (note && !seenIds.has(note.externalId)) {
+        seenIds.add(note.externalId);
+        results.push(note);
+      }
+
+      await closeOpenNoteModal(doc);
+    }
+  } finally {
+    console.log = originalConsoleLog;
+  }
+
+  return results;
+}
+
+export async function extractDedaoNotesFromPage(doc: Document, loc: Location | URL): Promise<DedaoExtractedNote[]> {
+  const direct = extractDedaoNotesFromDocument(doc, loc);
+  if (direct.length) return direct;
+  return await extractDedaoNotesByMarkerFallback(doc, loc);
 }

@@ -1,4 +1,4 @@
-import { extractDedaoNotesFromDocument } from '@collectors/web/dedao-notes';
+import { extractDedaoNotesFromPage } from '@collectors/web/dedao-notes';
 
 type DedaoNotesRequestPayload = {
   __syncnos: true;
@@ -10,14 +10,14 @@ type DedaoNotesResponsePayload = {
   __syncnos: true;
   type: 'SYNCNOS_DEDAO_NOTES_RESPONSE';
   requestId: string;
-  notes: ReturnType<typeof extractDedaoNotesFromDocument>;
+  notes: Awaited<ReturnType<typeof extractDedaoNotesFromPage>>;
 };
 
 export default defineContentScript({
   matches: ['https://*.dedao.cn/*', 'https://dedao.cn/*', 'http://*.dedao.cn/*', 'http://dedao.cn/*'],
   world: 'MAIN',
   main() {
-    window.addEventListener('message', (event: MessageEvent) => {
+    window.addEventListener('message', async (event: MessageEvent) => {
       if (event.source !== window) return;
       const data: any = event.data;
       if (!data || data.__syncnos !== true) return;
@@ -26,9 +26,9 @@ export default defineContentScript({
       const requestId = String((data as DedaoNotesRequestPayload).requestId || '').trim();
       if (!requestId) return;
 
-      let notes: ReturnType<typeof extractDedaoNotesFromDocument> = [];
+      let notes: Awaited<ReturnType<typeof extractDedaoNotesFromPage>> = [];
       try {
-        notes = extractDedaoNotesFromDocument(document, location);
+        notes = await extractDedaoNotesFromPage(document, location);
       } catch (_error) {
         notes = [];
       }
