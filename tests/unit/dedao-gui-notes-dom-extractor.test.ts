@@ -24,9 +24,9 @@ function setRect(el: Element | null, rect: Partial<DOMRect>) {
   (el as any).getBoundingClientRect = () => merged;
 }
 
-function installDom(html: string) {
+function installDom(html: string, url = 'https://www.dedao.cn/course/article?id=test') {
   dom = new JSDOM(html, {
-    url: 'https://www.dedao.cn/course/article?id=test',
+    url,
     pretendToBeVisual: true,
   });
 
@@ -138,6 +138,38 @@ describe('dedao gui notes dom extractor', () => {
     expect(result).toEqual([]);
     expect(document.querySelector(DEDAO_GUI_NOTE_CONTENT_SELECTOR)).not.toBeNull();
   });
+
+  it('emits debug events only when a logger is provided', async () => {
+    installDom(`
+      <html><body>
+        <div id="article">
+          <p id="p1">第一段原文</p>
+          <svg><text class="em-highlight-tag-text">笔记</text></svg>
+        </div>
+      </body></html>
+    `);
+
+    const marker = document.querySelector('text.em-highlight-tag-text');
+    setRect(marker, { left: 20, top: 40, right: 44, bottom: 54 });
+
+    const debugLog = vi.fn();
+    await extractDedaoGuiNotesFromDocument({
+      document,
+      debugLog,
+      clickMarker: vi.fn(async () => ({
+        opened: true,
+        externalId: 'n-1',
+        quoteText: '摘录',
+        commentText: '笔记',
+      })),
+    });
+
+    expect(debugLog).toHaveBeenCalledWith('marker_scan', { markerCount: 1 });
+    expect(debugLog).toHaveBeenCalledWith(
+      'marker_dedupe_done',
+      expect.objectContaining({ rawCount: 1, dedupedCount: 1 }),
+    );
+  });
 });
 
 describe('dedao gui notes main-world bridge', () => {
@@ -203,5 +235,18 @@ describe('dedao gui notes main-world bridge', () => {
       status: 'malformed_payload',
       requestId: 'req-2',
     });
+  });
+
+  it('does not install the bridge listener on non-dedao pages', async () => {
+    installDom('<html><body></body></html>', 'https://example.com/post');
+    vi.resetModules();
+    const addListener = vi.spyOn(window, 'addEventListener');
+    (globalThis as any).defineContentScript = (config: unknown) => config;
+
+    const mod = await import('../../src/entrypoints/dedao-gui-notes-main.content');
+    const entry = mod.default as any;
+    entry.main();
+
+    expect(addListener).not.toHaveBeenCalledWith('message', expect.any(Function));
   });
 });

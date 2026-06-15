@@ -128,7 +128,9 @@ export function createDedaoGuiNotesMainWorldListener(deps: {
   locationHref?: string;
   postMessage?: (response: DedaoGuiNotesBridgeResponse) => void;
   extractNotes?: typeof extractDedaoGuiNotesFromDocument;
+  debugLog?: (event: string, payload: Record<string, unknown>) => void;
 } = {}) {
+  const debugLog = deps.debugLog || null;
   const postMessage =
     deps.postMessage ||
     ((response: DedaoGuiNotesBridgeResponse) => {
@@ -141,6 +143,7 @@ export function createDedaoGuiNotesMainWorldListener(deps: {
     const parsed = parseBridgeRequest((event as any)?.data);
     if (!parsed.ok) {
       if (!parsed.requestId) return;
+      debugLog?.('bridge_malformed', { requestId: parsed.requestId, reason: parsed.reason });
       postMessage(
         createDedaoGuiNotesBridgeFailureResponse({
           requestId: parsed.requestId,
@@ -153,10 +156,17 @@ export function createDedaoGuiNotesMainWorldListener(deps: {
       return;
     }
 
+    debugLog?.('bridge_request', { requestId: parsed.request.requestId, timeoutMs: parsed.request.timeoutMs || null });
     const response = await executeDedaoGuiNotesBridgeRequest(parsed.request, {
       document: deps.document || document,
       locationHref: deps.locationHref || globalThis.location?.href || '',
       extractNotes: deps.extractNotes,
+    });
+    debugLog?.('bridge_response', {
+      requestId: response.requestId,
+      ok: response.ok,
+      status: response.status,
+      extractedCount: response.notes.length,
     });
     postMessage(response);
   };

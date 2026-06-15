@@ -42,6 +42,7 @@ export type DedaoGuiNotesExtractorOptions = {
   document?: Document;
   waitTimeoutMs?: number;
   pollIntervalMs?: number;
+  debugLog?: (event: string, payload: Record<string, unknown>) => void;
   clickMarker?: (marker: DedaoGuiNoteMarker) => Promise<DedaoGuiNoteInteractionResult | null | undefined>;
   readCurrentNote?: (ctx: { document: Document; marker: DedaoGuiNoteMarker }) => Promise<DedaoGuiNoteInteractionResult | null | undefined>;
   closeCurrentNote?: (ctx: { document: Document; marker: DedaoGuiNoteMarker }) => Promise<void> | void;
@@ -262,10 +263,12 @@ export async function extractDedaoGuiNotesFromDocument(
       }));
   const readCurrentNote = options.readCurrentNote || defaultReadCurrentNote;
   const closeCurrentNote = options.closeCurrentNote || (() => {});
+  const debugLog = options.debugLog || null;
 
   const markers = collectDedaoGuiNoteMarkers(doc);
   const collected: DedaoGuiNote[] = [];
   const visitedMarkerKeys = new Set<string>();
+  debugLog?.('marker_scan', { markerCount: markers.length });
 
   for (const marker of markers) {
     if (visitedMarkerKeys.has(marker.visitKey)) continue;
@@ -289,10 +292,29 @@ export async function extractDedaoGuiNotesFromDocument(
     };
 
     const normalized = normalizeDedaoGuiNote(merged);
-    if (normalized) collected.push(normalized);
+    if (normalized) {
+      collected.push(normalized);
+      debugLog?.('marker_collected', {
+        markerIndex: marker.index,
+        externalId: normalized.externalId,
+        quoteLen: normalized.quoteText.length,
+        commentLen: normalized.commentText.length,
+      });
+    } else {
+      debugLog?.('marker_skipped', {
+        markerIndex: marker.index,
+        visitKey: marker.visitKey,
+        opened: Boolean(clicked?.opened || openedNote?.opened),
+      });
+    }
 
     await closeCurrentNote({ document: doc, marker });
   }
 
-  return dedupeDedaoGuiNotes(collected);
+  const deduped = dedupeDedaoGuiNotes(collected);
+  debugLog?.('marker_dedupe_done', {
+    rawCount: collected.length,
+    dedupedCount: deduped.length,
+  });
+  return deduped;
 }
