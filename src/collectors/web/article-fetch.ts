@@ -13,9 +13,6 @@ import { tabsGet, tabsQuery, tabsSendMessage, tabsUpdate } from '@platform/webex
 import { storageGet } from '@platform/storage/local';
 import { getAntiHotlinkRulesSnapshot, includesAnyAntiHotlinkDomain } from '@platform/webext/anti-hotlink-rules-store';
 import { CONTENT_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
-import { importDedaoArticleNotes } from '@services/web-article/dedao-note-import';
-import type { DedaoGuiNotesBridgeResponse } from '@collectors/web/dedao-gui-notes-bridge-contract';
-import { isDedaoArticleUrl } from '@services/shared/dedao-article-url';
 import {
   buildDiscourseTopicFloorUrl,
   isSameDiscourseTopicFloorUrl,
@@ -41,7 +38,6 @@ const DISCOURSE_NAVIGATION_WAIT_TIMEOUT_MS = 10_000;
 const ARTICLE_STABILIZATION_TIMEOUT_MS = 10_000;
 const ARTICLE_STABILIZATION_MIN_TEXT_LENGTH = 240;
 const CONTENT_MESSAGE_RETRY_DELAY_MS = 320;
-const DEDAO_NOTES_TIMEOUT_MS = 1_800;
 
 function toError(message: unknown) {
   return new Error(String(message || 'unknown error'));
@@ -181,25 +177,6 @@ async function extractArticleOnTab(tabId: number) {
   return apiResponse.data as any;
 }
 
-async function extractDedaoGuiNotesOnTab(tabId: number): Promise<DedaoGuiNotesBridgeResponse> {
-  const response = await tabsSendMessage(tabId, {
-    type: CONTENT_MESSAGE_TYPES.EXTRACT_DEDAO_GUI_NOTES,
-    payload: {
-      timeoutMs: DEDAO_NOTES_TIMEOUT_MS,
-    },
-  });
-
-  const apiResponse = response as { ok?: boolean; data?: unknown; error?: { message?: unknown } | null } | null;
-  if (!apiResponse || apiResponse.ok !== true || !apiResponse.data) {
-    const reason = apiResponse?.error?.message
-      ? String(apiResponse.error.message)
-      : 'dedao gui notes extraction returned empty payload';
-    throw toError(reason);
-  }
-
-  return apiResponse.data as DedaoGuiNotesBridgeResponse;
-}
-
 async function extractArticleOnTabWithReadabilityFallback(tabId: number, ensureReadabilityOnce: () => Promise<void>) {
   try {
     return await extractArticleOnTab(tabId);
@@ -337,42 +314,6 @@ export async function fetchActiveTabArticle({ tabId }: { tabId?: number } = {}) 
   }
 
   await syncConversationMessages(conversationId, messagesToSave);
-
-  if (isDedaoArticleUrl(canonicalUrl)) {
-    try {
-      const summary = await importDedaoArticleNotes(
-        {
-          canonicalUrl,
-          conversationId,
-        },
-        {
-          extractNotes: async () => {
-            const response = await extractDedaoGuiNotesOnTab(targetTabId);
-            console.info('[DedaoNotes][ArticleFetch] extraction result', {
-              url: canonicalUrl,
-              status: response.status,
-              extractedCount: Array.isArray(response.notes) ? response.notes.length : 0,
-            });
-            return response;
-          },
-        },
-      );
-
-      console.info('[DedaoNotes][ArticleFetch] import summary', {
-        url: canonicalUrl,
-        bridgeStatus: summary.bridgeStatus,
-        extractedCount: summary.extractedCount,
-        importedCount: summary.importedCount,
-        skippedDuplicates: summary.skippedDuplicates,
-        existingRootCount: summary.existingRootCount,
-      });
-    } catch (error) {
-      console.warn('[DedaoNotes][ArticleFetch] import failed but capture continues', {
-        url: canonicalUrl,
-        error: error instanceof Error ? error.message : String(error || ''),
-      });
-    }
-  }
 
   return {
     isNew: !existed,

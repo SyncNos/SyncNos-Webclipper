@@ -24,7 +24,6 @@ export type {
   ChatgptMessageType,
   CurrentPageMessageType,
   ChatWithMessageType,
-  ContentMessageType,
   CommentsMessageType,
   UiMessageType,
   UiEventType,
