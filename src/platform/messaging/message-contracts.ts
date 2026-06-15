@@ -66,7 +66,6 @@ export const CHATWITH_MESSAGE_TYPES = {
 export const CONTENT_MESSAGE_TYPES = {
   OPEN_INPAGE_COMMENTS_PANEL: 'openInpageCommentsPanel',
   EXTRACT_WEB_ARTICLE: 'extractWebArticle',
-  EXTRACT_DEDAO_ARTICLE_NOTES: 'extractDedaoArticleNotes',
   CAPTURE_VIDEO_TRANSCRIPT: 'captureVideoTranscript',
 } as const;
 
