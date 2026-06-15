@@ -139,3 +139,69 @@ describe('dedao gui notes dom extractor', () => {
     expect(document.querySelector(DEDAO_GUI_NOTE_CONTENT_SELECTOR)).not.toBeNull();
   });
 });
+
+describe('dedao gui notes main-world bridge', () => {
+  it('exports a MAIN-world content script restricted to dedao article urls', async () => {
+    installDom('<html><body></body></html>');
+    vi.resetModules();
+    (globalThis as any).defineContentScript = (config: unknown) => config;
+
+    const mod = await import('../../src/entrypoints/dedao-gui-notes-main.content');
+    const entry = mod.default as any;
+
+    expect(entry.world).toBe('MAIN');
+    expect(entry.matches).toContain('https://www.dedao.cn/course/article*');
+    expect(mod.isDedaoArticleUrl('https://www.dedao.cn/course/article?id=1')).toBe(true);
+    expect(mod.isDedaoArticleUrl('https://www.dedao.cn/')).toBe(false);
+  });
+
+  it('returns success and malformed responses through the bridge listener', async () => {
+    installDom('<html><body></body></html>');
+    vi.resetModules();
+    (globalThis as any).defineContentScript = (config: unknown) => config;
+
+    const mod = await import('../../src/entrypoints/dedao-gui-notes-main.content');
+    const responses: any[] = [];
+    const listener = mod.createDedaoGuiNotesMainWorldListener({
+      document,
+      locationHref: 'https://www.dedao.cn/course/article?id=1',
+      postMessage: (response: unknown) => responses.push(response),
+      extractNotes: vi.fn(async () => [{ externalId: 'n-1', quoteText: 'q', commentText: 'c' }]),
+    });
+
+    await listener(
+      new window.MessageEvent('message', {
+        source: window,
+        data: {
+          __syncnos: true,
+          type: 'SYNCNOS_DEDAO_GUI_NOTES_REQUEST',
+          requestId: 'req-1',
+          timeoutMs: 600,
+        },
+      }),
+    );
+
+    await listener(
+      new window.MessageEvent('message', {
+        source: window,
+        data: {
+          __syncnos: true,
+          type: 'SYNCNOS_DEDAO_GUI_NOTES_REQUEST',
+          requestId: 'req-2',
+          timeoutMs: 0,
+        },
+      }),
+    );
+
+    expect(responses[0]).toMatchObject({
+      ok: true,
+      status: 'success',
+      requestId: 'req-1',
+    });
+    expect(responses[1]).toMatchObject({
+      ok: false,
+      status: 'malformed_payload',
+      requestId: 'req-2',
+    });
+  });
+});
