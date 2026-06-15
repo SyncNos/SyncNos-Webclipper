@@ -4,6 +4,8 @@ import {
   syncConversationMessages,
   upsertConversation,
 } from '@services/conversations/data/storage';
+import { addArticleComment, listArticleCommentsByCanonicalUrl } from '@services/comments/data/storage';
+import type { DedaoExtractedNote } from '@collectors/web/dedao-notes';
 import { inlineChatImagesInMessages } from '@services/conversations/data/image-inline';
 import { DISCOURSE_OP_MISSING_WARNING_FLAG, DISCOURSE_OP_NOT_FOUND_ERROR } from '@collectors/web/article-fetch-errors';
 import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
@@ -38,6 +40,7 @@ const DISCOURSE_NAVIGATION_WAIT_TIMEOUT_MS = 10_000;
 const ARTICLE_STABILIZATION_TIMEOUT_MS = 10_000;
 const ARTICLE_STABILIZATION_MIN_TEXT_LENGTH = 240;
 const CONTENT_MESSAGE_RETRY_DELAY_MS = 320;
+const DEDAO_NOTES_REQUEST_TIMEOUT_MS = 1_500;
 
 function toError(message: unknown) {
   return new Error(String(message || 'unknown error'));
@@ -49,6 +52,15 @@ function sleep(ms: number) {
 
 function conversationKeyForUrl(url: string) {
   return `article:${url}`;
+}
+
+function isDedaoArticleUrl(url: string): boolean {
+  try {
+    const parsed = new URL(String(url || ''));
+    return parsed.hostname.toLowerCase().endsWith('dedao.cn') && String(parsed.pathname || '').trim().length > 1;
+  } catch (_error) {
+    return false;
+  }
 }
 
 function normalizeText(text: unknown) {
@@ -175,6 +187,63 @@ async function extractArticleOnTab(tabId: number) {
     throw toError(reason);
   }
   return apiResponse.data as any;
+}
+
+async function extractDedaoNotesOnTab(tabId: number): Promise<DedaoExtractedNote[]> {
+  const response = await tabsSendMessage(tabId, {
+    type: CONTENT_MESSAGE_TYPES.EXTRACT_DEDAO_ARTICLE_NOTES,
+    payload: { timeoutMs: DEDAO_NOTES_REQUEST_TIMEOUT_MS },
+  });
+
+  const apiResponse = response as { ok?: boolean; data?: unknown; error?: { message?: unknown } | null } | null;
+  if (!apiResponse || apiResponse.ok !== true) return [];
+  return Array.isArray(apiResponse.data) ? (apiResponse.data as DedaoExtractedNote[]) : [];
+}
+
+function normalizeDedaoCommentKey(input: { quoteText?: unknown; commentText?: unknown }) {
+  const quoteText = normalizeText(input?.quoteText || '');
+  const commentText = normalizeText(input?.commentText || '');
+  return `${quoteText}\n---\n${commentText}`;
+}
+
+async function importDedaoNotesForArticle(input: {
+  tabId: number;
+  conversationId: number;
+  canonicalUrl: string;
+}): Promise<number> {
+  if (!isDedaoArticleUrl(input.canonicalUrl)) return 0;
+
+  const notes = await extractDedaoNotesOnTab(input.tabId);
+  if (!Array.isArray(notes) || !notes.length) return 0;
+
+  const existing = await listArticleCommentsByCanonicalUrl(input.canonicalUrl);
+  const existingKeys = new Set(
+    (Array.isArray(existing) ? existing : [])
+      .filter((item) => item?.parentId == null)
+      .map((item) => normalizeDedaoCommentKey(item)),
+  );
+
+  let imported = 0;
+  for (const note of notes) {
+    const quoteText = normalizeText(note?.quoteText || '');
+    const commentText = normalizeText(note?.commentText || '');
+    if (!quoteText || !commentText) continue;
+
+    const dedupeKey = normalizeDedaoCommentKey({ quoteText, commentText });
+    if (existingKeys.has(dedupeKey)) continue;
+
+    await addArticleComment({
+      parentId: null,
+      conversationId: input.conversationId,
+      canonicalUrl: input.canonicalUrl,
+      quoteText,
+      commentText,
+    });
+    existingKeys.add(dedupeKey);
+    imported += 1;
+  }
+
+  return imported;
 }
 
 async function extractArticleOnTabWithReadabilityFallback(tabId: number, ensureReadabilityOnce: () => Promise<void>) {
@@ -314,6 +383,20 @@ export async function fetchActiveTabArticle({ tabId }: { tabId?: number } = {}) 
   }
 
   await syncConversationMessages(conversationId, messagesToSave);
+
+  try {
+    await importDedaoNotesForArticle({
+      tabId: targetTabId,
+      conversationId,
+      canonicalUrl,
+    });
+  } catch (error) {
+    console.warn('[DedaoNotes][ArticleFetch] import failed but article capture continues', {
+      conversationId,
+      url: canonicalUrl,
+      error: error instanceof Error ? error.message : String(error || ''),
+    });
+  }
 
   return {
     isNew: !existed,

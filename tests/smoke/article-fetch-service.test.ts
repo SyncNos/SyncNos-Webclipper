@@ -15,6 +15,11 @@ const imageInlineMocks = {
   inlineChatImagesInMessages: vi.fn(),
 };
 
+const articleCommentsMocks = {
+  addArticleComment: vi.fn(),
+  listArticleCommentsByCanonicalUrl: vi.fn(),
+};
+
 vi.mock('@services/url-cleaning/tracking-param-cleaner', () => ({
   cleanTrackingParamsUrl: async (url: string) => url,
 }));
@@ -32,6 +37,11 @@ vi.mock('@platform/storage/local', () => ({
 
 vi.mock('@services/conversations/data/image-inline', () => ({
   inlineChatImagesInMessages: imageInlineMocks.inlineChatImagesInMessages,
+}));
+
+vi.mock('@services/comments/data/storage', () => ({
+  addArticleComment: articleCommentsMocks.addArticleComment,
+  listArticleCommentsByCanonicalUrl: articleCommentsMocks.listArticleCommentsByCanonicalUrl,
 }));
 
 async function loadArticleFetchService() {
@@ -52,6 +62,8 @@ afterEach(() => {
   settingsMocks.storageGet.mockReset();
   settingsMocks.storageSet.mockReset();
   imageInlineMocks.inlineChatImagesInMessages.mockReset();
+  articleCommentsMocks.addArticleComment.mockReset();
+  articleCommentsMocks.listArticleCommentsByCanonicalUrl.mockReset();
   // @ts-expect-error test cleanup
   delete globalThis.chrome;
 });
@@ -63,6 +75,8 @@ describe('article-fetch-service', () => {
     storageMocks.hasConversation.mockResolvedValue(false);
     storageMocks.upsertConversation.mockImplementation(upsertConversation);
     storageMocks.syncConversationMessages.mockImplementation(syncConversationMessages);
+    articleCommentsMocks.listArticleCommentsByCanonicalUrl.mockResolvedValue([]);
+    articleCommentsMocks.addArticleComment.mockResolvedValue({ id: 1 });
     settingsMocks.storageGet.mockResolvedValue({ web_article_cache_images_enabled: true });
     imageInlineMocks.inlineChatImagesInMessages.mockImplementation(async (input: any) => ({
       messages: (Array.isArray(input?.messages) ? input.messages : []).map((message: any) => ({
@@ -142,6 +156,7 @@ describe('article-fetch-service', () => {
     const [conversationId, messages] = syncConversationMessages.mock.calls[0];
     expect(conversationId).toBe(11);
     expect(imageInlineMocks.inlineChatImagesInMessages).toHaveBeenCalledTimes(1);
+    expect(articleCommentsMocks.addArticleComment).toHaveBeenCalledTimes(0);
     expect(imageInlineMocks.inlineChatImagesInMessages.mock.calls[0][0]).toMatchObject({
       conversationId: 11,
       conversationUrl: 'https://example.com/post',
@@ -154,6 +169,88 @@ describe('article-fetch-service', () => {
       sequence: 1,
       contentText: 'Hello world article text.',
       contentMarkdown: '## Heading\n\n![img](syncnos-asset://conversation/11/a.png)\n\nHello world article text.',
+    });
+  });
+
+  it('imports dedao notes into article comments after capture and skips duplicates', async () => {
+    const upsertConversation = vi.fn(async (payload: any) => ({ id: 19, ...payload }));
+    storageMocks.hasConversation.mockResolvedValue(false);
+    storageMocks.upsertConversation.mockImplementation(upsertConversation);
+    storageMocks.syncConversationMessages.mockResolvedValue({ upserted: 1, deleted: 0 });
+    settingsMocks.storageGet.mockResolvedValue({ web_article_cache_images_enabled: false });
+    imageInlineMocks.inlineChatImagesInMessages.mockImplementation(async (input: any) => ({
+      messages: input?.messages || [],
+      inlinedCount: 0,
+      downloadedCount: 0,
+      fromCacheCount: 0,
+      inlinedBytes: 0,
+      warningFlags: [],
+    }));
+    articleCommentsMocks.listArticleCommentsByCanonicalUrl.mockResolvedValue([
+      { parentId: null, quoteText: '已存在摘录', commentText: '已存在笔记' },
+    ]);
+    articleCommentsMocks.addArticleComment.mockResolvedValue({ id: 7 });
+
+    const sendMessage = vi.fn((_tabId: number, msg: any, cb: (res: any) => void) => {
+      if (msg?.type === 'extractDedaoArticleNotes') {
+        cb({
+          ok: true,
+          data: [
+            {
+              externalId: 'n1',
+              quoteText: '已存在摘录',
+              commentText: '已存在笔记',
+            },
+            {
+              externalId: 'n2',
+              quoteText: '新的摘录',
+              commentText: '新的笔记',
+            },
+          ],
+        });
+        return;
+      }
+
+      cb({
+        ok: true,
+        data: {
+          ok: true,
+          title: '得到文章',
+          author: '作者',
+          publishedAt: '',
+          excerpt: '',
+          contentHTML: '<html><body><p>正文</p></body></html>',
+          contentMarkdown: '正文',
+          textContent: '正文',
+          warningFlags: [],
+        },
+      });
+    });
+
+    // @ts-expect-error test global
+    globalThis.chrome = {
+      runtime: { lastError: null },
+      tabs: {
+        query: (_query: any, cb: (tabs: any[]) => void) =>
+          cb([{ id: 77, url: 'https://m.dedao.cn/article/demo', title: '得到文章' }]),
+        sendMessage,
+      },
+      scripting: {
+        executeScript: vi.fn((_details: any, cb: (results: any[]) => void) => cb([])),
+      },
+    };
+
+    const service = await loadArticleFetchService();
+    await service.fetchActiveTabArticle();
+
+    expect(articleCommentsMocks.listArticleCommentsByCanonicalUrl).toHaveBeenCalledWith('https://m.dedao.cn/article/demo');
+    expect(articleCommentsMocks.addArticleComment).toHaveBeenCalledTimes(1);
+    expect(articleCommentsMocks.addArticleComment).toHaveBeenCalledWith({
+      parentId: null,
+      conversationId: 19,
+      canonicalUrl: 'https://m.dedao.cn/article/demo',
+      quoteText: '新的摘录',
+      commentText: '新的笔记',
     });
   });
 

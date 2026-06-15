@@ -1,5 +1,6 @@
 import { createContentController } from '@services/bootstrap/content-controller.ts';
 import { registerCurrentPageCaptureContentHandlers } from '@services/bootstrap/current-page-capture-content-handlers.ts';
+import { registerDedaoNotesExtractContentHandlers } from '@services/bootstrap/dedao-notes-extract-content-handlers.ts';
 import { createCurrentPageCaptureService } from '@services/bootstrap/current-page-capture.ts';
 import { startContentBootstrap } from '@services/bootstrap/content.ts';
 import { registerInpageCommentsPanelContentHandlers } from '@services/bootstrap/inpage-comments-panel-content-handlers.ts';
@@ -34,6 +35,7 @@ export default defineContentScript({
     });
 
     registerCurrentPageCaptureContentHandlers(currentPageCapture, { inpageTip: inpageTipApi });
+    registerDedaoNotesExtractContentHandlers();
     registerInpageCommentsPanelContentHandlers(runtime);
     registerWebArticleExtractContentHandlers();
     registerVideoTranscriptCaptureContentHandlers(createVideoTranscriptCaptureService({ runtime }), {
