@@ -13,6 +13,7 @@ export type ArticleFetchSiteSpec = {
   textSelector?: string;
   textPrefer?: ArticleFetchTextPrefer;
   removeSelectors?: string[];
+  flattenHrToBreaks?: boolean;
   useSanitizedRootHtml?: boolean;
 
   imageSelector?: string;

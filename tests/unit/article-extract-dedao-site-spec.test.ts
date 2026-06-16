@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { htmlToMarkdownTurndown } from '@collectors/web/article-extract/markdown-turndown';
 import { extractBySiteSpec } from '@collectors/web/article-extract/site-spec-extractor';
 import { DEDAO_NOTE_DETAIL_SITE_SPEC } from '@collectors/web/article-fetch-sites/dedao-note-detail';
 
@@ -30,5 +31,13 @@ describe('article-extract dedao site spec', () => {
     expect(String(res?.contentHTML || '')).not.toContain('forward-list');
     expect(String(res?.contentHTML || '')).not.toContain('like-list');
     expect(String(res?.contentHTML || '')).not.toContain('uploader/image/avatar');
+
+    const markdown = htmlToMarkdownTurndown(
+      String(res?.contentHTML || ''),
+      'https://www.dedao.cn/knowledge/note/detail?id=AaWVPxLgY8DkXGMkJyEGXnDqwEoXJ9',
+    );
+    expect(markdown).toContain('万 sir 您好，我是一名自闭症孩子的妈妈。');
+    expect(markdown).not.toContain('* * *');
+    expect(markdown).not.toContain('\n---\n');
   });
 });

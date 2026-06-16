@@ -45,6 +45,14 @@ function renderPlainTextAsHtml(text: string) {
     .join('');
 }
 
+function flattenHrToBreaks(root: Element) {
+  const hrs = Array.from(root.querySelectorAll('hr'));
+  for (const hr of hrs) {
+    const doc = hr.ownerDocument || document;
+    hr.replaceWith(doc.createElement('br'), doc.createElement('br'));
+  }
+}
+
 function pickTextFromNode(node: any, prefer: unknown) {
   if (!node) return '';
   const mode = String(prefer || 'innerText').trim();
@@ -92,6 +100,8 @@ export function extractBySiteSpec(spec: ArticleFetchSiteSpec, baseHref: string) 
       workingRoot.querySelectorAll(selector).forEach((node) => node.remove());
     }
   }
+
+  if (spec.flattenHrToBreaks) flattenHrToBreaks(workingRoot);
 
   if (spec.useSanitizedRootHtml) cleanHtmlFragment(workingRoot, baseHref);
 

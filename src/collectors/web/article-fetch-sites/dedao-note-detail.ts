@@ -8,6 +8,7 @@ export const DEDAO_NOTE_DETAIL_SITE_SPEC: ArticleFetchSiteSpec = {
   authorSelector: '.audio-info .name',
   publishedAtSelector: '.audio-info .date',
   textPrefer: 'textContent',
+  flattenHrToBreaks: true,
   useSanitizedRootHtml: true,
   removeSelectors: [
     '.autor-right',
