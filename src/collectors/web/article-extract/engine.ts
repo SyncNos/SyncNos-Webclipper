@@ -79,7 +79,9 @@ function summarizeElementForDebug(root: Element | Document | null) {
     .replace(/\s+/g, ' ');
   const tag = String((el as any).tagName || '').toLowerCase();
   const text = readElementText(el as any);
-  const childCount = Array.isArray((el as any).children) ? (el as any).children.length : ((el as any).children?.length ?? 0);
+  const childCount = Array.isArray((el as any).children)
+    ? (el as any).children.length
+    : ((el as any).children?.length ?? 0);
   return {
     tag,
     id,
