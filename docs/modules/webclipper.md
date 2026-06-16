@@ -103,10 +103,12 @@
 ### 站点适配边界
 
 - `site spec` 只负责提取结构化 `contentHTML + textContent`，不再直接拼 markdown。
+- `site spec` 现支持 `urlPattern`、`removeSelectors` 与 `useSanitizedRootHtml` 这类 declarative 边界描述，适合复杂 SPA 页内只保留部分 DOM 子树的场景。
 - `article-fetch-sites/*` 只维护 declarative site specs；`article-extract/sites/*` 只维护运行时站点 helper，不承担 spec 转发。
 - Discourse 保留首贴 `.cooked` 轻量适配（避免 onebox 截断）。
 - 微信 share media 图集保留 HTML 追加能力，但 markdown 统一由 Turndown 生成（已移除 `buildWechatShareMediaGalleryMarkdown()` 旁路）。
-- 小红书/Bilibili 仍由 `article-fetch-sites/*` 提供选择器策略，并在 engine 主干中统一转换。
+- 小红书/Bilibili 继续由 `article-fetch-sites/*` 提供选择器策略，并在 engine 主干中统一转换。
+- Dedao `knowledge/note/detail` 现在走专门的 note-detail site spec：保留正文、`source-card` 与讨论文本，移除推荐区、头像、输入框、空态与交互噪音。
 
 ### Readability 注入策略
 
@@ -122,6 +124,7 @@
 | WeChat share media | 图集图片被正确提取并清洗参数；输出是图片 blocks（非表格） |
 | 小红书 note | `#noteContainer` hydrated 后走 site spec；正文与图片都保留 |
 | Bilibili opus | 图片 URL 去除 `@...` 后缀，正文段落保留 |
+| Dedao note detail | `knowledge/note/detail` 走 site spec；正文、`source-card`、评论文本保留，推荐区/头像/空态被裁掉 |
 | GitHub README（含 table） | 表格转换为 GFM markdown table；对齐信息可保留（例如右对齐列） |
 
 ### 与 obsidian-clipper 的对标差异
@@ -130,7 +133,7 @@
 - 差异点（SyncNos 特有）：
   - 保留 Discourse OP 专项路径与 `/1` 首层回退逻辑。
   - 保留 Readability 兜底分支，且 background 侧支持按需注入。
-  - 保留站点 spec（微信图集 / 小红书 / Bilibili）并统一回到同一 Markdown 主干。
+  - 保留站点 spec（微信图集 / 小红书 / Bilibili / Dedao note detail）并统一回到同一 Markdown 主干。
 - 当前状态：旧 `htmlToMarkdown` 已从 web article fetch 链路移除，转换主干收敛为 Turndown + `textContent` 兜底。
 
 ## 本地数据与同步结构
