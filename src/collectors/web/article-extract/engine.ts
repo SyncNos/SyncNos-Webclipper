@@ -58,6 +58,55 @@ function isSkippableRootCandidate(el: Element): boolean {
   return name === 'script' || name === 'style' || name === 'noscript';
 }
 
+function listMeaningfulChildren(root: Element | null) {
+  if (!root) return [] as Element[];
+  return Array.from((root as any).children || []).filter((child): child is Element => {
+    return Boolean(child) && !isSkippableRootCandidate(child as Element);
+  });
+}
+
+function readCandidateTextLen(root: Element | null) {
+  return root ? readElementText(root as any).length : 0;
+}
+
+function narrowFallbackRoot(root: Element | null) {
+  if (!root) return root;
+
+  let current: Element | null = root;
+  while (current) {
+    const children = listMeaningfulChildren(current);
+    if (children.length !== 1) break;
+
+    const onlyChild = children[0];
+    const parentTextLen = readCandidateTextLen(current);
+    const childTextLen = readCandidateTextLen(onlyChild);
+    if (childTextLen < 800 || childTextLen < Math.floor(parentTextLen * 0.6)) break;
+    current = onlyChild;
+  }
+
+  if (!current) return root;
+
+  const tagName = String((current as any)?.tagName || '').toLowerCase();
+  if (tagName !== 'div' && tagName !== 'body') return current;
+
+  const children = listMeaningfulChildren(current);
+  if (!children.length) return current;
+
+  const parentTextLen = readCandidateTextLen(current);
+  let best: Element | null = null;
+  let bestTextLen = 0;
+  for (const child of children) {
+    const childTextLen = readCandidateTextLen(child);
+    if (childTextLen <= bestTextLen) continue;
+    best = child;
+    bestTextLen = childTextLen;
+  }
+
+  if (!best || bestTextLen < 800) return current;
+  if (bestTextLen < Math.floor(parentTextLen * 0.6)) return current;
+  return best;
+}
+
 function pickPrimaryRootFromBody() {
   const body = document.body as any;
   if (!body || !body.children) return null;
@@ -135,6 +184,19 @@ function shouldTreatExtractionAsPartial(candidateTextLen: number, rootTextLen: n
   return delta >= 3_200;
 }
 
+function shouldRejectReadabilityCandidate(candidateText: unknown, rootTextLen: number): boolean {
+  const candidateTextLen = normalizeText(candidateText || '').length;
+  if (!(candidateTextLen > 0) || !(rootTextLen > 0)) return false;
+  if (rootTextLen < 8_000) return false;
+  if (candidateTextLen >= 200) return false;
+
+  const ratio = candidateTextLen / rootTextLen;
+  if (ratio >= 0.05) return false;
+
+  const delta = rootTextLen - candidateTextLen;
+  return delta >= 3_200;
+}
+
 function fallbackExtract(baseHref: string) {
   const wechatOnlyUrls = extractWechatShareMediaImageUrls(baseHref);
   if (wechatOnlyUrls.length >= 2) {
@@ -160,7 +222,7 @@ function fallbackExtract(baseHref: string) {
     };
   }
 
-  const root = pickRoot();
+  const root = narrowFallbackRoot(pickRoot() as Element | null);
   if (!root) return null;
   const title =
     normalizeText(document.title || '') || readMeta(['meta[property="og:title"]', 'meta[name="twitter:title"]']);
@@ -431,10 +493,10 @@ export async function extractWebArticleFromCurrentPage(options: ExtractOptions =
     );
   }
   const discourseOpMissingOnCurrentPage = Boolean(discourseTopic);
+  const rootTextLen = readElementText(pickRoot() as any).length;
 
   const defuddle = isWechatShareMediaPage() ? null : extractByDefuddle(baseHref);
   if (defuddle) {
-    const rootTextLen = readElementText(pickRoot() as any).length;
     const candidateTextLen = normalizeText(defuddle.textContent || '').length;
     if (shouldTreatExtractionAsPartial(candidateTextLen, rootTextLen)) {
       console.info('[ArticleExtract] defuddle extraction looks partial, continue with other strategies', {
@@ -456,12 +518,20 @@ export async function extractWebArticleFromCurrentPage(options: ExtractOptions =
 
   const readability = extractByReadability(baseHref);
   if (readability) {
-    return withDiscourseOpWarning(
-      {
-        ...readability,
-      },
-      discourseOpMissingOnCurrentPage,
-    );
+    if (shouldRejectReadabilityCandidate(readability.textContent, rootTextLen)) {
+      console.info('[ArticleExtract] readability extraction looks partial, continue with fallback', {
+        url: baseHref,
+        candidateTextLen: normalizeText(readability.textContent || '').length,
+        rootTextLen,
+      });
+    } else {
+      return withDiscourseOpWarning(
+        {
+          ...readability,
+        },
+        discourseOpMissingOnCurrentPage,
+      );
+    }
   }
 
   const fallback = fallbackExtract(baseHref);
