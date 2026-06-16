@@ -61,7 +61,7 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 
 ### Web Articles
 
-Any `http(s)` page can be clipped — body text, title, author, and publish date are extracted automatically.
+Any `http(s)` page can be clipped — body text, title, author, and publish date are extracted automatically. Complex SPA layouts fall back to site specs when needed, including Xiaohongshu notes, Bilibili opus pages, and Dedao note detail discussions.
 
 ### Video Transcripts
 

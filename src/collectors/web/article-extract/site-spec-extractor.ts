@@ -1,4 +1,5 @@
 import type { ArticleFetchSiteSpec } from '@collectors/web/article-fetch-sites/site-spec';
+import { cleanHtmlFragment } from '@collectors/web/article-extract/html-clean';
 import { normalizeText, sanitizeSiteImageUrl } from '@collectors/web/article-extract/url';
 
 function escapeHtml(value: unknown) {
@@ -44,6 +45,14 @@ function renderPlainTextAsHtml(text: string) {
     .join('');
 }
 
+function flattenHrToBreaks(root: Element) {
+  const hrs = Array.from(root.querySelectorAll('hr'));
+  for (const hr of hrs) {
+    const doc = hr.ownerDocument || document;
+    hr.replaceWith(doc.createElement('br'), doc.createElement('br'));
+  }
+}
+
 function pickTextFromNode(node: any, prefer: unknown) {
   if (!node) return '';
   const mode = String(prefer || 'innerText').trim();
@@ -77,11 +86,29 @@ function selectTitle(spec: ArticleFetchSiteSpec, root: Element, text: string) {
 }
 
 export function extractBySiteSpec(spec: ArticleFetchSiteSpec, baseHref: string) {
+  if (spec.urlPattern && !spec.urlPattern.test(baseHref)) return null;
+
   const root = document.querySelector(spec.rootSelector);
   if (!root) return null;
+  const workingRoot = root.cloneNode(true) as Element;
+
+  const removeSelectors = Array.isArray(spec.removeSelectors)
+    ? spec.removeSelectors.map((s) => String(s || '').trim()).filter(Boolean)
+    : [];
+  if (removeSelectors.length) {
+    for (const selector of removeSelectors) {
+      workingRoot.querySelectorAll(selector).forEach((node) => node.remove());
+    }
+  }
+
+  if (spec.flattenHrToBreaks) flattenHrToBreaks(workingRoot);
+
+  if (spec.useSanitizedRootHtml) cleanHtmlFragment(workingRoot, baseHref);
 
   const author =
-    (spec.authorSelector ? normalizeText((root.querySelector(spec.authorSelector) as any)?.textContent || '') : '') ||
+    (spec.authorSelector
+      ? normalizeText((workingRoot.querySelector(spec.authorSelector) as any)?.textContent || '')
+      : '') ||
     normalizeText(
       (document.querySelector("meta[name='author']") as any)?.getAttribute?.('content') ||
         (document.querySelector("meta[property='article:author']") as any)?.getAttribute?.('content') ||
@@ -91,7 +118,7 @@ export function extractBySiteSpec(spec: ArticleFetchSiteSpec, baseHref: string) 
 
   const publishedAt =
     (spec.publishedAtSelector
-      ? normalizeText((root.querySelector(spec.publishedAtSelector) as any)?.textContent || '')
+      ? normalizeText((workingRoot.querySelector(spec.publishedAtSelector) as any)?.textContent || '')
       : '') ||
     normalizeText(
       (document.querySelector("meta[property='article:published_time']") as any)?.getAttribute?.('content') ||
@@ -100,7 +127,11 @@ export function extractBySiteSpec(spec: ArticleFetchSiteSpec, baseHref: string) 
         '',
     );
 
-  const text = spec.textSelector ? pickTextFromNode(root.querySelector(spec.textSelector), spec.textPrefer) : '';
+  const text = spec.textSelector
+    ? pickTextFromNode(workingRoot.querySelector(spec.textSelector), spec.textPrefer)
+    : spec.useSanitizedRootHtml
+      ? pickTextFromNode(workingRoot, spec.textPrefer)
+      : '';
 
   const urls: string[] = [];
   const selectorCandidates = Array.isArray(spec.imageSelectorCandidates)
@@ -112,7 +143,7 @@ export function extractBySiteSpec(spec: ArticleFetchSiteSpec, baseHref: string) 
   if (selectorsToTry.length) {
     const attrs = Array.isArray(spec.imageSrcAttributes) ? spec.imageSrcAttributes : [];
     for (const imageSelector of selectorsToTry) {
-      const images = Array.from(root.querySelectorAll(imageSelector));
+      const images = Array.from(workingRoot.querySelectorAll(imageSelector));
       if (!images.length) continue;
 
       for (const img of images) {
@@ -135,10 +166,12 @@ export function extractBySiteSpec(spec: ArticleFetchSiteSpec, baseHref: string) 
     }
   }
 
-  const title = selectTitle(spec, root, text);
+  const title = selectTitle(spec, workingRoot, text);
   const imageHtml = buildHtmlImageBlocks(urls);
   const textContent = text || dedupeUrls(urls).join('\n');
-  const htmlBody = normalizeText([imageHtml, renderPlainTextAsHtml(text)].filter(Boolean).join(''));
+  const htmlBody = spec.useSanitizedRootHtml
+    ? normalizeText(workingRoot.innerHTML || '')
+    : normalizeText([imageHtml, renderPlainTextAsHtml(text)].filter(Boolean).join(''));
 
   if (!htmlBody && !textContent) return null;
 
