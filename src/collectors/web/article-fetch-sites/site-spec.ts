@@ -3,6 +3,7 @@ export type ArticleFetchImageSanitizer = 'none' | 'stripAtSuffix' | 'stripBangSu
 
 export type ArticleFetchSiteSpec = {
   id: string;
+  urlPattern?: RegExp;
   rootSelector: string;
 
   titleSelector?: string;
@@ -11,6 +12,8 @@ export type ArticleFetchSiteSpec = {
   publishedAtSelector?: string;
   textSelector?: string;
   textPrefer?: ArticleFetchTextPrefer;
+  removeSelectors?: string[];
+  useSanitizedRootHtml?: boolean;
 
   imageSelector?: string;
   /**
