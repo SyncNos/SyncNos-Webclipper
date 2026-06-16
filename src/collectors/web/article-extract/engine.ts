@@ -53,6 +53,48 @@ function readElementText(el: Element | Document | null): string {
   return normalizeText((el as any).innerText || (el as any).textContent || '');
 }
 
+function isArticleExtractDebugEnabled() {
+  try {
+    const href = String(location?.href || '');
+    if (/https?:\/\/([^/]+\.)?dedao\.cn\//i.test(href)) return true;
+  } catch (_e) {
+    // ignore
+  }
+
+  try {
+    return Boolean((globalThis as any).__SYNCNOS_DEBUG_ARTICLE_EXTRACT__);
+  } catch (_e) {
+    return false;
+  }
+}
+
+function summarizeElementForDebug(root: Element | Document | null) {
+  if (!root || !(root as any).nodeType) return null;
+  const el = (root as any).nodeType === 9 ? (root as Document).documentElement : (root as Element);
+  if (!el) return null;
+
+  const id = String((el as any).id || '').trim();
+  const className = String((el as any).className || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  const tag = String((el as any).tagName || '').toLowerCase();
+  const text = readElementText(el as any);
+  const childCount = Array.isArray((el as any).children) ? (el as any).children.length : ((el as any).children?.length ?? 0);
+  return {
+    tag,
+    id,
+    className,
+    childCount,
+    textLen: text.length,
+    textPreview: text.slice(0, 200),
+  };
+}
+
+function debugArticleExtract(stage: string, payload: Record<string, unknown>) {
+  if (!isArticleExtractDebugEnabled()) return;
+  console.info(`[ArticleExtract][Debug] ${stage}`, payload);
+}
+
 function isSkippableRootCandidate(el: Element): boolean {
   const name = String((el as any)?.tagName || '').toLowerCase();
   return name === 'script' || name === 'style' || name === 'noscript';
@@ -159,12 +201,13 @@ function pickPrimaryRootFromBody() {
 function pickRoot() {
   return (
     document.querySelector('#js_content') ||
-    document.querySelector('article') ||
     document.querySelector('main') ||
     document.querySelector('[role="main"]') ||
     document.querySelector('#__next') ||
     document.querySelector('#root') ||
+    document.querySelector('#app') ||
     pickPrimaryRootFromBody() ||
+    document.querySelector('article') ||
     document.body ||
     document.documentElement
   );
@@ -182,6 +225,18 @@ function shouldTreatExtractionAsPartial(candidateTextLen: number, rootTextLen: n
 
   const delta = rootTextLen - candidateTextLen;
   return delta >= 3_200;
+}
+
+function shouldRejectDefuddleMicroCandidate(candidateTextLen: number, rootTextLen: number): boolean {
+  if (!(candidateTextLen > 0) || !(rootTextLen > 0)) return false;
+  if (rootTextLen < 1_800) return false;
+  if (candidateTextLen >= 160) return false;
+
+  const ratio = candidateTextLen / rootTextLen;
+  if (ratio >= 0.12) return false;
+
+  const delta = rootTextLen - candidateTextLen;
+  return delta >= 1_000;
 }
 
 function shouldRejectReadabilityCandidate(candidateText: unknown, rootTextLen: number): boolean {
@@ -222,7 +277,13 @@ function fallbackExtract(baseHref: string) {
     };
   }
 
-  const root = narrowFallbackRoot(pickRoot() as Element | null);
+  const pickedRoot = pickRoot() as Element | null;
+  const root = narrowFallbackRoot(pickedRoot);
+  debugArticleExtract('fallback-root', {
+    url: baseHref,
+    pickedRoot: summarizeElementForDebug(pickedRoot),
+    narrowedRoot: summarizeElementForDebug(root),
+  });
   if (!root) return null;
   const title =
     normalizeText(document.title || '') || readMeta(['meta[property="og:title"]', 'meta[name="twitter:title"]']);
@@ -493,12 +554,31 @@ export async function extractWebArticleFromCurrentPage(options: ExtractOptions =
     );
   }
   const discourseOpMissingOnCurrentPage = Boolean(discourseTopic);
-  const rootTextLen = readElementText(pickRoot() as any).length;
+  const pickedRoot = pickRoot() as Element | null;
+  const rootTextLen = readElementText(pickedRoot as any).length;
+  debugArticleExtract('picked-root', {
+    url: baseHref,
+    root: summarizeElementForDebug(pickedRoot),
+    rootTextLen,
+    readyState: normalizeText(document.readyState || ''),
+  });
 
   const defuddle = isWechatShareMediaPage() ? null : extractByDefuddle(baseHref);
   if (defuddle) {
     const candidateTextLen = normalizeText(defuddle.textContent || '').length;
-    if (shouldTreatExtractionAsPartial(candidateTextLen, rootTextLen)) {
+    const rejectDefuddle =
+      shouldTreatExtractionAsPartial(candidateTextLen, rootTextLen) ||
+      shouldRejectDefuddleMicroCandidate(candidateTextLen, rootTextLen);
+    debugArticleExtract('defuddle-result', {
+      url: baseHref,
+      candidateTextLen,
+      title: normalizeText(defuddle.title || ''),
+      textPreview: normalizeText(defuddle.textContent || '').slice(0, 200),
+      accepted: !rejectDefuddle,
+      rejectDefuddle,
+      rootTextLen,
+    });
+    if (rejectDefuddle) {
       console.info('[ArticleExtract] defuddle extraction looks partial, continue with other strategies', {
         url: baseHref,
         candidateTextLen,
@@ -518,13 +598,30 @@ export async function extractWebArticleFromCurrentPage(options: ExtractOptions =
 
   const readability = extractByReadability(baseHref);
   if (readability) {
-    if (shouldRejectReadabilityCandidate(readability.textContent, rootTextLen)) {
+    const readabilityTextLen = normalizeText(readability.textContent || '').length;
+    const rejectReadability = shouldRejectReadabilityCandidate(readability.textContent, rootTextLen);
+    debugArticleExtract('readability-result', {
+      url: baseHref,
+      candidateTextLen: readabilityTextLen,
+      title: normalizeText(readability.title || ''),
+      textPreview: normalizeText(readability.textContent || '').slice(0, 200),
+      rejectReadability,
+      rootTextLen,
+    });
+    if (rejectReadability) {
       console.info('[ArticleExtract] readability extraction looks partial, continue with fallback', {
         url: baseHref,
-        candidateTextLen: normalizeText(readability.textContent || '').length,
+        candidateTextLen: readabilityTextLen,
         rootTextLen,
       });
     } else {
+      debugArticleExtract('final-result', {
+        url: baseHref,
+        strategy: 'readability',
+        textLen: readabilityTextLen,
+        title: normalizeText(readability.title || ''),
+        textPreview: normalizeText(readability.textContent || '').slice(0, 200),
+      });
       return withDiscourseOpWarning(
         {
           ...readability,
@@ -536,6 +633,13 @@ export async function extractWebArticleFromCurrentPage(options: ExtractOptions =
 
   const fallback = fallbackExtract(baseHref);
   if (fallback) {
+    debugArticleExtract('final-result', {
+      url: baseHref,
+      strategy: 'fallback',
+      textLen: normalizeText(fallback.textContent || '').length,
+      title: normalizeText(fallback.title || ''),
+      textPreview: normalizeText(fallback.textContent || '').slice(0, 200),
+    });
     return withDiscourseOpWarning(
       {
         ...fallback,
