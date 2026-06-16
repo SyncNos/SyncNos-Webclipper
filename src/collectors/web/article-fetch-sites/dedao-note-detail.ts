@@ -19,6 +19,8 @@ export const DEDAO_NOTE_DETAIL_SITE_SPEC: ArticleFetchSiteSpec = {
     '.feed-btn-recommendation',
     '.pointer',
     '.note-expo',
+    '.iget-status',
+    '.iget-container',
     '.operation-area',
     '.loading-more',
     '.write-comment',
