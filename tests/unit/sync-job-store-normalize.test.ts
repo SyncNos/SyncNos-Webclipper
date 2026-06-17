@@ -1,15 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const storageState: Record<string, unknown> = {};
+
 vi.mock('@platform/storage/local', () => {
   return {
-    storageGet: async () => ({}),
-    storageSet: async () => {},
+    storageGet: async (keys: string[]) => {
+      const out: Record<string, unknown> = {};
+      for (const key of keys || []) out[key] = storageState[key];
+      return out;
+    },
+    storageSet: async (patch: Record<string, unknown>) => {
+      Object.assign(storageState, patch || {});
+    },
   };
 });
 
 describe('normalizeSyncJobSnapshot', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    for (const key of Object.keys(storageState)) delete storageState[key];
   });
 
   it('normalizes feishu job snapshots (finished -> done, ids, counts)', async () => {
@@ -36,5 +45,60 @@ describe('normalizeSyncJobSnapshot', () => {
     expect(snapshot!.okCount).toBe(1);
     expect(snapshot!.failCount).toBe(1);
     expect(snapshot!.updatedAt).toBe(2);
+  });
+
+  it('aborts a foreign running job immediately when forced', async () => {
+    const { abortRunningSyncJobIfFromOtherInstance, SYNC_JOB_STORAGE_KEYS } = await import('@services/sync/sync-job-store');
+    const now = Date.now();
+    storageState[SYNC_JOB_STORAGE_KEYS.notion] = {
+      id: 'job_2',
+      provider: 'notion',
+      instanceId: 'background-old',
+      status: 'running',
+      startedAt: now - 3_000,
+      updatedAt: now - 2_000,
+      finishedAt: null,
+      conversationIds: [1],
+      okCount: 0,
+      failCount: 0,
+      perConversation: [],
+    };
+
+    const reconciled = await abortRunningSyncJobIfFromOtherInstance('notion', 'background-new', { forceAbort: true });
+    expect(reconciled?.status).toBe('aborted');
+    expect(reconciled?.abortedReason).toBe('extension reloaded');
+    expect((storageState[SYNC_JOB_STORAGE_KEYS.notion] as any)?.status).toBe('aborted');
+  });
+
+  it('keeps a fresh foreign running job until the 5 minute stale window expires when not forced', async () => {
+    const { abortRunningSyncJobIfFromOtherInstance, isRunningSyncJob, SYNC_JOB_STORAGE_KEYS } = await import(
+      '@services/sync/sync-job-store'
+    );
+    const now = Date.now();
+    storageState[SYNC_JOB_STORAGE_KEYS.feishu] = {
+      id: 'job_3',
+      provider: 'feishu',
+      instanceId: 'background-old',
+      status: 'running',
+      startedAt: now - 3_000,
+      updatedAt: now - 2_000,
+      finishedAt: null,
+      conversationIds: [2],
+      okCount: 0,
+      failCount: 0,
+      perConversation: [],
+    };
+
+    const fresh = await abortRunningSyncJobIfFromOtherInstance('feishu', 'background-new');
+    expect(fresh?.status).toBe('running');
+    expect(isRunningSyncJob(fresh)).toBe(true);
+
+    storageState[SYNC_JOB_STORAGE_KEYS.feishu] = {
+      ...(storageState[SYNC_JOB_STORAGE_KEYS.feishu] as any),
+      updatedAt: now - 5 * 60 * 1000 - 1_000,
+    };
+    const stale = await abortRunningSyncJobIfFromOtherInstance('feishu', 'background-new');
+    expect(stale?.status).toBe('aborted');
+    expect(stale?.abortedReason).toBe('extension reloaded');
   });
 });

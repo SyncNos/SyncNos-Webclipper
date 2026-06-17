@@ -192,6 +192,31 @@ describe('obsidian-sync-orchestrator', () => {
     expect(status.job?.status).toBe('done');
   });
 
+  it('reconciles a foreign running obsidian job to aborted on status read after reload', async () => {
+    setupChromeStorage();
+    const jobStore = await loadModule('@services/sync/obsidian/obsidian-sync-job-store.ts');
+    await jobStore.setJob({
+      id: 'job_running',
+      provider: 'obsidian',
+      instanceId: 'background-old',
+      status: 'running',
+      startedAt: Date.now() - 4_000,
+      updatedAt: Date.now() - 1_000,
+      finishedAt: null,
+      conversationIds: [1],
+      currentConversationId: 1,
+      currentStage: 'writing_full_note',
+      okCount: 0,
+      failCount: 0,
+      perConversation: [],
+    });
+    const orch = await loadModule('@services/sync/obsidian/obsidian-sync-orchestrator.ts');
+
+    const status = await orch.getSyncStatus({ instanceId: 'background-new' });
+    expect(status.job?.status).toBe('aborted');
+    expect(status.job?.abortedReason).toBe('extension reloaded');
+  });
+
   it('rebuilds article note when remote exists', async () => {
     setupChromeStorage();
     const settingsStore = await loadModule('@services/sync/obsidian/settings-store.ts');

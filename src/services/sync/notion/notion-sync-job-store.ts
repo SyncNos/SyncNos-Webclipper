@@ -1,5 +1,6 @@
 import {
   SYNC_JOB_STORAGE_KEYS,
+  type ReconcileRunningSyncJobOptions,
   abortRunningSyncJobIfFromOtherInstance,
   getSyncJob,
   isRunningSyncJob,
@@ -20,8 +21,8 @@ export function isRunningJob(job: any, staleMs?: number) {
   return isRunningSyncJob(job, staleMs);
 }
 
-export async function abortRunningJobIfFromOtherInstance(instanceId: string) {
-  return abortRunningSyncJobIfFromOtherInstance('notion', instanceId);
+export async function abortRunningJobIfFromOtherInstance(instanceId: string, options?: number | ReconcileRunningSyncJobOptions) {
+  return abortRunningSyncJobIfFromOtherInstance('notion', instanceId, options);
 }
 
 const api = {

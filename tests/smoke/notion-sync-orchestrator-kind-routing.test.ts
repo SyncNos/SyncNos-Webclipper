@@ -260,4 +260,67 @@ describe('notion-sync-orchestrator kind routing', () => {
     expect(calls.some((c) => c.op === 'fetch' && c.req?.method === 'DELETE')).toBe(true);
     expect(calls.some((c) => c.op === 'append')).toBe(true);
   });
+
+  it('reconciles a foreign running notion job to aborted on status read after reload', async () => {
+    // @ts-expect-error test global
+    globalThis.chrome = mockChromeStorage();
+
+    let currentJob: any = {
+      id: 'job_running',
+      provider: 'notion',
+      instanceId: 'background-old',
+      status: 'running',
+      startedAt: Date.now() - 3_000,
+      updatedAt: Date.now() - 1_000,
+      finishedAt: null,
+      conversationIds: [1],
+      currentConversationId: 1,
+      currentStage: 'ensuring_database',
+      okCount: 0,
+      failCount: 0,
+      perConversation: [],
+    };
+    const jobStore = {
+      getJob: async () => currentJob,
+      abortRunningJobIfFromOtherInstance: async (instanceId: string, options?: any) => {
+        if (options?.forceAbort === true && currentJob?.instanceId !== instanceId && currentJob?.status === 'running') {
+          currentJob = {
+            ...currentJob,
+            status: 'aborted',
+            updatedAt: Date.now(),
+            finishedAt: Date.now(),
+            abortedReason: 'extension reloaded',
+          };
+        }
+        return currentJob;
+      },
+      isRunningJob: (job: any) => job && job.status === 'running',
+      setJob: async (job: any) => {
+        currentJob = job;
+        return true;
+      },
+    };
+
+    const orchestrator = createNotionSyncOrchestrator({
+      tokenStore: { getToken: async () => ({ accessToken: 't' }) },
+      storage: {
+        getSyncMappingByConversation: async () => null,
+        getMessagesByConversationId: async () => [],
+      },
+      conversationKinds,
+      notionApi: {},
+      notionFilesApi: {},
+      dbManager: { ensureDatabase: async () => ({ databaseId: 'db_chats' }) },
+      syncService: {
+        createPageInDatabase: async () => ({ id: 'p1' }),
+        appendChildren: async () => ({ ok: true, results: [] }),
+        messagesToBlocks: () => [],
+      },
+      jobStore,
+    });
+
+    const status = await orchestrator.getSyncJobStatus({ instanceId: 'background-new' });
+    expect(status.job?.status).toBe('aborted');
+    expect(status.job?.abortedReason).toBe('extension reloaded');
+  });
 });

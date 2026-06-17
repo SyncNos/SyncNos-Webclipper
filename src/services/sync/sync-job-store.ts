@@ -1,7 +1,7 @@
 import { storageGet, storageSet } from '@platform/storage/local';
 import type { SyncJobSnapshot, SyncProvider } from '@services/sync/models';
 
-const DEFAULT_STALE_MS = 20 * 60 * 1000;
+const DEFAULT_STALE_MS = 5 * 60 * 1000;
 
 export const SYNC_JOB_STORAGE_KEYS: Record<SyncProvider, string> = {
   notion: 'notion_sync_job_v1',
@@ -89,20 +89,30 @@ export function isRunningSyncJob(job: SyncJobSnapshot | null | undefined, staleM
   return Date.now() - updatedAt < maxAge;
 }
 
+export type ReconcileRunningSyncJobOptions = {
+  staleMs?: number;
+  forceAbort?: boolean;
+};
+
 export async function abortRunningSyncJobIfFromOtherInstance(
   provider: SyncProvider,
   instanceId: string,
-  staleMs?: number,
+  options?: number | ReconcileRunningSyncJobOptions,
 ): Promise<SyncJobSnapshot | null> {
   const current = await getSyncJob(provider);
   if (!current || current.status !== 'running') return current;
   const jobInstanceId = current.instanceId ? String(current.instanceId) : '';
   if (!jobInstanceId || jobInstanceId === String(instanceId || '')) return current;
 
+  const normalizedOptions =
+    typeof options === 'number' ? ({ staleMs: options } satisfies ReconcileRunningSyncJobOptions) : options || {};
+  const forceAbort = normalizedOptions.forceAbort === true;
+  const staleMs = normalizedOptions.staleMs;
+
   // Do not abort a still-active job from another background instance. Treat it as running
   // unless it is stale, otherwise concurrent background contexts could keep aborting each
   // other's jobs and cause duplicate sync writes.
-  if (isRunningSyncJob(current, staleMs)) return current;
+  if (!forceAbort && isRunningSyncJob(current, staleMs)) return current;
 
   const now = Date.now();
   const aborted: SyncJobSnapshot = {

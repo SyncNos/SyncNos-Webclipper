@@ -661,7 +661,12 @@ async function appendTextBlocks({
 }
 
 async function getSyncStatus({ instanceId }: { instanceId?: string } = {}) {
-  return { provider: SYNC_PROVIDER, job: await feishuSyncJobStore.getJob(), instanceId: safeString(instanceId) };
+  const safeInstanceId = safeString(instanceId);
+  const job =
+    safeInstanceId && typeof feishuSyncJobStore.abortRunningJobIfFromOtherInstance === 'function'
+      ? await feishuSyncJobStore.abortRunningJobIfFromOtherInstance(safeInstanceId, { forceAbort: true })
+      : await feishuSyncJobStore.getJob();
+  return { provider: SYNC_PROVIDER, job, instanceId: safeInstanceId };
 }
 
 async function clearSyncStatus({ instanceId }: { instanceId?: string } = {}) {

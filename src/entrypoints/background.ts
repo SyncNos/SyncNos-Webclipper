@@ -96,9 +96,9 @@ export default defineBackground(() => {
 
   try {
     const id = getBackgroundInstanceId();
-    services?.notionSyncJobStore?.abortRunningJobIfFromOtherInstance?.(id)?.catch?.(() => {});
-    obsidianSyncJobStore.abortRunningJobIfFromOtherInstance(id).catch(() => {});
-    feishuSyncJobStore.abortRunningJobIfFromOtherInstance(id).catch(() => {});
+    services?.notionSyncJobStore?.abortRunningJobIfFromOtherInstance?.(id, { forceAbort: true })?.catch?.(() => {});
+    obsidianSyncJobStore.abortRunningJobIfFromOtherInstance(id, { forceAbort: true }).catch(() => {});
+    feishuSyncJobStore.abortRunningJobIfFromOtherInstance(id, { forceAbort: true }).catch(() => {});
   } catch (_e) {
     // ignore
   }
