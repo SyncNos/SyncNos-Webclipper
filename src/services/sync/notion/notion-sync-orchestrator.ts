@@ -430,7 +430,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
       throw new Error('notion sync job store missing');
     }
     const job =
-      typeof notionJobStore.abortRunningJobIfFromOtherInstance === 'function'
+      instanceId && typeof notionJobStore.abortRunningJobIfFromOtherInstance === 'function'
         ? normalizeJob(
             await notionJobStore.abortRunningJobIfFromOtherInstance(instanceId, {
               forceAbort: true,

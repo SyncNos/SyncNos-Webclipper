@@ -110,6 +110,30 @@ function mockDefaultFeishuFolderLayout(path: string, init?: RequestInit) {
 }
 
 describe('feishu orchestrator warnings sanitization', () => {
+  it('does not force-abort running jobs when status is read without instanceId', async () => {
+    setupChromeStorage();
+    jobStoreMocks.getJob.mockResolvedValue({
+      id: 'job_running',
+      provider: 'feishu',
+      instanceId: 'background-old',
+      status: 'running',
+      startedAt: Date.now() - 3_000,
+      updatedAt: Date.now() - 1_000,
+      finishedAt: null,
+      conversationIds: [1],
+      okCount: 0,
+      failCount: 0,
+      perConversation: [],
+    });
+
+    const orch = await loadModule('@services/sync/feishu/feishu-sync-orchestrator.ts');
+    const status = await orch.getSyncStatus();
+
+    expect(jobStoreMocks.abortRunningJobIfFromOtherInstance).not.toHaveBeenCalled();
+    expect(jobStoreMocks.getJob).toHaveBeenCalledTimes(1);
+    expect(status.job?.status).toBe('running');
+  });
+
   it('sanitizes query values even when binder throws', async () => {
     setupChromeStorage();
     tokenMocks.getFeishuOAuthToken.mockResolvedValue({ accessToken: 't', expiresAt: Date.now() + 60_000 });

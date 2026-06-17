@@ -567,7 +567,7 @@ async function testConnection({ instanceId }: { instanceId?: string } = {}) {
 async function getSyncStatus({ instanceId }: { instanceId?: string } = {}) {
   const safeInstanceId = safeString(instanceId);
   const job =
-    typeof obsidianSyncJobStore.abortRunningJobIfFromOtherInstance === 'function'
+    safeInstanceId && typeof obsidianSyncJobStore.abortRunningJobIfFromOtherInstance === 'function'
       ? await obsidianSyncJobStore.abortRunningJobIfFromOtherInstance(safeInstanceId, { forceAbort: true })
       : await obsidianSyncJobStore.getJob();
   return { provider: SYNC_PROVIDER, job, instanceId: safeInstanceId };
