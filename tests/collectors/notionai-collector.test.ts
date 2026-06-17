@@ -377,4 +377,33 @@ describe('notionai-collector', () => {
       '[全自主鸿蒙智能探地雷达地质建模与隐患检测预警技术研发与应用示范](https://app.notion.com/chiimagnus/343be9d6386a806b9a55ea7833f2c0b5)',
     );
   });
+
+  it('observes the full chat boundary instead of a narrow list root', () => {
+    const html = `
+      <div id="chat-root">
+        <div id="list1">
+          <div class="u-item">
+            <div data-agent-chat-user-step-id="u1"><div data-content-editable-leaf="true">U1</div></div>
+          </div>
+          <div class="a-item"><div data-block-id="a1"><div data-content-editable-leaf="true">A1</div></div></div>
+        </div>
+        <div id="list2">
+          <div class="u-item">
+            <div data-agent-chat-user-step-id="u2"><div data-content-editable-leaf="true">U2</div></div>
+          </div>
+          <div class="a-item"><div data-block-id="a2"><div data-content-editable-leaf="true">A2</div></div></div>
+        </div>
+        <div role="button" data-testid="agent-send-message-button"></div>
+      </div>
+    `;
+
+    const dom = new JSDOM(`<body>${html}</body>`, {
+      url: 'https://app.notion.com/chat?t=0123456789abcdef0123456789abcdef&wfv=chat',
+    });
+    setupDom(dom);
+    const { collector } = createCollectorHarness();
+
+    const root = collector.getRoot();
+    expect((root as Element | null)?.id).toBe('chat-root');
+  });
 });

@@ -796,14 +796,12 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       if (!isNotionAiPage()) return null;
       const seed = getLastUserStepEl(document) || getAnyUserStepEl(document);
       if (!seed) return null;
+      const boundaryRoot = findChatBoundaryRootFromUserStep(seed);
+      if (boundaryRoot) return boundaryRoot;
       const candidates = findCandidateRoots();
       const picked = pickBestRoot(candidates);
-      const boundaryRoot = picked.root && picked.root !== document ? picked.root : null;
-      const boundaryUserCount = boundaryRoot
-        ? boundaryRoot.querySelectorAll('[data-agent-chat-user-step-id]').length
-        : 0;
-      const listRoot = findTurnsListRoot(seed, boundaryRoot, boundaryUserCount);
-      return listRoot || picked.root || document.scrollingElement || document.documentElement || document.body;
+      const observedRoot = picked.root && picked.root !== document ? picked.root : null;
+      return observedRoot || document.scrollingElement || document.documentElement || document.body;
     },
     __test: {
       matches,
