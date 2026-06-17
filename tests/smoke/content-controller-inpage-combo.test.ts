@@ -277,6 +277,73 @@ describe('content-controller inpage combo', () => {
     vi.useRealTimers();
   });
 
+  it('proactively captures notionai after clicking send before observer mutations settle', async () => {
+    vi.useFakeTimers();
+
+    const snapshot = {
+      conversation: { source: 'notionai', conversationKey: 'notionai_t_1' },
+      messages: [{ messageKey: 'user_u1', sequence: 1, role: 'user', contentText: 'just sent' }],
+    };
+
+    const harness = createHarness({
+      collectorId: 'notionai',
+      captureImpl: () => snapshot,
+      incrementalImpl: (snap) => ({ changed: true, snapshot: snap, diff: { added: ['user_u1'], updated: [], removed: [] } }),
+      sendImpl: async (type: string) => {
+        if (type === 'upsertConversation') return { ok: true, data: { id: 31 } };
+        if (type === 'syncConversationMessages') return { ok: true, data: { inserted: 1 } };
+        return { ok: true, data: {} };
+      },
+    });
+
+    const button = document.createElement('div');
+    button.setAttribute('role', 'button');
+    button.setAttribute('data-testid', 'agent-send-message-button');
+    document.body.appendChild(button);
+
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await vi.runAllTimersAsync();
+
+    expect(harness.sendCalls.some((c) => c.type === 'upsertConversation')).toBe(true);
+    expect(harness.sendCalls.some((c) => c.type === 'syncConversationMessages')).toBe(true);
+
+    button.remove();
+    vi.useRealTimers();
+  });
+
+  it('does not proactively capture notionai on Shift+Enter draft newlines', async () => {
+    vi.useFakeTimers();
+
+    const harness = createHarness({
+      collectorId: 'notionai',
+      captureImpl: () => ({
+        conversation: { source: 'notionai', conversationKey: 'notionai_t_2' },
+        messages: [{ messageKey: 'user_u2', sequence: 1, role: 'user', contentText: 'draft' }],
+      }),
+      incrementalImpl: (snap) => ({ changed: true, snapshot: snap, diff: { added: ['user_u2'], updated: [], removed: [] } }),
+      sendImpl: async (type: string) => {
+        if (type === 'upsertConversation') return { ok: true, data: { id: 32 } };
+        if (type === 'syncConversationMessages') return { ok: true, data: { inserted: 1 } };
+        return { ok: true, data: {} };
+      },
+    });
+
+    const composer = document.createElement('div');
+    composer.setAttribute('role', 'textbox');
+    composer.setAttribute('data-content-editable-leaf', 'true');
+    composer.setAttribute('contenteditable', 'true');
+    document.body.appendChild(composer);
+
+    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true }));
+    await vi.runAllTimersAsync();
+
+    expect(harness.sendCalls.some((c) => c.type === 'upsertConversation')).toBe(false);
+    expect(harness.sendCalls.some((c) => c.type === 'syncConversationMessages')).toBe(false);
+
+    composer.remove();
+    vi.useRealTimers();
+  });
+
   it('disables auto-save for googleaistudio to avoid virtualized truncation', async () => {
     const snapshot = {
       conversation: { source: 'googleaistudio', conversationKey: 'auto-ai-studio-1' },
