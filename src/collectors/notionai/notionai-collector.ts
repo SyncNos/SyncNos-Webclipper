@@ -259,14 +259,14 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       const assistantChildCount = children.filter(isAssistantTurnContainer).length;
       if (!userChildCount || !assistantChildCount) continue;
 
-      // If we already see multiple turns, avoid choosing a container that only has a single user child
-      // (often indicates a broader layout container that also contains sidebar/page content).
-      if (total >= 2 && userChildCount < 2) continue;
-
       const paired = Math.min(userChildCount, assistantChildCount);
       const balance =
         1 - Math.abs(userChildCount - assistantChildCount) / Math.max(1, userChildCount + assistantChildCount);
       const density = (userChildCount + assistantChildCount) / Math.max(1, children.length);
+
+      // In virtualized chat history, a tight sub-root can legitimately contain just one marker user
+      // plus its assistant sibling. Reject only broad sparse containers, not dense two-item mini roots.
+      if (total >= 2 && userChildCount < 2 && density < 0.6) continue;
 
       const score =
         paired * 100000 + Math.round(balance * 10000) + Math.round(density * 1000) - depth * 10 - children.length;
@@ -446,6 +446,27 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     return entries;
   }
 
+  function compareDomOrder(a: any, b: any): number {
+    if (!a || !b || a === b) return 0;
+    const pos = a.compareDocumentPosition?.(b) || 0;
+    if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+    if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    return 0;
+  }
+
+  function findTurnsListRoots(userSteps: any[], boundaryRoot: any, totalUserStepsInBoundary: any): any[] {
+    const roots: any[] = [];
+    const seen = new Set<any>();
+    for (const userStep of userSteps || []) {
+      const candidate = findTurnsListRoot(userStep, boundaryRoot, totalUserStepsInBoundary);
+      if (!candidate || seen.has(candidate)) continue;
+      seen.add(candidate);
+      roots.push(candidate);
+    }
+    roots.sort(compareDomOrder);
+    return roots;
+  }
+
   function getTurnWrappers(root: any): any {
     const scope = root || document;
     const initialUserSteps: any[] = Array.from(scope.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
@@ -477,28 +498,26 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     const totalUserStepsInBoundary = boundaryRoot
       ? boundaryRoot.querySelectorAll('[data-agent-chat-user-step-id]').length
       : userSteps.length;
-    const seedCandidates = [userSteps[0], userSteps[Math.floor(userSteps.length / 2)], userSteps[userSteps.length - 1]]
-      .filter(Boolean)
-      .filter((x, idx, arr) => arr.indexOf(x) === idx);
-    let listRoot: any = null;
-    let listRootCoverage = 0;
-    for (const seed of seedCandidates) {
-      const candidate = findTurnsListRoot(seed, boundaryRoot, totalUserStepsInBoundary);
-      if (!candidate || !candidate.querySelectorAll) continue;
-      const count = candidate.querySelectorAll('[data-agent-chat-user-step-id]').length;
-      if (count > listRootCoverage) {
-        listRoot = candidate;
-        listRootCoverage = count;
+    const listRoots = findTurnsListRoots(userSteps, boundaryRoot, totalUserStepsInBoundary);
+    const listRoot = listRoots[0] || null;
+
+    const directEntries: any[] = [];
+    const directSeen = new Set<any>();
+    let markerUserCoverage = 0;
+    for (const candidateRoot of listRoots) {
+      markerUserCoverage += candidateRoot?.querySelectorAll?.('[data-agent-chat-user-step-id]').length || 0;
+      for (const entry of buildTurnEntriesFromListRoot(candidateRoot)) {
+        const identity = entry?.wrapper || entry;
+        if (!identity || directSeen.has(identity)) continue;
+        directSeen.add(identity);
+        directEntries.push(entry);
       }
     }
+    directEntries.sort((a: any, b: any) => compareDomOrder(a?.wrapper || a, b?.wrapper || b));
 
-    const directEntries = buildTurnEntriesFromListRoot(listRoot);
     if (directEntries.length) {
       const userCount = directEntries.filter((entry: any) => entry.role === 'user').length;
       const assistantCount = directEntries.filter((entry: any) => entry.role === 'assistant').length;
-      const markerUserCoverage = listRoot
-        ? listRoot.querySelectorAll('[data-agent-chat-user-step-id]').length
-        : 0;
       if (userCount && assistantCount && markerUserCoverage >= userSteps.length) return directEntries;
     }
 

@@ -249,6 +249,59 @@ describe('notionai-collector', () => {
     expect(String(snap2.messages[2]?.messageKey || '')).toBe(String(snap1.messages[2]?.messageKey || ''));
   });
 
+  it('recovers a missing-marker user bubble when chat history is split across multiple small list roots', () => {
+    const html = `
+      <div id="list1">
+        <div class="u-item">
+          <div data-agent-chat-user-step-id="u1"><div data-content-editable-leaf="true">U1</div></div>
+        </div>
+        <div class="a-item"><div data-block-id="a1"><div data-content-editable-leaf="true">A1</div></div></div>
+        <div class="u-item">
+          <div class="autolayout-col autolayout-fill-width">
+            <div style="padding-top: 6px; padding-bottom: 6px; padding-inline: 14px; border-radius: 16px;">
+              <div data-content-editable-leaf="true">U2 missing marker</div>
+            </div>
+          </div>
+        </div>
+        <div class="a-item"><div data-block-id="a2"><div data-content-editable-leaf="true">A2</div></div></div>
+      </div>
+
+      <div id="list2">
+        <div class="u-item">
+          <div data-agent-chat-user-step-id="u3"><div data-content-editable-leaf="true">U3</div></div>
+        </div>
+        <div class="a-item"><div data-block-id="a3"><div data-content-editable-leaf="true">A3</div></div></div>
+      </div>
+
+      <div role="button" data-testid="agent-send-message-button"></div>
+    `;
+
+    const dom = new JSDOM(`<body>${html}</body>`, {
+      url: 'https://app.notion.com/chat?t=0123456789abcdef0123456789abcdef&wfv=chat',
+    });
+    setupDom(dom);
+    const { collector } = createCollectorHarness();
+
+    const snap = collector.capture();
+    expect(snap).toBeTruthy();
+    expect(snap.messages.map((m: any) => m && m.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+    ]);
+    expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual([
+      'U1',
+      'A1',
+      'U2 missing marker',
+      'A2',
+      'U3',
+      'A3',
+    ]);
+  });
+
   it('does not capture workspace blocks as assistant before the first assistant reply renders', () => {
     const html = `
       <div id="layout">
