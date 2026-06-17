@@ -58,4 +58,23 @@ describe('buildConversationSidebarRenderItems', () => {
 
     expect(items.filter((item) => item.type === 'section').map((item) => item.label)).toEqual(['Today', 'Yesterday']);
   });
+
+  it('does not mislabel future timestamps as today', () => {
+    const now = new Date(2026, 5, 18, 12, 0, 0, 0).getTime();
+    const items = buildConversationSidebarRenderItems({
+      conversations: [
+        makeConversation(1, new Date(2026, 5, 19, 8, 0, 0, 0).getTime()),
+        makeConversation(2, new Date(2026, 5, 18, 9, 0, 0, 0).getTime()),
+      ],
+      locale: 'en',
+      labels: {
+        today: 'Today',
+        yesterday: 'Yesterday',
+        earlier: 'Earlier',
+      },
+      now,
+    });
+
+    expect(items.filter((item) => item.type === 'section').map((item) => item.label)).toEqual(['6/19', 'Today']);
+  });
 });

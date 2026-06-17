@@ -226,18 +226,22 @@ export function ConversationListPane({
 
   const siteOptionKeys = useMemo(() => new Set(siteOptions.map((opt) => String(opt.key || ''))), [siteOptions]);
   const filteredItems = items;
+  const sidebarLocale = getCurrentLocale();
+  const todayGroupLabel = t('insightRangeToday');
+  const yesterdayGroupLabel = t('conversationGroupYesterday');
+  const earlierGroupLabel = t('conversationGroupEarlier');
   const renderedItems = useMemo(
     () =>
       buildConversationSidebarRenderItems({
         conversations: filteredItems,
-        locale: getCurrentLocale(),
+        locale: sidebarLocale,
         labels: {
-          today: t('insightRangeToday'),
-          yesterday: t('conversationGroupYesterday'),
-          earlier: t('conversationGroupEarlier'),
+          today: todayGroupLabel,
+          yesterday: yesterdayGroupLabel,
+          earlier: earlierGroupLabel,
         },
       }),
-    [filteredItems],
+    [earlierGroupLabel, filteredItems, sidebarLocale, todayGroupLabel, yesterdayGroupLabel],
   );
   const todayCount = Number((listSummary as any)?.todayCount) || 0;
   const totalCount = Number((listSummary as any)?.totalCount) || 0;

@@ -29,6 +29,13 @@ function toMonthKey(ts: number): { year: number; month: number } {
   return { year: date.getFullYear(), month: date.getMonth() };
 }
 
+function formatExactDateLabel(ts: number, locale: string, includeYear: boolean): string {
+  return new Intl.DateTimeFormat(
+    locale,
+    includeYear ? { year: 'numeric', month: 'numeric', day: 'numeric' } : { month: 'numeric', day: 'numeric' },
+  ).format(new Date(ts));
+}
+
 function formatRecentDayLabel(ts: number, locale: string): string {
   return new Intl.DateTimeFormat(locale, { month: 'numeric', day: 'numeric' }).format(new Date(ts));
 }
@@ -52,20 +59,28 @@ function resolveSection(input: {
 
   const currentDay = toStartOfLocalDay(nowTs);
   const targetDay = toStartOfLocalDay(ts);
-  const dayDiff = Math.round((currentDay - targetDay) / 86400000);
+  const dayDiff = (currentDay - targetDay) / 86400000;
 
-  if (dayDiff <= 0) {
+  if (dayDiff === 0) {
     return { key: 'today', label: labels.today };
   }
   if (dayDiff === 1) {
     return { key: 'yesterday', label: labels.yesterday };
   }
-  if (dayDiff <= 6) {
+  if (dayDiff > 1 && dayDiff <= 6) {
     return { key: `day:${targetDay}`, label: formatRecentDayLabel(ts, locale) };
   }
 
   const nowMonth = toMonthKey(nowTs);
   const targetMonth = toMonthKey(ts);
+  if (dayDiff < 0) {
+    const includeYear = nowMonth.year !== targetMonth.year;
+    return {
+      key: `future-day:${targetDay}`,
+      label: formatExactDateLabel(ts, locale, includeYear),
+    };
+  }
+
   const includeYear = nowMonth.year !== targetMonth.year;
   const label = formatMonthLabel(ts, locale, includeYear);
   return {
