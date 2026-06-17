@@ -192,6 +192,63 @@ describe('notionai-collector', () => {
     expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual(['U1', 'A1', 'U2', 'A2', 'U3', 'A3']);
   });
 
+  it('captures user-like bubbles without data-agent-chat-user-step-id when assistant still renders', () => {
+    const html = `
+      <div id="list">
+        <div class="u-item">
+          <div data-agent-chat-user-step-id="u1"><div data-content-editable-leaf="true">U1</div></div>
+        </div>
+        <div class="a-item"><div data-block-id="a1"><div data-content-editable-leaf="true">A1</div></div></div>
+        <div class="u-item">
+          <div class="autolayout-col autolayout-fill-width">
+            <div style="padding-top: 6px; padding-bottom: 6px; padding-inline: 14px; border-radius: 16px;">
+              <div data-content-editable-leaf="true">U2 missing marker</div>
+            </div>
+          </div>
+        </div>
+        <div class="a-item"><div data-block-id="a2"><div data-content-editable-leaf="true">A2</div></div></div>
+        <div class="u-item">
+          <div data-agent-chat-user-step-id="u3"><div data-content-editable-leaf="true">U3</div></div>
+        </div>
+        <div class="a-item"><div data-block-id="a3"><div data-content-editable-leaf="true">A3</div></div></div>
+        <div role="button" data-testid="agent-send-message-button"></div>
+      </div>
+    `;
+
+    const dom = new JSDOM(`<body>${html}</body>`, {
+      url: 'https://app.notion.com/chat?t=0123456789abcdef0123456789abcdef&wfv=chat',
+    });
+    setupDom(dom);
+    const { collector } = createCollectorHarness();
+
+    const snap1 = collector.capture();
+    const snap2 = collector.capture();
+
+    expect(snap1).toBeTruthy();
+    expect(snap2).toBeTruthy();
+    expect(snap1.messages.map((m: any) => m && m.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+    ]);
+    expect(snap1.messages.map((m: any) => String(m && m.contentText))).toEqual([
+      'U1',
+      'A1',
+      'U2 missing marker',
+      'A2',
+      'U3',
+      'A3',
+    ]);
+    expect(String(snap1.messages[2]?.messageKey || '')).toMatch(/^user_user_like_[a-z0-9]+_1$/i);
+    expect(String(snap1.messages[3]?.messageKey || '')).toBe(
+      `assistant_replyTo_${String(snap1.messages[2]?.messageKey || '').replace(/^user_/, '')}`,
+    );
+    expect(String(snap2.messages[2]?.messageKey || '')).toBe(String(snap1.messages[2]?.messageKey || ''));
+  });
+
   it('does not capture workspace blocks as assistant before the first assistant reply renders', () => {
     const html = `
       <div id="layout">
@@ -217,6 +274,35 @@ describe('notionai-collector', () => {
     expect(snap).toBeTruthy();
     expect(snap.messages.map((m: any) => m && m.role)).toEqual(['user']);
     expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual(['User message']);
+  });
+
+  it('does not capture composer draft text as a fallback user turn', () => {
+    const html = `
+      <div id="layout">
+        <div id="chat-panel">
+          <div class="u-item">
+            <div data-agent-chat-user-step-id="u1"><div data-content-editable-leaf="true">User message</div></div>
+          </div>
+          <div class="a-item">
+            <div data-block-id="a1"><div data-content-editable-leaf="true">Assistant reply</div></div>
+          </div>
+          <div role="button" data-testid="agent-send-message-button"></div>
+        </div>
+        <div id="composer">
+          <div role="textbox" data-content-editable-leaf="true" contenteditable="true">Draft that must stay out</div>
+        </div>
+      </div>
+    `;
+
+    const dom = new JSDOM(`<body>${html}</body>`, {
+      url: 'https://app.notion.com/chat?t=0123456789abcdef0123456789abcdef&wfv=chat',
+    });
+    setupDom(dom);
+    const { collector } = createCollectorHarness();
+
+    const snap = collector.capture();
+    expect(snap).toBeTruthy();
+    expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual(['User message', 'Assistant reply']);
   });
 
   it('resolves relative notion page mentions to full markdown links', () => {

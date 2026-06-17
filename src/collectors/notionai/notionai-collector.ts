@@ -10,6 +10,9 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
 
   const NOTION_AI_CHAT_CHROME_SELECTOR =
     '[data-testid="agent-send-message-button"], [data-testid="unified-chat-model-button"]';
+  const NOTION_AI_COMPOSER_LEAF_SELECTOR =
+    'div[role="textbox"][data-content-editable-leaf="true"][contenteditable="true"]';
+  const NOTION_AI_HISTORY_SELECTOR = 'div[role="button"][aria-label="history"]';
 
   function isNotionWebHost(hostname: unknown): boolean {
     const host = String(hostname || '')
@@ -183,6 +186,39 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     return blocks.some((b) => b && (!userStep || !userStep.contains(b)));
   }
 
+  function isComposerLeaf(el: any): any {
+    return !!el?.matches?.(NOTION_AI_COMPOSER_LEAF_SELECTOR);
+  }
+
+  function containsComposerLeaf(el: any): any {
+    if (!el || !el.querySelector) return false;
+    return !!el.querySelector(NOTION_AI_COMPOSER_LEAF_SELECTOR);
+  }
+
+  function isChatChromeEl(el: any): any {
+    if (!el || !el.matches) return false;
+    return !!(el.matches(NOTION_AI_CHAT_CHROME_SELECTOR) || el.matches(NOTION_AI_HISTORY_SELECTOR));
+  }
+
+  function containsChatChrome(el: any): any {
+    if (!el || !el.querySelector) return false;
+    return !!el.querySelector(`${NOTION_AI_CHAT_CHROME_SELECTOR}, ${NOTION_AI_HISTORY_SELECTOR}`);
+  }
+
+  function findUserTextLeaf(wrapper: any): any {
+    if (!wrapper || !wrapper.querySelector) return null;
+    return (
+      wrapper.querySelector('div[style*="border-radius: 16px"] [data-content-editable-leaf="true"]') ||
+      wrapper.querySelector("[data-content-editable-leaf='true']") ||
+      null
+    );
+  }
+
+  function directAssistantBlockCount(el: any): any {
+    if (!el || !el.children) return 0;
+    return Array.from(el.children || []).filter((child: any) => child?.getAttribute?.('data-block-id')).length;
+  }
+
   function isUserTurnContainer(el: any): any {
     if (!el || !el.querySelector) return false;
     return !!el.querySelector('[data-agent-chat-user-step-id]');
@@ -336,6 +372,80 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     return w;
   }
 
+  function scoreFallbackUserContainer(el: any): any {
+    if (!el || !el.querySelector) return -Infinity;
+    if (el.querySelector('[data-agent-chat-user-step-id]')) return -Infinity;
+    if (containsComposerLeaf(el)) return -Infinity;
+    if (containsChatChrome(el)) return -Infinity;
+    if (el.querySelector('div[data-block-id]')) return -Infinity;
+    if (el.getAttribute?.('data-block-id')) return -Infinity;
+    const leaf = findUserTextLeaf(el);
+    if (!leaf || isComposerLeaf(leaf)) return -Infinity;
+    const text = env.normalize.normalizeText((leaf as any).innerText || leaf.textContent || '');
+    if (!text) return -Infinity;
+
+    let score = 0;
+    if (leaf.closest?.('div[style*="border-radius: 16px"]')) score += 1000;
+    if (leaf !== el) score += 200;
+    if (directAssistantBlockCount(el) === 0) score += 100;
+    if (text.length <= 1200) score += 50;
+    const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    if (rect && rect.width > 40 && rect.width < Math.max(220, window.innerWidth * 0.9)) score += 40;
+    if (rect && rect.height > 12 && rect.height < Math.max(400, window.innerHeight * 0.8)) score += 20;
+    return score;
+  }
+
+  function pickFallbackUserWrapperFromItem(item: any): any {
+    if (!item || !item.querySelectorAll) return null;
+    if (item.querySelector('[data-agent-chat-user-step-id]')) return null;
+    const candidates: any[] = [item, ...Array.from(item.querySelectorAll('div'))];
+    let best: any = null;
+    let bestScore = -Infinity;
+    for (const candidate of candidates) {
+      const score = scoreFallbackUserContainer(candidate);
+      if (score > bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
+    }
+    return bestScore >= 1000 ? best : null;
+  }
+
+  function buildTurnEntriesFromListRoot(listRoot: any): any[] {
+    if (!listRoot || !listRoot.children) return [];
+    const entries: any[] = [];
+    const seen = new Set<any>();
+    const pushEntry = (wrapper: any, role: 'user' | 'assistant', kind: 'marker' | 'fallback') => {
+      if (!wrapper || seen.has(wrapper)) return;
+      seen.add(wrapper);
+      entries.push({ wrapper, role, kind });
+    };
+
+    const items: any[] = Array.from(listRoot.children || []) as any[];
+    for (const item of items) {
+      if (!item) continue;
+      const userStep = item.matches?.('[data-agent-chat-user-step-id]')
+        ? item
+        : item.querySelector?.('[data-agent-chat-user-step-id]');
+      if (userStep) {
+        pushEntry(userStep, 'user', 'marker');
+        continue;
+      }
+
+      if (isAssistantTurnContainer(item)) {
+        pushEntry(item, 'assistant', 'marker');
+        continue;
+      }
+
+      const fallbackUser = pickFallbackUserWrapperFromItem(item);
+      if (fallbackUser) {
+        pushEntry(fallbackUser, 'user', 'fallback');
+      }
+    }
+
+    return entries;
+  }
+
   function getTurnWrappers(root: any): any {
     const scope = root || document;
     const initialUserSteps: any[] = Array.from(scope.querySelectorAll('[data-agent-chat-user-step-id]')) as any[];
@@ -350,8 +460,9 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     const ordered: any[] = [];
     const seen = new Set<any>();
     const pushUnique = (node: any) => {
-      if (!node || seen.has(node)) return;
-      seen.add(node);
+      const identity = node?.wrapper || node;
+      if (!identity || seen.has(identity)) return;
+      seen.add(identity);
       ordered.push(node);
     };
 
@@ -381,8 +492,18 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       }
     }
 
+    const directEntries = buildTurnEntriesFromListRoot(listRoot);
+    if (directEntries.length) {
+      const userCount = directEntries.filter((entry: any) => entry.role === 'user').length;
+      const assistantCount = directEntries.filter((entry: any) => entry.role === 'assistant').length;
+      const markerUserCoverage = listRoot
+        ? listRoot.querySelectorAll('[data-agent-chat-user-step-id]').length
+        : 0;
+      if (userCount && assistantCount && markerUserCoverage >= userSteps.length) return directEntries;
+    }
+
     for (const userStep of userSteps) {
-      pushUnique(userStep);
+      pushUnique({ wrapper: userStep, role: 'user', kind: 'marker' });
 
       let assistantWrapper: any = null;
       if (listRoot && listRoot.contains && listRoot.contains(userStep)) {
@@ -397,7 +518,7 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
           byChildren.assistantWrapper || (tuple ? findAssistantWrapperFromTuple(tuple, userStep) : null);
       }
 
-      if (assistantWrapper) pushUnique(assistantWrapper);
+      if (assistantWrapper) pushUnique({ wrapper: assistantWrapper, role: 'assistant', kind: 'marker' });
     }
 
     return ordered;
@@ -405,8 +526,10 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
 
   function roleFromWrapper(wrapper: any): any {
     if (!wrapper) return '';
-    if (wrapper.getAttribute && wrapper.getAttribute('data-agent-chat-user-step-id')) return 'user';
-    if (wrapper.querySelector && wrapper.querySelector('div[data-block-id]')) return 'assistant';
+    if (wrapper.role === 'user' || wrapper.role === 'assistant') return wrapper.role;
+    const target = wrapper.wrapper || wrapper;
+    if (target.getAttribute && target.getAttribute('data-agent-chat-user-step-id')) return 'user';
+    if (target.querySelector && target.querySelector('div[data-block-id]')) return 'assistant';
     return '';
   }
 
@@ -422,22 +545,22 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
   }
 
   function extractUserText(wrapper: any): any {
-    const leaf =
-      wrapper.querySelector('div[style*="border-radius: 16px"] [data-content-editable-leaf="true"]') ||
-      wrapper.querySelector("[data-content-editable-leaf='true']");
+    const target = wrapper?.wrapper || wrapper;
+    const leaf = findUserTextLeaf(target);
     const raw = leaf
       ? (leaf as any).innerText || leaf.textContent || ''
-      : (wrapper as any).innerText || wrapper.textContent || '';
+      : (target as any).innerText || target.textContent || '';
     return env.normalize.normalizeText(raw);
   }
 
   function extractAssistantText(wrapper: any): any {
-    const blocks: any[] = Array.from(wrapper.querySelectorAll('div[data-block-id]')) as any[];
+    const target = wrapper?.wrapper || wrapper;
+    const blocks: any[] = Array.from(target.querySelectorAll('div[data-block-id]')) as any[];
     if (!blocks.length) {
-      const raw = (wrapper as any).innerText || wrapper.textContent || '';
+      const raw = (target as any).innerText || target.textContent || '';
       return env.normalize.normalizeText(raw);
     }
-    const topBlocks = blocks.filter((b: any) => isTopLevelBlock(b, wrapper));
+    const topBlocks = blocks.filter((b: any) => isTopLevelBlock(b, target));
     const parts: any[] = [];
     for (const b of topBlocks) {
       const raw = (b as any).innerText || b.textContent || '';
@@ -504,6 +627,7 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     const messages: any[] = [];
     const warningFlags: any[] = [];
     let lastUserStepId = '';
+    const fallbackUserOccurrenceByBasis = new Map<string, number>();
 
     function mergeImageUrls(nodes: any): any {
       const set = new Set();
@@ -560,18 +684,16 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       const role = roleFromWrapper(w);
       const contentText = role === 'user' ? extractUserText(w) : extractAssistantText(w);
       const imageUrls = (() => {
-        if (!w || !w.querySelector) return [];
+        const target = w?.wrapper || w;
+        if (!target || !target.querySelector) return [];
         if (role === 'assistant') {
-          const blocks: any[] = Array.from(w.querySelectorAll('div[data-block-id]')) as any[];
-          return mergeImageUrls(blocks.length ? blocks : [w]);
+          const blocks: any[] = Array.from(target.querySelectorAll('div[data-block-id]')) as any[];
+          return mergeImageUrls(blocks.length ? blocks : [target]);
         }
 
-        const leaf =
-          w.querySelector('div[style*="border-radius: 16px"] [data-content-editable-leaf="true"]') ||
-          w.querySelector("[data-content-editable-leaf='true']") ||
-          w;
+        const leaf = findUserTextLeaf(target) || target;
 
-        const attachmentContainer = findUserAttachmentContainer(w);
+        const attachmentContainer = findUserAttachmentContainer(target);
         const merged = mergeImageUrls([leaf, attachmentContainer]);
         return merged.filter(isThreadAttachmentImageUrl);
       })();
@@ -579,19 +701,35 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       const markdown: any = notionAiMarkdown as any;
       const contentMarkdown =
         role === 'user'
-          ? (typeof markdown.extractUserMarkdown === 'function' ? markdown.extractUserMarkdown(w) : '') || contentText
-          : (typeof markdown.extractAssistantMarkdown === 'function' ? markdown.extractAssistantMarkdown(w) : '') ||
-            contentText;
+          ? (typeof markdown.extractUserMarkdown === 'function'
+              ? markdown.extractUserMarkdown(w?.wrapper || w)
+              : '') || contentText
+          : (typeof markdown.extractAssistantMarkdown === 'function'
+              ? markdown.extractAssistantMarkdown(w?.wrapper || w)
+              : '') || contentText;
       const nextMarkdown = appendImageMarkdown(contentMarkdown || contentText || '', imageUrls);
-      const userStepId = role === 'user' ? w.getAttribute('data-agent-chat-user-step-id') : '';
+      const target = w?.wrapper || w;
+      const userStepId = role === 'user' ? target.getAttribute?.('data-agent-chat-user-step-id') : '';
+      const fallbackUserId =
+        role === 'user' && !userStepId
+          ? (() => {
+              const basis = env.normalize.fnv1a32(`${contentText}\n${nextMarkdown}\n${imageUrls.join('\n')}`);
+              const occurrence = (fallbackUserOccurrenceByBasis.get(String(basis)) || 0) + 1;
+              fallbackUserOccurrenceByBasis.set(String(basis), occurrence);
+              const key = `user_like_${basis}_${occurrence}`;
+              return key;
+            })()
+          : '';
       const firstBlockId =
-        role === 'assistant' ? (w.querySelector('div[data-block-id]') || {}).getAttribute?.('data-block-id') : '';
+        role === 'assistant' ? (target.querySelector('div[data-block-id]') || {}).getAttribute?.('data-block-id') : '';
       const stableId =
-        role === 'assistant' && lastUserStepId ? `replyTo_${lastUserStepId}` : userStepId || firstBlockId || '';
+        role === 'assistant' && lastUserStepId
+          ? `replyTo_${lastUserStepId}`
+          : userStepId || fallbackUserId || firstBlockId || '';
       const messageKey = stableId
         ? `${role}_${stableId}`
         : env.normalize.makeFallbackMessageKey({ role, contentText: contentText || '', sequence: i });
-      if (role === 'user' && userStepId) lastUserStepId = userStepId;
+      if (role === 'user' && stableId) lastUserStepId = stableId;
       messages.push({
         messageKey,
         role,
