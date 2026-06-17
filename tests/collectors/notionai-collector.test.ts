@@ -406,4 +406,45 @@ describe('notionai-collector', () => {
     const root = collector.getRoot();
     expect((root as Element | null)?.id).toBe('chat-root');
   });
+
+  it('captures the latest user turn even when no assistant reply has rendered yet', () => {
+    const html = `
+      <div id="chat-root">
+        <div id="list1">
+          <div class="u-item">
+            <div data-agent-chat-user-step-id="u1"><div data-content-editable-leaf="true">U1</div></div>
+          </div>
+          <div class="a-item"><div data-block-id="a1"><div data-content-editable-leaf="true">A1</div></div></div>
+          <div class="u-item">
+            <div data-agent-chat-user-step-id="u2"><div data-content-editable-leaf="true">U2</div></div>
+          </div>
+          <div class="a-item"><div data-block-id="a2"><div data-content-editable-leaf="true">A2</div></div></div>
+        </div>
+        <div id="list2">
+          <div class="u-item">
+            <div data-agent-chat-user-step-id="u3"><div data-content-editable-leaf="true">U3 latest no reply yet</div></div>
+          </div>
+        </div>
+        <div role="button" data-testid="agent-send-message-button"></div>
+      </div>
+    `;
+
+    const dom = new JSDOM(`<body>${html}</body>`, {
+      url: 'https://app.notion.com/chat?t=0123456789abcdef0123456789abcdef&wfv=chat',
+    });
+    setupDom(dom);
+    const { collector } = createCollectorHarness();
+
+    const snap = collector.capture();
+    expect(snap).toBeTruthy();
+    expect(snap.messages.map((m: any) => m && m.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'user']);
+    expect(snap.messages.map((m: any) => String(m && m.contentText))).toEqual([
+      'U1',
+      'A1',
+      'U2',
+      'A2',
+      'U3 latest no reply yet',
+    ]);
+    expect(String(snap.messages[4]?.messageKey || '')).toBe('user_u3');
+  });
 });

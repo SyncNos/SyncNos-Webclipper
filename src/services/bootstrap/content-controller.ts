@@ -138,6 +138,7 @@ export function createContentController(deps: Deps) {
   const incrementalUpdater = deps.incrementalUpdater;
   const notionAiModelPicker = deps.notionAiModelPicker;
   const itemMention = deps.itemMention;
+  const doc = typeof document !== 'undefined' ? document : null;
 
   function toTipKind(kind?: unknown): 'default' | 'error' | undefined {
     const value = String(kind || '')
@@ -338,8 +339,8 @@ export function createContentController(deps: Deps) {
       observer?.stop?.();
       for (const timer of proactiveNotionAiBurstTimers) clearTimeout(timer);
       proactiveNotionAiBurstTimers.clear();
-      document.removeEventListener('click', onDocumentClickCapture, true);
-      document.removeEventListener('keydown', onDocumentKeydownCapture, true);
+      doc?.removeEventListener('click', onDocumentClickCapture, true);
+      doc?.removeEventListener('keydown', onDocumentKeydownCapture, true);
     }
 
     runtime?.onInvalidated?.(() => stop());
@@ -794,8 +795,8 @@ export function createContentController(deps: Deps) {
       }
     }
 
-    document.addEventListener('click', onDocumentClickCapture, true);
-    document.addEventListener('keydown', onDocumentKeydownCapture, true);
+    doc?.addEventListener('click', onDocumentClickCapture, true);
+    doc?.addEventListener('keydown', onDocumentKeydownCapture, true);
 
     observer =
       runtimeObserver?.createObserver?.({

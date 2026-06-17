@@ -1,8 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { JSDOM } from 'jsdom';
 import { createContentController } from '@services/bootstrap/content-controller.ts';
 import { createCurrentPageCaptureService } from '@services/bootstrap/current-page-capture.ts';
 
 type TickFn = (() => void | Promise<void>) | null;
+
+function setupDom() {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'https://app.notion.com/chat?t=0123456789abcdef0123456789abcdef&wfv=chat',
+  });
+  const g = globalThis as any;
+  g.window = dom.window;
+  g.document = dom.window.document;
+  g.Node = dom.window.Node;
+  g.location = dom.window.location;
+  g.KeyboardEvent = dom.window.KeyboardEvent;
+  g.MouseEvent = dom.window.MouseEvent;
+  g.Event = dom.window.Event;
+  g.getComputedStyle = dom.window.getComputedStyle;
+  return dom;
+}
 
 function createHarness(options?: {
   sendImpl?: (type: string, payload?: any) => Promise<any>;
@@ -87,10 +104,20 @@ function createHarness(options?: {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  const g = globalThis as any;
+  delete g.window;
+  delete g.document;
+  delete g.Node;
+  delete g.location;
+  delete g.KeyboardEvent;
+  delete g.MouseEvent;
+  delete g.Event;
+  delete g.getComputedStyle;
 });
 
 describe('content-controller inpage combo', () => {
   it('wires double-click callback to open comments sidebar', async () => {
+    setupDom();
     const harness = createHarness();
 
     await harness.runTick();
@@ -109,6 +136,7 @@ describe('content-controller inpage combo', () => {
   });
 
   it('emits easter-egg line for combo callback', async () => {
+    setupDom();
     vi.spyOn(Math, 'random').mockReturnValue(0);
     const harness = createHarness();
 
@@ -121,6 +149,7 @@ describe('content-controller inpage combo', () => {
   });
 
   it('keeps single click save flow for manual capture', async () => {
+    setupDom();
     const harness = createHarness({
       captureImpl: (args) => {
         if (!args || !args.manual) return null;
@@ -148,6 +177,7 @@ describe('content-controller inpage combo', () => {
   });
 
   it('shows error tip when manual capture finds no visible conversation', async () => {
+    setupDom();
     const harness = createHarness({
       captureImpl: (args) => {
         if (!args || !args.manual) return null;
@@ -166,6 +196,7 @@ describe('content-controller inpage combo', () => {
   });
 
   it('shows tip when auto incremental save succeeds', async () => {
+    setupDom();
     const snapshot = {
       conversation: { source: 'gemini', conversationKey: 'auto-1' },
       messages: [{ messageKey: 'm1', sequence: 1, role: 'user', contentText: 'hello' }],
@@ -189,6 +220,7 @@ describe('content-controller inpage combo', () => {
   });
 
   it('skips auto-save when chatgpt deep research message is still a placeholder', async () => {
+    setupDom();
     const snapshot = {
       conversation: { source: 'chatgpt', conversationKey: 'auto-dr-placeholder-1' },
       messages: [
@@ -218,6 +250,7 @@ describe('content-controller inpage combo', () => {
   });
 
   it('auto-saves chatgpt deep research once hydration becomes available', async () => {
+    setupDom();
     vi.useFakeTimers();
 
     const snapshot = {
@@ -278,6 +311,7 @@ describe('content-controller inpage combo', () => {
   });
 
   it('proactively captures notionai after clicking send before observer mutations settle', async () => {
+    setupDom();
     vi.useFakeTimers();
 
     const snapshot = {
@@ -312,6 +346,7 @@ describe('content-controller inpage combo', () => {
   });
 
   it('does not proactively capture notionai on Shift+Enter draft newlines', async () => {
+    setupDom();
     vi.useFakeTimers();
 
     const harness = createHarness({
