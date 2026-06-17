@@ -269,6 +269,8 @@ export const en = {
   paginationLoadMoreFailed: 'Failed to load more conversations',
   paginationRetryLoadMore: 'Retry',
   paginationAllLoaded: 'All conversations are loaded',
+  conversationGroupYesterday: 'Yesterday',
+  conversationGroupEarlier: 'Earlier',
   todayLabel: 'Today:',
   totalLabel: 'Total:',
   cancelButton: 'Cancel',

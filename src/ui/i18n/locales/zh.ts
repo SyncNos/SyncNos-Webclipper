@@ -264,6 +264,8 @@ export const zh: { [K in TranslationKey]: string } = {
   paginationLoadMoreFailed: '分页加载失败',
   paginationRetryLoadMore: '重试',
   paginationAllLoaded: '已加载全部对话',
+  conversationGroupYesterday: '昨天',
+  conversationGroupEarlier: '更早',
   todayLabel: '今日：',
   totalLabel: '总计：',
   cancelButton: '取消',
