@@ -565,7 +565,12 @@ async function testConnection({ instanceId }: { instanceId?: string } = {}) {
 }
 
 async function getSyncStatus({ instanceId }: { instanceId?: string } = {}) {
-  return { provider: SYNC_PROVIDER, job: await obsidianSyncJobStore.getJob(), instanceId: safeString(instanceId) };
+  const safeInstanceId = safeString(instanceId);
+  const job =
+    typeof obsidianSyncJobStore.abortRunningJobIfFromOtherInstance === 'function'
+      ? await obsidianSyncJobStore.abortRunningJobIfFromOtherInstance(safeInstanceId, { forceAbort: true })
+      : await obsidianSyncJobStore.getJob();
+  return { provider: SYNC_PROVIDER, job, instanceId: safeInstanceId };
 }
 
 async function clearSyncStatus({ instanceId }: { instanceId?: string } = {}) {

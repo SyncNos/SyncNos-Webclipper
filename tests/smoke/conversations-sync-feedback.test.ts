@@ -311,6 +311,39 @@ describe('Conversations sync feedback', () => {
     expect(notionButton?.disabled).toBe(true);
   });
 
+  it('hydrates a reload-aborted notion job instead of keeping the running progress visible', async () => {
+    getNotionSyncJobStatus.mockResolvedValue({
+      provider: 'notion',
+      instanceId: 'notion-test',
+      job: {
+        provider: 'notion',
+        status: 'aborted',
+        startedAt: Date.now() - 2_000,
+        updatedAt: Date.now(),
+        finishedAt: Date.now(),
+        conversationIds: [11, 22],
+        currentConversationId: 22,
+        currentConversationTitle: 'Current sync target',
+        currentStage: 'ensuring_database',
+        okCount: 0,
+        failCount: 0,
+        perConversation: [],
+        abortedReason: 'extension reloaded',
+      },
+    });
+    await renderPane();
+
+    const notice = document.getElementById('conversationSyncFeedback');
+    expect(notice).toBeTruthy();
+    expect(notice?.getAttribute('data-phase')).toBe('failed');
+    expect(notice?.textContent).toContain(t('syncStopped'));
+    expect(notice?.textContent).toContain('extension reloaded');
+    expect(notice?.textContent).not.toContain(t('syncStageEnsuringDatabase'));
+
+    const dismissButton = document.querySelector('[aria-label="Dismiss sync feedback"]') as HTMLButtonElement | null;
+    expect(dismissButton?.disabled).not.toBe(true);
+  });
+
   it('attaches to the existing running notion job instead of showing sync already in progress as failure', async () => {
     syncNotionConversations.mockRejectedValue(new Error('sync already in progress'));
     getNotionSyncJobStatus.mockResolvedValue({
