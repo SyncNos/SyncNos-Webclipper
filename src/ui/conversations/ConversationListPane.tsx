@@ -662,7 +662,7 @@ export function ConversationListPane({
               return (
                 <div
                   key={entry.key}
-                  className="tw-sticky tw-top-0 tw-z-10 -tw-mx-1 tw-rounded-[var(--radius-control)] tw-bg-[color-mix(in_srgb,var(--bg-primary)_92%,transparent)] tw-px-1 tw-py-1.5 tw-backdrop-blur-sm"
+                  className="tw-sticky tw-top-0 tw-z-10 -tw-mx-3 tw-w-auto tw-bg-[var(--bg-primary)] tw-px-3 tw-py-1.5"
                 >
                   <div className="tw-inline-flex tw-items-center tw-rounded-[var(--radius-chip)] tw-border tw-border-[var(--border)] tw-bg-[var(--bg-sunken)] tw-px-2.5 tw-py-1 tw-text-[11px] tw-font-extrabold tw-text-[var(--text-secondary)]">
                     {entry.label}
