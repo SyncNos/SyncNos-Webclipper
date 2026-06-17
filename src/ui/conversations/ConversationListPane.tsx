@@ -6,8 +6,9 @@ import { formatConversationMarkdownForExternalOutput } from '@services/integrati
 import { createTwoStepConfirmController } from '@services/shared/two-step-confirm';
 import { tabsCreate, openOrFocusExtensionAppTab } from '@services/shared/webext';
 import { storageOnChanged } from '@services/shared/storage';
+import { buildConversationSidebarRenderItems } from '@services/conversations/domain/sidebar-time-groups';
 
-import { t, formatConversationTitle } from '@i18n';
+import { t, formatConversationTitle, getCurrentLocale } from '@i18n';
 import type { SyncProvider } from '@services/sync/models';
 import { getEnabledSyncProviders, syncProviderEnabledStorageKey } from '@services/sync/sync-provider-gate';
 import { getSyncProviderDefinition, listSyncProviders } from '@services/sync/sync-provider-registry';
@@ -225,6 +226,19 @@ export function ConversationListPane({
 
   const siteOptionKeys = useMemo(() => new Set(siteOptions.map((opt) => String(opt.key || ''))), [siteOptions]);
   const filteredItems = items;
+  const renderedItems = useMemo(
+    () =>
+      buildConversationSidebarRenderItems({
+        conversations: filteredItems,
+        locale: getCurrentLocale(),
+        labels: {
+          today: t('insightRangeToday'),
+          yesterday: t('conversationGroupYesterday'),
+          earlier: t('conversationGroupEarlier'),
+        },
+      }),
+    [filteredItems],
+  );
   const todayCount = Number((listSummary as any)?.todayCount) || 0;
   const totalCount = Number((listSummary as any)?.totalCount) || 0;
 
@@ -639,7 +653,21 @@ export function ConversationListPane({
             </div>
           )}
 
-          {filteredItems.map((conversation) => {
+          {renderedItems.map((entry) => {
+            if (entry.type === 'section') {
+              return (
+                <div
+                  key={entry.key}
+                  className="tw-sticky tw-top-0 tw-z-10 -tw-mx-1 tw-rounded-[var(--radius-control)] tw-bg-[color-mix(in_srgb,var(--bg-primary)_92%,transparent)] tw-px-1 tw-py-1.5 tw-backdrop-blur-sm"
+                >
+                  <div className="tw-inline-flex tw-items-center tw-rounded-[var(--radius-chip)] tw-border tw-border-[var(--border)] tw-bg-[var(--bg-sunken)] tw-px-2.5 tw-py-1 tw-text-[11px] tw-font-extrabold tw-text-[var(--text-secondary)]">
+                    {entry.label}
+                  </div>
+                </div>
+              );
+            }
+
+            const conversation = entry.conversation;
             const id = Number((conversation as any).id);
             const checked = selectedIds.includes(id);
             const sourceTag = resolveConversationListTag({
@@ -665,7 +693,7 @@ export function ConversationListPane({
 
             return (
               <div
-                key={String((conversation as any).id)}
+                key={entry.key}
                 className={rowClass}
                 data-conversation-id={String((conversation as any).id)}
                 aria-label={formatConversationTitle((conversation as any).title)}

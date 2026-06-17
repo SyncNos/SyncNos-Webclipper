@@ -6,8 +6,16 @@ import { act, createElement } from 'react';
 import { ConversationListPane } from '../../src/ui/conversations/ConversationListPane';
 
 vi.mock('../../src/ui/i18n', () => ({
-  t: (key: string) => key,
+  t: (key: string) =>
+    (
+      {
+        insightRangeToday: 'Today',
+        conversationGroupYesterday: 'Yesterday',
+        conversationGroupEarlier: 'Earlier',
+      } as Record<string, string>
+    )[key] || key,
   formatConversationTitle: (text: string) => text,
+  getCurrentLocale: () => 'en',
 }));
 
 const getEnabledSyncProviders = vi.fn<() => Promise<Array<'obsidian' | 'notion'>>>();
@@ -184,6 +192,8 @@ describe('ConversationListPane pagination behaviors', () => {
   let root: ReactDOM.Root | null = null;
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 18, 12, 0, 0, 0));
     setupDom();
     getEnabledSyncProviders.mockReset();
     getEnabledSyncProviders.mockResolvedValue(['notion']);
@@ -198,6 +208,7 @@ describe('ConversationListPane pagination behaviors', () => {
     });
     root = null;
     cleanupDom();
+    vi.useRealTimers();
   });
 
   async function renderPane() {
@@ -265,6 +276,38 @@ describe('ConversationListPane pagination behaviors', () => {
     expect(deleteTooltip).toContain('tooltipLoadedVisibleSelectionScope');
     expect(exportTooltip).toContain('tooltipLoadedVisibleSelectionScope');
     expect(syncTooltip).toContain('tooltipLoadedVisibleSelectionScope');
+  });
+
+  it('renders time group headers without breaking row rendering', async () => {
+    currentState = buildState({
+      items: [
+        baseConversation(11),
+        {
+          ...baseConversation(22),
+          lastCapturedAt: new Date(2026, 5, 17, 9, 0, 0, 0).getTime(),
+        },
+        {
+          ...baseConversation(33),
+          lastCapturedAt: new Date(2026, 5, 14, 9, 0, 0, 0).getTime(),
+        },
+        {
+          ...baseConversation(44),
+          lastCapturedAt: new Date(2026, 4, 20, 9, 0, 0, 0).getTime(),
+        },
+      ],
+    });
+
+    await renderPane();
+
+    const text = document.body.textContent || '';
+    expect(text).toContain('Today');
+    expect(text).toContain('Yesterday');
+    expect(text).toContain('6/14');
+    expect(text).toContain('May');
+    expect(document.querySelector('[data-conversation-id="11"]')).toBeTruthy();
+    expect(document.querySelector('[data-conversation-id="22"]')).toBeTruthy();
+    expect(document.querySelector('[data-conversation-id="33"]')).toBeTruthy();
+    expect(document.querySelector('[data-conversation-id="44"]')).toBeTruthy();
   });
 
   it('does not render warning badge even when warningFlags exist', async () => {
