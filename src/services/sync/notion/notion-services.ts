@@ -14,7 +14,10 @@ export type NotionJobStore = {
   getJob?: () => Promise<any>;
   setJob: (job: any) => Promise<boolean>;
   isRunningJob: (job: any, staleMs?: number) => boolean;
-  abortRunningJobIfFromOtherInstance: (instanceId: string, options?: number | ReconcileRunningSyncJobOptions) => Promise<any>;
+  abortRunningJobIfFromOtherInstance: (
+    instanceId: string,
+    options?: number | ReconcileRunningSyncJobOptions,
+  ) => Promise<any>;
 };
 
 export type NotionConversationKinds = {
