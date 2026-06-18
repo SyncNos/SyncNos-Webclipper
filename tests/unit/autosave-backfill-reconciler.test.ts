@@ -56,6 +56,24 @@ describe('autosave backfill reconciler', () => {
     expect(result.diff).toEqual({ added: [], updated: [], removed: [] });
   });
 
+  it('uses the latest stable messageKey as a tail anchor when overlap matching fails', () => {
+    const result = reconcileAutoSaveBackfill({
+      localTailMessages: [
+        msg('Earlier user', 'user', { messageKey: 'user_step_1' }),
+        msg('Earlier reply', 'assistant', { messageKey: 'assistant_reply_1' }),
+      ],
+      pageWindowMessages: [
+        msg('Earlier reply', 'assistant', { messageKey: 'assistant_reply_1' }),
+        msg('Latest user', 'user', { messageKey: 'user_step_2' }),
+      ],
+      stateKeyHash: 'state_hash',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.addedMessages.map((entry) => entry.contentText)).toEqual(['Latest user']);
+    expect(result.diff.added).toEqual(['user_step_2']);
+  });
+
   it('accepts overlap when tail messages are prefix-grown (streaming updates)', () => {
     const pageWindow = [
       msg('Earlier', 'user'),

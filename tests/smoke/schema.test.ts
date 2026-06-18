@@ -106,6 +106,33 @@ describe('smoke', () => {
     expect(String(r2.snapshot.messages[0].messageKey || '')).toMatch(/^autosave_/);
   });
 
+  it('computeIncremental does not advance the baseline on an unanchored no-overlap tick', () => {
+    incrementalUpdater.__resetForTests();
+
+    const mk = (prefix: string, i: number) => ({ role: i % 2 === 0 ? 'user' : 'assistant', contentText: `${prefix}${i}` });
+    const base = Array.from({ length: 201 }, (_unused, i) => mk('m', i));
+    const foreign = Array.from({ length: 201 }, (_unused, i) => mk('x', i));
+    const resumed = [...base, mk('m', 201)];
+
+    expect(incrementalUpdater.computeIncremental({
+      conversation: { source: 'debug', conversationKey: 'no-overlap-c1' },
+      messages: base,
+    }).changed).toBe(false);
+
+    expect(incrementalUpdater.computeIncremental({
+      conversation: { source: 'debug', conversationKey: 'no-overlap-c1' },
+      messages: foreign,
+    }).changed).toBe(false);
+
+    const resumedResult = incrementalUpdater.computeIncremental({
+      conversation: { source: 'debug', conversationKey: 'no-overlap-c1' },
+      messages: resumed,
+    });
+    expect(resumedResult.changed).toBe(true);
+    expect(resumedResult.diff.added).toHaveLength(1);
+    expect(String(resumedResult.snapshot.messages[0].contentText || '')).toBe('m201');
+  });
+
   it('computeIncremental updates only within the tail window (N=2) on prefix growth', () => {
     incrementalUpdater.__resetForTests();
 

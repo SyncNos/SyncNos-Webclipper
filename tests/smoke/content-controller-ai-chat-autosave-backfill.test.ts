@@ -421,4 +421,29 @@ describe('content-controller ai chat autosave backfill', () => {
     expect(syncCalls).toHaveLength(2);
     expect(syncCalls[1].payload.messages.map((entry: any) => entry.contentText)).toEqual(['A', 'B', 'C']);
   });
+
+  it('retries backfill for the same page signature after append write failure', async () => {
+    vi.useFakeTimers();
+    let syncAttempt = 0;
+    const snapshot = makeSnapshot('c-same-signature-retry', ['A', 'B']);
+    const harness = createHarness({
+      snapshots: [snapshot, snapshot],
+      tailWindows: [{ conversationId: null, messages: [] }, { conversationId: null, messages: [] }],
+      incrementalImpl: () => ({ changed: false }),
+      sendImpl: (type: string) => {
+        if (type !== 'syncConversationMessages') return undefined;
+        syncAttempt += 1;
+        if (syncAttempt === 1) return { ok: false, error: { message: 'sync failed once' } };
+        return { ok: true, data: { upserted: 2 } };
+      },
+    });
+
+    await harness.runTick();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await harness.runTick();
+
+    const syncCalls = harness.sendCalls.filter((entry) => entry.type === 'syncConversationMessages');
+    expect(syncCalls).toHaveLength(2);
+    expect(syncCalls[1].payload.messages.map((entry: any) => entry.contentText)).toEqual(['A', 'B']);
+  });
 });

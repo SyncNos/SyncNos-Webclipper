@@ -783,6 +783,14 @@ export function createContentController(deps: Deps) {
             }
             console.info('[WebClipper] auto-save backfill applied', backfill.logInfo);
           }
+        } catch (error) {
+          if (backfill.changed && backfill.stateKey) {
+            const state = backfillStateByConversation.get(backfill.stateKey);
+            if (state && backfill.pageSignature && state.lastAttemptedPageSignature === backfill.pageSignature) {
+              state.lastAttemptedPageSignature = '';
+            }
+          }
+          throw error;
         } finally {
           endSaving();
         }
