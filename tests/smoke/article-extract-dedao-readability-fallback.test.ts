@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 
 import { extractWebArticleFromCurrentPage } from '../../src/collectors/web/article-extract/engine';
+import { buildDedaoNoteDocument } from '../helpers/dedao-note-fixture';
 
 function setDomGlobals(dom: JSDOM) {
   // @ts-expect-error test global
@@ -40,35 +39,10 @@ afterEach(() => {
 
 describe('article-extract dedao readability fallback', () => {
   it('continues past a truncated readability result and recovers the main note body', async () => {
-    const dedaoDom = readFileSync(resolve('.github/features/dedao-comment/dom1.md'), 'utf8');
-    const dom = new JSDOM(
-      `<!doctype html>
-      <html>
-        <head>
-          <title>得到APP - 知识就是力量，知识就在得到</title>
-        </head>
-        <body>
-          <div id="app">
-            <div class="iget-ui-row" id="mainWrap">
-              ${dedaoDom}
-              <aside id="rightContent">
-                <div class="right-content">
-                  <p>联系我们：</p>
-                  <p>客服电话：400-0526-000</p>
-                  <p>相关链接：</p>
-                  <p>得到官网</p>
-                  <p>下载「得到App」</p>
-                </div>
-              </aside>
-            </div>
-          </div>
-        </body>
-      </html>`,
-      {
-        url: 'https://www.dedao.cn/knowledge/note/detail?id=AaWVPxLgY8DkXGMkJyEGXnDqwEoXJ9',
-        pretendToBeVisual: true,
-      },
-    );
+    const dom = new JSDOM(buildDedaoNoteDocument({ includeRightRail: true }), {
+      url: 'https://www.dedao.cn/knowledge/note/detail?id=AaWVPxLgY8DkXGMkJyEGXnDqwEoXJ9',
+      pretendToBeVisual: true,
+    });
 
     setDomGlobals(dom);
 
@@ -94,8 +68,8 @@ describe('article-extract dedao readability fallback', () => {
 
     const markdown = String(extracted.contentMarkdown || '');
 
-    expect(markdown).toContain('万 sir 您好，我是一名自闭症孩子的妈妈。');
-    expect(markdown).toContain('可能：不确定性是意义的燃料');
+    expect(markdown).toContain('正文段落一：这是用于抽取回归测试的示例内容。');
+    expect(markdown).toContain('正文段落二：抽取器应该保留这段核心文本。');
     expect(markdown).not.toContain('客服电话：400-0526-000');
   });
 });
