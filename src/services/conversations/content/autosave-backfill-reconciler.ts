@@ -151,6 +151,34 @@ function assignBackfillKeys(
   return { added, addedKeys };
 }
 
+function normalizeStableIncomingKey(message: any): string {
+  const incomingKeyRaw = String(message?.messageKey || '').trim();
+  if (!incomingKeyRaw) return '';
+  if (incomingKeyRaw.startsWith('fallback_')) return '';
+  return incomingKeyRaw;
+}
+
+function findStableTailAnchor(localMessages: any[], pageMessages: any[]): { pageIndex: number; localIndex: number } | null {
+  const localKeyToLastIndex = new Map<string, number>();
+  for (let index = 0; index < localMessages.length; index += 1) {
+    const key = normalizeStableIncomingKey(localMessages[index]);
+    if (!key) continue;
+    localKeyToLastIndex.set(key, index);
+  }
+
+  if (!localKeyToLastIndex.size) return null;
+
+  for (let pageIndex = pageMessages.length - 1; pageIndex >= 0; pageIndex -= 1) {
+    const key = normalizeStableIncomingKey(pageMessages[pageIndex]);
+    if (!key) continue;
+    const localIndex = localKeyToLastIndex.get(key);
+    if (typeof localIndex !== 'number') continue;
+    return { pageIndex, localIndex };
+  }
+
+  return null;
+}
+
 function computePageSignature(pageComparables: BackfillComparable[]): string {
   // Use weak identity for the signature so streaming/prefix-growth updates don't thrash the retry/completion state.
   const serialized = pageComparables
@@ -220,12 +248,18 @@ export function reconcileAutoSaveBackfill(input: {
     candidates = pageMessages.slice(0, prefixEnd);
     candidateComparable = pageComparable.slice(0, prefixEnd);
   } else {
-    return {
-      ok: false,
-      addedMessages: [],
-      diff: { added: [], updated: [], removed: [] },
-      pageSignature,
-    };
+    const stableAnchor = findStableTailAnchor(localMessages, pageMessages);
+    if (!stableAnchor) {
+      return {
+        ok: false,
+        addedMessages: [],
+        diff: { added: [], updated: [], removed: [] },
+        pageSignature,
+      };
+    }
+
+    candidates = pageMessages.slice(stableAnchor.pageIndex + 1);
+    candidateComparable = pageComparable.slice(stableAnchor.pageIndex + 1);
   }
 
   const assigned = assignBackfillKeys(candidates, candidateComparable, stateKeyHash, overlapForward > 0 ? 'a' : 'h');

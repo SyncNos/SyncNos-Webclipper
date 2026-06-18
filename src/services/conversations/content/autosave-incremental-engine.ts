@@ -388,14 +388,16 @@ export function createAutoSaveIncrementalEngine(): AutoSaveIncrementalEngine {
       if (!changed) {
         state.lastTitle = nextTitle;
         state.lastUrl = nextUrl;
-        state.lastWindowIdentityHashes = currentIdentityHashes;
-        const tailWindowMessages = windowMessages.slice(Math.max(0, windowMessages.length - curTail.length));
-        state.lastTail = buildTailEntries({
-          prevTail,
-          curTail,
-          tailWindowMessages,
-          stateKeyHash: state.stateKeyHash,
-        });
+        if (prevLen === 0 || overlapLen > 0) {
+          state.lastWindowIdentityHashes = currentIdentityHashes;
+          const tailWindowMessages = windowMessages.slice(Math.max(0, windowMessages.length - curTail.length));
+          state.lastTail = buildTailEntries({
+            prevTail,
+            curTail,
+            tailWindowMessages,
+            stateKeyHash: state.stateKeyHash,
+          });
+        }
         return { changed: false, snapshot: null, diff: { added: [], updated: [], removed: [] } };
       }
 

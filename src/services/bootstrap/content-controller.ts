@@ -12,6 +12,8 @@ import {
 
 const STORAGE_KEY_AI_CHAT_AUTO_SAVE_ENABLED = 'ai_chat_auto_save_enabled';
 const STORAGE_KEY_AI_CHAT_DOLLAR_MENTION_ENABLED = 'ai_chat_dollar_mention_enabled';
+const NOTION_AI_SEND_BUTTON_SELECTOR = 'div[role="button"][data-testid="agent-send-message-button"]';
+const NOTION_AI_COMPOSER_SELECTOR = 'div[role="textbox"][data-content-editable-leaf="true"][contenteditable="true"]';
 
 type RuntimeClient = {
   send?: (type: string, payload?: Record<string, unknown>) => Promise<any>;
@@ -136,6 +138,7 @@ export function createContentController(deps: Deps) {
   const incrementalUpdater = deps.incrementalUpdater;
   const notionAiModelPicker = deps.notionAiModelPicker;
   const itemMention = deps.itemMention;
+  const doc = typeof document !== 'undefined' ? document : null;
 
   function toTipKind(kind?: unknown): 'default' | 'error' | undefined {
     const value = String(kind || '')
@@ -268,6 +271,8 @@ export function createContentController(deps: Deps) {
     let inpageButtonPosition: any = null;
     let inpageButtonPositionLoaded = false;
     let inpageButtonPositionLoadPromise: Promise<any> | null = null;
+    let proactiveNotionAiBurstTimers = new Set<ReturnType<typeof setTimeout>>();
+    let lastProactiveNotionAiBurstAt = 0;
     const backfillStateByConversation = new Map<
       string,
       {
@@ -280,6 +285,8 @@ export function createContentController(deps: Deps) {
         warnedTailUnavailable: boolean;
       }
     >();
+    const NOTION_AI_PROACTIVE_CAPTURE_DELAYS_MS = [0, 120, 450, 1000] as const;
+    const NOTION_AI_PROACTIVE_CAPTURE_COOLDOWN_MS = 160;
 
     void readAiChatAutoSaveEnabled()
       .then((enabled) => {
@@ -330,6 +337,10 @@ export function createContentController(deps: Deps) {
       }
       backfillStateByConversation.clear();
       observer?.stop?.();
+      for (const timer of proactiveNotionAiBurstTimers) clearTimeout(timer);
+      proactiveNotionAiBurstTimers.clear();
+      doc?.removeEventListener('click', onDocumentClickCapture, true);
+      doc?.removeEventListener('keydown', onDocumentKeydownCapture, true);
     }
 
     runtime?.onInvalidated?.(() => stop());
@@ -363,6 +374,50 @@ export function createContentController(deps: Deps) {
         deepResearchPollTimer = null;
         void handleTick();
       }, DEEP_RESEARCH_POLL_INTERVAL_MS);
+    }
+
+    function isNotionAiCollectorActive(): boolean {
+      const collector = getCollector();
+      return String(collector?.id || '')
+        .trim()
+        .toLowerCase() === 'notionai';
+    }
+
+    function scheduleNotionAiProactiveCaptureBurst() {
+      if (stopped) return;
+      if (aiChatAutoSaveEnabled !== true) return;
+      if (!isNotionAiCollectorActive()) return;
+
+      const now = Date.now();
+      if (now - lastProactiveNotionAiBurstAt < NOTION_AI_PROACTIVE_CAPTURE_COOLDOWN_MS) return;
+      lastProactiveNotionAiBurstAt = now;
+
+      for (const delay of NOTION_AI_PROACTIVE_CAPTURE_DELAYS_MS) {
+        const timer = setTimeout(() => {
+          proactiveNotionAiBurstTimers.delete(timer);
+          if (stopped) return;
+          void handleTick();
+        }, delay);
+        proactiveNotionAiBurstTimers.add(timer);
+      }
+    }
+
+    function onDocumentClickCapture(event: Event) {
+      const target = event.target as Element | null;
+      if (!target?.closest) return;
+      if (!target.closest(NOTION_AI_SEND_BUTTON_SELECTOR)) return;
+      scheduleNotionAiProactiveCaptureBurst();
+    }
+
+    function onDocumentKeydownCapture(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
+      if (event.isComposing) return;
+      if (event.key !== 'Enter') return;
+      if (event.shiftKey || event.altKey) return;
+      const target = event.target as Element | null;
+      if (!target?.closest) return;
+      if (!target.closest(NOTION_AI_COMPOSER_SELECTOR)) return;
+      scheduleNotionAiProactiveCaptureBurst();
     }
 
     function makeConversationStateKey(snapshot: any): string {
@@ -606,7 +661,7 @@ export function createContentController(deps: Deps) {
       return collector;
     }
 
-    const handleTick = async () => {
+    async function handleTick() {
       if (stopped) return;
 
       try {
@@ -728,6 +783,14 @@ export function createContentController(deps: Deps) {
             }
             console.info('[WebClipper] auto-save backfill applied', backfill.logInfo);
           }
+        } catch (error) {
+          if (backfill.changed && backfill.stateKey) {
+            const state = backfillStateByConversation.get(backfill.stateKey);
+            if (state && backfill.pageSignature && state.lastAttemptedPageSignature === backfill.pageSignature) {
+              state.lastAttemptedPageSignature = '';
+            }
+          }
+          throw error;
         } finally {
           endSaving();
         }
@@ -738,7 +801,10 @@ export function createContentController(deps: Deps) {
         }
         console.error('WebClipper auto-save failed:', error);
       }
-    };
+    }
+
+    doc?.addEventListener('click', onDocumentClickCapture, true);
+    doc?.addEventListener('keydown', onDocumentKeydownCapture, true);
 
     observer =
       runtimeObserver?.createObserver?.({
