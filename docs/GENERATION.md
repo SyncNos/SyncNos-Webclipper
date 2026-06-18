@@ -5,9 +5,9 @@
 | Field | Value |
 | --- | --- |
 | Repository | `SyncNos/SyncNos-Webclipper` |
-| Commit hash | 18582882588023f8e66134a4cd6221fa34392d06 |
+| Commit hash | 51b23b6228a0a189d95fa616f7981de0f45e2e96 |
 | Branch name | `crh` |
-| Generation timestamp | `2026-06-16 12:01:06 +0800` |
+| Generation timestamp | `2026-06-18 11:49:20 +0800` |
 | Output language | 中文 |
 | Generated directory | `docs/` |
-| Update mode | Docs reconciliation — Dedao article extraction site spec + web article fetch notes sync |
+| Update mode | Docs reconciliation — Notion AI autosave tail capture + stable-key reconciliation sync |
