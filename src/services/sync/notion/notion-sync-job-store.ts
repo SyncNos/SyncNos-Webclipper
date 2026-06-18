@@ -21,10 +21,7 @@ export function isRunningJob(job: any, staleMs?: number) {
   return isRunningSyncJob(job, staleMs);
 }
 
-export async function abortRunningJobIfFromOtherInstance(
-  instanceId: string,
-  options?: number | ReconcileRunningSyncJobOptions,
-) {
+export async function abortRunningJobIfFromOtherInstance(instanceId: string, options?: number | ReconcileRunningSyncJobOptions) {
   return abortRunningSyncJobIfFromOtherInstance('notion', instanceId, options);
 }
 

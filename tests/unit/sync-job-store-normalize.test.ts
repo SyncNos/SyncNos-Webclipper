@@ -48,8 +48,7 @@ describe('normalizeSyncJobSnapshot', () => {
   });
 
   it('aborts a foreign running job immediately when forced', async () => {
-    const { abortRunningSyncJobIfFromOtherInstance, SYNC_JOB_STORAGE_KEYS } =
-      await import('@services/sync/sync-job-store');
+    const { abortRunningSyncJobIfFromOtherInstance, SYNC_JOB_STORAGE_KEYS } = await import('@services/sync/sync-job-store');
     const now = Date.now();
     storageState[SYNC_JOB_STORAGE_KEYS.notion] = {
       id: 'job_2',
@@ -72,8 +71,9 @@ describe('normalizeSyncJobSnapshot', () => {
   });
 
   it('keeps a fresh foreign running job until the 5 minute stale window expires when not forced', async () => {
-    const { abortRunningSyncJobIfFromOtherInstance, isRunningSyncJob, SYNC_JOB_STORAGE_KEYS } =
-      await import('@services/sync/sync-job-store');
+    const { abortRunningSyncJobIfFromOtherInstance, isRunningSyncJob, SYNC_JOB_STORAGE_KEYS } = await import(
+      '@services/sync/sync-job-store'
+    );
     const now = Date.now();
     storageState[SYNC_JOB_STORAGE_KEYS.feishu] = {
       id: 'job_3',

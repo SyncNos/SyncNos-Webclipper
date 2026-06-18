@@ -46,10 +46,12 @@ function formatMonthLabel(ts: number, locale: string, includeYear: boolean): str
   );
 }
 
-function resolveSection(input: { ts: number; nowTs: number; locale: string; labels: ConversationSidebarGroupLabels }): {
-  key: string;
-  label: string;
-} {
+function resolveSection(input: {
+  ts: number;
+  nowTs: number;
+  locale: string;
+  labels: ConversationSidebarGroupLabels;
+}): { key: string; label: string } {
   const { ts, nowTs, locale, labels } = input;
   if (!Number.isFinite(ts) || ts <= 0) {
     return { key: 'earlier', label: labels.earlier };
