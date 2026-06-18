@@ -24,11 +24,6 @@ export default function Settings() {
       .trim()
       .toLowerCase();
 
-    // Backward compat: older deep links may use `section=notion-ai`.
-    if (rawSection === 'notion-ai') {
-      return { section: 'notion', focus: rawFocus || 'notion-ai' };
-    }
-
     const section: SettingsSectionKey = coerceSettingsSectionKey(rawSection) ?? readStoredSettingsSection();
     const focus = rawFocus;
     return { section, focus };

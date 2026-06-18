@@ -65,7 +65,6 @@ type Deps = {
   inpageTip: InpageTipApi | null;
   runtimeObserver: RuntimeObserverApi | null;
   incrementalUpdater: { computeIncremental?: (snapshot: unknown) => any } | null;
-  notionAiModelPicker: { maybeApply?: () => void } | null;
   itemMention: { start?: () => { stop?: () => void } | null } | null;
 };
 
@@ -136,7 +135,6 @@ export function createContentController(deps: Deps) {
   const inpageTip = deps.inpageTip;
   const runtimeObserver = deps.runtimeObserver;
   const incrementalUpdater = deps.incrementalUpdater;
-  const notionAiModelPicker = deps.notionAiModelPicker;
   const itemMention = deps.itemMention;
   const doc = typeof document !== 'undefined' ? document : null;
 
@@ -667,8 +665,6 @@ export function createContentController(deps: Deps) {
       if (stopped) return;
 
       try {
-        notionAiModelPicker?.maybeApply?.();
-
         const collector = await refreshInpageButton();
         if (!collector || typeof collector.capture !== 'function') return;
         if (collector.id === 'googleaistudio') return;

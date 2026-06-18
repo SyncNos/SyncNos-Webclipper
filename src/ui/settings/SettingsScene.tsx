@@ -14,7 +14,6 @@ import { BackupSection } from '@ui/settings/sections/BackupSection';
 import { ChatWithAiSection } from '@ui/settings/sections/ChatWithAiSection';
 import { InsightSection } from '@ui/settings/sections/InsightSection';
 import { InpageSection } from '@ui/settings/sections/InpageSection';
-import { NotionAISection } from '@ui/settings/sections/NotionAISection';
 import { NotionOAuthSection } from '@ui/settings/sections/NotionOAuthSection';
 import { FeishuOAuthSection } from '@ui/settings/sections/FeishuOAuthSection';
 import { ObsidianSettingsSection } from '@ui/settings/sections/ObsidianSettingsSection';
@@ -51,8 +50,6 @@ export function SettingsScene(props: SettingsSceneProps) {
     pollingNotion,
     loadingNotionPages,
     notionAdvancedOpen,
-    notionAiModelIndex,
-    setNotionAiModelIndex,
     notionParentPageId,
     notionChatDatabaseId,
     setNotionChatDatabaseId,
@@ -65,9 +62,6 @@ export function SettingsScene(props: SettingsSceneProps) {
     notionVideoDatabaseLabel,
     notionPageOptions,
     notionStatusText,
-    onSaveNotionAiModelIndex,
-    onResetNotionAiModelIndex,
-    notionAiRef,
     onToggleNotionAdvancedOpen,
     onSaveNotionDatabaseId,
     onResetNotionDatabaseId,
@@ -252,19 +246,6 @@ export function SettingsScene(props: SettingsSceneProps) {
             }}
           />
 
-          <div ref={notionAiRef} id="settings-notion-ai">
-            <NotionAISection
-              busy={busy}
-              modelIndex={notionAiModelIndex}
-              onChangeModelIndex={setNotionAiModelIndex}
-              onSave={() => {
-                void onSaveNotionAiModelIndex();
-              }}
-              onReset={() => {
-                void onResetNotionAiModelIndex();
-              }}
-            />
-          </div>
         </>
       ) : null}
 
