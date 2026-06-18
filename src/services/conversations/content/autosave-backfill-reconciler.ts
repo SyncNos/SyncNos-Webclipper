@@ -158,7 +158,10 @@ function normalizeStableIncomingKey(message: any): string {
   return incomingKeyRaw;
 }
 
-function findStableTailAnchor(localMessages: any[], pageMessages: any[]): { pageIndex: number; localIndex: number } | null {
+function findStableTailAnchor(
+  localMessages: any[],
+  pageMessages: any[],
+): { pageIndex: number; localIndex: number } | null {
   const localKeyToLastIndex = new Map<string, number>();
   for (let index = 0; index < localMessages.length; index += 1) {
     const key = normalizeStableIncomingKey(localMessages[index]);

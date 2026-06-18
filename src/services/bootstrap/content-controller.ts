@@ -378,9 +378,11 @@ export function createContentController(deps: Deps) {
 
     function isNotionAiCollectorActive(): boolean {
       const collector = getCollector();
-      return String(collector?.id || '')
-        .trim()
-        .toLowerCase() === 'notionai';
+      return (
+        String(collector?.id || '')
+          .trim()
+          .toLowerCase() === 'notionai'
+      );
     }
 
     function scheduleNotionAiProactiveCaptureBurst() {

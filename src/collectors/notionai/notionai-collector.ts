@@ -195,11 +195,6 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     return !!el.querySelector(NOTION_AI_COMPOSER_LEAF_SELECTOR);
   }
 
-  function isChatChromeEl(el: any): any {
-    if (!el || !el.matches) return false;
-    return !!(el.matches(NOTION_AI_CHAT_CHROME_SELECTOR) || el.matches(NOTION_AI_HISTORY_SELECTOR));
-  }
-
   function containsChatChrome(el: any): any {
     if (!el || !el.querySelector) return false;
     return !!el.querySelector(`${NOTION_AI_CHAT_CHROME_SELECTOR}, ${NOTION_AI_HISTORY_SELECTOR}`);
@@ -721,9 +716,8 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
       const markdown: any = notionAiMarkdown as any;
       const contentMarkdown =
         role === 'user'
-          ? (typeof markdown.extractUserMarkdown === 'function'
-              ? markdown.extractUserMarkdown(w?.wrapper || w)
-              : '') || contentText
+          ? (typeof markdown.extractUserMarkdown === 'function' ? markdown.extractUserMarkdown(w?.wrapper || w) : '') ||
+            contentText
           : (typeof markdown.extractAssistantMarkdown === 'function'
               ? markdown.extractAssistantMarkdown(w?.wrapper || w)
               : '') || contentText;
@@ -754,7 +748,7 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
             ? assistantOccurrence > 1
               ? `${assistantReplySeed}_part${assistantOccurrence}`
               : assistantReplySeed
-          : userStepId || fallbackUserId || firstBlockId || '';
+            : userStepId || fallbackUserId || firstBlockId || '';
       const messageKey = stableId
         ? `${role}_${stableId}`
         : env.normalize.makeFallbackMessageKey({ role, contentText: contentText || '', sequence: i });

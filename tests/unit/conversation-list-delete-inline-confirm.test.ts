@@ -8,6 +8,7 @@ import { ConversationListPane } from '../../src/ui/conversations/ConversationLis
 vi.mock('../../src/ui/i18n', () => ({
   t: (key: string) => key,
   formatConversationTitle: (text: string) => text,
+  getCurrentLocale: () => 'en',
 }));
 
 const deleteSelected = vi.fn();

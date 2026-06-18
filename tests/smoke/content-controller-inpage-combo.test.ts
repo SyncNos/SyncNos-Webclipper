@@ -322,7 +322,11 @@ describe('content-controller inpage combo', () => {
     const harness = createHarness({
       collectorId: 'notionai',
       captureImpl: () => snapshot,
-      incrementalImpl: (snap) => ({ changed: true, snapshot: snap, diff: { added: ['user_u1'], updated: [], removed: [] } }),
+      incrementalImpl: (snap) => ({
+        changed: true,
+        snapshot: snap,
+        diff: { added: ['user_u1'], updated: [], removed: [] },
+      }),
       sendImpl: async (type: string) => {
         if (type === 'upsertConversation') return { ok: true, data: { id: 31 } };
         if (type === 'syncConversationMessages') return { ok: true, data: { inserted: 1 } };
@@ -355,7 +359,11 @@ describe('content-controller inpage combo', () => {
         conversation: { source: 'notionai', conversationKey: 'notionai_t_2' },
         messages: [{ messageKey: 'user_u2', sequence: 1, role: 'user', contentText: 'draft' }],
       }),
-      incrementalImpl: (snap) => ({ changed: true, snapshot: snap, diff: { added: ['user_u2'], updated: [], removed: [] } }),
+      incrementalImpl: (snap) => ({
+        changed: true,
+        snapshot: snap,
+        diff: { added: ['user_u2'], updated: [], removed: [] },
+      }),
       sendImpl: async (type: string) => {
         if (type === 'upsertConversation') return { ok: true, data: { id: 32 } };
         if (type === 'syncConversationMessages') return { ok: true, data: { inserted: 1 } };
@@ -369,7 +377,9 @@ describe('content-controller inpage combo', () => {
     composer.setAttribute('contenteditable', 'true');
     document.body.appendChild(composer);
 
-    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true }));
+    composer.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true }),
+    );
     await vi.runAllTimersAsync();
 
     expect(harness.sendCalls.some((c) => c.type === 'upsertConversation')).toBe(false);

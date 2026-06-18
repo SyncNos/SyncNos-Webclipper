@@ -428,7 +428,10 @@ describe('content-controller ai chat autosave backfill', () => {
     const snapshot = makeSnapshot('c-same-signature-retry', ['A', 'B']);
     const harness = createHarness({
       snapshots: [snapshot, snapshot],
-      tailWindows: [{ conversationId: null, messages: [] }, { conversationId: null, messages: [] }],
+      tailWindows: [
+        { conversationId: null, messages: [] },
+        { conversationId: null, messages: [] },
+      ],
       incrementalImpl: () => ({ changed: false }),
       sendImpl: (type: string) => {
         if (type !== 'syncConversationMessages') return undefined;
