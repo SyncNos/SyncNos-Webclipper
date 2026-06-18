@@ -17,6 +17,8 @@ const STORAGE_BACKUP_DENYLIST_EXACT = new Set<string>([
   // Not used by default (ensureDefaultNotionOAuthClientId removes it), but keep it out of backups.
   'notion_oauth_client_secret',
   'feishu_oauth_client_secret',
+  // Removed feature: never carry the old Notion AI model preference through backups.
+  'notion_ai_preferred_model_index',
   // Obsidian Local REST API key is a secret even though base URL is safe to export.
   'obsidian_api_key',
 ]);

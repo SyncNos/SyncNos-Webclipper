@@ -175,20 +175,13 @@ export const zh: { [K in TranslationKey]: string } = {
   notionDbIdVideos: '视频字幕数据库 ID',
   notionAdvancedDbIdHint: '可选覆盖项。填写后将直接使用该数据库 ID；清空后恢复按父页面自动复用/创建。',
 
-  // NotionAISection
-  notionAI: 'Notion AI',
-  modelIndex: '模型序号',
-  save: '保存',
-  reset: '重置',
-  notionAiModelNote:
-    '仅在 Notion AI 模型设置为自动时有效。1 表示禁用（不触发自动选择）。Notion 中的菜单顺序可能会变化。',
-
   // ObsidianSettingsSection
   obsidianLocalRestApi: 'Obsidian 本地 REST API',
   baseUrl: '基础 URL',
   apiKey: 'API 密钥',
   authHeader: '认证头',
   test: '测试',
+  reset: '重置',
   status: '状态',
   note: '备注',
   obsidianInstallNote: '请先安装并配置 Obsidian Local REST API。',

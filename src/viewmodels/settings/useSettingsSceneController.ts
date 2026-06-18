@@ -252,11 +252,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [lastBackupExportAt, setLastBackupExportAt] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const backupImportRef = useRef<HTMLDivElement | null>(null);
-
-  const notionAiRef = useRef<HTMLDivElement | null>(null);
-
-  // Notion AI
-  const [notionAiModelIndex, setNotionAiModelIndex] = useState<string>('');
   const chatDbSpec = useMemo(() => getKindDbSpec('chat', FALLBACK_CHAT_DB_SPEC), []);
   const articleDbSpec = useMemo(() => getKindDbSpec('article', FALLBACK_ARTICLE_DB_SPEC), []);
   const videoDbSpec = useMemo(() => getKindDbSpec('video', FALLBACK_VIDEO_DB_SPEC), []);
@@ -343,7 +338,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         'feishu_oauth_pending_state',
         'feishu_oauth_last_error',
         'feishu_oauth_token_exchange_proxy_url',
-        'notion_ai_preferred_model_index',
         chatDbSpec.storageKey,
         articleDbSpec.storageKey,
         videoDbSpec.storageKey,
@@ -383,7 +377,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setNotionLastError(String(local?.notion_oauth_last_error || ''));
     setNotionParentPageId(String(local?.notion_parent_page_id || ''));
     setNotionParentPageTitle(String(local?.notion_parent_page_title || ''));
-    setNotionAiModelIndex(String(local?.notion_ai_preferred_model_index || ''));
     setNotionChatDatabaseId(String(local?.[chatDbSpec.storageKey] || ''));
     setNotionArticleDatabaseId(String(local?.[articleDbSpec.storageKey] || ''));
     setNotionVideoDatabaseId(String(local?.[videoDbSpec.storageKey] || ''));
@@ -902,31 +895,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     [notionPages, notionParentPageId, runTask],
   );
 
-  const onSaveNotionAiModelIndex = useCallback(async () => {
-    const ok = await runTask(async () => {
-      const raw = String(notionAiModelIndex || '').trim();
-      const value = raw ? Number(raw) : NaN;
-
-      if (!raw) {
-        await storageSet({ notion_ai_preferred_model_index: '' });
-      } else if (!Number.isFinite(value) || value <= 0) {
-        throw new Error('Invalid model index');
-      } else {
-        await storageSet({ notion_ai_preferred_model_index: Math.floor(value) });
-      }
-    });
-
-    if (ok) await refresh();
-  }, [notionAiModelIndex, refresh, runTask]);
-
-  const onResetNotionAiModelIndex = useCallback(async () => {
-    const ok = await runTask(async () => {
-      await storageSet({ notion_ai_preferred_model_index: '' });
-    });
-
-    if (ok) await refresh();
-  }, [refresh, runTask]);
-
   const onToggleNotionAdvancedOpen = useCallback(() => {
     setNotionAdvancedOpen((prev) => !prev);
   }, []);
@@ -1426,12 +1394,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     backupImportRef.current?.scrollIntoView({ block: 'start' });
   }, [activeSection, focusKey]);
 
-  useEffect(() => {
-    if (activeSection !== 'notion') return;
-    if (focusKey !== 'notion-ai') return;
-    notionAiRef.current?.scrollIntoView({ block: 'start' });
-  }, [activeSection, focusKey]);
-
   const onChangeAboutYouUserName = useCallback((next: string) => {
     setAboutYouUserName(normalizeUserName(next));
   }, []);
@@ -1460,10 +1422,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     notionConnected,
     pollingNotion,
     loadingNotionPages,
-    notionAiModelIndex,
-    setNotionAiModelIndex,
-    onSaveNotionAiModelIndex,
-    onResetNotionAiModelIndex,
     notionAdvancedOpen,
     onToggleNotionAdvancedOpen,
     notionChatDatabaseId,
@@ -1477,7 +1435,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     notionVideoDatabaseLabel: videoDbSpec.title,
     onSaveNotionDatabaseId,
     onResetNotionDatabaseId,
-    notionAiRef,
     notionParentPageId,
     notionPageOptions,
     notionStatusText,

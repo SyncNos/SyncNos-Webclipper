@@ -178,20 +178,13 @@ export const en = {
   notionAdvancedDbIdHint:
     'Optional override. When filled, SyncNos uses this database ID directly; clear to auto-discover/create under Parent Page.',
 
-  // NotionAISection
-  notionAI: 'Notion AI',
-  modelIndex: 'Model Index',
-  save: 'Save',
-  reset: 'Reset',
-  notionAiModelNote:
-    'Applies only when Notion AI model is set to Auto. Use 1 to disable (no auto-selection). Menu order may change in Notion.',
-
   // ObsidianSettingsSection
   obsidianLocalRestApi: 'Obsidian Local REST API',
   baseUrl: 'Base URL',
   apiKey: 'API Key',
   authHeader: 'Auth Header',
   test: 'Test',
+  reset: 'Reset',
   status: 'Status',
   note: 'Note',
   obsidianInstallNote: 'Install and configure Obsidian Local REST API first.',

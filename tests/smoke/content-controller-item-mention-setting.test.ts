@@ -70,7 +70,6 @@ describe('content-controller item mention setting', () => {
       inpageTip: null,
       runtimeObserver: null,
       incrementalUpdater: null,
-      notionAiModelPicker: null,
       itemMention: { start },
     } as any);
 
@@ -96,7 +95,6 @@ describe('content-controller item mention setting', () => {
       inpageTip: null,
       runtimeObserver: null,
       incrementalUpdater: null,
-      notionAiModelPicker: null,
       itemMention: { start },
     } as any);
 

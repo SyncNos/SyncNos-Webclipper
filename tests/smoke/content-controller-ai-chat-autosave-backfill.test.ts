@@ -98,7 +98,6 @@ function createHarness(options: {
         return { changed: false };
       },
     },
-    notionAiModelPicker: null,
     itemMention: null,
   });
   controller.start();

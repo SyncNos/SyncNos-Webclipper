@@ -80,7 +80,6 @@ function createHarness(options?: { collectorId?: string }) {
       },
     },
     incrementalUpdater: null,
-    notionAiModelPicker: null,
   });
   controller.start();
 
