@@ -647,6 +647,7 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
     const warningFlags: any[] = [];
     let lastUserStepId = '';
     const fallbackUserOccurrenceByBasis = new Map<string, number>();
+    const assistantOccurrenceByReplySeed = new Map<string, number>();
 
     function mergeImageUrls(nodes: any): any {
       const set = new Set();
@@ -741,9 +742,18 @@ export function createNotionAiCollectorDef(env: CollectorEnv): CollectorDefiniti
           : '';
       const firstBlockId =
         role === 'assistant' ? (target.querySelector('div[data-block-id]') || {}).getAttribute?.('data-block-id') : '';
+      const assistantReplySeed = role === 'assistant' && lastUserStepId ? `replyTo_${lastUserStepId}` : '';
+      const assistantOccurrence = assistantReplySeed
+        ? (assistantOccurrenceByReplySeed.get(assistantReplySeed) || 0) + 1
+        : 0;
+      if (assistantReplySeed) assistantOccurrenceByReplySeed.set(assistantReplySeed, assistantOccurrence);
       const stableId =
-        role === 'assistant' && lastUserStepId
-          ? `replyTo_${lastUserStepId}`
+        role === 'assistant' && assistantReplySeed && firstBlockId
+          ? `${assistantReplySeed}_${firstBlockId}`
+          : role === 'assistant' && assistantReplySeed
+            ? assistantOccurrence > 1
+              ? `${assistantReplySeed}_part${assistantOccurrence}`
+              : assistantReplySeed
           : userStepId || fallbackUserId || firstBlockId || '';
       const messageKey = stableId
         ? `${role}_${stableId}`

@@ -152,9 +152,39 @@ describe('notionai-collector', () => {
     expect(snap.messages.map((m: any) => m && m.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
     expect(snap.messages.map((m: any) => String(m && m.messageKey))).toEqual([
       'user_u1',
-      'assistant_replyTo_u1',
+      'assistant_replyTo_u1_a1',
       'user_u2',
-      'assistant_replyTo_u2',
+      'assistant_replyTo_u2_a2',
+    ]);
+  });
+
+  it('assigns unique assistant keys when one user turn fans out to multiple assistant wrappers', () => {
+    const html = `
+      <div id="list">
+        <div class="u-item"><div data-agent-chat-user-step-id="u1"><div data-content-editable-leaf="true">U1</div></div></div>
+        <div class="a-item"><div data-block-id="a1"><div data-content-editable-leaf="true">A1 first</div></div></div>
+        <div class="a-item"><div data-block-id="a2"><div data-content-editable-leaf="true">A1 second</div></div></div>
+        <div class="u-item"><div data-agent-chat-user-step-id="u2"><div data-content-editable-leaf="true">U2</div></div></div>
+        <div class="a-item"><div data-block-id="a3"><div data-content-editable-leaf="true">A2</div></div></div>
+      </div>
+      <div role="button" data-testid="agent-send-message-button"></div>
+    `;
+
+    const dom = new JSDOM(`<body>${html}</body>`, {
+      url: 'https://app.notion.com/chat?t=0123456789abcdef0123456789abcdef&wfv=chat',
+    });
+    setupDom(dom);
+    const { collector } = createCollectorHarness();
+
+    const snap = collector.capture();
+    expect(snap).toBeTruthy();
+    expect(snap.messages.map((m: any) => m && m.role)).toEqual(['user', 'assistant', 'assistant', 'user', 'assistant']);
+    expect(snap.messages.map((m: any) => String(m && m.messageKey))).toEqual([
+      'user_u1',
+      'assistant_replyTo_u1_a1',
+      'assistant_replyTo_u1_a2',
+      'user_u2',
+      'assistant_replyTo_u2_a3',
     ]);
   });
 
@@ -244,7 +274,7 @@ describe('notionai-collector', () => {
     ]);
     expect(String(snap1.messages[2]?.messageKey || '')).toMatch(/^user_user_like_[a-z0-9]+_1$/i);
     expect(String(snap1.messages[3]?.messageKey || '')).toBe(
-      `assistant_replyTo_${String(snap1.messages[2]?.messageKey || '').replace(/^user_/, '')}`,
+      `assistant_replyTo_${String(snap1.messages[2]?.messageKey || '').replace(/^user_/, '')}_a2`,
     );
     expect(String(snap2.messages[2]?.messageKey || '')).toBe(String(snap1.messages[2]?.messageKey || ''));
   });
