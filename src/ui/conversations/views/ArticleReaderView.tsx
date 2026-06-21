@@ -1,8 +1,10 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
 import { t } from '@i18n';
 import type { ChatDetailViewProps } from '@ui/conversations/views/ChatDetailView';
 import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
+import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
 import { readerPrefsToCssVars } from '@services/protocols/reader-prefs';
 
 // Props are aligned with ChatDetailView so ConversationDetailPane can dispatch
@@ -32,6 +34,30 @@ const READER_PROSE_CLASS = [
 // JSX uses a single-brace expression (no inline object literal needed here).
 const READER_COLUMN_STYLE: CSSProperties = { maxWidth: 'var(--reader-content-width)' };
 
+// Read-only highlight helpers (P4-T3) ---------------------------------------
+const READER_ACTIVE_SENTENCE_CLASS = 'reader-active-sentence';
+
+/**
+ * Find the element that contains the character at `offset` within
+ * `root.textContent`. Walks text nodes only and never mutates the DOM, so it is
+ * safe to call repeatedly against the rendered article body.
+ */
+function blockElementAtOffset(root: HTMLElement, offset: number): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let consumed = 0;
+  let node: Node | null = walker.nextNode();
+  while (node) {
+    const length = node.textContent?.length ?? 0;
+    if (offset < consumed + length) {
+      return node.parentElement;
+    }
+    consumed += length;
+    node = walker.nextNode();
+  }
+  return null;
+}
+
 /**
  * ArticleReaderView renders article / video conversations.
  *
@@ -57,6 +83,58 @@ export function ArticleReaderView({
   // any explicit theme scopes the [data-reader-theme=...] token overrides.
   const readerThemeAttr = prefs.theme === 'system' ? undefined : prefs.theme;
 
+  // P4-T3: narration over the rendered article text. Capturing the source from
+  // the rendered DOM keeps the engine's sentence offsets aligned with the text
+  // nodes we highlight below.
+  const narrationRootRef = useRef<HTMLDivElement | null>(null);
+  const lastHighlightRef = useRef<HTMLElement | null>(null);
+  const [narrationSource, setNarrationSource] = useState('');
+  const { activeSentence } = useReaderNarration(narrationSource, prefs.tts);
+
+  // Combine the external messages-root ref with our local highlight ref.
+  const assignMessagesRoot = useCallback(
+    (node: HTMLDivElement | null) => {
+      narrationRootRef.current = node;
+      const ref = setMessagesRootRef as unknown;
+      if (typeof ref === 'function') {
+        (ref as (value: HTMLDivElement | null) => void)(node);
+      } else if (ref && typeof ref === 'object') {
+        (ref as { current: HTMLDivElement | null }).current = node;
+      }
+    },
+    [setMessagesRootRef],
+  );
+
+  // Capture the rendered article text whenever the messages change.
+  useEffect(() => {
+    setNarrationSource(narrationRootRef.current?.textContent ?? '');
+  }, [detail]);
+
+  // Read-only sentence highlight: toggle a class plus a reversible inline tint
+  // on the element containing the active sentence. No markdown structure is
+  // rewritten (P4 rule); the previous highlight is always restored.
+  useEffect(() => {
+    const clear = () => {
+      const previous = lastHighlightRef.current;
+      if (previous) {
+        previous.classList.remove(READER_ACTIVE_SENTENCE_CLASS);
+        previous.style.removeProperty('background-color');
+        previous.style.removeProperty('border-radius');
+        lastHighlightRef.current = null;
+      }
+    };
+    clear();
+    const root = narrationRootRef.current;
+    if (!root || !activeSentence) return;
+    const target = blockElementAtOffset(root, activeSentence.start);
+    if (!target) return;
+    target.classList.add(READER_ACTIVE_SENTENCE_CLASS);
+    target.style.setProperty('background-color', 'var(--reader-highlight, rgba(250, 204, 21, 0.22))');
+    target.style.setProperty('border-radius', 'var(--radius-inline, 4px)');
+    lastHighlightRef.current = target;
+    return clear;
+  }, [activeSentence]);
+
   return (
     <div className="tw-flex tw-min-w-0 tw-gap-4" style={readerVars} data-reader-theme={readerThemeAttr}>
       <div className="tw-min-w-0 tw-flex-1">
@@ -74,7 +152,7 @@ export function ArticleReaderView({
 
         {detail?.messages?.length ? (
           <div
-            ref={setMessagesRootRef}
+            ref={assignMessagesRoot}
             className="tw-mt-3 tw-grid tw-gap-2.5 tw-mx-auto tw-w-full"
             style={READER_COLUMN_STYLE}
           >
