@@ -52,9 +52,13 @@ export function ArticleReaderView({
 }: ArticleReaderViewProps) {
   const { prefs } = useReaderPrefs();
   const readerVars = readerPrefsToCssVars(prefs) as CSSProperties;
+  // P3-T2: reader-local theme. `system` follows the OS via the global tokens, so
+  // we deliberately omit the attribute (undefined -> React renders no attribute);
+  // any explicit theme scopes the [data-reader-theme=...] token overrides.
+  const readerThemeAttr = prefs.theme === 'system' ? undefined : prefs.theme;
 
   return (
-    <div className="tw-flex tw-min-w-0 tw-gap-4" style={readerVars}>
+    <div className="tw-flex tw-min-w-0 tw-gap-4" style={readerVars} data-reader-theme={readerThemeAttr}>
       <div className="tw-min-w-0 tw-flex-1">
         {listError ? (
           <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p>
