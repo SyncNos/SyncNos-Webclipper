@@ -22,23 +22,11 @@ import {
 } from '@services/integrations/chatwith/chatwith-comments-header-actions';
 import type { ChatWithOpenPlatformPort } from '@services/integrations/chatwith/chatwith-open-port';
 import { CHATWITH_MESSAGE_TYPES } from '@services/protocols/message-contracts';
+import { conversationKinds } from '@services/protocols/conversation-kinds';
 import { createRuntimeClient } from '@services/shared/runtime-client';
 
 const SIDEBAR_COLLAPSED_KEY = 'webclipper_app_sidebar_collapsed';
 const COMMENTS_SIDEBAR_COLLAPSED_KEY = 'webclipper_app_comments_sidebar_collapsed';
-
-function isArticleConversationLike(conversation: any): boolean {
-  const sourceType = String(conversation?.sourceType || '')
-    .trim()
-    .toLowerCase();
-  if (sourceType === 'article') return true;
-
-  const source = String(conversation?.source || '')
-    .trim()
-    .toLowerCase();
-  if (source !== 'web') return false;
-  return Boolean(canonicalizeArticleUrl(conversation?.url));
-}
 
 function safeString(value: unknown): string {
   return String(value || '').trim();
@@ -194,9 +182,10 @@ export default function AppShell() {
     const lastInternalLocRef = useRef<string | null>(null);
     const processedLocRef = useRef<string | null>(null);
     const locMountedRef = useRef(false);
-    const isArticleConversation = isArticleConversationLike(selectedConversation);
+    const selectedConversationView = conversationKinds.pick(selectedConversation as any)?.view ?? null;
+    const commentsSidebarEnabled = Boolean(selectedConversationView?.commentsSidebar);
     const canonicalUrl = canonicalizeArticleUrl((selectedConversation as any)?.url);
-    const canToggleCommentsSidebar = !isNarrow && isArticleConversation && Boolean(canonicalUrl);
+    const canToggleCommentsSidebar = !isNarrow && commentsSidebarEnabled && Boolean(canonicalUrl);
     const commentsSidebarCollapsed = isMedium ? mediumCommentsSidebarCollapsed : wideCommentsSidebarCollapsed;
     const canAutoOpenCommentsSidebarInWide = isWide && canToggleCommentsSidebar;
 
@@ -397,7 +386,7 @@ export default function AppShell() {
     }, [commentsSidebarSession, setMediumCommentsCollapsed, tier]);
 
     useEffect(() => {
-      if (isArticleConversation && canonicalUrl) {
+      if (commentsSidebarEnabled && canonicalUrl) {
         commentsSidebarController.setContext({
           canonicalUrl,
           conversationId: Number((selectedConversation as any)?.id || 0) || null,
@@ -413,7 +402,7 @@ export default function AppShell() {
         suppressCommentsSidebarCollapseRef.current = false;
       }
       commentsSidebarSession.setQuoteText('');
-    }, [canonicalUrl, commentsSidebarController, commentsSidebarSession, isArticleConversation, selectedConversation]);
+    }, [canonicalUrl, commentsSidebarController, commentsSidebarEnabled, commentsSidebarSession, selectedConversation]);
 
     useEffect(() => {
       if (showSettingsSheet) return;
