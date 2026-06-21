@@ -1,21 +1,45 @@
+import type { CSSProperties } from 'react';
 import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
 import { t } from '@i18n';
 import type { ChatDetailViewProps } from '@ui/conversations/views/ChatDetailView';
+import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
+import { readerPrefsToCssVars } from '@services/protocols/reader-prefs';
 
 // Props are aligned with ChatDetailView so ConversationDetailPane can dispatch
 // to either renderer with the same prop bag (see P1-T5).
 export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: boolean };
 
-// readerFeatures is wired in for P6 toolbar button visibility; unused in P1.
+// readerFeatures is wired in for the P6 toolbar button visibility; the text-layout
+// piece itself is always active via the `--reader-*` variables below.
 export type ArticleReaderViewProps = ChatDetailViewProps & { readerFeatures?: ReaderFeatures };
+
+// Body typography is driven entirely by the `--reader-*` CSS variables (P2-T3).
+// These important arbitrary-property utilities override the ChatMessageBubble
+// reading-profile preset's container-level typography so the reader text-layout
+// controls win regardless of stylesheet source order. Heading scale, blockquote,
+// code and link styling from the preset are intentionally preserved as structure.
+// NOTE: arbitrary properties are written without the `tw-` prefix in this repo
+// (see ChatMessageBubble's `[overflow-wrap:anywhere]`); `!` marks them important.
+const READER_PROSE_CLASS = [
+  '![font-family:var(--reader-font-family)]',
+  '![font-size:var(--reader-font-size)]',
+  '![line-height:var(--reader-line-height)]',
+  '![letter-spacing:var(--reader-letter-spacing)]',
+  '![text-align:var(--reader-text-align)]',
+].join(' ');
+
+// Centers and width-limits the reading column. Defined as a stable object so the
+// JSX uses a single-brace expression (no inline object literal needed here).
+const READER_COLUMN_STYLE: CSSProperties = { maxWidth: 'var(--reader-content-width)' };
 
 /**
  * ArticleReaderView renders article / video conversations.
  *
- * NOTE (P1-T4): this is intentionally a thin shell that, for now, reuses the
- * same assistant-bubble rendering as the previous article behavior so this
- * phase introduces zero visible change. P2-T3 will replace the bubble preset
- * typography with `--reader-*` CSS variables driven by reader preferences.
+ * P2-T3: the article body is laid out by reader preferences (`reader_prefs_v1`)
+ * exposed as `--reader-*` CSS variables on the root node. The message column is
+ * width-constrained by `--reader-content-width`, and each rendered message
+ * consumes the typography variables (font family/size/line-height/letter-spacing/
+ * text-align). Theme (P3) and narration (P4) build on the same view.
  */
 export function ArticleReaderView({
   selected,
@@ -24,11 +48,13 @@ export function ArticleReaderView({
   listError,
   loadingDetail,
   detailError,
-  markdownReadingProfile,
   setMessagesRootRef,
 }: ArticleReaderViewProps) {
+  const { prefs } = useReaderPrefs();
+  const readerVars = readerPrefsToCssVars(prefs) as CSSProperties;
+
   return (
-    <div className="tw-flex tw-min-w-0 tw-gap-4">
+    <div className="tw-flex tw-min-w-0 tw-gap-4" style={readerVars}>
       <div className="tw-min-w-0 tw-flex-1">
         {listError ? (
           <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p>
@@ -43,7 +69,11 @@ export function ArticleReaderView({
         ) : null}
 
         {detail?.messages?.length ? (
-          <div ref={setMessagesRootRef} className="tw-mt-3 tw-grid tw-gap-2.5">
+          <div
+            ref={setMessagesRootRef}
+            className="tw-mt-3 tw-grid tw-gap-2.5 tw-mx-auto tw-w-full"
+            style={READER_COLUMN_STYLE}
+          >
             {detail.messages.map((m: any) => {
               const text = String((m as any).contentMarkdown || (m as any).contentText || '');
               const messageConversationId = Number(
@@ -55,12 +85,12 @@ export function ArticleReaderView({
                   key={String((m as any).id)}
                   role="assistant"
                   markdown={text}
-                  readingProfile={markdownReadingProfile}
                   conversationId={
                     Number.isFinite(messageConversationId) && messageConversationId > 0
                       ? messageConversationId
                       : undefined
                   }
+                  className={READER_PROSE_CLASS}
                 />
               );
             })}
