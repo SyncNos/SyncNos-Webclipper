@@ -1,6 +1,6 @@
 import { ChevronLeft } from 'lucide-react';
 
-import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
+import { ChatDetailView } from '@ui/conversations/views/ChatDetailView';
 import { ChatOutlinePanel } from '@ui/conversations/chat-outline/ChatOutlinePanel';
 import { buildChatOutlineEntries, type ChatOutlineEntry } from '@ui/conversations/chat-outline/outline-entries';
 import { useChatOutlineActiveIndex } from '@ui/conversations/chat-outline/useChatOutlineActiveIndex';
@@ -521,81 +521,19 @@ export function ConversationDetailPane({
             </div>
           ) : null}
 
-          <div className="tw-flex tw-min-w-0 tw-gap-4">
-            <div className="tw-min-w-0 tw-flex-1">
-              {listError ? (
-                <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p>
-              ) : null}
-              {loadingDetail ? (
-                <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-                  {t('loadingDots')}
-                </p>
-              ) : null}
-              {detailError ? (
-                <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{detailError}</p>
-              ) : null}
-
-              {detail?.messages?.length ? (
-                <div ref={setMessagesRootRef} className="tw-mt-3 tw-grid tw-gap-2.5">
-                  {detail.messages.map((m) => {
-                    const role = String((m as any).role || '')
-                      .trim()
-                      .toLowerCase();
-                    const rawMessageId = Number((m as any).id);
-                    const messageId = Number.isFinite(rawMessageId) ? Math.trunc(rawMessageId) : null;
-                    const outlineIndex = messageId == null ? null : outlineIndexByMessageId.get(messageId) || null;
-                    const text = String((m as any).contentMarkdown || (m as any).contentText || '');
-                    const messageConversationId = Number(
-                      (m as any).conversationId || (selected as any)?.id || activeId,
-                    );
-
-                    if (!isArticle && role === 'user' && messageId != null) {
-                      return (
-                        <div
-                          key={String((m as any).id)}
-                          className="tw-min-w-0"
-                          data-chat-outline-index={outlineIndex ?? undefined}
-                          data-chat-outline-message-id={messageId}
-                          ref={getUserMessageRefSetter(messageId)}
-                        >
-                          <ChatMessageBubble
-                            role={(m as any).role}
-                            markdown={text}
-                            readingProfile={markdownReadingProfile}
-                            conversationId={
-                              Number.isFinite(messageConversationId) && messageConversationId > 0
-                                ? messageConversationId
-                                : undefined
-                            }
-                          />
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <ChatMessageBubble
-                        key={String((m as any).id)}
-                        role={isArticle ? 'assistant' : (m as any).role}
-                        markdown={text}
-                        readingProfile={markdownReadingProfile}
-                        conversationId={
-                          Number.isFinite(messageConversationId) && messageConversationId > 0
-                            ? messageConversationId
-                            : undefined
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              ) : activeId ? (
-                <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('noMessages')}</p>
-              ) : (
-                <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-                  {t('selectAConversation')}
-                </p>
-              )}
-            </div>
-          </div>
+          <ChatDetailView
+            selected={selected}
+            activeId={activeId}
+            detail={detail}
+            isArticle={isArticle}
+            listError={listError}
+            loadingDetail={loadingDetail}
+            detailError={detailError}
+            markdownReadingProfile={markdownReadingProfile}
+            outlineIndexByMessageId={outlineIndexByMessageId}
+            getUserMessageRefSetter={getUserMessageRefSetter}
+            setMessagesRootRef={setMessagesRootRef}
+          />
         </div>
       </section>
     </section>
