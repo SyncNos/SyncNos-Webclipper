@@ -13,7 +13,7 @@ vi.mock('../../src/ui/shared/SelectMenu', () => ({
   }: {
     ariaLabel: string;
     value: string;
-    options: Array<{ value: string; label: string }>;
+    options: Array<{ value: string; label: string; disabled?: boolean }>;
   }) =>
     createElement(
       'div',
@@ -27,6 +27,7 @@ vi.mock('../../src/ui/shared/SelectMenu', () => ({
           {
             key: option.value,
             'data-option-value': option.value,
+            'data-option-disabled': String(option.disabled ?? false),
           },
           option.label,
         ),
@@ -36,6 +37,7 @@ vi.mock('../../src/ui/shared/SelectMenu', () => ({
 
 vi.mock('../../src/ui/shared/button-styles', () => ({
   buttonTintClassName: () => 'btn',
+  buttonFilledClassName: () => 'btn-filled',
 }));
 
 vi.mock('../../src/ui/settings/ui', () => ({
@@ -124,6 +126,65 @@ describe('NarrationPanel', () => {
     });
     root = null;
     cleanupDom();
+  });
+
+  it('renders fixed narration rate buttons and writes selected tts.rate', async () => {
+    const update = vi.fn();
+
+    act(() => {
+      root!.render(
+        createElement(NarrationPanel, {
+          prefs: {
+            ...DEFAULT_READER_PREFS,
+            tts: { ...DEFAULT_READER_PREFS.tts, engine: 'web', rate: 1.25 },
+          },
+          update,
+        }),
+      );
+    });
+
+    expect(document.querySelector('input[type="range"]')).toBeNull();
+
+    const rateButtons = Array.from(document.querySelectorAll('button')).map((button) => button.textContent);
+    expect(rateButtons).toEqual(['0.8x', '1x', '1.25x', '1.5x', '2x']);
+    expect(document.querySelector('[aria-pressed="true"]')?.textContent).toBe('1.25x');
+
+    (Array.from(document.querySelectorAll('button')).find((button) => button.textContent === '0.8x') as
+      | HTMLButtonElement
+      | undefined)?.click();
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tts: expect.objectContaining({
+          rate: 0.8,
+        }),
+      }),
+    );
+  });
+
+  it('disables the Web voice option when Web Speech is unavailable and keeps AI fields available', async () => {
+    const update = vi.fn();
+
+    act(() => {
+      root!.render(
+        createElement(NarrationPanel, {
+          prefs: {
+            ...DEFAULT_READER_PREFS,
+            tts: { ...DEFAULT_READER_PREFS.tts, engine: 'ai' },
+          },
+          update,
+          webSpeechAvailable: false,
+        }),
+      );
+    });
+
+    const engineMenu = document.querySelector('[data-select-aria="readerNarrationEngineAria"]');
+    expect(engineMenu?.querySelector('[data-option-value="web"]')?.getAttribute('data-option-disabled')).toBe('true');
+    expect(document.querySelector('[aria-label="readerNarrationEndpointAria"]')).toBeTruthy();
+    expect(document.querySelector('[aria-label="readerNarrationApiKeyAria"]')).toBeTruthy();
+    expect(document.querySelector('[aria-label="readerNarrationModelAria"]')).toBeTruthy();
+    expect(document.querySelector('[aria-label="readerNarrationAiVoiceAria"]')).toBeTruthy();
+    expect(document.querySelector('[data-select-aria="readerNarrationFormatAria"]')).toBeTruthy();
   });
 
   it('refreshes the Web voice list after voiceschanged fires', async () => {

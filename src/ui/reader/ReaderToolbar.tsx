@@ -21,7 +21,6 @@ export type ReaderToolbarNarration = {
   isPlaying: boolean;
   error: string | null;
   webSpeechAvailable: boolean;
-  play: () => void;
   pause: () => void;
   stop: () => void;
   toggle: () => void;
