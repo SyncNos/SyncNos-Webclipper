@@ -245,7 +245,6 @@ export function SettingsScene(props: SettingsSceneProps) {
               void onLoadNotionPages();
             }}
           />
-
         </>
       ) : null}
 

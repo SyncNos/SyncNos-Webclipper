@@ -11,10 +11,6 @@ const settingsMocks = {
   storageGet: vi.fn(),
 };
 
-vi.mock('@services/url-cleaning/tracking-param-cleaner', () => ({
-  cleanTrackingParamsUrl: async (url: string) => url,
-}));
-
 vi.mock('@services/conversations/data/storage', () => ({
   getConversationBySourceConversationKey: storageMocks.getConversationBySourceConversationKey,
   hasConversation: storageMocks.hasConversation,
