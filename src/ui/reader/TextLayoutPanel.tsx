@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
+import { buttonTintClassName } from '@ui/shared/button-styles';
 import { SelectMenu } from '@ui/shared/SelectMenu';
 import {
   READER_FONT_FAMILIES,
   READER_PREFS_LIMITS,
   READER_TEXT_ALIGNS,
+  READER_TYPOGRAPHY_PRESETS,
   type ReaderFontFamily,
   type ReaderPrefs,
   type ReaderTextAlign,
@@ -29,6 +31,13 @@ const TEXT_ALIGN_LABELS: Record<ReaderTextAlign, string> = {
   justify: 'Justify',
 };
 
+// Typography presets only overwrite the text-layout fields (never theme/tts).
+const TYPOGRAPHY_PRESETS: Array<{ id: keyof typeof READER_TYPOGRAPHY_PRESETS; label: string }> = [
+  { id: 'medium', label: 'Medium' },
+  { id: 'notion', label: 'Notion' },
+  { id: 'book', label: 'Book' },
+];
+
 // READER_PREFS_LIMITS only exposes min/max; step granularity is a UI concern.
 const STEP = { fontSize: 1, lineHeight: 0.05, contentWidth: 10, letterSpacing: 0.005 } as const;
 
@@ -36,6 +45,8 @@ const rangeClassName = [
   'tw-w-full tw-cursor-pointer tw-accent-[var(--accent)]',
   'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
 ].join(' ');
+
+const presetButtonClassName = [buttonTintClassName(), 'tw-flex-1'].join(' ');
 
 function Row({ label, value, children }: { label: string; value?: string; children: ReactNode }) {
   return (
@@ -51,13 +62,29 @@ function Row({ label, value, children }: { label: string; value?: string; childr
 
 /**
  * TextLayoutPanel — adjusts the reader text-layout fields of `reader_prefs_v1`
- * (font family, size, line height, content width, letter spacing, alignment).
- * All numeric ranges are bounded by `READER_PREFS_LIMITS`; the model re-clamps
- * on write, so out-of-range values can never reach the CSS variables.
+ * (font family, size, line height, content width, letter spacing, alignment) and
+ * offers one-tap typography presets. All numeric ranges are bounded by
+ * `READER_PREFS_LIMITS`; the model re-clamps on write, so out-of-range values can
+ * never reach the CSS variables.
  */
 export function TextLayoutPanel({ prefs, update, className }: TextLayoutPanelProps) {
   return (
     <div className={['tw-flex tw-flex-col tw-gap-3', className].filter(Boolean).join(' ')}>
+      <Row label="Preset">
+        <div className="tw-flex tw-gap-1.5">
+          {TYPOGRAPHY_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={presetButtonClassName}
+              onClick={() => void update({ ...READER_TYPOGRAPHY_PRESETS[preset.id] })}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </Row>
+
       <Row label="Font">
         <SelectMenu<ReaderFontFamily>
           ariaLabel="Reader font family"
