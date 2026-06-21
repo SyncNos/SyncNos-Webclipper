@@ -20,7 +20,8 @@ export type ArticleOutlineMinimapProps = ArticleOutlineMinimapState & {
   className?: string;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onPickEntry: (entry: ReaderOutlineDomEntry) => void;
+  onPickStripEntry: (entry: ReaderOutlineDomEntry) => void;
+  onPickPanelEntry: (entry: ReaderOutlineDomEntry) => void;
 };
 
 const OUTLINE_LABEL = '目录';
@@ -78,7 +79,8 @@ function toStripBarClass(active: boolean): string {
 function renderOutlineItem(
   entry: ReaderOutlineDomEntry,
   activeIndex: number | null,
-  onPickEntry: (entry: ReaderOutlineDomEntry) => void,
+  onPickStripEntry: (entry: ReaderOutlineDomEntry) => void,
+  onPickPanelEntry: (entry: ReaderOutlineDomEntry) => void,
   kind: 'strip' | 'panel',
 ): ReactNode {
   const active = activeIndex === entry.index;
@@ -96,7 +98,7 @@ function renderOutlineItem(
         data-reader-outline-level={token}
         data-reader-outline-active={active ? 'true' : 'false'}
         className={ENTRY_MINIMAP_BUTTON_CLASS}
-        onClick={() => onPickEntry(entry)}
+        onClick={() => onPickStripEntry(entry)}
       >
         <span className={toStripBarClass(active)} style={{ width: `${width}px` }} />
       </button>
@@ -113,7 +115,7 @@ function renderOutlineItem(
       data-reader-outline-level={token}
       data-reader-outline-active={active ? 'true' : 'false'}
       className={toItemClass(active, entry.level)}
-      onClick={() => onPickEntry(entry)}
+      onClick={() => onPickPanelEntry(entry)}
     >
       {entry.title}
     </button>
@@ -236,16 +238,17 @@ export function ArticleOutlineMinimap({
   className,
   onMouseEnter,
   onMouseLeave,
-  onPickEntry,
+  onPickStripEntry,
+  onPickPanelEntry,
 }: ArticleOutlineMinimapProps) {
   const safeEntries = useMemo(() => (Array.isArray(entries) ? entries : []), [entries]);
   const outlineTrigger = useMemo(() => {
     return (
       <nav className={STRIP_CLASS} aria-label={OUTLINE_LABEL}>
-        {safeEntries.map((entry) => renderOutlineItem(entry, activeIndex, onPickEntry, 'strip'))}
+        {safeEntries.map((entry) => renderOutlineItem(entry, activeIndex, onPickStripEntry, onPickPanelEntry, 'strip'))}
       </nav>
     );
-  }, [activeIndex, onPickEntry, safeEntries]);
+  }, [activeIndex, onPickPanelEntry, onPickStripEntry, safeEntries]);
 
   if (!safeEntries.length) return null;
 
@@ -261,7 +264,7 @@ export function ArticleOutlineMinimap({
       trigger={outlineTrigger}
     >
       <div className={PANEL_LIST_CLASS}>
-        {safeEntries.map((entry) => renderOutlineItem(entry, activeIndex, onPickEntry, 'panel'))}
+        {safeEntries.map((entry) => renderOutlineItem(entry, activeIndex, onPickStripEntry, onPickPanelEntry, 'panel'))}
       </div>
     </ReaderRailPanel>
   );

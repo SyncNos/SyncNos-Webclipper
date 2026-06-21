@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 
 import { DEFAULT_READER_PREFS } from '../../src/services/protocols/reader-prefs';
+import type { ReaderOutlineDomEntry } from '../../src/ui/reader/article-outline-dom';
 
 vi.mock('../../src/ui/shared/SelectMenu', () => ({
   SelectMenu: ({
@@ -151,24 +152,24 @@ describe('ReaderToolbar', () => {
     return trigger;
   }
 
-  function getWrap(panel: 'text' | 'theme' | 'narration'): HTMLElement {
+  function getWrap(panel: 'text' | 'theme' | 'narration' | 'outline'): HTMLElement {
     const wrap = document.querySelector(`[data-reader-rail-wrap="${panel}"]`) as HTMLElement | null;
     if (!wrap) throw new Error(`missing wrap: ${panel}`);
     return wrap;
   }
 
-  function getPanel(panel: 'text' | 'theme' | 'narration'): HTMLElement | null {
+  function getPanel(panel: 'text' | 'theme' | 'narration' | 'outline'): HTMLElement | null {
     return document.querySelector(`[data-reader-rail-panel="${panel}"]`) as HTMLElement | null;
   }
 
-  async function hoverOpen(panel: 'text' | 'theme' | 'narration') {
+  async function hoverOpen(panel: 'text' | 'theme' | 'narration' | 'outline') {
     await act(async () => {
       getWrap(panel).dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
       await Promise.resolve();
     });
   }
 
-  async function hoverLeave(panel: 'text' | 'theme' | 'narration') {
+  async function hoverLeave(panel: 'text' | 'theme' | 'narration' | 'outline') {
     await act(async () => {
       getWrap(panel).dispatchEvent(
         new MouseEvent('mouseout', { bubbles: true, cancelable: true, relatedTarget: document.body }),
@@ -242,6 +243,65 @@ describe('ReaderToolbar', () => {
     expect(panel?.style.maxWidth).toBe('calc(100vw - 28px)');
     expect(panel?.style.maxHeight).toBe('70vh');
     expect(panel?.style.overflow).toBe('auto');
+  });
+
+  it('keeps the outline panel open on strip clicks and closes it after list-item clicks', async () => {
+    const outlineEntryElement = document.createElement('h2');
+    Object.defineProperty(outlineEntryElement, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const outlineEntry = {
+      index: 0,
+      level: 2,
+      id: 'outline-1',
+      title: 'Outline heading',
+      element: outlineEntryElement,
+      rect: { top: 24, bottom: 60 },
+    } satisfies ReaderOutlineDomEntry;
+    const onPickStripEntry = vi.fn((entry: ReaderOutlineDomEntry) => {
+      entry.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    const onPickPanelEntry = vi.fn((entry: ReaderOutlineDomEntry) => {
+      entry.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    renderToolbar({
+      outline: {
+        entries: [outlineEntry],
+        activeIndex: 0,
+        onPickStripEntry,
+        onPickPanelEntry,
+      },
+    });
+
+    await hoverOpen('outline');
+    expect(getPanel('outline')).toBeTruthy();
+
+    const stripButton = document.querySelector(
+      '[data-reader-rail-wrap="outline"] > nav button[data-reader-outline-level="lvl-2"]',
+    ) as HTMLButtonElement | null;
+    expect(stripButton).toBeTruthy();
+
+    act(() => {
+      stripButton!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onPickStripEntry).toHaveBeenCalledTimes(1);
+    expect(onPickPanelEntry).toHaveBeenCalledTimes(0);
+    expect(getPanel('outline')).toBeTruthy();
+
+    const panelButton = document.querySelector(
+      '[data-reader-rail-panel="outline"] button[data-reader-outline-level="lvl-2"]',
+    ) as HTMLButtonElement | null;
+    expect(panelButton).toBeTruthy();
+
+    act(() => {
+      panelButton!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onPickStripEntry).toHaveBeenCalledTimes(1);
+    expect(onPickPanelEntry).toHaveBeenCalledTimes(1);
+    expect(getPanel('outline')).toBeNull();
+    expect(outlineEntryElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
   it('returns null when all reader features are disabled', () => {

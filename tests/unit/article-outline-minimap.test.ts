@@ -130,7 +130,8 @@ describe('ArticleOutlineMinimap', () => {
   function renderHarness(props: {
     entries: ReaderOutlineDomEntry[];
     activeIndex: number | null;
-    onPickEntry: (entry: ReaderOutlineDomEntry) => void;
+    onPickStripEntry: (entry: ReaderOutlineDomEntry) => void;
+    onPickPanelEntry: (entry: ReaderOutlineDomEntry) => void;
   }) {
     function Harness() {
       const [open, setOpen] = useState(false);
@@ -141,7 +142,8 @@ describe('ArticleOutlineMinimap', () => {
         narrow: false,
         onMouseEnter: () => setOpen(true),
         onMouseLeave: () => setOpen(false),
-        onPickEntry: props.onPickEntry,
+        onPickStripEntry: props.onPickStripEntry,
+        onPickPanelEntry: props.onPickPanelEntry,
       });
     }
 
@@ -207,14 +209,16 @@ describe('ArticleOutlineMinimap', () => {
 
   it('renders strip widths, opens on hover, and jumps to headings when a minimap item is clicked', async () => {
     const { entries } = buildArticleOutline();
-    const onPickEntry = vi.fn((entry: ReaderOutlineDomEntry) => {
+    const onPickStripEntry = vi.fn();
+    const onPickPanelEntry = vi.fn((entry: ReaderOutlineDomEntry) => {
       entry.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     renderHarness({
       entries,
       activeIndex: 1,
-      onPickEntry,
+      onPickStripEntry,
+      onPickPanelEntry,
     });
 
     const strip = document.querySelector('[data-reader-rail-wrap="outline"]') as HTMLElement | null;
@@ -237,6 +241,17 @@ describe('ArticleOutlineMinimap', () => {
     ) as HTMLButtonElement | null;
     expect(activeStripButton?.dataset.readerOutlineActive).toBe('true');
 
+    const stripButton = document.querySelector(
+      '[data-reader-rail-wrap="outline"] > nav button[data-reader-outline-level="lvl-1"]',
+    ) as HTMLButtonElement | null;
+    expect(stripButton).toBeTruthy();
+
+    act(() => {
+      stripButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onPickStripEntry).toHaveBeenCalledTimes(1);
+    expect(onPickPanelEntry).toHaveBeenCalledTimes(0);
+
     act(() => {
       strip!.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true, cancelable: true }));
     });
@@ -257,7 +272,8 @@ describe('ArticleOutlineMinimap', () => {
     act(() => {
       secondPanelButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
     });
-    expect(onPickEntry).toHaveBeenCalledTimes(1);
+    expect(onPickStripEntry).toHaveBeenCalledTimes(1);
+    expect(onPickPanelEntry).toHaveBeenCalledTimes(1);
     expect(entries[1]?.element.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
@@ -265,7 +281,8 @@ describe('ArticleOutlineMinimap', () => {
     renderHarness({
       entries: [],
       activeIndex: null,
-      onPickEntry: vi.fn(),
+      onPickStripEntry: vi.fn(),
+      onPickPanelEntry: vi.fn(),
     });
 
     expect(document.querySelector('[data-reader-rail-wrap="outline"]')).toBeNull();

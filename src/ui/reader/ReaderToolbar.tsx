@@ -37,7 +37,8 @@ export type ReaderToolbarProps = {
   narration: ReaderToolbarNarration;
   outline?:
     | (ArticleOutlineMinimapState & {
-        onPickEntry: (entry: ReaderOutlineDomEntry) => void;
+        onPickStripEntry: (entry: ReaderOutlineDomEntry) => void;
+        onPickPanelEntry: (entry: ReaderOutlineDomEntry) => void;
       })
     | null;
   className?: string;
@@ -137,9 +138,10 @@ export function ReaderToolbar({ features, prefs, update, narration, outline, cla
   const narrationActionLabel =
     narration.state === 'loading' ? LABELS.reading : narration.isPlaying ? LABELS.pause : LABELS.play;
   const NarrationActionIcon = narration.state === 'loading' || narration.isPlaying ? Pause : Play;
-  const handleOutlinePick = outline
+  const handleOutlineStripPick = outline ? outline.onPickStripEntry : null;
+  const handleOutlinePanelPick = outline
     ? (entry: ReaderOutlineDomEntry) => {
-        outline.onPickEntry(entry);
+        outline.onPickPanelEntry(entry);
         setOpenPanel(null);
       }
     : null;
@@ -269,7 +271,7 @@ export function ReaderToolbar({ features, prefs, update, narration, outline, cla
       ) : null}
 
       {outline?.entries.length ? (
-        handleOutlinePick ? (
+        handleOutlineStripPick && handleOutlinePanelPick ? (
           <ArticleOutlineMinimap
             entries={outline.entries}
             activeIndex={outline.activeIndex}
@@ -278,7 +280,8 @@ export function ReaderToolbar({ features, prefs, update, narration, outline, cla
             className="tw-mt-2 tw-pt-2 tw-border-t tw-border-[var(--border)]"
             onMouseEnter={() => openNow('outline')}
             onMouseLeave={scheduleClose}
-            onPickEntry={handleOutlinePick}
+            onPickStripEntry={handleOutlineStripPick}
+            onPickPanelEntry={handleOutlinePanelPick}
           />
         ) : null
       ) : null}

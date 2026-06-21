@@ -218,7 +218,8 @@ export function ArticleReaderView({
       outline.entries.length
         ? {
             ...outline,
-            onPickEntry: handleOutlinePick,
+            onPickStripEntry: handleOutlinePick,
+            onPickPanelEntry: handleOutlinePick,
           }
         : null,
     [handleOutlinePick, outline],
