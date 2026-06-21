@@ -1,6 +1,7 @@
 import { ChevronLeft } from 'lucide-react';
 
-import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
+import { ChatDetailView } from '@ui/conversations/views/ChatDetailView';
+import { ArticleReaderView } from '@ui/conversations/views/ArticleReaderView';
 import { ChatOutlinePanel } from '@ui/conversations/chat-outline/ChatOutlinePanel';
 import { buildChatOutlineEntries, type ChatOutlineEntry } from '@ui/conversations/chat-outline/outline-entries';
 import { useChatOutlineActiveIndex } from '@ui/conversations/chat-outline/useChatOutlineActiveIndex';
@@ -11,52 +12,23 @@ import { DetailHeaderActionBar } from '@ui/conversations/DetailHeaderActionBar';
 import { buttonTintClassName, headerButtonClassName } from '@ui/shared/button-styles';
 import { tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { storageGet, storageOnChanged } from '@services/shared/storage';
 import { countWordsFromMessages } from '@services/shared/word-count';
-import {
-  MARKDOWN_READING_PROFILE_STORAGE_KEY,
-  normalizeStoredMarkdownReadingProfile,
-} from '@services/protocols/markdown-reading-profile-storage';
-
-function normalizeHttpUrl(raw: unknown): string {
-  const text = String(raw || '').trim();
-  if (!text) return '';
-  try {
-    const url = new URL(text);
-    const protocol = String(url.protocol || '').toLowerCase();
-    if (protocol !== 'http:' && protocol !== 'https:') return '';
-    url.hash = '';
-    return url.toString();
-  } catch (_e) {
-    return '';
-  }
-}
-
-function isArticleConversationLike(conversation: any): boolean {
-  const sourceType = String(conversation?.sourceType || '')
-    .trim()
-    .toLowerCase();
-  if (sourceType === 'article') return true;
-
-  const source = String(conversation?.source || '')
-    .trim()
-    .toLowerCase();
-  if (source !== 'web') return false;
-  return Boolean(normalizeHttpUrl(conversation?.url));
-}
-
-function isChatConversationLike(conversation: any): boolean {
-  return (
-    String(conversation?.sourceType || '')
-      .trim()
-      .toLowerCase() === 'chat'
-  );
-}
+import { conversationKinds } from '@services/protocols/conversation-kinds';
 
 function findRouteScrollRoot(messagesRoot: Element | null): Element | null {
   if (!messagesRoot || typeof messagesRoot.closest !== 'function') return null;
   return messagesRoot.closest('.route-scroll');
 }
+
+const DEFAULT_VIEW = {
+  renderer: 'chat' as const,
+  readerFeatures: {
+    textLayout: false,
+    theme: false,
+    narration: false,
+  },
+  commentsSidebar: false,
+};
 
 export type ConversationDetailPaneProps = {
   onBack?: () => void;
@@ -93,8 +65,11 @@ export function ConversationDetailPane({
 
   const outlineButtonClass = buttonTintClassName();
   const headerIconButtonClass = headerButtonClassName();
-  const isArticle = isArticleConversationLike(selected);
-  const isChat = isChatConversationLike(selected);
+  const kindView = conversationKinds.pick(selected as any)?.view ?? DEFAULT_VIEW;
+  const isArticleRenderer = kindView.renderer === 'article';
+  const isChatRenderer = kindView.renderer === 'chat';
+  const readerFeatures = kindView.readerFeatures;
+  const canOpenCommentsSidebar = kindView.commentsSidebar && typeof onTriggerCommentsSidebar === 'function';
   const containerPaddingClassName = 'tw-px-3 md:tw-px-4';
   const expandSidebarLabel = t('expandSidebar');
   const commentsSidebarLabel = t('openCommentsSidebar');
@@ -106,8 +81,8 @@ export function ConversationDetailPane({
   const [outlineScrollRoot, setOutlineScrollRoot] = useState<Element | null>(null);
   const [optimisticActiveIndex, setOptimisticActiveIndex] = useState<number | null>(null);
   const outlineEntries = useMemo(
-    () => (isChat && Array.isArray(detail?.messages) ? buildChatOutlineEntries(detail.messages) : []),
-    [isChat, detail?.messages],
+    () => (isChatRenderer && Array.isArray(detail?.messages) ? buildChatOutlineEntries(detail.messages) : []),
+    [isChatRenderer, detail?.messages],
   );
   const outlineIndexByMessageId = useMemo(() => {
     const map = new Map<number, number>();
@@ -188,7 +163,6 @@ export function ConversationDetailPane({
   const [urlCleaning, setUrlCleaning] = useState(false);
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const displayedUrl = String((selected as any)?.url || '').trim();
-  const [markdownReadingProfile, setMarkdownReadingProfile] = useState(() => normalizeStoredMarkdownReadingProfile(''));
   const wordCount = useMemo(() => {
     if (!selected) return null;
     if (!Array.isArray(detail?.messages) || !detail.messages.length) return null;
@@ -254,33 +228,6 @@ export function ConversationDetailPane({
     }, 10);
     return () => clearTimeout(timer);
   }, [urlEditing]);
-
-  useEffect(() => {
-    let disposed = false;
-
-    void storageGet([MARKDOWN_READING_PROFILE_STORAGE_KEY])
-      .then((res) => {
-        if (disposed) return;
-        setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(res?.[MARKDOWN_READING_PROFILE_STORAGE_KEY]));
-      })
-      .catch(() => {
-        if (disposed) return;
-        setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(''));
-      });
-
-    const unsubscribe = storageOnChanged((changes: any, areaName: string) => {
-      if (areaName !== 'local') return;
-      if (!changes || typeof changes !== 'object') return;
-      if (!Object.prototype.hasOwnProperty.call(changes, MARKDOWN_READING_PROFILE_STORAGE_KEY)) return;
-      const nextValue = changes[MARKDOWN_READING_PROFILE_STORAGE_KEY]?.newValue;
-      setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(nextValue));
-    });
-
-    return () => {
-      disposed = true;
-      unsubscribe();
-    };
-  }, []);
 
   const saveUrlDraft = async () => {
     await updateSelectedConversationUrl(String(urlDraft || ''));
@@ -447,11 +394,11 @@ export function ConversationDetailPane({
                 menuAriaLabel={t('detailHeaderOpenInMenuAria')}
               />
 
-              {onTriggerCommentsSidebar ? (
+              {canOpenCommentsSidebar ? (
                 <button
                   type="button"
                   onClick={() => {
-                    onTriggerCommentsSidebar();
+                    onTriggerCommentsSidebar?.();
                   }}
                   className={headerButtonClassName()}
                   aria-label={commentsSidebarLabel}
@@ -474,7 +421,7 @@ export function ConversationDetailPane({
               ) : null}
             </div>
 
-            {isChat ? (
+            {isChatRenderer ? (
               <div
                 className="tw-absolute tw-right-0 tw-top-full tw-z-30"
                 data-chat-outline-root={outlineScrollRoot ? 'route-scroll' : 'viewport'}
@@ -508,7 +455,7 @@ export function ConversationDetailPane({
             </div>
           ) : null}
 
-          {hideHeader && isChat ? (
+          {hideHeader && isChatRenderer ? (
             <div
               className="tw-absolute tw-right-3 tw-top-3 tw-z-30 md:tw-right-4 md:tw-top-4"
               data-chat-outline-root={outlineScrollRoot ? 'route-scroll' : 'viewport'}
@@ -521,81 +468,30 @@ export function ConversationDetailPane({
             </div>
           ) : null}
 
-          <div className="tw-flex tw-min-w-0 tw-gap-4">
-            <div className="tw-min-w-0 tw-flex-1">
-              {listError ? (
-                <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p>
-              ) : null}
-              {loadingDetail ? (
-                <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-                  {t('loadingDots')}
-                </p>
-              ) : null}
-              {detailError ? (
-                <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{detailError}</p>
-              ) : null}
-
-              {detail?.messages?.length ? (
-                <div ref={setMessagesRootRef} className="tw-mt-3 tw-grid tw-gap-2.5">
-                  {detail.messages.map((m) => {
-                    const role = String((m as any).role || '')
-                      .trim()
-                      .toLowerCase();
-                    const rawMessageId = Number((m as any).id);
-                    const messageId = Number.isFinite(rawMessageId) ? Math.trunc(rawMessageId) : null;
-                    const outlineIndex = messageId == null ? null : outlineIndexByMessageId.get(messageId) || null;
-                    const text = String((m as any).contentMarkdown || (m as any).contentText || '');
-                    const messageConversationId = Number(
-                      (m as any).conversationId || (selected as any)?.id || activeId,
-                    );
-
-                    if (!isArticle && role === 'user' && messageId != null) {
-                      return (
-                        <div
-                          key={String((m as any).id)}
-                          className="tw-min-w-0"
-                          data-chat-outline-index={outlineIndex ?? undefined}
-                          data-chat-outline-message-id={messageId}
-                          ref={getUserMessageRefSetter(messageId)}
-                        >
-                          <ChatMessageBubble
-                            role={(m as any).role}
-                            markdown={text}
-                            readingProfile={markdownReadingProfile}
-                            conversationId={
-                              Number.isFinite(messageConversationId) && messageConversationId > 0
-                                ? messageConversationId
-                                : undefined
-                            }
-                          />
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <ChatMessageBubble
-                        key={String((m as any).id)}
-                        role={isArticle ? 'assistant' : (m as any).role}
-                        markdown={text}
-                        readingProfile={markdownReadingProfile}
-                        conversationId={
-                          Number.isFinite(messageConversationId) && messageConversationId > 0
-                            ? messageConversationId
-                            : undefined
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              ) : activeId ? (
-                <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('noMessages')}</p>
-              ) : (
-                <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-                  {t('selectAConversation')}
-                </p>
-              )}
-            </div>
-          </div>
+          {isArticleRenderer ? (
+            <ArticleReaderView
+              selected={selected}
+              activeId={activeId}
+              detail={detail}
+              listError={listError}
+              loadingDetail={loadingDetail}
+              detailError={detailError}
+              setMessagesRootRef={setMessagesRootRef}
+              readerFeatures={readerFeatures}
+            />
+          ) : (
+            <ChatDetailView
+              selected={selected}
+              activeId={activeId}
+              detail={detail}
+              listError={listError}
+              loadingDetail={loadingDetail}
+              detailError={detailError}
+              outlineIndexByMessageId={outlineIndexByMessageId}
+              getUserMessageRefSetter={getUserMessageRefSetter}
+              setMessagesRootRef={setMessagesRootRef}
+            />
+          )}
         </div>
       </section>
     </section>

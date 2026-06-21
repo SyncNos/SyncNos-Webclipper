@@ -164,6 +164,11 @@ const chatKind: ConversationKindDefinition = {
     },
   },
   obsidian: { folder: 'SyncNos-AIChats' },
+  view: {
+    renderer: 'chat',
+    readerFeatures: { textLayout: false, theme: false, narration: false },
+    commentsSidebar: false,
+  },
 };
 
 const articleKind: ConversationKindDefinition = {
@@ -212,6 +217,11 @@ const articleKind: ConversationKindDefinition = {
     },
   },
   obsidian: { folder: 'SyncNos-WebArticles' },
+  view: {
+    renderer: 'article',
+    readerFeatures: { textLayout: true, theme: true, narration: true },
+    commentsSidebar: true,
+  },
 };
 
 const videoKind: ConversationKindDefinition = {
@@ -272,6 +282,12 @@ const videoKind: ConversationKindDefinition = {
     },
   },
   obsidian: { folder: 'SyncNos-Videos' },
+  // TODO: subtitle renderer
+  view: {
+    renderer: 'article',
+    readerFeatures: { textLayout: true, theme: true, narration: true },
+    commentsSidebar: false,
+  },
 };
 
 register(videoKind);

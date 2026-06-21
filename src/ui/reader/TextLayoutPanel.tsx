@@ -1,0 +1,158 @@
+import type { ReactNode } from 'react';
+import { buttonTintClassName } from '@ui/shared/button-styles';
+import { t } from '@i18n';
+import { SelectMenu } from '@ui/shared/SelectMenu';
+import {
+  READER_FONT_FAMILIES,
+  READER_PREFS_LIMITS,
+  READER_TEXT_ALIGNS,
+  READER_TYPOGRAPHY_PRESETS,
+  type ReaderFontFamily,
+  type ReaderPrefs,
+  type ReaderTextAlign,
+} from '@services/protocols/reader-prefs';
+
+// Presentational, fully controlled. The owning surface (P4 ReaderToolbar) supplies
+// `prefs` and an `update` that persists patches via the reader-prefs view-model.
+export type TextLayoutPanelProps = {
+  prefs: ReaderPrefs;
+  update: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
+  className?: string;
+};
+
+const FONT_FAMILY_LABELS: Record<ReaderFontFamily, string> = {
+  serif: t('readerFontSerif'),
+  sans: t('readerFontSans'),
+  mono: t('readerFontMono'),
+};
+const TEXT_ALIGN_LABELS: Record<ReaderTextAlign, string> = {
+  left: t('readerAlignLeft'),
+  justify: t('readerAlignJustify'),
+};
+
+// Typography presets only overwrite the text-layout fields (never theme/tts).
+const TYPOGRAPHY_PRESETS: Array<{ id: keyof typeof READER_TYPOGRAPHY_PRESETS; label: string }> = [
+  { id: 'medium', label: t('readerPresetMedium') },
+  { id: 'notion', label: t('readerPresetNotion') },
+  { id: 'book', label: t('readerPresetBook') },
+];
+
+// READER_PREFS_LIMITS only exposes min/max; step granularity is a UI concern.
+const STEP = { fontSize: 1, lineHeight: 0.05, contentWidth: 10, letterSpacing: 0.005 } as const;
+
+const rangeClassName = [
+  'tw-w-full tw-cursor-pointer tw-accent-[var(--accent)]',
+  'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
+].join(' ');
+
+const presetButtonClassName = [buttonTintClassName(), 'tw-flex-1'].join(' ');
+
+function Row({ label, value, children }: { label: string; value?: string; children: ReactNode }) {
+  return (
+    <div className="tw-flex tw-flex-col tw-gap-1">
+      <div className="tw-flex tw-items-center tw-justify-between tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
+        <span>{label}</span>
+        {value ? <span className="tw-tabular-nums tw-text-[var(--text-primary)]">{value}</span> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * TextLayoutPanel — adjusts the reader text-layout fields of `reader_prefs_v1`
+ * (font family, size, line height, content width, letter spacing, alignment) and
+ * offers one-tap typography presets. All numeric ranges are bounded by
+ * `READER_PREFS_LIMITS`; the model re-clamps on write, so out-of-range values can
+ * never reach the CSS variables.
+ */
+export function TextLayoutPanel({ prefs, update, className }: TextLayoutPanelProps) {
+  return (
+    <div className={['tw-flex tw-flex-col tw-gap-3', className].filter(Boolean).join(' ')}>
+      <Row label={t('readerTextPreset')}>
+        <div className="tw-flex tw-gap-1.5">
+          {TYPOGRAPHY_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={presetButtonClassName}
+              onClick={() => void update({ ...READER_TYPOGRAPHY_PRESETS[preset.id] })}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </Row>
+
+      <Row label={t('readerTextFont')}>
+        <SelectMenu<ReaderFontFamily>
+          ariaLabel={t('readerFontAria')}
+          value={prefs.fontFamily}
+          onChange={(next) => void update({ fontFamily: next })}
+          options={READER_FONT_FAMILIES.map((id) => ({ value: id, label: FONT_FAMILY_LABELS[id] }))}
+        />
+      </Row>
+
+      <Row label={t('readerTextAlignment')}>
+        <SelectMenu<ReaderTextAlign>
+          ariaLabel={t('readerAlignAria')}
+          value={prefs.textAlign}
+          onChange={(next) => void update({ textAlign: next })}
+          options={READER_TEXT_ALIGNS.map((id) => ({ value: id, label: TEXT_ALIGN_LABELS[id] }))}
+        />
+      </Row>
+
+      <Row label={t('readerTextFontSize')} value={`${prefs.fontSize}px`}>
+        <input
+          type="range"
+          className={rangeClassName}
+          aria-label={t('readerFontSizeAria')}
+          min={READER_PREFS_LIMITS.fontSize.min}
+          max={READER_PREFS_LIMITS.fontSize.max}
+          step={STEP.fontSize}
+          value={prefs.fontSize}
+          onChange={(event) => void update({ fontSize: Number(event.target.value) })}
+        />
+      </Row>
+
+      <Row label={t('readerTextLineHeight')} value={prefs.lineHeight.toFixed(2)}>
+        <input
+          type="range"
+          className={rangeClassName}
+          aria-label={t('readerLineHeightAria')}
+          min={READER_PREFS_LIMITS.lineHeight.min}
+          max={READER_PREFS_LIMITS.lineHeight.max}
+          step={STEP.lineHeight}
+          value={prefs.lineHeight}
+          onChange={(event) => void update({ lineHeight: Number(event.target.value) })}
+        />
+      </Row>
+
+      <Row label={t('readerTextContentWidth')} value={`${prefs.contentWidth}px`}>
+        <input
+          type="range"
+          className={rangeClassName}
+          aria-label={t('readerContentWidthAria')}
+          min={READER_PREFS_LIMITS.contentWidth.min}
+          max={READER_PREFS_LIMITS.contentWidth.max}
+          step={STEP.contentWidth}
+          value={prefs.contentWidth}
+          onChange={(event) => void update({ contentWidth: Number(event.target.value) })}
+        />
+      </Row>
+
+      <Row label={t('readerTextLetterSpacing')} value={`${prefs.letterSpacing.toFixed(3)}em`}>
+        <input
+          type="range"
+          className={rangeClassName}
+          aria-label={t('readerLetterSpacingAria')}
+          min={READER_PREFS_LIMITS.letterSpacing.min}
+          max={READER_PREFS_LIMITS.letterSpacing.max}
+          step={STEP.letterSpacing}
+          value={prefs.letterSpacing}
+          onChange={(event) => void update({ letterSpacing: Number(event.target.value) })}
+        />
+      </Row>
+    </div>
+  );
+}

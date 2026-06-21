@@ -14,6 +14,7 @@ import { useConversationsApp } from '@viewmodels/conversations/conversations-con
 import { consumePendingOpenConversation } from '@ui/conversations/pending-open';
 import { columnDividerRightClassName } from '@ui/shared/column-styles';
 import { CapturedListPaneShell } from '@ui/shared/CapturedListPaneShell';
+import { conversationKinds } from '@services/protocols/conversation-kinds';
 
 type NarrowRoute = 'list' | 'detail' | 'comments';
 
@@ -42,19 +43,6 @@ export type ConversationsSceneProps = {
   wideHideList?: boolean;
   wideChrome?: ConversationsSceneWideChrome;
 };
-
-function isArticleConversationLike(conversation: any): boolean {
-  const sourceType = String(conversation?.sourceType || '')
-    .trim()
-    .toLowerCase();
-  if (sourceType === 'article') return true;
-
-  const source = String(conversation?.source || '')
-    .trim()
-    .toLowerCase();
-  if (source !== 'web') return false;
-  return Boolean(canonicalizeArticleUrl(conversation?.url));
-}
 
 export function ConversationsScene({
   defaultNarrowRoute = 'list',
@@ -89,10 +77,12 @@ export function ConversationsScene({
     isNarrow,
     defaultRoute: defaultNarrowRoute,
   });
+  const selectedConversationView = conversationKinds.pick(selectedConversation as any)?.view ?? null;
+  const commentsSidebarEnabled = Boolean(selectedConversationView?.commentsSidebar);
   const selectedConversationCanonicalUrl = canonicalizeArticleUrl((selectedConversation as any)?.url);
   const canOpenCommentsFromDetail =
     (typeof onOpenCommentsExternally === 'function' || Boolean(commentsSidebarRuntime)) &&
-    isArticleConversationLike(selectedConversation) &&
+    commentsSidebarEnabled &&
     Boolean(selectedConversationCanonicalUrl);
 
   useEffect(() => {
@@ -100,7 +90,7 @@ export function ConversationsScene({
     const controller = commentsSidebarRuntime.sidebarController;
     if (!controller || typeof controller.setContext !== 'function') return;
 
-    if (isArticleConversationLike(selectedConversation) && selectedConversationCanonicalUrl) {
+    if (commentsSidebarEnabled && selectedConversationCanonicalUrl) {
       controller.setContext({
         canonicalUrl: selectedConversationCanonicalUrl,
         conversationId: Number((selectedConversation as any)?.id || 0) || null,
@@ -109,7 +99,7 @@ export function ConversationsScene({
     }
 
     controller.setContext(null);
-  }, [commentsSidebarRuntime, selectedConversation, selectedConversationCanonicalUrl]);
+  }, [commentsSidebarEnabled, commentsSidebarRuntime, selectedConversation, selectedConversationCanonicalUrl]);
 
   useEffect(() => {
     if (!isNarrow) return;

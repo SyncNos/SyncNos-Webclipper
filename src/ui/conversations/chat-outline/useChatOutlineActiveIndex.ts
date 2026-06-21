@@ -71,7 +71,8 @@ export function useChatOutlineActiveIndex({
       return;
     }
 
-    const rootEl = root && root instanceof Element ? root : null;
+    const ElementCtor = globalThis.Element;
+    const rootEl = root && typeof ElementCtor !== 'undefined' && root instanceof ElementCtor ? root : null;
     const supportsIntersectionObserver = typeof globalThis.IntersectionObserver === 'function';
     const fallbackIndexByEl = new Map<HTMLElement, number>();
     safeUserMessageEls.forEach((el, idx) => {

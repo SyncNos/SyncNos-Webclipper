@@ -141,8 +141,6 @@ export function SettingsScene(props: SettingsSceneProps) {
 
     inpageDisplayMode,
     onChangeInpageDisplayMode,
-    markdownReadingProfile,
-    onChangeMarkdownReadingProfile,
     aiChatAutoSaveEnabled,
     onToggleAiChatAutoSaveEnabled,
     aiChatCacheImagesEnabled,
@@ -394,10 +392,6 @@ export function SettingsScene(props: SettingsSceneProps) {
           displayMode={inpageDisplayMode}
           onChangeDisplayMode={(next) => {
             void onChangeInpageDisplayMode(next);
-          }}
-          markdownReadingProfile={markdownReadingProfile}
-          onChangeMarkdownReadingProfile={(next) => {
-            void onChangeMarkdownReadingProfile(next);
           }}
           aiChatAutoSaveEnabled={aiChatAutoSaveEnabled}
           onToggleAiChatAutoSaveEnabled={(next) => {

@@ -647,4 +647,30 @@ describe('AppShell comments sidebar', () => {
     });
     expect(document.querySelector('aside')).toBeFalsy();
   });
+
+  it('does not wire comments trigger for video conversations', async () => {
+    currentState.selectedConversation = {
+      id: 41,
+      title: 'Video',
+      source: 'web',
+      sourceType: 'video',
+      conversationKey: 'video-41',
+      url: 'https://example.com/video-41',
+    };
+
+    act(() => {
+      root!.render(createElement(AppShell));
+    });
+
+    const openBtn = document.querySelector('[aria-label="Comment"]') as HTMLButtonElement | null;
+    expect(openBtn).toBeTruthy();
+    expect(openBtn?.getAttribute('data-can-trigger')).toBe('0');
+
+    act(() => {
+      openBtn!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector('webclipper-threaded-comments-panel')).toBeFalsy();
+  });
 });
