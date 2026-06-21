@@ -1,12 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import type { CSSProperties } from 'react';
-import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
+
 import { t } from '@i18n';
-import type { DetailViewSharedProps } from '@ui/conversations/views/detail-view-props';
-import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
-import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
 import { readerPrefsToCssVars } from '@services/protocols/reader-prefs';
+import {
+  buildSentences,
+  type ReaderTtsSentence,
+} from '@services/reader/tts/reader-tts-engine';
+import type { DetailViewSharedProps } from '@ui/conversations/views/detail-view-props';
+import {
+  findReaderSentenceIndexFromTarget,
+  findReaderSentenceRangeByIndex,
+  pickFirstVisibleSentenceIndex,
+  type ReaderSentenceCandidate,
+  type ReaderSentenceRectLike,
+} from '@ui/reader/reader-sentence-dom';
 import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
+import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
+import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
+import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
 
 export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: boolean };
 
@@ -33,28 +45,74 @@ const READER_PROSE_CLASS = [
 // JSX uses a single-brace expression (no inline object literal needed here).
 const READER_COLUMN_STYLE: CSSProperties = { maxWidth: 'var(--reader-content-width)' };
 
-// Read-only highlight helpers (P4-T3) ---------------------------------------
+const READER_SENTENCE_SOURCE_ATTR = 'data-reader-sentence-source';
+const READER_SENTENCE_INDEX_ATTR = 'data-reader-sentence-index';
+const READER_SENTENCE_CLASS = 'reader-tts-sentence';
 const READER_ACTIVE_SENTENCE_CLASS = 'reader-active-sentence';
 
-/**
- * Find the element that contains the character at `offset` within
- * `root.textContent`. Walks text nodes only and never mutates the DOM, so it is
- * safe to call repeatedly against the rendered article body.
- */
-function blockElementAtOffset(root: HTMLElement, offset: number): HTMLElement | null {
-  if (typeof document === 'undefined') return null;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let consumed = 0;
-  let node: Node | null = walker.nextNode();
-  while (node) {
-    const length = node.textContent?.length ?? 0;
-    if (offset < consumed + length) {
-      return node.parentElement;
-    }
-    consumed += length;
-    node = walker.nextNode();
+function unwrapReaderSentenceSpan(span: HTMLElement): void {
+  const parent = span.parentNode;
+  if (!parent) return;
+  while (span.firstChild) {
+    parent.insertBefore(span.firstChild, span);
   }
-  return null;
+  parent.removeChild(span);
+}
+
+function clearReaderSentenceDecorations(root: HTMLElement): void {
+  const spans = Array.from(root.querySelectorAll<HTMLElement>(`[${READER_SENTENCE_INDEX_ATTR}]`));
+  spans.forEach((span) => unwrapReaderSentenceSpan(span));
+  root.removeAttribute(READER_SENTENCE_SOURCE_ATTR);
+}
+
+function decorateReaderSentenceSpans(root: HTMLElement, source: string, sentences: ReaderTtsSentence[]): void {
+  const doc = root.ownerDocument ?? globalThis.document;
+  if (!doc) return;
+  if (!sentences.length) {
+    root.setAttribute(READER_SENTENCE_SOURCE_ATTR, source);
+    return;
+  }
+
+  for (let index = sentences.length - 1; index >= 0; index -= 1) {
+    const sentence = sentences[index];
+    const range = findReaderSentenceRangeByIndex(root, sentences, index);
+    if (!range) continue;
+
+    const fragment = range.extractContents();
+    if (!fragment.childNodes.length) continue;
+
+    const span = doc.createElement('span');
+    span.className = READER_SENTENCE_CLASS;
+    span.setAttribute(READER_SENTENCE_INDEX_ATTR, String(sentence.index));
+    span.appendChild(fragment);
+    range.insertNode(span);
+  }
+
+  root.setAttribute(READER_SENTENCE_SOURCE_ATTR, source);
+}
+
+function readReaderSentenceViewportRect(root: HTMLElement): ReaderSentenceRectLike {
+  const docEl = root.ownerDocument?.documentElement ?? null;
+  const rect = docEl?.getBoundingClientRect?.() ?? null;
+  if (!rect) return { top: 0, bottom: 0 };
+  return { top: rect.top, bottom: rect.bottom };
+}
+
+function readReaderSentenceCandidates(root: HTMLElement): ReaderSentenceCandidate[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(`[${READER_SENTENCE_INDEX_ATTR}]`))
+    .map((element) => {
+      const rect = element.getBoundingClientRect();
+      const index = Number(element.getAttribute(READER_SENTENCE_INDEX_ATTR));
+      return {
+        index: Number.isFinite(index) ? Math.trunc(index) : -1,
+        rect: { top: rect.top, bottom: rect.bottom },
+      } satisfies ReaderSentenceCandidate;
+    })
+    .filter((candidate) => candidate.index >= 0);
+}
+
+function readFirstVisibleSentenceIndex(root: HTMLElement): number {
+  return pickFirstVisibleSentenceIndex(readReaderSentenceCandidates(root), readReaderSentenceViewportRect(root));
 }
 
 /**
@@ -91,9 +149,42 @@ export function ArticleReaderView({
   // nodes we highlight below.
   const narrationRootRef = useRef<HTMLDivElement | null>(null);
   const lastHighlightRef = useRef<HTMLElement | null>(null);
+  const sourceFromDomRef = useRef('');
+  const activeSentenceRef = useRef<ReaderTtsSentence | null>(null);
   const [narrationSource, setNarrationSource] = useState('');
+  const [sentenceDomRevision, setSentenceDomRevision] = useState(0);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
+
+  useEffect(() => {
+    activeSentenceRef.current = activeSentence;
+  }, [activeSentence]);
+
+  const clearActiveHighlight = useCallback(() => {
+    const previous = lastHighlightRef.current;
+    if (!previous) return;
+    previous.classList.remove(READER_ACTIVE_SENTENCE_CLASS);
+    lastHighlightRef.current = null;
+  }, []);
+
+  const applyActiveHighlight = useCallback(
+    (sentence: ReaderTtsSentence | null) => {
+      clearActiveHighlight();
+      const root = narrationRootRef.current;
+      if (!features.narration || !root || !sentence) return;
+      const target = root.querySelector<HTMLElement>(`[${READER_SENTENCE_INDEX_ATTR}="${sentence.index}"]`);
+      if (!target) return;
+      target.classList.add(READER_ACTIVE_SENTENCE_CLASS);
+      lastHighlightRef.current = target;
+    },
+    [clearActiveHighlight, features.narration],
+  );
+
+  // React effect order matters here: keep the active sentence ref fresh before
+  // any decoration pass tries to restore the current highlight.
+  useEffect(() => {
+    applyActiveHighlight(activeSentence);
+  }, [activeSentence, applyActiveHighlight]);
 
   // Combine the external messages-root ref with our local highlight ref.
   const assignMessagesRoot = useCallback(
@@ -111,38 +202,151 @@ export function ArticleReaderView({
 
   // Capture the rendered article text whenever the messages change.
   useEffect(() => {
-    setNarrationSource(narrationRootRef.current?.textContent ?? '');
+    const currentSource = narrationRootRef.current?.textContent ?? '';
+    sourceFromDomRef.current = currentSource;
+    setNarrationSource(currentSource);
   }, [detail]);
 
-  // Read-only sentence highlight: toggle a class plus a reversible inline tint
-  // on the element containing the active sentence. No markdown structure is
-  // rewritten (P4 rule); the previous highlight is always restored.
+  // Re-capture DOM source after mutations and nudge sentence decoration if the
+  // current text is unchanged but the sentence spans were rewritten externally.
   useEffect(() => {
-    const clear = () => {
-      const previous = lastHighlightRef.current;
-      if (previous) {
-        previous.classList.remove(READER_ACTIVE_SENTENCE_CLASS);
-        previous.style.removeProperty('background-color');
-        previous.style.removeProperty('border-radius');
-        lastHighlightRef.current = null;
+    const root = narrationRootRef.current;
+    if (!root || !features.narration) {
+      sourceFromDomRef.current = '';
+      setNarrationSource('');
+      return;
+    }
+
+    const win = root.ownerDocument?.defaultView ?? globalThis.window;
+    const observerCtor = win?.MutationObserver ?? globalThis.MutationObserver;
+    let disposed = false;
+    let rafId = 0;
+
+    const syncFromDom = () => {
+      if (disposed) return;
+
+      const currentSource = root.textContent ?? '';
+      const sourceChanged = currentSource !== sourceFromDomRef.current;
+      if (sourceChanged) {
+        sourceFromDomRef.current = currentSource;
+        setNarrationSource(currentSource);
+      }
+
+      const sentences = buildSentences(currentSource);
+      const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
+      const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
+      const needsRedecorate = decoratedSource !== currentSource || decoratedCount !== sentences.length;
+      if (!sourceChanged && needsRedecorate) {
+        setSentenceDomRevision((value) => value + 1);
       }
     };
-    clear();
+
+    const scheduleSync = () => {
+      if (disposed) return;
+      if (!win?.requestAnimationFrame) {
+        syncFromDom();
+        return;
+      }
+      if (rafId !== 0) return;
+      rafId = win.requestAnimationFrame(() => {
+        rafId = 0;
+        syncFromDom();
+      });
+    };
+
+    if (!observerCtor) {
+      scheduleSync();
+      return () => {
+        disposed = true;
+        if (rafId !== 0 && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
+      };
+    }
+
+    const observer = new observerCtor(() => scheduleSync());
+    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    scheduleSync();
+    return () => {
+      disposed = true;
+      observer.disconnect();
+      if (rafId !== 0 && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
+    };
+  }, [detail, features.narration]);
+
+  // Sentence decorations are reversible: rebuild them from the current DOM text
+  // and restore the active highlight after each capture / mutation pass.
+  useEffect(() => {
     const root = narrationRootRef.current;
-    if (!root || !activeSentence) return;
-    const target = blockElementAtOffset(root, activeSentence.start);
-    if (!target) return;
-    target.classList.add(READER_ACTIVE_SENTENCE_CLASS);
-    target.style.setProperty('background-color', 'var(--reader-highlight, rgba(250, 204, 21, 0.22))');
-    target.style.setProperty('border-radius', 'var(--radius-inline, 4px)');
-    lastHighlightRef.current = target;
-    return clear;
-  }, [activeSentence]);
+    if (!root) return;
+
+    if (!features.narration) {
+      clearReaderSentenceDecorations(root);
+      applyActiveHighlight(null);
+      return;
+    }
+
+    const sentences = buildSentences(narrationSource);
+    const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
+    const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
+    const isUpToDate = decoratedSource === narrationSource && decoratedCount === sentences.length;
+    if (!isUpToDate) {
+      clearReaderSentenceDecorations(root);
+      decorateReaderSentenceSpans(root, narrationSource, sentences);
+    }
+
+    applyActiveHighlight(activeSentenceRef.current);
+  }, [activeSentenceRef, applyActiveHighlight, features.narration, narrationSource, sentenceDomRevision]);
+
+  const getFirstVisibleSentenceIndex = useCallback(() => {
+    if (!features.narration) return 0;
+    const root = narrationRootRef.current;
+    if (!root) return 0;
+    return readFirstVisibleSentenceIndex(root);
+  }, [features.narration]);
+
+  const toolbarNarration = useMemo(
+    () => ({
+      ...narration,
+      play: () => {
+        const firstVisibleIndex = getFirstVisibleSentenceIndex();
+        const requestedIndex = narration.hasCursor ? narration.activeIndex : firstVisibleIndex;
+        narration.play(requestedIndex >= 0 ? requestedIndex : firstVisibleIndex);
+      },
+      toggle: () => {
+        narration.toggle(getFirstVisibleSentenceIndex());
+      },
+    }),
+    [getFirstVisibleSentenceIndex, narration],
+  );
+
+  const handleSentenceClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!features.narration) return;
+
+      const targetElement =
+        event.target instanceof Element
+          ? event.target
+          : event.target instanceof Node
+            ? event.target.parentElement
+            : null;
+      if (targetElement?.closest('a')) return;
+
+      const index = findReaderSentenceIndexFromTarget(event.target);
+      if (index == null) return;
+
+      if (narration.state === 'idle') {
+        narration.seek(index);
+        return;
+      }
+
+      narration.play(index);
+    },
+    [features.narration, narration],
+  );
 
   return (
     <div className="tw-flex tw-min-w-0 tw-gap-4" style={readerVars} data-reader-theme={readerThemeAttr}>
       <div className="tw-min-w-0 tw-flex-1">
-        <ReaderToolbar features={features} prefs={prefs} update={update} narration={narration} className="tw-mb-3" />
+        <ReaderToolbar features={features} prefs={prefs} update={update} narration={toolbarNarration} className="tw-mb-3" />
         {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
         {loadingDetail ? (
           <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
@@ -156,6 +360,8 @@ export function ArticleReaderView({
             ref={assignMessagesRoot}
             className="tw-mt-3 tw-grid tw-gap-2.5 tw-mx-auto tw-w-full"
             style={READER_COLUMN_STYLE}
+            data-reader-sentence-root="true"
+            onClick={handleSentenceClick}
           >
             {detail.messages.map((m: any) => {
               const text = String((m as any).contentMarkdown || (m as any).contentText || '');
