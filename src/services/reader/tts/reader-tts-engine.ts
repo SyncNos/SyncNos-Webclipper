@@ -230,13 +230,22 @@ export class ReaderTtsEngine {
 
   pause(): void {
     if (this.state !== 'playing') return;
-    this.getSynth()?.pause();
+    // The AI tier plays an HTMLAudio element; the Web tier drives speechSynthesis.
+    if (this.prefs.engine === 'ai') {
+      this.currentAudio?.pause();
+    } else {
+      this.getSynth()?.pause();
+    }
     this.setState('paused');
   }
 
   resume(): void {
     if (this.state !== 'paused') return;
-    this.getSynth()?.resume();
+    if (this.prefs.engine === 'ai') {
+      void this.currentAudio?.play();
+    } else {
+      this.getSynth()?.resume();
+    }
     this.setState('playing');
   }
 

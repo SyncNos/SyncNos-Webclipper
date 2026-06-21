@@ -276,7 +276,10 @@ function aiHarness(opts: { ok?: boolean; status?: number } = {}) {
       const audio: FakeAudio = {
         src,
         paused: false,
-        play: () => Promise.resolve(),
+        play: () => {
+          audio.paused = false;
+          return Promise.resolve();
+        },
         pause: () => {
           audio.paused = true;
         },
@@ -378,6 +381,24 @@ describe('ReaderTtsEngine (AI tier)', () => {
     h.audios[0].onended?.();
     await tick();
     expect(h.fetchCalls).toHaveLength(1);
+  });
+
+  it('pause()/resume() suspend and resume the AI audio element', async () => {
+    const h = aiHarness();
+    const engine = new ReaderTtsEngine(aiPrefs(), {}, h.deps as any);
+    engine.load('Hello. World.');
+    engine.play();
+    await tick();
+    expect(h.audios).toHaveLength(1);
+    expect(h.audios[0].paused).toBe(false);
+
+    engine.pause();
+    expect(engine.getState()).toBe('paused');
+    expect(h.audios[0].paused).toBe(true);
+
+    engine.resume();
+    expect(engine.getState()).toBe('playing');
+    expect(h.audios[0].paused).toBe(false);
   });
 
   it('reports an error and stays idle when no endpoint is configured', async () => {
