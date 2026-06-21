@@ -40,6 +40,12 @@ vi.mock('../../src/ui/conversations/ArticleCommentsSection', () => ({
   ArticleCommentsSection: () => createElement('div', null, 'comments-section'),
 }));
 
+vi.mock('../../src/services/shared/storage', () => ({
+  storageGet: vi.fn(async () => ({})),
+  storageOnChanged: () => () => {},
+  storageSet: vi.fn(async () => undefined),
+}));
+
 vi.mock('../../src/ui/i18n', () => ({
   t: (key: string) => {
     const labels: Record<string, string> = {
@@ -54,6 +60,7 @@ vi.mock('../../src/ui/i18n', () => ({
       messageRoleFallback: 'message',
       openCommentsSidebar: 'Comment',
       closeCommentsSidebar: 'Collapse comments sidebar',
+      readerToolbarAria: 'Reader tools',
     };
     return labels[key] || key;
   },
@@ -93,15 +100,9 @@ function setupDom() {
 }
 
 function cleanupDom() {
-  delete (globalThis as any).window;
-  delete (globalThis as any).document;
-  delete (globalThis as any).navigator;
-  delete (globalThis as any).HTMLElement;
-  delete (globalThis as any).Node;
-  delete (globalThis as any).localStorage;
-  delete (globalThis as any).getSelection;
-  delete (globalThis as any).getComputedStyle;
-  delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+  // Keep the JSDOM globals around: React may schedule async work that still
+  // references `window` after the test has completed. The next `setupDom()`
+  // call will overwrite them.
 }
 
 function mockSelectionRange(textNode: Text, start: number, end: number): () => void {
@@ -266,7 +267,7 @@ describe('ConversationDetailPane header actions', () => {
     expect(onTrigger).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a comments sidebar toggle in article detail mode', () => {
+  it('shows a comments sidebar toggle in article detail mode', async () => {
     currentState.selectedConversation = {
       id: 11,
       title: 'Article',
@@ -281,6 +282,10 @@ describe('ConversationDetailPane header actions', () => {
 
     act(() => {
       root!.render(createElement(ConversationDetailPane, { onTriggerCommentsSidebar, commentsSidebarOpen: false }));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
     });
 
     const openBtn = document.querySelector('[aria-label="Comment"]') as HTMLButtonElement | null;
@@ -301,7 +306,7 @@ describe('ConversationDetailPane header actions', () => {
     expect(pressedBtn).toBeTruthy();
   });
 
-  it('does not pass selected message text or locator when opening comments sidebar', () => {
+  it('does not pass selected message text or locator when opening comments sidebar', async () => {
     currentState.selectedConversation = {
       id: 13,
       title: 'Article',
@@ -320,6 +325,10 @@ describe('ConversationDetailPane header actions', () => {
 
     act(() => {
       root!.render(createElement(ConversationDetailPane, { onTriggerCommentsSidebar, commentsSidebarOpen: false }));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
     });
 
     const textNode = findTextNodeContaining(document.body, 'Alpha beta gamma');
@@ -344,7 +353,7 @@ describe('ConversationDetailPane header actions', () => {
     restoreSelection();
   });
 
-  it('keeps the comments toggle in the same header row as title metadata container', () => {
+  it('keeps the comments toggle in the same header row as title metadata container', async () => {
     currentState.selectedConversation = {
       id: 12,
       title: 'Article',
@@ -361,6 +370,10 @@ describe('ConversationDetailPane header actions', () => {
       root!.render(createElement(ConversationDetailPane, { onTriggerCommentsSidebar, commentsSidebarOpen: false }));
     });
 
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     const header = document.querySelector('header');
     expect(header).toBeTruthy();
 
@@ -374,6 +387,48 @@ describe('ConversationDetailPane header actions', () => {
     expect(commentsContainer?.className).toContain('tw-whitespace-nowrap');
     expect(commentsContainer?.className).not.toContain('tw-flex-wrap');
     expect(header?.className).not.toContain('tw-flex-col');
+  });
+
+  it('shows reader toolbar for article and video detail modes', async () => {
+    currentState.detailHeaderActions = [];
+
+    currentState.selectedConversation = {
+      id: 15,
+      title: 'Article',
+      source: 'web',
+      sourceType: 'article',
+      conversationKey: 'article-15',
+      url: 'https://example.com/article-15',
+    } as any;
+
+    act(() => {
+      root!.render(createElement(ConversationDetailPane));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector('[role="toolbar"][aria-label="Reader tools"]')).toBeTruthy();
+
+    currentState.selectedConversation = {
+      id: 16,
+      title: 'Video',
+      source: 'web',
+      sourceType: 'video',
+      conversationKey: 'video-16',
+      url: 'https://example.com/video-16',
+    } as any;
+
+    act(() => {
+      root!.render(createElement(ConversationDetailPane));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector('[role="toolbar"][aria-label="Reader tools"]')).toBeTruthy();
   });
 
   it('does not show comments toggle when selected conversation is chat', () => {
@@ -392,9 +447,10 @@ describe('ConversationDetailPane header actions', () => {
     });
 
     expect(document.querySelector('[aria-label="Comment"]')).toBeFalsy();
+    expect(document.querySelector('[role="toolbar"][aria-label="Reader tools"]')).toBeFalsy();
   });
 
-  it('does not show comments toggle when video reuses the article renderer', () => {
+  it('does not show comments toggle when video reuses the article renderer', async () => {
     currentState.selectedConversation = {
       id: 14,
       title: 'Video',
@@ -407,6 +463,10 @@ describe('ConversationDetailPane header actions', () => {
 
     act(() => {
       root!.render(createElement(ConversationDetailPane, { onTriggerCommentsSidebar: vi.fn() }));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(document.querySelector('[aria-label="Comment"]')).toBeFalsy();
