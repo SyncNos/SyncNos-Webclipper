@@ -30,7 +30,6 @@ import type { DetailHeaderAction } from '@services/integrations/detail-header-ac
 import { resolveDetailHeaderActions } from '@services/integrations/detail-header-actions';
 import { UI_EVENT_TYPES, UI_PORT_NAMES } from '@services/protocols/message-contracts';
 import { connectPort } from '@services/shared/ports';
-import { cleanTrackingParamsUrl } from '@services/url-cleaning/tracking-param-cleaner';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 import { t } from '@i18n';
 import {
@@ -848,13 +847,7 @@ export function ConversationsProvider({
   const cleanUrlDraft = useCallback(async (rawUrl: string) => {
     const canonical = canonicalizeHttpUrl(rawUrl);
     if (!canonical) throw new Error('URL must be an http(s) page');
-    try {
-      const cleaned = (await cleanTrackingParamsUrl(canonical)) || canonical;
-      return canonicalizeHttpUrl(cleaned) || canonical;
-    } catch (e) {
-      const message = e instanceof Error && e.message ? e.message : String(e || 'Failed to clean URL');
-      throw new Error(message);
-    }
+    return canonical;
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,4 @@
 import { extractVideoTranscriptFromCurrentPage } from '@collectors/video/video-transcript-extract';
-import { cleanTrackingParamsUrl } from '@services/url-cleaning/tracking-param-cleaner';
 
 type RuntimeClient = {
   send?: (type: string, payload?: Record<string, unknown>) => Promise<any>;
@@ -65,8 +64,7 @@ export function createVideoTranscriptCaptureService(deps: { runtime: RuntimeClie
     const capturedAt = Date.now();
 
     const rawUrl = normalizeText(extracted?.meta?.url || location.href);
-    const cleanedUrl = (await cleanTrackingParamsUrl(rawUrl)) || rawUrl;
-    const url = normalizeText(cleanedUrl) || rawUrl;
+    const url = normalizeText(rawUrl);
 
     const title = normalizeText(extracted?.meta?.title || '');
     const author = normalizeText(extracted?.meta?.author || '');

@@ -7,7 +7,6 @@ import {
 import { inlineChatImagesInMessages } from '@services/conversations/data/image-inline';
 import { DISCOURSE_OP_MISSING_WARNING_FLAG, DISCOURSE_OP_NOT_FOUND_ERROR } from '@collectors/web/article-fetch-errors';
 import { canonicalizeArticleUrl, normalizeHttpUrl } from '@services/url-cleaning/http-url';
-import { cleanTrackingParamsUrl } from '@services/url-cleaning/tracking-param-cleaner';
 import { scriptingExecuteScript } from '@platform/webext/scripting';
 import { tabsGet, tabsQuery, tabsSendMessage, tabsUpdate } from '@platform/webext/tabs';
 import { storageGet } from '@platform/storage/local';
@@ -191,9 +190,8 @@ export async function fetchActiveTabArticle({ tabId }: { tabId?: number } = {}) 
   const targetTabId = Number(tab.id);
   const normalizedUrl = normalizeHttpUrl(tab.url || '');
   if (!normalizedUrl) throw toError('active tab must be an http(s) page');
-  const cleanedUrl = (await cleanTrackingParamsUrl(normalizedUrl)) || normalizedUrl;
-  const discourseTopic = parseDiscourseTopicUrl(cleanedUrl);
-  const canonicalUrl = canonicalizeArticleUrl(cleanedUrl) || cleanedUrl;
+  const discourseTopic = parseDiscourseTopicUrl(normalizedUrl);
+  const canonicalUrl = canonicalizeArticleUrl(normalizedUrl) || normalizedUrl;
 
   let readabilityInjected = false;
   const ensureReadabilityOnce = async () => {
@@ -332,8 +330,7 @@ export async function resolveOrCaptureActiveTabArticle({ tabId }: { tabId?: numb
   const tab = await resolveTargetTab(tabId);
   const normalizedUrl = normalizeHttpUrl(tab.url || '');
   if (!normalizedUrl) throw toError('active tab must be an http(s) page');
-  const cleanedUrl = (await cleanTrackingParamsUrl(normalizedUrl)) || normalizedUrl;
-  const canonicalUrl = canonicalizeArticleUrl(cleanedUrl) || cleanedUrl;
+  const canonicalUrl = canonicalizeArticleUrl(normalizedUrl) || normalizedUrl;
 
   const key = conversationKeyForUrl(canonicalUrl);
   try {

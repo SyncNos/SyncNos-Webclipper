@@ -70,10 +70,6 @@ vi.mock('@services/shared/ports', () => ({
   }),
 }));
 
-vi.mock('@services/url-cleaning/tracking-param-cleaner', () => ({
-  cleanTrackingParamsUrl: vi.fn(async (url: string) => url),
-}));
-
 vi.mock('@i18n', () => ({
   t: (key: string) => key,
 }));
