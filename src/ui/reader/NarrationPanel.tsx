@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { SelectMenu } from '@ui/shared/SelectMenu';
 import { buttonTintClassName } from '@ui/shared/button-styles';
 import { textInputClassName } from '@ui/settings/ui';
@@ -48,14 +48,26 @@ const rangeClassName = [
 
 const fieldInputClassName = [textInputClassName, 'tw-w-full'].join(' ');
 
-// Web Speech voices are environment-provided; read defensively (may be empty
-// before the async voiceschanged event fires; refined in P5-T3 / P6).
-function listWebVoices(): Array<{ voiceURI: string; name: string }> {
+type WebSpeechLike = {
+  getVoices?: () => Array<{ voiceURI: string; name: string }>;
+  addEventListener?: (type: 'voiceschanged', listener: () => void) => void;
+  removeEventListener?: (type: 'voiceschanged', listener: () => void) => void;
+  onvoiceschanged?: (() => void) | null;
+};
+
+function getSpeechSynthesis(): WebSpeechLike | null {
   const scope = globalThis as {
-    speechSynthesis?: { getVoices?: () => Array<{ voiceURI: string; name: string }> };
+    speechSynthesis?: WebSpeechLike;
   };
+  return scope.speechSynthesis ?? null;
+}
+
+// Web Speech voices are environment-provided; read defensively because the list
+// often starts empty and is populated later via the async `voiceschanged` event.
+function listWebVoices(source?: WebSpeechLike | null): Array<{ voiceURI: string; name: string }> {
+  const synth = source ?? getSpeechSynthesis();
   try {
-    return scope.speechSynthesis?.getVoices?.() ?? [];
+    return synth?.getVoices?.() ?? [];
   } catch {
     return [];
   }
@@ -89,7 +101,38 @@ export function NarrationPanel({
 }: NarrationPanelProps) {
   const tts = prefs.tts;
   const updateTts = (patch: Partial<ReaderTtsPrefs>) => void update({ tts: { ...tts, ...patch } });
-  const webVoices = tts.engine === 'web' ? listWebVoices() : [];
+  const [webVoices, setWebVoices] = useState<Array<{ voiceURI: string; name: string }>>(() =>
+    tts.engine === 'web' ? listWebVoices() : [],
+  );
+
+  useEffect(() => {
+    if (tts.engine !== 'web') {
+      setWebVoices([]);
+      return;
+    }
+
+    const synth = getSpeechSynthesis();
+    const refreshVoices = () => {
+      setWebVoices(listWebVoices(synth));
+    };
+    refreshVoices();
+    if (!synth) return;
+
+    if (typeof synth.addEventListener === 'function' && typeof synth.removeEventListener === 'function') {
+      synth.addEventListener('voiceschanged', refreshVoices);
+      return () => synth.removeEventListener?.('voiceschanged', refreshVoices);
+    }
+
+    const previous = synth.onvoiceschanged ?? null;
+    const handler = () => {
+      previous?.();
+      refreshVoices();
+    };
+    synth.onvoiceschanged = handler;
+    return () => {
+      if (synth.onvoiceschanged === handler) synth.onvoiceschanged = previous;
+    };
+  }, [tts.engine]);
 
   return (
     <div className={['tw-flex tw-flex-col tw-gap-3', className].filter(Boolean).join(' ')}>
