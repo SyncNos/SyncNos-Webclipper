@@ -15,6 +15,8 @@ export type UseReaderNarrationResult = {
   /** The active sentence (with char offsets) for read-only DOM highlight, or null. */
   activeSentence: ReaderTtsSentence | null;
   error: string | null;
+  /** Whether the Web Speech engine is available in this environment. */
+  webSpeechAvailable: boolean;
   isPlaying: boolean;
   play: () => void;
   pause: () => void;
@@ -97,18 +99,29 @@ export function useReaderNarration(
     else void engine.play();
   }, []);
 
+  // Web Speech availability gates the engine picker / fallback affordance in the UI.
+  const webSpeechAvailable = useMemo(() => {
+    try {
+      const synth = deps?.getSynth ? deps.getSynth() : globalThis.speechSynthesis;
+      return synth != null;
+    } catch {
+      return false;
+    }
+  }, [deps]);
+
   return useMemo(
     () => ({
       state,
       activeIndex,
       activeSentence,
       error,
+      webSpeechAvailable,
       isPlaying: state === 'playing' || state === 'loading',
       play,
       pause,
       stop,
       toggle,
     }),
-    [state, activeIndex, activeSentence, error, play, pause, stop, toggle],
+    [state, activeIndex, activeSentence, error, webSpeechAvailable, play, pause, stop, toggle],
   );
 }

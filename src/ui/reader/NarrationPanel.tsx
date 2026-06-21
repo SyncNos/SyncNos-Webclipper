@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { SelectMenu } from '@ui/shared/SelectMenu';
+import { buttonTintClassName } from '@ui/shared/button-styles';
 import { textInputClassName } from '@ui/settings/ui';
 import {
   READER_PREFS_LIMITS,
@@ -18,6 +19,10 @@ import {
 export type NarrationPanelProps = {
   prefs: ReaderPrefs;
   update: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
+  /** Last narration error surfaced from the engine (e.g. AI endpoint failure). */
+  error?: string | null;
+  /** Whether Web Speech can be used; gates the engine picker + fallback button. */
+  webSpeechAvailable?: boolean;
   className?: string;
 };
 
@@ -76,19 +81,48 @@ function Row({ label, value, children }: { label: string; value?: string; childr
  * Fully controlled; all writes go through `update({ tts })` which the view-model
  * re-normalizes (rate clamped, enums validated) before persisting.
  */
-export function NarrationPanel({ prefs, update, className }: NarrationPanelProps) {
+export function NarrationPanel({
+  prefs,
+  update,
+  error,
+  webSpeechAvailable = true,
+  className,
+}: NarrationPanelProps) {
   const tts = prefs.tts;
   const updateTts = (patch: Partial<ReaderTtsPrefs>) => void update({ tts: { ...tts, ...patch } });
   const webVoices = tts.engine === 'web' ? listWebVoices() : [];
 
   return (
     <div className={['tw-flex tw-flex-col tw-gap-3', className].filter(Boolean).join(' ')}>
+      {error ? (
+        <div
+          role="alert"
+          className="tw-flex tw-flex-col tw-gap-2 tw-rounded-[var(--radius-control)] tw-border tw-border-[var(--border)] tw-bg-[var(--bg-sunken)] tw-p-2 tw-text-xs tw-text-[var(--text-primary)]"
+        >
+          <span>{error}</span>
+          {tts.engine === 'ai' ? (
+            <button
+              type="button"
+              className={buttonTintClassName()}
+              disabled={!webSpeechAvailable}
+              onClick={() => updateTts({ engine: 'web' })}
+            >
+              Fall back to Web Speech
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <Row label="Engine">
         <SelectMenu<ReaderTtsEngineId>
           ariaLabel="Narration engine"
           value={tts.engine}
           onChange={(next) => updateTts({ engine: next })}
-          options={READER_TTS_ENGINES.map((id) => ({ value: id, label: ENGINE_LABELS[id] }))}
+          options={READER_TTS_ENGINES.map((id) => ({
+            value: id,
+            label: ENGINE_LABELS[id],
+            disabled: id === 'web' && !webSpeechAvailable,
+          }))}
         />
       </Row>
 
