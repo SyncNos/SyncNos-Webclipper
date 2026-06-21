@@ -4,7 +4,10 @@ import type { ChatDetailViewProps } from '@ui/conversations/views/ChatDetailView
 
 // Props are aligned with ChatDetailView so ConversationDetailPane can dispatch
 // to either renderer with the same prop bag (see P1-T5).
-export type ArticleReaderViewProps = ChatDetailViewProps;
+export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: boolean };
+
+// readerFeatures is wired in for P6 toolbar button visibility; unused in P1.
+export type ArticleReaderViewProps = ChatDetailViewProps & { readerFeatures?: ReaderFeatures };
 
 /**
  * ArticleReaderView renders article / video conversations.

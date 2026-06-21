@@ -1,6 +1,7 @@
 import { ChevronLeft } from 'lucide-react';
 
 import { ChatDetailView } from '@ui/conversations/views/ChatDetailView';
+import { ArticleReaderView } from '@ui/conversations/views/ArticleReaderView';
 import { ChatOutlinePanel } from '@ui/conversations/chat-outline/ChatOutlinePanel';
 import { buildChatOutlineEntries, type ChatOutlineEntry } from '@ui/conversations/chat-outline/outline-entries';
 import { useChatOutlineActiveIndex } from '@ui/conversations/chat-outline/useChatOutlineActiveIndex';
@@ -17,6 +18,7 @@ import {
   MARKDOWN_READING_PROFILE_STORAGE_KEY,
   normalizeStoredMarkdownReadingProfile,
 } from '@services/protocols/markdown-reading-profile-storage';
+import { conversationKinds } from '@services/protocols/conversation-kinds';
 
 function normalizeHttpUrl(raw: unknown): string {
   const text = String(raw || '').trim();
@@ -94,6 +96,15 @@ export function ConversationDetailPane({
   const outlineButtonClass = buttonTintClassName();
   const headerIconButtonClass = headerButtonClassName();
   const isArticle = isArticleConversationLike(selected);
+  const readerFeatures = conversationKinds.pick(selected as any)?.view.readerFeatures ?? {
+    textLayout: false,
+    theme: false,
+    narration: false,
+  };
+  useEffect(() => {
+    // dev-only: surface which renderer the detail pane delegates to
+    console.debug('[reader] renderer', isArticle ? 'article' : 'chat');
+  }, [isArticle]);
   const isChat = isChatConversationLike(selected);
   const containerPaddingClassName = 'tw-px-3 md:tw-px-4';
   const expandSidebarLabel = t('expandSidebar');
@@ -521,19 +532,36 @@ export function ConversationDetailPane({
             </div>
           ) : null}
 
-          <ChatDetailView
-            selected={selected}
-            activeId={activeId}
-            detail={detail}
-            isArticle={isArticle}
-            listError={listError}
-            loadingDetail={loadingDetail}
-            detailError={detailError}
-            markdownReadingProfile={markdownReadingProfile}
-            outlineIndexByMessageId={outlineIndexByMessageId}
-            getUserMessageRefSetter={getUserMessageRefSetter}
-            setMessagesRootRef={setMessagesRootRef}
-          />
+          {isArticle ? (
+            <ArticleReaderView
+              selected={selected}
+              activeId={activeId}
+              detail={detail}
+              isArticle={isArticle}
+              listError={listError}
+              loadingDetail={loadingDetail}
+              detailError={detailError}
+              markdownReadingProfile={markdownReadingProfile}
+              outlineIndexByMessageId={outlineIndexByMessageId}
+              getUserMessageRefSetter={getUserMessageRefSetter}
+              setMessagesRootRef={setMessagesRootRef}
+              readerFeatures={readerFeatures}
+            />
+          ) : (
+            <ChatDetailView
+              selected={selected}
+              activeId={activeId}
+              detail={detail}
+              isArticle={isArticle}
+              listError={listError}
+              loadingDetail={loadingDetail}
+              detailError={detailError}
+              markdownReadingProfile={markdownReadingProfile}
+              outlineIndexByMessageId={outlineIndexByMessageId}
+              getUserMessageRefSetter={getUserMessageRefSetter}
+              setMessagesRootRef={setMessagesRootRef}
+            />
+          )}
         </div>
       </section>
     </section>
