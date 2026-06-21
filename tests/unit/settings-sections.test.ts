@@ -114,8 +114,6 @@ describe('inpage anti-hotlink advanced editor', () => {
       busy: false,
       displayMode: 'supported',
       onChangeDisplayMode: () => {},
-      markdownReadingProfile: 'medium',
-      onChangeMarkdownReadingProfile: () => {},
       aiChatAutoSaveEnabled: true,
       onToggleAiChatAutoSaveEnabled: () => {},
       aiChatCacheImagesEnabled: true,

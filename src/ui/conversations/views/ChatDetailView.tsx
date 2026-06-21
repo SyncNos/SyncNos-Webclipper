@@ -1,13 +1,9 @@
 import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
 import { t } from '@i18n';
-import type { normalizeStoredMarkdownReadingProfile } from '@services/protocols/markdown-reading-profile-storage';
 import type { DetailViewSharedProps } from '@ui/conversations/views/detail-view-props';
-
-type MarkdownReadingProfile = ReturnType<typeof normalizeStoredMarkdownReadingProfile>;
 
 export type ChatDetailViewProps = DetailViewSharedProps & {
   listError?: string | null;
-  markdownReadingProfile: MarkdownReadingProfile;
   outlineIndexByMessageId: Map<number, number>;
   getUserMessageRefSetter: (messageId: number) => (node: HTMLDivElement | null) => void;
 };
@@ -24,7 +20,6 @@ export function ChatDetailView({
   listError,
   loadingDetail,
   detailError,
-  markdownReadingProfile,
   outlineIndexByMessageId,
   getUserMessageRefSetter,
   setMessagesRootRef,
@@ -64,7 +59,6 @@ export function ChatDetailView({
                     <ChatMessageBubble
                       role={(m as any).role}
                       markdown={text}
-                      readingProfile={markdownReadingProfile}
                       conversationId={
                         Number.isFinite(messageConversationId) && messageConversationId > 0
                           ? messageConversationId
@@ -80,7 +74,6 @@ export function ChatDetailView({
                   key={String((m as any).id)}
                   role={(m as any).role}
                   markdown={text}
-                  readingProfile={markdownReadingProfile}
                   conversationId={
                     Number.isFinite(messageConversationId) && messageConversationId > 0
                       ? messageConversationId

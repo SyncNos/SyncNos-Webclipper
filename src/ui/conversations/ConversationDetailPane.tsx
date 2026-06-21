@@ -12,12 +12,7 @@ import { DetailHeaderActionBar } from '@ui/conversations/DetailHeaderActionBar';
 import { buttonTintClassName, headerButtonClassName } from '@ui/shared/button-styles';
 import { tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { storageGet, storageOnChanged } from '@services/shared/storage';
 import { countWordsFromMessages } from '@services/shared/word-count';
-import {
-  MARKDOWN_READING_PROFILE_STORAGE_KEY,
-  normalizeStoredMarkdownReadingProfile,
-} from '@services/protocols/markdown-reading-profile-storage';
 import { conversationKinds } from '@services/protocols/conversation-kinds';
 
 function findRouteScrollRoot(messagesRoot: Element | null): Element | null {
@@ -168,7 +163,6 @@ export function ConversationDetailPane({
   const [urlCleaning, setUrlCleaning] = useState(false);
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const displayedUrl = String((selected as any)?.url || '').trim();
-  const [markdownReadingProfile, setMarkdownReadingProfile] = useState(() => normalizeStoredMarkdownReadingProfile(''));
   const wordCount = useMemo(() => {
     if (!selected) return null;
     if (!Array.isArray(detail?.messages) || !detail.messages.length) return null;
@@ -234,33 +228,6 @@ export function ConversationDetailPane({
     }, 10);
     return () => clearTimeout(timer);
   }, [urlEditing]);
-
-  useEffect(() => {
-    let disposed = false;
-
-    void storageGet([MARKDOWN_READING_PROFILE_STORAGE_KEY])
-      .then((res) => {
-        if (disposed) return;
-        setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(res?.[MARKDOWN_READING_PROFILE_STORAGE_KEY]));
-      })
-      .catch(() => {
-        if (disposed) return;
-        setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(''));
-      });
-
-    const unsubscribe = storageOnChanged((changes: any, areaName: string) => {
-      if (areaName !== 'local') return;
-      if (!changes || typeof changes !== 'object') return;
-      if (!Object.prototype.hasOwnProperty.call(changes, MARKDOWN_READING_PROFILE_STORAGE_KEY)) return;
-      const nextValue = changes[MARKDOWN_READING_PROFILE_STORAGE_KEY]?.newValue;
-      setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(nextValue));
-    });
-
-    return () => {
-      disposed = true;
-      unsubscribe();
-    };
-  }, []);
 
   const saveUrlDraft = async () => {
     await updateSelectedConversationUrl(String(urlDraft || ''));
@@ -520,7 +487,6 @@ export function ConversationDetailPane({
               listError={listError}
               loadingDetail={loadingDetail}
               detailError={detailError}
-              markdownReadingProfile={markdownReadingProfile}
               outlineIndexByMessageId={outlineIndexByMessageId}
               getUserMessageRefSetter={getUserMessageRefSetter}
               setMessagesRootRef={setMessagesRootRef}

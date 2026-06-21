@@ -30,8 +30,6 @@ import { conversationKinds } from '@services/protocols/conversation-kinds';
 import type { ConversationKindDbSpec } from '@services/protocols/conversation-kind-contract';
 import {
   MARKDOWN_READING_PROFILE_STORAGE_KEY,
-  buildMarkdownReadingProfileStoragePatch,
-  normalizeStoredMarkdownReadingProfile,
 } from '@services/protocols/markdown-reading-profile-storage';
 import {
   READER_PREFS_STORAGE_KEY,
@@ -278,7 +276,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   );
   const [antiHotlinkRuleErrors, setAntiHotlinkRuleErrors] = useState<AntiHotlinkRuleRowError[]>([]);
   const [aiChatDollarMentionEnabled, setAiChatDollarMentionEnabled] = useState<boolean>(true);
-  const [markdownReadingProfile, setMarkdownReadingProfile] = useState(() => normalizeStoredMarkdownReadingProfile(''));
   const [readerPrefs, setReaderPrefs] = useState<ReaderPrefs>(() => resolveReaderPrefsFromStorage(null));
   // Mirror latest prefs so updateReaderPrefs can merge patches without stale closures.
   const readerPrefsRef = useRef(readerPrefs);
@@ -425,7 +422,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setAntiHotlinkRules(Array.isArray(antiHotlinkRulesDraft) ? antiHotlinkRulesDraft : []);
     setAntiHotlinkRuleErrors([]);
     setAiChatDollarMentionEnabled(local?.ai_chat_dollar_mention_enabled !== false);
-    setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(local?.[MARKDOWN_READING_PROFILE_STORAGE_KEY]));
     // reader_prefs_v1 wins; falls back to migrating the legacy markdown reading profile.
     setReaderPrefs(resolveReaderPrefsFromStorage(local));
     setLastBackupExportAt(Number(local?.[LAST_BACKUP_EXPORT_AT_STORAGE_KEY] || 0) || 0);
@@ -486,10 +482,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       if (Object.prototype.hasOwnProperty.call(changes, FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY)) {
         const nextValue = changes[FEISHU_AUTO_SYNC_ENABLED_STORAGE_KEY]?.newValue;
         setFeishuAutoSyncEnabled(nextValue === true);
-      }
-      if (Object.prototype.hasOwnProperty.call(changes, MARKDOWN_READING_PROFILE_STORAGE_KEY)) {
-        const nextValue = changes[MARKDOWN_READING_PROFILE_STORAGE_KEY]?.newValue;
-        setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(nextValue));
       }
       if (Object.prototype.hasOwnProperty.call(changes, READER_PREFS_STORAGE_KEY)) {
         const nextValue = changes[READER_PREFS_STORAGE_KEY]?.newValue;
@@ -1178,20 +1170,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     [runTask],
   );
 
-  const onChangeMarkdownReadingProfile = useCallback(
-    async (next: unknown) => {
-      const normalized = normalizeStoredMarkdownReadingProfile(next);
-      await runTask(
-        async () => {
-          await storageSet(buildMarkdownReadingProfileStoragePatch(normalized));
-          setMarkdownReadingProfile(normalized);
-        },
-        { fallbackMessage: 'save markdown reading profile failed' },
-      );
-    },
-    [runTask],
-  );
-
   const updateReaderPrefs = useCallback(
     async (patch: Partial<ReaderPrefs>) => {
       const base = readerPrefsRef.current;
@@ -1563,8 +1541,6 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     onResetAntiHotlinkRules,
     aiChatDollarMentionEnabled,
     onToggleAiChatDollarMentionEnabled,
-    markdownReadingProfile,
-    onChangeMarkdownReadingProfile,
     readerPrefs,
     updateReaderPrefs,
 
