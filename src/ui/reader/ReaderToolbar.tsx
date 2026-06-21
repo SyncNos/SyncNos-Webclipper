@@ -7,7 +7,9 @@ import { t } from '@i18n';
 import { TextLayoutPanel } from '@ui/reader/TextLayoutPanel';
 import { ThemePanel } from '@ui/reader/ThemePanel';
 import { NarrationPanel } from '@ui/reader/NarrationPanel';
+import { ArticleOutlineMinimap, type ArticleOutlineMinimapState } from '@ui/reader/ArticleOutlineMinimap';
 import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
+import type { ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
 import type { ReaderPrefs } from '@services/protocols/reader-prefs';
 import type { ReaderTtsState } from '@services/reader/tts/reader-tts-engine';
 
@@ -33,16 +35,20 @@ export type ReaderToolbarProps = {
   prefs: ReaderPrefs;
   update: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
   narration: ReaderToolbarNarration;
+  outline?: (ArticleOutlineMinimapState & {
+    onPickEntry: (entry: ReaderOutlineDomEntry) => void;
+  }) | null;
   className?: string;
 };
 
-type OpenPanel = 'text' | 'theme' | 'narration' | null;
+type OpenPanel = 'text' | 'theme' | 'narration' | 'outline' | null;
 
 const LABELS = {
   toolbarAria: t('readerToolbarAria'),
   text: t('readerTextLayoutButton'),
   theme: t('readerThemeButton'),
   narration: t('readerNarrationButton'),
+  outline: '目录',
   play: t('readerNarrationPlay'),
   reading: t('readerNarrationReading'),
   pause: t('readerNarrationPause'),
@@ -67,7 +73,7 @@ const narrationTransportButtonClassName = (active: boolean) =>
  * read-aloud. The rail is vertical, the panels float left on desktop and drop
  * below on narrow screens, and only one panel can be open at a time.
  */
-export function ReaderToolbar({ features, prefs, update, narration, className }: ReaderToolbarProps) {
+export function ReaderToolbar({ features, prefs, update, narration, outline, className }: ReaderToolbarProps) {
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const narrow = useIsNarrowScreen({ breakpointPx: 720 });
@@ -123,12 +129,18 @@ export function ReaderToolbar({ features, prefs, update, narration, className }:
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [clearCloseTimer, openPanel]);
 
-  if (!features.textLayout && !features.theme && !features.narration) return null;
+  if (!features.textLayout && !features.theme && !features.narration && !outline?.entries.length) return null;
 
   const narrationTriggerActive = openPanel === 'narration' || narration.isPlaying || narration.state === 'loading';
   const narrationActionLabel =
     narration.state === 'loading' ? LABELS.reading : narration.isPlaying ? LABELS.pause : LABELS.play;
   const NarrationActionIcon = narration.state === 'loading' || narration.isPlaying ? Pause : Play;
+  const handleOutlinePick = outline
+    ? (entry: ReaderOutlineDomEntry) => {
+        outline.onPickEntry(entry);
+        setOpenPanel(null);
+      }
+    : null;
 
   return (
     <div
@@ -252,6 +264,21 @@ export function ReaderToolbar({ features, prefs, update, narration, className }:
             />
           </div>
         </ReaderRailPanel>
+      ) : null}
+
+      {outline?.entries.length ? (
+        handleOutlinePick ? (
+          <ArticleOutlineMinimap
+            entries={outline.entries}
+            activeIndex={outline.activeIndex}
+            open={openPanel === 'outline'}
+            narrow={narrow}
+            className="tw-mt-2 tw-pt-2 tw-border-t tw-border-[var(--border)]"
+            onMouseEnter={() => openNow('outline')}
+            onMouseLeave={scheduleClose}
+            onPickEntry={handleOutlinePick}
+          />
+        ) : null
       ) : null}
     </div>
   );

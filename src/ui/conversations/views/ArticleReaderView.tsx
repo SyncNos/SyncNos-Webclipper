@@ -15,6 +15,8 @@ import {
   type ReaderSentenceCandidate,
   type ReaderSentenceRectLike,
 } from '@ui/reader/reader-sentence-dom';
+import { useArticleOutlineMinimap } from '@ui/reader/ArticleOutlineMinimap';
+import type { ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
 import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
 import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
 import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
@@ -151,11 +153,13 @@ export function ArticleReaderView({
   // the rendered DOM keeps the engine's sentence offsets aligned with the text
   // nodes we highlight below.
   const narrationRootRef = useRef<HTMLDivElement | null>(null);
+  const [outlineRoot, setOutlineRoot] = useState<HTMLDivElement | null>(null);
   const lastHighlightRef = useRef<HTMLElement | null>(null);
   const sourceFromDomRef = useRef('');
   const activeSentenceRef = useRef<ReaderTtsSentence | null>(null);
   const [narrationSource, setNarrationSource] = useState('');
   const [sentenceDomRevision, setSentenceDomRevision] = useState(0);
+  const outline = useArticleOutlineMinimap(outlineRoot);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
 
@@ -193,6 +197,7 @@ export function ArticleReaderView({
   const assignMessagesRoot = useCallback(
     (node: HTMLDivElement | null) => {
       narrationRootRef.current = node;
+      setOutlineRoot(node);
       const ref = setMessagesRootRef as unknown;
       if (typeof ref === 'function') {
         (ref as (value: HTMLDivElement | null) => void)(node);
@@ -201,6 +206,25 @@ export function ArticleReaderView({
       }
     },
     [setMessagesRootRef],
+  );
+
+  const handleOutlinePick = useCallback((entry: ReaderOutlineDomEntry) => {
+    try {
+      entry.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (_error) {
+      entry.element.scrollIntoView();
+    }
+  }, []);
+
+  const outlinePayload = useMemo(
+    () =>
+      outline.entries.length
+        ? {
+            ...outline,
+            onPickEntry: handleOutlinePick,
+          }
+        : null,
+    [handleOutlinePick, outline],
   );
 
   // Capture the rendered article text whenever the messages change.
@@ -399,7 +423,13 @@ export function ArticleReaderView({
       </div>
 
       <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
-        <ReaderToolbar features={features} prefs={prefs} update={update} narration={toolbarNarration} />
+        <ReaderToolbar
+          features={features}
+          prefs={prefs}
+          update={update}
+          narration={toolbarNarration}
+          outline={outlinePayload}
+        />
       </aside>
     </div>
   );
