@@ -239,6 +239,7 @@ describe('ReaderTtsEngine (Web tier)', () => {
 type FakeAudio = {
   src: string;
   paused: boolean;
+  playCount: number;
   play: () => Promise<void>;
   pause: () => void;
   onended: (() => void) | null;
@@ -275,8 +276,10 @@ function aiHarness(opts: { ok?: boolean; status?: number } = {}) {
     createAudio: (src: string) => {
       const audio: FakeAudio = {
         src,
-        paused: false,
+        paused: true,
+        playCount: 0,
         play: () => {
+          audio.playCount += 1;
           audio.paused = false;
           return Promise.resolve();
         },
@@ -292,6 +295,16 @@ function aiHarness(opts: { ok?: boolean; status?: number } = {}) {
   };
 
   return { deps, fetchCalls, created, revoked, audios };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
 }
 
 const aiPrefs = (overrides: Record<string, unknown> = {}) => ({
@@ -399,6 +412,68 @@ describe('ReaderTtsEngine (AI tier)', () => {
     engine.resume();
     expect(engine.getState()).toBe('playing');
     expect(h.audios[0].paused).toBe(false);
+    expect(h.audios[0].playCount).toBe(2);
+  });
+
+  it('pause() during AI loading prevents late auto-play until resume()', async () => {
+    const fetchGate = deferred<any>();
+    const h = aiHarness();
+    const engine = new ReaderTtsEngine(
+      aiPrefs(),
+      {},
+      {
+        ...h.deps,
+        fetch: (_url: string, init?: any) => {
+          h.fetchCalls.push({ url: 'http://localhost:8880/v1/audio/speech', init });
+          return fetchGate.promise;
+        },
+      } as any,
+    );
+    engine.load('Hello.');
+    const done = engine.play();
+    expect(engine.getState()).toBe('loading');
+
+    engine.pause();
+    expect(engine.getState()).toBe('paused');
+
+    fetchGate.resolve({
+      ok: true,
+      status: 200,
+      blob: async () => ({ size: 3, type: 'audio/ogg' }),
+      text: async () => '',
+    });
+    await tick();
+    await tick();
+
+    expect(h.audios).toHaveLength(1);
+    expect(h.audios[0].playCount).toBe(0);
+    expect(h.audios[0].paused).toBe(true);
+    expect(engine.getState()).toBe('paused');
+
+    engine.resume();
+    expect(engine.getState()).toBe('playing');
+    expect(h.audios[0].playCount).toBe(1);
+    expect(h.audios[0].paused).toBe(false);
+
+    h.audios[0].onended?.();
+    await done;
+    expect(engine.getState()).toBe('idle');
+  });
+
+  it('stop() settles an in-flight AI audio promise without advancing', async () => {
+    const h = aiHarness();
+    const engine = new ReaderTtsEngine(aiPrefs(), {}, h.deps as any);
+    engine.load('Hello. World.');
+    const done = engine.play();
+    await tick();
+    expect(h.audios).toHaveLength(1);
+
+    engine.stop();
+    await done;
+
+    expect(engine.getState()).toBe('idle');
+    expect(h.fetchCalls).toHaveLength(1);
+    expect(h.revoked).toContain(h.created[0]);
   });
 
   it('reports an error and stays idle when no endpoint is configured', async () => {

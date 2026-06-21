@@ -154,7 +154,7 @@ export function useReaderNarration(
   const toggle = useCallback(() => {
     const engine = engineRef.current;
     if (!engine) return;
-    if (engine.getState() === 'playing') engine.pause();
+    if (engine.getState() === 'playing' || engine.getState() === 'loading') engine.pause();
     else void engine.play();
   }, []);
 

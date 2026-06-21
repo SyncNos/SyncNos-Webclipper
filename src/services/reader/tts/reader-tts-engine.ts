@@ -186,6 +186,8 @@ export class ReaderTtsEngine {
   private currentAbort: AbortController | null = null;
   private currentAudio: HtmlAudioLike | null = null;
   private currentObjectUrl: string | null = null;
+  private currentAudioSettle: ((error?: Error) => void) | null = null;
+  private aiShouldAutoplay = true;
 
   constructor(prefs: ReaderTtsPrefs, listeners: ReaderTtsListeners = {}, deps: ReaderTtsDeps = {}) {
     this.prefs = prefs;
@@ -229,11 +231,13 @@ export class ReaderTtsEngine {
   }
 
   pause(): void {
-    if (this.state !== 'playing') return;
+    if (this.state !== 'playing' && this.state !== 'loading') return;
     // The AI tier plays an HTMLAudio element; the Web tier drives speechSynthesis.
     if (this.prefs.engine === 'ai') {
+      this.aiShouldAutoplay = false;
       this.currentAudio?.pause();
     } else {
+      if (this.state !== 'playing') return;
       this.getSynth()?.pause();
     }
     this.setState('paused');
@@ -242,16 +246,27 @@ export class ReaderTtsEngine {
   resume(): void {
     if (this.state !== 'paused') return;
     if (this.prefs.engine === 'ai') {
-      void this.currentAudio?.play();
+      this.aiShouldAutoplay = true;
+      if (this.currentAudio) {
+        this.setState('playing');
+        this.startCurrentAudioPlayback();
+        return;
+      }
+      if (this.currentAbort) {
+        this.setState('loading');
+        return;
+      }
     } else {
       this.getSynth()?.resume();
+      this.setState('playing');
+      return;
     }
-    this.setState('playing');
   }
 
   stop(): void {
     // Invalidate any in-flight narration loop before cancelling the synth.
     this.generation += 1;
+    this.aiShouldAutoplay = true;
     try {
       this.getSynth()?.cancel();
     } catch (_e) {
@@ -260,7 +275,7 @@ export class ReaderTtsEngine {
     // Abort any in-flight AI request and release the current audio + object URL.
     this.currentAbort?.abort();
     this.currentAbort = null;
-    this.teardownAudio();
+    this.cancelCurrentAudio(new Error('AI playback cancelled'));
     if (this.state !== 'idle') {
       this.setState('idle');
       this.emitSentence(-1);
@@ -277,7 +292,6 @@ export class ReaderTtsEngine {
 
   private async speakFromCursor(): Promise<void> {
     const generation = ++this.generation;
-    this.setState('playing');
     while (!this.disposed && generation === this.generation && this.cursor < this.sentences.length) {
       const sentence = this.sentences[this.cursor];
       this.emitSentence(this.cursor);
@@ -309,6 +323,7 @@ export class ReaderTtsEngine {
         reject(new Error('Web Speech API unavailable'));
         return;
       }
+      this.setState('playing');
       const utter = this.createUtterance(text);
       utter.rate = this.prefs.rate;
       if (this.prefs.webVoiceURI) {
@@ -329,6 +344,8 @@ export class ReaderTtsEngine {
     let endpoint = this.prefs.aiEndpoint || '';
     while (endpoint.endsWith('/')) endpoint = endpoint.slice(0, -1);
     if (!endpoint) throw new Error('AI endpoint not configured');
+    this.aiShouldAutoplay = true;
+    this.setState('loading');
     const controller = new AbortController();
     this.currentAbort = controller;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -366,6 +383,15 @@ export class ReaderTtsEngine {
   /** Play one fully-downloaded audio blob, releasing the object URL on every exit. */
   private playBlob(blob: BlobLike): Promise<void> {
     return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const settle = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        if (this.currentAudioSettle === settle) this.currentAudioSettle = null;
+        this.teardownAudio();
+        if (error) reject(error);
+        else resolve();
+      };
       let objectUrl: string;
       try {
         objectUrl = this.createObjectURL(blob);
@@ -376,27 +402,43 @@ export class ReaderTtsEngine {
       this.currentObjectUrl = objectUrl;
       const audio = this.createAudio(objectUrl);
       this.currentAudio = audio;
+      this.currentAudioSettle = settle;
       audio.onended = () => {
-        this.teardownAudio();
-        resolve();
+        settle();
       };
       audio.onerror = () => {
-        this.teardownAudio();
-        reject(new Error('Audio playback failed'));
+        settle(new Error('Audio playback failed'));
       };
-      try {
-        const started = audio.play();
-        if (started && typeof (started as Promise<void>).then === 'function') {
-          (started as Promise<void>).catch((error) => {
-            this.teardownAudio();
-            reject(error instanceof Error ? error : new Error(String(error)));
-          });
-        }
-      } catch (error) {
-        this.teardownAudio();
-        reject(error instanceof Error ? error : new Error(String(error)));
+      if (this.aiShouldAutoplay) {
+        this.setState('playing');
+        this.startCurrentAudioPlayback(settle);
       }
     });
+  }
+
+  private startCurrentAudioPlayback(onError?: (error?: Error) => void): void {
+    const audio = this.currentAudio;
+    if (!audio) return;
+    try {
+      const started = audio.play();
+      if (started && typeof (started as Promise<void>).then === 'function') {
+        (started as Promise<void>).catch((error) => {
+          onError?.(error instanceof Error ? error : new Error(String(error)));
+        });
+      }
+    } catch (error) {
+      onError?.(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private cancelCurrentAudio(error: Error): void {
+    const settle = this.currentAudioSettle;
+    if (settle) {
+      this.currentAudioSettle = null;
+      settle(error);
+      return;
+    }
+    this.teardownAudio();
   }
 
   /** Release the current HTMLAudio + object URL. Safe to call repeatedly. */
@@ -411,6 +453,7 @@ export class ReaderTtsEngine {
       this.currentAudio.onerror = null;
       this.currentAudio = null;
     }
+    this.currentAudioSettle = null;
     if (this.currentObjectUrl) {
       try {
         this.revokeObjectURL(this.currentObjectUrl);
