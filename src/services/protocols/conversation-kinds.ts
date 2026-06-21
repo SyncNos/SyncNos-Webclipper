@@ -167,6 +167,7 @@ const chatKind: ConversationKindDefinition = {
   view: {
     renderer: 'chat',
     readerFeatures: { textLayout: false, theme: false, narration: false },
+    commentsSidebar: false,
   },
 };
 
@@ -219,6 +220,7 @@ const articleKind: ConversationKindDefinition = {
   view: {
     renderer: 'article',
     readerFeatures: { textLayout: true, theme: true, narration: true },
+    commentsSidebar: true,
   },
 };
 
@@ -284,6 +286,7 @@ const videoKind: ConversationKindDefinition = {
   view: {
     renderer: 'article',
     readerFeatures: { textLayout: true, theme: true, narration: true },
+    commentsSidebar: false,
   },
 };
 

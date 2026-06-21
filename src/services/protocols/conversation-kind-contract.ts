@@ -23,6 +23,7 @@ export type ConversationKindDefinition = {
       theme: boolean;
       narration: boolean;
     };
+    commentsSidebar: boolean;
   };
 };
 
@@ -84,6 +85,9 @@ export function assertKindDef(definition: unknown): ConversationKindDefinition {
     if (typeof (readerFeatures as Record<string, unknown>)[feature] !== 'boolean') {
       throw new Error(`kind ${normalized.id} view.readerFeatures.${feature} must be boolean`);
     }
+  }
+  if (typeof normalized.view.commentsSidebar !== 'boolean') {
+    throw new Error(`kind ${normalized.id} view.commentsSidebar must be boolean`);
   }
 
   return normalized as ConversationKindDefinition;

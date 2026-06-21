@@ -8,6 +8,7 @@ describe('conversation kind view facet', () => {
     expect(def).not.toBeNull();
     expect(def?.id).toBe('chat');
     expect(def?.view.renderer).toBe('chat');
+    expect(def?.view.commentsSidebar).toBe(false);
     expect(def?.view.readerFeatures).toEqual({
       textLayout: false,
       theme: false,
@@ -19,6 +20,7 @@ describe('conversation kind view facet', () => {
     const def = conversationKinds.pick({ sourceType: 'article' });
     expect(def?.id).toBe('article');
     expect(def?.view.renderer).toBe('article');
+    expect(def?.view.commentsSidebar).toBe(true);
     expect(def?.view.readerFeatures).toEqual({
       textLayout: true,
       theme: true,
@@ -30,6 +32,7 @@ describe('conversation kind view facet', () => {
     const def = conversationKinds.pick({ sourceType: 'video' });
     expect(def?.id).toBe('video');
     expect(def?.view.renderer).toBe('article');
+    expect(def?.view.commentsSidebar).toBe(false);
     expect(def?.view.readerFeatures).toEqual({
       textLayout: true,
       theme: true,
@@ -40,6 +43,7 @@ describe('conversation kind view facet', () => {
   it('every registered kind declares a valid view facet', () => {
     for (const def of conversationKinds.list()) {
       expect(['chat', 'article']).toContain(def.view.renderer);
+      expect(typeof def.view.commentsSidebar).toBe('boolean');
       expect(typeof def.view.readerFeatures.textLayout).toBe('boolean');
       expect(typeof def.view.readerFeatures.theme).toBe('boolean');
       expect(typeof def.view.readerFeatures.narration).toBe('boolean');
