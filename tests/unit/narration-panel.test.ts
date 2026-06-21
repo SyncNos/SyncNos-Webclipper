@@ -149,9 +149,11 @@ describe('NarrationPanel', () => {
     expect(rateButtons).toEqual(['0.8x', '1x', '1.25x', '1.5x', '2x']);
     expect(document.querySelector('[aria-pressed="true"]')?.textContent).toBe('1.25x');
 
-    (Array.from(document.querySelectorAll('button')).find((button) => button.textContent === '0.8x') as
-      | HTMLButtonElement
-      | undefined)?.click();
+    (
+      Array.from(document.querySelectorAll('button')).find((button) => button.textContent === '0.8x') as
+        | HTMLButtonElement
+        | undefined
+    )?.click();
 
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({

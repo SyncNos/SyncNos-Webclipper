@@ -19,7 +19,11 @@ function normalizeHeadingText(text: string): string {
 }
 
 function readHeadingLevel(tagName: string): ReaderOutlineLevel | null {
-  const match = /^H([1-3])$/.exec(String(tagName || '').trim().toUpperCase());
+  const match = /^H([1-3])$/.exec(
+    String(tagName || '')
+      .trim()
+      .toUpperCase(),
+  );
   if (!match) return null;
   return Number(match[1]) as ReaderOutlineLevel;
 }

@@ -35,9 +35,11 @@ export type ReaderToolbarProps = {
   prefs: ReaderPrefs;
   update: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
   narration: ReaderToolbarNarration;
-  outline?: (ArticleOutlineMinimapState & {
-    onPickEntry: (entry: ReaderOutlineDomEntry) => void;
-  }) | null;
+  outline?:
+    | (ArticleOutlineMinimapState & {
+        onPickEntry: (entry: ReaderOutlineDomEntry) => void;
+      })
+    | null;
   className?: string;
 };
 

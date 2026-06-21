@@ -1,13 +1,11 @@
+/* eslint-disable react/prop-types */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 
 import { buildReaderOutlineDomEntries, type ReaderOutlineDomEntry } from '../../src/ui/reader/article-outline-dom';
-import {
-  ArticleOutlineMinimap,
-  useArticleOutlineMinimap,
-} from '../../src/ui/reader/ArticleOutlineMinimap';
+import { ArticleOutlineMinimap, useArticleOutlineMinimap } from '../../src/ui/reader/ArticleOutlineMinimap';
 import { readerOutlineLevelToMinimapWidth } from '../../src/services/protocols/reader-outline';
 
 function setupDom(width = 1024, height = 600) {

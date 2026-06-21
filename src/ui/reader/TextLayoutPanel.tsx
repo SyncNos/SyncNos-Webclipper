@@ -62,7 +62,11 @@ export function TextLayoutPanel({ prefs, update, className }: TextLayoutPanelPro
   return (
     <div className={['tw-flex tw-flex-col tw-gap-3', className].filter(Boolean).join(' ')}>
       <Row label={t('readerTextPreset')}>
-        <button type="button" className={buttonTintClassName()} onClick={() => void update({ ...DEFAULT_READER_TYPOGRAPHY_PRESET })}>
+        <button
+          type="button"
+          className={buttonTintClassName()}
+          onClick={() => void update({ ...DEFAULT_READER_TYPOGRAPHY_PRESET })}
+        >
           {t('reset')}
         </button>
       </Row>

@@ -172,14 +172,20 @@ export function useReaderNarration(
     publishNarrationStats(s);
   }, []);
 
-  const play = useCallback((fromIndex?: number) => {
-    clearNarrationError();
-    void engineRef.current?.play(fromIndex);
-  }, [clearNarrationError]);
-  const seek = useCallback((index: number) => {
-    clearNarrationError();
-    engineRef.current?.seek(index);
-  }, [clearNarrationError]);
+  const play = useCallback(
+    (fromIndex?: number) => {
+      clearNarrationError();
+      void engineRef.current?.play(fromIndex);
+    },
+    [clearNarrationError],
+  );
+  const seek = useCallback(
+    (index: number) => {
+      clearNarrationError();
+      engineRef.current?.seek(index);
+    },
+    [clearNarrationError],
+  );
   const pause = useCallback(() => {
     engineRef.current?.pause();
   }, []);
@@ -188,28 +194,31 @@ export function useReaderNarration(
     engineRef.current?.stop();
     clearNarrationCursor();
   }, [clearNarrationCursor, clearNarrationError]);
-  const toggle = useCallback((firstVisibleIndex?: number) => {
-    const engine = engineRef.current;
-    if (!engine) return;
-    const state = engine.getState();
-    if (state === 'playing' || state === 'loading') {
+  const toggle = useCallback(
+    (firstVisibleIndex?: number) => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      const state = engine.getState();
+      if (state === 'playing' || state === 'loading') {
+        clearNarrationError();
+        engine.pause();
+        return;
+      }
+      if (state === 'paused') {
+        clearNarrationError();
+        engine.resume();
+        return;
+      }
       clearNarrationError();
-      engine.pause();
-      return;
-    }
-    if (state === 'paused') {
-      clearNarrationError();
-      engine.resume();
-      return;
-    }
-    clearNarrationError();
-    if (engine.getHasCursor()) {
-      void engine.play(engine.getActiveIndex());
-      return;
-    }
-    const fallback = Number.isFinite(firstVisibleIndex) ? Math.max(0, Math.trunc(firstVisibleIndex ?? 0)) : 0;
-    void engine.play(fallback);
-  }, [clearNarrationError]);
+      if (engine.getHasCursor()) {
+        void engine.play(engine.getActiveIndex());
+        return;
+      }
+      const fallback = Number.isFinite(firstVisibleIndex) ? Math.max(0, Math.trunc(firstVisibleIndex ?? 0)) : 0;
+      void engine.play(fallback);
+    },
+    [clearNarrationError],
+  );
 
   // Web Speech availability gates the engine picker / fallback affordance in the UI.
   const webSpeechAvailable = useMemo(() => {

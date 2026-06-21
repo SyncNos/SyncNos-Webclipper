@@ -78,7 +78,11 @@ function collectSentenceTextSegments(root: HTMLElement): ReaderSentenceTextSegme
   return segments;
 }
 
-function resolvePointAtOffset(segments: ReaderSentenceTextSegment[], offset: number, preferEnd: boolean): ReaderSentencePoint | null {
+function resolvePointAtOffset(
+  segments: ReaderSentenceTextSegment[],
+  offset: number,
+  preferEnd: boolean,
+): ReaderSentencePoint | null {
   if (!segments.length || !Number.isFinite(offset) || offset < 0) return null;
 
   const totalLength = segments[segments.length - 1]?.end ?? 0;
@@ -149,12 +153,7 @@ export function findReaderSentenceElementAtOffset(
 
 export function findReaderSentenceIndexFromTarget(target: EventTarget | null): number | null {
   if (!target) return null;
-  const element =
-    target instanceof Element
-      ? target
-      : target instanceof Node
-        ? target.parentElement
-        : null;
+  const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
   const decorated = element?.closest('[data-reader-sentence-index]') ?? null;
   if (!decorated) return null;
   const raw = decorated.getAttribute('data-reader-sentence-index');
@@ -162,7 +161,10 @@ export function findReaderSentenceIndexFromTarget(target: EventTarget | null): n
   return Number.isFinite(parsed) && parsed >= 0 ? Math.trunc(parsed) : null;
 }
 
-export function pickFirstVisibleSentenceIndex(items: ReaderSentenceCandidate[], viewportRect: ReaderSentenceRectLike): number {
+export function pickFirstVisibleSentenceIndex(
+  items: ReaderSentenceCandidate[],
+  viewportRect: ReaderSentenceRectLike,
+): number {
   const candidates = normalizeCandidates(items);
   const viewport = normalizeRect(viewportRect);
   if (!candidates.length || !viewport) return 0;

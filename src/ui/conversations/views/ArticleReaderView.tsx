@@ -3,10 +3,7 @@ import type { CSSProperties } from 'react';
 
 import { t } from '@i18n';
 import { readerPrefsToCssVars } from '@services/protocols/reader-prefs';
-import {
-  buildSentences,
-  type ReaderTtsSentence,
-} from '@services/reader/tts/reader-tts-engine';
+import { buildSentences, type ReaderTtsSentence } from '@services/reader/tts/reader-tts-engine';
 import type { DetailViewSharedProps } from '@ui/conversations/views/detail-view-props';
 import {
   findReaderSentenceIndexFromTarget,

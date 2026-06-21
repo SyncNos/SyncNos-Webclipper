@@ -21,7 +21,8 @@ const PANEL_BASE_CLASS = [
   'tw-w-[300px] tw-max-w-[78vw]',
 ].join(' ');
 
-const PANEL_TITLE_CLASS = 'tw-mb-3 tw-flex tw-items-center tw-justify-between tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]';
+const PANEL_TITLE_CLASS =
+  'tw-mb-3 tw-flex tw-items-center tw-justify-between tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]';
 
 const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-3';
 

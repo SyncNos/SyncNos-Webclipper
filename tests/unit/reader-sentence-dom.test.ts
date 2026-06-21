@@ -42,7 +42,8 @@ describe('reader-sentence DOM helpers', () => {
   });
 
   it('maps sentence offsets to DOM ranges and highlightable elements', () => {
-    document.body.innerHTML = '<article id="article"><p>Hello <a href="/hello">world</a>!</p><p>Next line。</p></article>';
+    document.body.innerHTML =
+      '<article id="article"><p>Hello <a href="/hello">world</a>!</p><p>Next line。</p></article>';
 
     const article = document.getElementById('article') as HTMLElement;
     const sentences = buildSentences(article.textContent ?? '');
