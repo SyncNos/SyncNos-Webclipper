@@ -33,6 +33,13 @@ import {
   buildMarkdownReadingProfileStoragePatch,
   normalizeStoredMarkdownReadingProfile,
 } from '@services/protocols/markdown-reading-profile-storage';
+import {
+  READER_PREFS_STORAGE_KEY,
+  normalizeReaderPrefs,
+  resolveReaderPrefsFromStorage,
+  buildReaderPrefsStoragePatch,
+  type ReaderPrefs,
+} from '@services/protocols/reader-prefs';
 import { send } from '@services/shared/runtime';
 import { storageGet, storageOnChanged, storageRemove, storageSet } from '@services/shared/storage';
 import { openOrFocusExtensionAppTab } from '@services/shared/webext';
@@ -272,6 +279,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
   const [antiHotlinkRuleErrors, setAntiHotlinkRuleErrors] = useState<AntiHotlinkRuleRowError[]>([]);
   const [aiChatDollarMentionEnabled, setAiChatDollarMentionEnabled] = useState<boolean>(true);
   const [markdownReadingProfile, setMarkdownReadingProfile] = useState(() => normalizeStoredMarkdownReadingProfile(''));
+  const [readerPrefs, setReaderPrefs] = useState<ReaderPrefs>(() => resolveReaderPrefsFromStorage(null));
+  // Mirror latest prefs so updateReaderPrefs can merge patches without stale closures.
+  const readerPrefsRef = useRef(readerPrefs);
+  readerPrefsRef.current = readerPrefs;
 
   // Chat with AI
   const [chatWithPromptTemplate, setChatWithPromptTemplate] = useState<string>(DEFAULT_CHAT_WITH_PROMPT_TEMPLATE);
@@ -355,6 +366,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
         ANTI_HOTLINK_RULES_SETTINGS_STORAGE_KEY,
         'ai_chat_dollar_mention_enabled',
         MARKDOWN_READING_PROFILE_STORAGE_KEY,
+        READER_PREFS_STORAGE_KEY,
         LAST_BACKUP_EXPORT_AT_STORAGE_KEY,
         ABOUT_YOU_USER_NAME_STORAGE_KEY,
       ]),
@@ -414,6 +426,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setAntiHotlinkRuleErrors([]);
     setAiChatDollarMentionEnabled(local?.ai_chat_dollar_mention_enabled !== false);
     setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(local?.[MARKDOWN_READING_PROFILE_STORAGE_KEY]));
+    // reader_prefs_v1 wins; falls back to migrating the legacy markdown reading profile.
+    setReaderPrefs(resolveReaderPrefsFromStorage(local));
     setLastBackupExportAt(Number(local?.[LAST_BACKUP_EXPORT_AT_STORAGE_KEY] || 0) || 0);
     setAboutYouUserName(normalizeUserName(local?.[ABOUT_YOU_USER_NAME_STORAGE_KEY]));
 
@@ -476,6 +490,10 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
       if (Object.prototype.hasOwnProperty.call(changes, MARKDOWN_READING_PROFILE_STORAGE_KEY)) {
         const nextValue = changes[MARKDOWN_READING_PROFILE_STORAGE_KEY]?.newValue;
         setMarkdownReadingProfile(normalizeStoredMarkdownReadingProfile(nextValue));
+      }
+      if (Object.prototype.hasOwnProperty.call(changes, READER_PREFS_STORAGE_KEY)) {
+        const nextValue = changes[READER_PREFS_STORAGE_KEY]?.newValue;
+        setReaderPrefs(normalizeReaderPrefs(nextValue));
       }
       if (Object.prototype.hasOwnProperty.call(changes, ANTI_HOTLINK_RULES_SETTINGS_STORAGE_KEY)) {
         void refresh();
@@ -1174,6 +1192,27 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     [runTask],
   );
 
+  const updateReaderPrefs = useCallback(
+    async (patch: Partial<ReaderPrefs>) => {
+      const base = readerPrefsRef.current;
+      const merged = normalizeReaderPrefs({
+        ...base,
+        ...patch,
+        tts: { ...base.tts, ...(patch.tts ?? {}) },
+      });
+      // dev observability: which prefs keys changed (no values, no PII)
+      console.debug('[reader] prefs update', Object.keys(patch ?? {}));
+      await runTask(
+        async () => {
+          await storageSet(buildReaderPrefsStoragePatch(merged));
+          setReaderPrefs(merged);
+        },
+        { fallbackMessage: 'save reader prefs failed' },
+      );
+    },
+    [runTask],
+  );
+
   const onSaveChatWithSettings = useCallback(async () => {
     if (!chatWithHydratedRef.current) return;
 
@@ -1526,6 +1565,8 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     onToggleAiChatDollarMentionEnabled,
     markdownReadingProfile,
     onChangeMarkdownReadingProfile,
+    readerPrefs,
+    updateReaderPrefs,
 
     insightStats,
     insightLoading,
