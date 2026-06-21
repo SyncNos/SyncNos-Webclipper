@@ -297,7 +297,7 @@ describe('ArticleReaderView sentence interactions', () => {
     await flushDom();
 
     const spans = getSentenceSpans();
-    setRect(document.documentElement, { top: 0, bottom: 100 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100 });
     setRect(spans[0], { top: 120, bottom: 160 });
     setRect(spans[1], { top: 20, bottom: 60 });
 

@@ -92,10 +92,10 @@ function decorateReaderSentenceSpans(root: HTMLElement, source: string, sentence
 }
 
 function readReaderSentenceViewportRect(root: HTMLElement): ReaderSentenceRectLike {
-  const docEl = root.ownerDocument?.documentElement ?? null;
-  const rect = docEl?.getBoundingClientRect?.() ?? null;
-  if (!rect) return { top: 0, bottom: 0 };
-  return { top: rect.top, bottom: rect.bottom };
+  const view = root.ownerDocument?.defaultView ?? globalThis.window ?? null;
+  const height = Number(view?.innerHeight);
+  if (!Number.isFinite(height) || height <= 0) return { top: 0, bottom: 0 };
+  return { top: 0, bottom: height };
 }
 
 function readReaderSentenceCandidates(root: HTMLElement): ReaderSentenceCandidate[] {
