@@ -1,4 +1,4 @@
-# Reader three-piece — acceptance criteria (P6)
+# Reader three-piece — acceptance criteria (P4)
 
 This document is the acceptance checklist for the SyncNos "reader three-piece"
 feature: a **Text & layout** panel, a **Theme** panel, and a **Read aloud**
@@ -6,7 +6,7 @@ feature: a **Text & layout** panel, a **Theme** panel, and a **Read aloud**
 reader-style views (article / video script), never on AI chat.
 
 > Status legend: ✅ verified offline · 🟡 deferred to a real Firefox build/profile
-> on Chii's machine (no network / no `npm install` in the sandbox).
+> on Chii's machine.
 
 ## 1. Scope & layering
 
@@ -85,10 +85,16 @@ reader-style views (article / video script), never on AI chat.
 
 ## 9. Tests
 
-- `tests/reader-tts-engine.test.ts`: 19/19 pass offline (protocol + DI + mocks,
+- `tests/reader-tts-engine.test.ts`: 21/21 pass offline (protocol + DI + mocks,
   no real Web APIs). ✅
-- 🟡 `gate:ci` / `build:firefox` and a full Firefox profile smoke test run on
-  Chii's machine.
+- `tests/unit/use-reader-narration.test.ts`: asserts the published
+  `__syncnosReaderNarration` snapshot stays privacy-safe and schema-bounded. ✅
+- `tests/smoke/app-detail-header-actions.test.ts`: directly asserts the plugin
+  detail pane shows the reader toolbar for article/video and hides it for chat. ✅
+- `rtk npm run gate:ci`: passed locally during P4 audit
+  (`lint` + `format:check` + `compile` + `test`). ✅
+- 🟡 `build:firefox` and a full Firefox profile smoke test still run on Chii's
+  machine.
 
 ## 10. Styling guardrails
 

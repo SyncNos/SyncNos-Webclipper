@@ -12,7 +12,7 @@ import {
   type ReaderTextAlign,
 } from '@services/protocols/reader-prefs';
 
-// Presentational, fully controlled. The owning surface (P6 ReaderToolbar) supplies
+// Presentational, fully controlled. The owning surface (P4 ReaderToolbar) supplies
 // `prefs` and an `update` that persists patches via the reader-prefs view-model.
 export type TextLayoutPanelProps = {
   prefs: ReaderPrefs;

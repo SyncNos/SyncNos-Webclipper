@@ -56,7 +56,7 @@ function publishNarrationStats(stats: ReaderNarrationStats): void {
  * narration text is (re)loaded whenever `source` changes. The engine is disposed
  * on unmount so no speech / audio leaks past the reader view.
  *
- * Playback controls (`play/pause/stop/toggle`) are returned for the P6 toolbar;
+ * Playback controls (`play/pause/stop/toggle`) are returned for the P4 toolbar;
  * `activeIndex` / `activeSentence` drive the read-only sentence highlight.
  */
 export function useReaderNarration(
@@ -69,7 +69,7 @@ export function useReaderNarration(
   const [activeSentence, setActiveSentence] = useState<ReaderTtsSentence | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // P6-T3 observability: counters only — never article text, prefs, or API keys.
+  // P4-T3 observability: counters only — never article text, prefs, or API keys.
   const statsRef = useRef<ReaderNarrationStats>({
     state: 'idle',
     isPlaying: false,

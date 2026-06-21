@@ -10,7 +10,7 @@ import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
 
 export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: boolean };
 
-// readerFeatures is wired in for the P6 toolbar button visibility; the text-layout
+// readerFeatures is wired in for the P4 toolbar button visibility; the text-layout
 // piece itself is always active via the `--reader-*` variables below.
 export type ArticleReaderViewProps = DetailViewSharedProps & { readerFeatures?: ReaderFeatures };
 
@@ -142,20 +142,10 @@ export function ArticleReaderView({
   return (
     <div className="tw-flex tw-min-w-0 tw-gap-4" style={readerVars} data-reader-theme={readerThemeAttr}>
       <div className="tw-min-w-0 tw-flex-1">
-        <ReaderToolbar
-          features={features}
-          prefs={prefs}
-          update={update}
-          narration={narration}
-          className="tw-mb-3"
-        />
-        {listError ? (
-          <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p>
-        ) : null}
+        <ReaderToolbar features={features} prefs={prefs} update={update} narration={narration} className="tw-mb-3" />
+        {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
         {loadingDetail ? (
-          <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-            {t('loadingDots')}
-          </p>
+          <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
         ) : null}
         {detailError ? (
           <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{detailError}</p>
@@ -169,9 +159,7 @@ export function ArticleReaderView({
           >
             {detail.messages.map((m: any) => {
               const text = String((m as any).contentMarkdown || (m as any).contentText || '');
-              const messageConversationId = Number(
-                (m as any).conversationId || (selected as any)?.id || activeId,
-              );
+              const messageConversationId = Number((m as any).conversationId || (selected as any)?.id || activeId);
 
               return (
                 <ChatMessageBubble

@@ -112,7 +112,7 @@ export const en = {
   inpageDisplayModeAll: 'On all sites',
   inpageDisplayModeOff: 'Off',
   inpageDisplayModeHint: 'Requires a page refresh to apply.',
-  /** @deprecated P6: superseded by the reader three-piece (reader* keys). Retained only for the legacy markdown reading-profile setting in popup/app detail. */
+  /** @deprecated P4: superseded by the reader three-piece (reader* keys). Retained only for the legacy markdown reading-profile setting in popup/app detail. */
   markdownReadingProfileLabel: 'Reading style',
   markdownReadingProfileHint: 'Applies to markdown rendering in popup/app detail.',
   markdownReadingProfileMediumLabel: 'Medium-like',
@@ -123,7 +123,7 @@ export const en = {
   markdownReadingProfileBookDesc: 'Immersive long-form style with serif pacing.',
   readingHeading: 'Reading',
 
-  // Reader three-piece (P6): text & layout / theme / read-aloud toolbar.
+  // Reader three-piece (P4): text & layout / theme / read-aloud toolbar.
   readerToolbarAria: 'Reader tools',
   readerTextLayoutButton: 'Text & layout',
   readerThemeButton: 'Theme',

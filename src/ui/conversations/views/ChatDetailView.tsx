@@ -32,13 +32,9 @@ export function ChatDetailView({
   return (
     <div className="tw-flex tw-min-w-0 tw-gap-4">
       <div className="tw-min-w-0 tw-flex-1">
-        {listError ? (
-          <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p>
-        ) : null}
+        {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
         {loadingDetail ? (
-          <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-            {t('loadingDots')}
-          </p>
+          <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
         ) : null}
         {detailError ? (
           <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{detailError}</p>
@@ -54,9 +50,7 @@ export function ChatDetailView({
               const messageId = Number.isFinite(rawMessageId) ? Math.trunc(rawMessageId) : null;
               const outlineIndex = messageId == null ? null : outlineIndexByMessageId.get(messageId) || null;
               const text = String((m as any).contentMarkdown || (m as any).contentText || '');
-              const messageConversationId = Number(
-                (m as any).conversationId || (selected as any)?.id || activeId,
-              );
+              const messageConversationId = Number((m as any).conversationId || (selected as any)?.id || activeId);
 
               if (role === 'user' && messageId != null) {
                 return (

@@ -134,7 +134,7 @@
  * surface/text/border tokens; the reader container consumes them via the
  * existing token names, leaving the rest of the app untouched.
  * ===================================================================== */
-[data-reader-theme="sepia"] {
+[data-reader-theme='sepia'] {
   /* Surface: warm paper */
   --bg-primary: rgb(244 236 220);
   --bg-sunken: rgb(248 241 227);
@@ -151,7 +151,7 @@
   --surface-inset-highlight: rgb(255 250 240 / 60%);
 }
 
-[data-reader-theme="black"] {
+[data-reader-theme='black'] {
   /* Surface: true black (OLED-friendly) */
   --bg-primary: rgb(0 0 0);
   --bg-sunken: rgb(0 0 0);
@@ -174,7 +174,7 @@
  * the system tokens (since data-reader-theme="light|dark" alone has no override),
  * defeating the phase goal of light/dark reader-local themes. Values mirror the
  * system light (:root) and dark (@media) reading tokens. (P3-audit / F-P3-01) */
-[data-reader-theme="light"] {
+[data-reader-theme='light'] {
   /* Surface: mirrors :root light */
   --bg-primary: rgb(250 251 252);
   --bg-sunken: rgb(255 255 255);
@@ -191,7 +191,7 @@
   --surface-inset-highlight: rgb(255 255 255 / 55%);
 }
 
-[data-reader-theme="dark"] {
+[data-reader-theme='dark'] {
   /* Surface: mirrors @media (prefers-color-scheme: dark) */
   --bg-primary: rgb(26 28 32);
   --bg-sunken: rgb(20 22 24);
@@ -216,11 +216,11 @@
 :root {
   --reader-highlight: rgba(250, 204, 21, 0.22);
 }
-[data-reader-theme="sepia"] {
-  --reader-highlight: rgba(150, 110, 40, 0.30);
+[data-reader-theme='sepia'] {
+  --reader-highlight: rgba(150, 110, 40, 0.3);
 }
-[data-reader-theme="dark"],
-[data-reader-theme="black"] {
+[data-reader-theme='dark'],
+[data-reader-theme='black'] {
   --reader-highlight: rgba(250, 204, 21, 0.26);
 }
 .reader-active-sentence {

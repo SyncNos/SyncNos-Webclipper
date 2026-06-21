@@ -13,7 +13,7 @@ import {
   type ReaderTtsPrefs,
 } from '@services/protocols/reader-prefs';
 
-// Presentational, fully controlled. The owning surface (P6 ReaderToolbar) supplies
+// Presentational, fully controlled. The owning surface (P4 ReaderToolbar) supplies
 // `prefs` and an `update` that persists patches via the reader-prefs view-model.
 // Narration prefs live under `reader_prefs_v1.tts`; we always pass the full merged
 // `tts` object so the patch is type-safe against Partial<ReaderPrefs>.
@@ -92,13 +92,7 @@ function Row({ label, value, children }: { label: string; value?: string; childr
  * Fully controlled; all writes go through `update({ tts })` which the view-model
  * re-normalizes (rate clamped, enums validated) before persisting.
  */
-export function NarrationPanel({
-  prefs,
-  update,
-  error,
-  webSpeechAvailable = true,
-  className,
-}: NarrationPanelProps) {
+export function NarrationPanel({ prefs, update, error, webSpeechAvailable = true, className }: NarrationPanelProps) {
   const tts = prefs.tts;
   const updateTts = (patch: Partial<ReaderTtsPrefs>) => void update({ tts: { ...tts, ...patch } });
   const [webVoices, setWebVoices] = useState<Array<{ voiceURI: string; name: string }>>(() =>

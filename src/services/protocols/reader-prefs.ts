@@ -81,9 +81,23 @@ export type ReaderTypographyPreset = Pick<
 
 // Keyed by the legacy markdown reading profile ids so migration is a direct lookup.
 export const READER_TYPOGRAPHY_PRESETS: Record<'medium' | 'notion' | 'book', ReaderTypographyPreset> = {
-  medium: { fontFamily: 'serif', fontSize: 18, lineHeight: 1.75, contentWidth: 720, letterSpacing: 0, textAlign: 'left' },
+  medium: {
+    fontFamily: 'serif',
+    fontSize: 18,
+    lineHeight: 1.75,
+    contentWidth: 720,
+    letterSpacing: 0,
+    textAlign: 'left',
+  },
   notion: { fontFamily: 'sans', fontSize: 16, lineHeight: 1.6, contentWidth: 900, letterSpacing: 0, textAlign: 'left' },
-  book: { fontFamily: 'serif', fontSize: 20, lineHeight: 1.9, contentWidth: 640, letterSpacing: 0.01, textAlign: 'justify' },
+  book: {
+    fontFamily: 'serif',
+    fontSize: 20,
+    lineHeight: 1.9,
+    contentWidth: 640,
+    letterSpacing: 0.01,
+    textAlign: 'justify',
+  },
 };
 
 export const READER_FONT_STACKS: Record<ReaderFontFamily, string> = {
@@ -99,7 +113,9 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
 }
 
 function resolveEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
-  const raw = String(value ?? '').trim().toLowerCase();
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase();
   return (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback;
 }
 

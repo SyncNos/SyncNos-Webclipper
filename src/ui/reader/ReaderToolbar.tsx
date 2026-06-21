@@ -52,7 +52,7 @@ const triggerButtonClassName = buttonTintClassName();
 const controlButtonClassName = [buttonTintClassName(), 'tw-flex-1'].join(' ');
 
 /**
- * ReaderToolbar — the P6 reader "three-piece" control surface: text & layout,
+ * ReaderToolbar — the P4 reader "three-piece" control surface: text & layout,
  * theme, and read-aloud. Purely presentational; `prefs`/`update` come from the
  * reader-prefs view-model and `narration` from useReaderNarration, both owned by
  * ArticleReaderView so the toolbar and the read-only sentence highlight share a
@@ -68,7 +68,8 @@ export function ReaderToolbar({ features, prefs, update, narration, className }:
   if (!features.textLayout && !features.theme && !features.narration) return null;
 
   const setOpen = (panel: Exclude<OpenPanel, null>, next: boolean) => setOpenPanel(next ? panel : null);
-  const narrationLabel = narration.state === 'loading' ? LABELS.reading : narration.isPlaying ? LABELS.pause : LABELS.play;
+  const narrationLabel =
+    narration.state === 'loading' ? LABELS.reading : narration.isPlaying ? LABELS.pause : LABELS.play;
 
   return (
     <div

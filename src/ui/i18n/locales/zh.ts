@@ -112,7 +112,7 @@ export const zh: { [K in TranslationKey]: string } = {
   inpageDisplayModeAll: '所有站点显示',
   inpageDisplayModeOff: '全部关闭',
   inpageDisplayModeHint: '切换后需刷新页面以生效。',
-  /** @deprecated P6：已被阅读三件套（reader* keys）取代，仅保留给 popup/app 详情页的旧 markdown 阅读风格设置。 */
+  /** @deprecated P4：已被阅读三件套（reader* keys）取代，仅保留给 popup/app 详情页的旧 markdown 阅读风格设置。 */
   markdownReadingProfileLabel: '阅读风格',
   markdownReadingProfileHint: '应用于 popup/app 详情页的 markdown 渲染。',
   markdownReadingProfileMediumLabel: 'Medium 风格',
@@ -123,7 +123,7 @@ export const zh: { [K in TranslationKey]: string } = {
   markdownReadingProfileBookDesc: '更沉浸的长文节奏，偏衬线排版。',
   readingHeading: '阅读',
 
-  // 阅读三件套（P6）：文本与排版 / 主题 / 朗读工具条。
+  // 阅读三件套（P4）：文本与排版 / 主题 / 朗读工具条。
   readerToolbarAria: '阅读工具',
   readerTextLayoutButton: '文本与排版',
   readerThemeButton: '主题',

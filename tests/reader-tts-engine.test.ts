@@ -185,11 +185,7 @@ describe('ReaderTtsEngine (Web tier)', () => {
 
   it('selects a matching Web voice by URI', () => {
     const synth = new FakeSynth([{ voiceURI: 'alpha' }, { voiceURI: 'beta' }]);
-    const engine = new ReaderTtsEngine(
-      { ...DEFAULT_READER_TTS_PREFS, webVoiceURI: 'beta' },
-      {},
-      deps(synth),
-    );
+    const engine = new ReaderTtsEngine({ ...DEFAULT_READER_TTS_PREFS, webVoiceURI: 'beta' }, {}, deps(synth));
     engine.load('Hello.');
     engine.play();
     expect(synth.current?.voice).toEqual({ voiceURI: 'beta' });
@@ -217,11 +213,7 @@ describe('ReaderTtsEngine (Web tier)', () => {
   it('dispose() stops playback and silences further callbacks', async () => {
     const synth = new FakeSynth();
     const states: ReaderTtsState[] = [];
-    const engine = new ReaderTtsEngine(
-      DEFAULT_READER_TTS_PREFS,
-      { onState: (s) => states.push(s) },
-      deps(synth),
-    );
+    const engine = new ReaderTtsEngine(DEFAULT_READER_TTS_PREFS, { onState: (s) => states.push(s) }, deps(synth));
     engine.load('A. B.');
     engine.play();
     const pending = synth.current;
@@ -418,17 +410,13 @@ describe('ReaderTtsEngine (AI tier)', () => {
   it('pause() during AI loading prevents late auto-play until resume()', async () => {
     const fetchGate = deferred<any>();
     const h = aiHarness();
-    const engine = new ReaderTtsEngine(
-      aiPrefs(),
-      {},
-      {
-        ...h.deps,
-        fetch: (_url: string, init?: any) => {
-          h.fetchCalls.push({ url: 'http://localhost:8880/v1/audio/speech', init });
-          return fetchGate.promise;
-        },
-      } as any,
-    );
+    const engine = new ReaderTtsEngine(aiPrefs(), {}, {
+      ...h.deps,
+      fetch: (_url: string, init?: any) => {
+        h.fetchCalls.push({ url: 'http://localhost:8880/v1/audio/speech', init });
+        return fetchGate.promise;
+      },
+    } as any);
     engine.load('Hello.');
     const done = engine.play();
     expect(engine.getState()).toBe('loading');
