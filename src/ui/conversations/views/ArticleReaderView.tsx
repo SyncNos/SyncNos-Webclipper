@@ -44,6 +44,9 @@ const READER_PROSE_CLASS = [
 // Centers and width-limits the reading column. Defined as a stable object so the
 // JSX uses a single-brace expression (no inline object literal needed here).
 const READER_COLUMN_STYLE: CSSProperties = { maxWidth: 'var(--reader-content-width)' };
+const READER_SHELL_CLASS = 'tw-flex tw-w-full tw-items-start tw-gap-4';
+const READER_MAIN_CLASS = 'tw-min-w-0 tw-flex-1 tw-max-w-full';
+const READER_RAIL_CLASS = 'tw-flex-none tw-shrink-0 tw-self-start';
 
 const READER_SENTENCE_SOURCE_ATTR = 'data-reader-sentence-source';
 const READER_SENTENCE_INDEX_ATTR = 'data-reader-sentence-index';
@@ -344,9 +347,13 @@ export function ArticleReaderView({
   );
 
   return (
-    <div className="tw-flex tw-min-w-0 tw-gap-4" style={readerVars} data-reader-theme={readerThemeAttr}>
-      <div className="tw-min-w-0 tw-flex-1">
-        <ReaderToolbar features={features} prefs={prefs} update={update} narration={toolbarNarration} className="tw-mb-3" />
+    <div
+      className={READER_SHELL_CLASS}
+      style={readerVars}
+      data-reader-shell="article"
+      data-reader-theme={readerThemeAttr}
+    >
+      <div className={READER_MAIN_CLASS} data-reader-main="article-main">
         {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
         {loadingDetail ? (
           <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
@@ -358,7 +365,7 @@ export function ArticleReaderView({
         {detail?.messages?.length ? (
           <div
             ref={assignMessagesRoot}
-            className="tw-mt-3 tw-grid tw-gap-2.5 tw-mx-auto tw-w-full"
+            className="tw-mt-3 tw-grid tw-w-full tw-gap-2.5 tw-mx-auto"
             style={READER_COLUMN_STYLE}
             data-reader-sentence-root="true"
             onClick={handleSentenceClick}
@@ -390,6 +397,10 @@ export function ArticleReaderView({
           </p>
         )}
       </div>
+
+      <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
+        <ReaderToolbar features={features} prefs={prefs} update={update} narration={toolbarNarration} />
+      </aside>
     </div>
   );
 }
