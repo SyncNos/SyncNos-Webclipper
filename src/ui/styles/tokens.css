@@ -167,3 +167,43 @@
   --card-shadow: 0 12px 28px rgb(0 0 0 / 55%);
   --surface-inset-highlight: rgb(255 255 255 / 8%);
 }
+
+/* light / dark are explicit reader-local choices that must FORCE their palette
+ * regardless of the OS `prefers-color-scheme`. Without these blocks, selecting
+ * "Light" on a dark-OS machine (or vice-versa) would leave the reader following
+ * the system tokens (since data-reader-theme="light|dark" alone has no override),
+ * defeating the phase goal of light/dark reader-local themes. Values mirror the
+ * system light (:root) and dark (@media) reading tokens. (P3-audit / F-P3-01) */
+[data-reader-theme="light"] {
+  /* Surface: mirrors :root light */
+  --bg-primary: rgb(250 251 252);
+  --bg-sunken: rgb(255 255 255);
+  --bg-card: rgb(255 255 255);
+  --bg-overlay: rgba(0, 0, 0, 0.42);
+
+  /* Text */
+  --text-primary: rgb(52 46 40);
+  --text-secondary: rgb(113 101 89);
+
+  /* Utility */
+  --border: rgb(210 216 226);
+  --card-shadow: 0 10px 24px rgb(0 0 0 / 10%);
+  --surface-inset-highlight: rgb(255 255 255 / 55%);
+}
+
+[data-reader-theme="dark"] {
+  /* Surface: mirrors @media (prefers-color-scheme: dark) */
+  --bg-primary: rgb(26 28 32);
+  --bg-sunken: rgb(20 22 24);
+  --bg-card: rgb(38 40 48);
+  --bg-overlay: rgba(0, 0, 0, 0.65);
+
+  /* Text */
+  --text-primary: rgb(220 224 232);
+  --text-secondary: rgb(139 145 154);
+
+  /* Utility */
+  --border: rgb(54 56 64);
+  --card-shadow: 0 12px 28px rgb(0 0 0 / 36%);
+  --surface-inset-highlight: rgb(255 255 255 / 14%);
+}
