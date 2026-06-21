@@ -28,9 +28,7 @@ import {
 } from '@services/protocols/message-contracts';
 import { conversationKinds } from '@services/protocols/conversation-kinds';
 import type { ConversationKindDbSpec } from '@services/protocols/conversation-kind-contract';
-import {
-  MARKDOWN_READING_PROFILE_STORAGE_KEY,
-} from '@services/protocols/markdown-reading-profile-storage';
+import { MARKDOWN_READING_PROFILE_STORAGE_KEY } from '@services/protocols/markdown-reading-profile-storage';
 import {
   READER_PREFS_STORAGE_KEY,
   normalizeReaderPrefs,

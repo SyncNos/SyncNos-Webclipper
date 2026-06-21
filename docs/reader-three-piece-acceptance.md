@@ -61,8 +61,8 @@ reader-style views (article / video script), never on AI chat.
 - 60 `reader*` keys exist in **both** `en.ts` and `zh.ts` (key sets verified
   identical). All visible labels and aria-labels in the toolbar and three panels
   resolve through `t()`. ✅
-- Legacy `markdownReadingProfileLabel` is retained but marked `@deprecated`
-  (superseded by the reader three-piece). ✅
+- Old Reading style settings copy has been removed from the General/Inpage
+  surface; settings copy now reflects only inpage visibility and auto-save. ✅
 
 ## 7. Observability (privacy-safe)
 
