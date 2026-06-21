@@ -20,45 +20,20 @@ import {
 } from '@services/protocols/markdown-reading-profile-storage';
 import { conversationKinds } from '@services/protocols/conversation-kinds';
 
-function normalizeHttpUrl(raw: unknown): string {
-  const text = String(raw || '').trim();
-  if (!text) return '';
-  try {
-    const url = new URL(text);
-    const protocol = String(url.protocol || '').toLowerCase();
-    if (protocol !== 'http:' && protocol !== 'https:') return '';
-    url.hash = '';
-    return url.toString();
-  } catch (_e) {
-    return '';
-  }
-}
-
-function isArticleConversationLike(conversation: any): boolean {
-  const sourceType = String(conversation?.sourceType || '')
-    .trim()
-    .toLowerCase();
-  if (sourceType === 'article') return true;
-
-  const source = String(conversation?.source || '')
-    .trim()
-    .toLowerCase();
-  if (source !== 'web') return false;
-  return Boolean(normalizeHttpUrl(conversation?.url));
-}
-
-function isChatConversationLike(conversation: any): boolean {
-  return (
-    String(conversation?.sourceType || '')
-      .trim()
-      .toLowerCase() === 'chat'
-  );
-}
-
 function findRouteScrollRoot(messagesRoot: Element | null): Element | null {
   if (!messagesRoot || typeof messagesRoot.closest !== 'function') return null;
   return messagesRoot.closest('.route-scroll');
 }
+
+const DEFAULT_VIEW = {
+  renderer: 'chat' as const,
+  readerFeatures: {
+    textLayout: false,
+    theme: false,
+    narration: false,
+  },
+  commentsSidebar: false,
+};
 
 export type ConversationDetailPaneProps = {
   onBack?: () => void;
@@ -95,17 +70,15 @@ export function ConversationDetailPane({
 
   const outlineButtonClass = buttonTintClassName();
   const headerIconButtonClass = headerButtonClassName();
-  const isArticle = isArticleConversationLike(selected);
-  const readerFeatures = conversationKinds.pick(selected as any)?.view.readerFeatures ?? {
-    textLayout: false,
-    theme: false,
-    narration: false,
-  };
+  const kindView = conversationKinds.pick(selected as any)?.view ?? DEFAULT_VIEW;
+  const isArticleRenderer = kindView.renderer === 'article';
+  const isChatRenderer = kindView.renderer === 'chat';
+  const readerFeatures = kindView.readerFeatures;
+  const canOpenCommentsSidebar = kindView.commentsSidebar && typeof onTriggerCommentsSidebar === 'function';
   useEffect(() => {
     // dev-only: surface which renderer the detail pane delegates to
-    console.debug('[reader] renderer', isArticle ? 'article' : 'chat');
-  }, [isArticle]);
-  const isChat = isChatConversationLike(selected);
+    console.debug('[reader] renderer', kindView.renderer);
+  }, [kindView.renderer]);
   const containerPaddingClassName = 'tw-px-3 md:tw-px-4';
   const expandSidebarLabel = t('expandSidebar');
   const commentsSidebarLabel = t('openCommentsSidebar');
@@ -117,8 +90,8 @@ export function ConversationDetailPane({
   const [outlineScrollRoot, setOutlineScrollRoot] = useState<Element | null>(null);
   const [optimisticActiveIndex, setOptimisticActiveIndex] = useState<number | null>(null);
   const outlineEntries = useMemo(
-    () => (isChat && Array.isArray(detail?.messages) ? buildChatOutlineEntries(detail.messages) : []),
-    [isChat, detail?.messages],
+    () => (isChatRenderer && Array.isArray(detail?.messages) ? buildChatOutlineEntries(detail.messages) : []),
+    [isChatRenderer, detail?.messages],
   );
   const outlineIndexByMessageId = useMemo(() => {
     const map = new Map<number, number>();
@@ -458,11 +431,11 @@ export function ConversationDetailPane({
                 menuAriaLabel={t('detailHeaderOpenInMenuAria')}
               />
 
-              {onTriggerCommentsSidebar ? (
+              {canOpenCommentsSidebar ? (
                 <button
                   type="button"
                   onClick={() => {
-                    onTriggerCommentsSidebar();
+                    onTriggerCommentsSidebar?.();
                   }}
                   className={headerButtonClassName()}
                   aria-label={commentsSidebarLabel}
@@ -485,7 +458,7 @@ export function ConversationDetailPane({
               ) : null}
             </div>
 
-            {isChat ? (
+            {isChatRenderer ? (
               <div
                 className="tw-absolute tw-right-0 tw-top-full tw-z-30"
                 data-chat-outline-root={outlineScrollRoot ? 'route-scroll' : 'viewport'}
@@ -519,7 +492,7 @@ export function ConversationDetailPane({
             </div>
           ) : null}
 
-          {hideHeader && isChat ? (
+          {hideHeader && isChatRenderer ? (
             <div
               className="tw-absolute tw-right-3 tw-top-3 tw-z-30 md:tw-right-4 md:tw-top-4"
               data-chat-outline-root={outlineScrollRoot ? 'route-scroll' : 'viewport'}
@@ -532,7 +505,7 @@ export function ConversationDetailPane({
             </div>
           ) : null}
 
-          {isArticle ? (
+          {isArticleRenderer ? (
             <ArticleReaderView
               selected={selected}
               activeId={activeId}
