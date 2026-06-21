@@ -16,6 +16,14 @@ export type ConversationKindDefinition = {
   obsidian: {
     folder: string;
   };
+  view: {
+    renderer: 'chat' | 'article';
+    readerFeatures: {
+      textLayout: boolean;
+      theme: boolean;
+      narration: boolean;
+    };
+  };
 };
 
 export type ConversationKindDbSpec = ConversationKindDefinition['notion']['dbSpec'];
@@ -61,6 +69,22 @@ export function assertKindDef(definition: unknown): ConversationKindDefinition {
     throw new Error(`kind ${normalized.id} missing obsidian`);
   }
   assertNonEmptyString(normalized.obsidian.folder, `kind ${normalized.id} missing obsidian.folder`);
+
+  if (!normalized.view || typeof normalized.view !== 'object') {
+    throw new Error(`kind ${normalized.id} missing view`);
+  }
+  if (normalized.view.renderer !== 'chat' && normalized.view.renderer !== 'article') {
+    throw new Error(`kind ${normalized.id} invalid view.renderer (expected 'chat' | 'article')`);
+  }
+  const readerFeatures = normalized.view.readerFeatures;
+  if (!readerFeatures || typeof readerFeatures !== 'object') {
+    throw new Error(`kind ${normalized.id} missing view.readerFeatures`);
+  }
+  for (const feature of ['textLayout', 'theme', 'narration'] as const) {
+    if (typeof (readerFeatures as Record<string, unknown>)[feature] !== 'boolean') {
+      throw new Error(`kind ${normalized.id} view.readerFeatures.${feature} must be boolean`);
+    }
+  }
 
   return normalized as ConversationKindDefinition;
 }
