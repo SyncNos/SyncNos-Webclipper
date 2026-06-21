@@ -31,8 +31,7 @@ export function ThemePanel({ prefs, update, className }: ThemePanelProps) {
   };
 
   return (
-    <div className={['tw-flex tw-flex-col tw-gap-1', className].filter(Boolean).join(' ')}>
-      <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('readerThemeLabel')}</div>
+    <div className={['tw-flex tw-flex-col tw-gap-1.5', className].filter(Boolean).join(' ')}>
       <div className="tw-flex tw-flex-wrap tw-gap-1.5" role="radiogroup" aria-label={t('readerThemeAria')}>
         {READER_THEMES.map((theme) => {
           const active = theme === prefs.theme;
