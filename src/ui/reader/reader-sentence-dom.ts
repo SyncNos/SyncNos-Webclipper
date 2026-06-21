@@ -47,7 +47,7 @@ function normalizeCandidates(candidates: ReaderSentenceCandidate[]): ReaderSente
 
 function isForbiddenSentenceContainer(element: Element | null): boolean {
   if (!element) return true;
-  return element.matches(FORBIDDEN_SENTENCE_DECORATION_SELECTOR);
+  return Boolean(element.closest(FORBIDDEN_SENTENCE_DECORATION_SELECTOR));
 }
 
 function collectSentenceTextSegments(root: HTMLElement): ReaderSentenceTextSegment[] {

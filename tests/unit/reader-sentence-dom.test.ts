@@ -85,14 +85,14 @@ describe('reader-sentence DOM helpers', () => {
 
   it('parses decorated span targets and skips forbidden containers', () => {
     document.body.innerHTML =
-      '<article id="article"><span data-reader-sentence-index="4"><em>click me</em></span><script>ignore me</script><a href="/x">link text</a><button>skip me</button></article>';
+      '<article id="article"><span data-reader-sentence-index="4"><em>click me</em></span><script>ignore me</script><a href="/x">link text</a><button><span>skip me</span></button></article>';
 
     const article = document.getElementById('article') as HTMLElement;
     const span = article.querySelector('[data-reader-sentence-index="4"]') as HTMLElement;
     const emText = span.querySelector('em')?.firstChild;
     const linkText = article.querySelector('a')?.firstChild;
     const scriptText = article.querySelector('script')?.firstChild;
-    const buttonText = article.querySelector('button')?.firstChild;
+    const buttonText = article.querySelector('button')?.querySelector('span')?.firstChild;
 
     expect(findReaderSentenceIndexFromTarget(emText ?? null)).toBe(4);
     expect(findReaderSentenceIndexFromTarget(document.createTextNode('plain'))).toBeNull();
