@@ -10,23 +10,27 @@ import type { ReaderTtsPrefs } from '@services/protocols/reader-prefs';
 
 export type UseReaderNarrationResult = {
   state: ReaderTtsState;
-  /** Index of the sentence currently being narrated, or -1 when idle/stopped. */
+  /** Index of the selected/narrated sentence, or -1 when no cursor is positioned. */
   activeIndex: number;
-  /** The active sentence (with char offsets) for read-only DOM highlight, or null. */
+  /** The selected/narrated sentence (with char offsets) for read-only DOM highlight, or null. */
   activeSentence: ReaderTtsSentence | null;
+  /** Whether narration currently has a positioned cursor, even if playback is idle. */
+  hasCursor: boolean;
   error: string | null;
   /** Whether the Web Speech engine is available in this environment. */
   webSpeechAvailable: boolean;
   isPlaying: boolean;
-  play: () => void;
+  play: (fromIndex?: number) => void;
+  seek: (index: number) => void;
   pause: () => void;
   stop: () => void;
-  toggle: () => void;
+  toggle: (firstVisibleIndex?: number) => void;
 };
 
 type ReaderNarrationStats = {
   state: ReaderTtsState;
   isPlaying: boolean;
+  hasCursor: boolean;
   stateChanges: number;
   errorCount: number;
   lastError: string | null;
@@ -67,12 +71,14 @@ export function useReaderNarration(
   const [state, setState] = useState<ReaderTtsState>('idle');
   const [activeIndex, setActiveIndex] = useState(-1);
   const [activeSentence, setActiveSentence] = useState<ReaderTtsSentence | null>(null);
+  const [hasCursor, setHasCursor] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // P4-T3 observability: counters only — never article text, prefs, or API keys.
   const statsRef = useRef<ReaderNarrationStats>({
     state: 'idle',
     isPlaying: false,
+    hasCursor: false,
     stateChanges: 0,
     errorCount: 0,
     lastError: null,
@@ -96,8 +102,10 @@ export function useReaderNarration(
       onSentence: (index, sentence) => {
         setActiveIndex(index);
         setActiveSentence(sentence);
+        setHasCursor(index >= 0);
         const s = statsRef.current;
         s.activeIndex = index;
+        s.hasCursor = index >= 0;
         s.updatedAt = Date.now();
         publishNarrationStats(s);
       },
@@ -133,30 +141,75 @@ export function useReaderNarration(
     engineRef.current?.load(source);
     setActiveIndex(-1);
     setActiveSentence(null);
+    setHasCursor(false);
     setError(null);
     const s = statsRef.current;
     s.activeIndex = -1;
+    s.hasCursor = false;
     s.lastError = null;
     s.updatedAt = Date.now();
     publishNarrationStats(s);
   }, [source]);
 
-  const play = useCallback(() => {
+  const clearNarrationError = useCallback(() => {
     setError(null);
-    void engineRef.current?.play();
+    const s = statsRef.current;
+    if (s.lastError !== null) {
+      s.lastError = null;
+      s.updatedAt = Date.now();
+      publishNarrationStats(s);
+    }
   }, []);
+
+  const clearNarrationCursor = useCallback(() => {
+    setActiveIndex(-1);
+    setActiveSentence(null);
+    setHasCursor(false);
+    const s = statsRef.current;
+    s.activeIndex = -1;
+    s.hasCursor = false;
+    s.updatedAt = Date.now();
+    publishNarrationStats(s);
+  }, []);
+
+  const play = useCallback((fromIndex?: number) => {
+    clearNarrationError();
+    void engineRef.current?.play(fromIndex);
+  }, [clearNarrationError]);
+  const seek = useCallback((index: number) => {
+    clearNarrationError();
+    engineRef.current?.seek(index);
+  }, [clearNarrationError]);
   const pause = useCallback(() => {
     engineRef.current?.pause();
   }, []);
   const stop = useCallback(() => {
+    clearNarrationError();
     engineRef.current?.stop();
-  }, []);
-  const toggle = useCallback(() => {
+    clearNarrationCursor();
+  }, [clearNarrationCursor, clearNarrationError]);
+  const toggle = useCallback((firstVisibleIndex?: number) => {
     const engine = engineRef.current;
     if (!engine) return;
-    if (engine.getState() === 'playing' || engine.getState() === 'loading') engine.pause();
-    else void engine.play();
-  }, []);
+    const state = engine.getState();
+    if (state === 'playing' || state === 'loading') {
+      clearNarrationError();
+      engine.pause();
+      return;
+    }
+    if (state === 'paused') {
+      clearNarrationError();
+      engine.resume();
+      return;
+    }
+    clearNarrationError();
+    if (engine.getHasCursor()) {
+      void engine.play(engine.getActiveIndex());
+      return;
+    }
+    const fallback = Number.isFinite(firstVisibleIndex) ? Math.max(0, Math.trunc(firstVisibleIndex ?? 0)) : 0;
+    void engine.play(fallback);
+  }, [clearNarrationError]);
 
   // Web Speech availability gates the engine picker / fallback affordance in the UI.
   const webSpeechAvailable = useMemo(() => {
@@ -173,14 +226,16 @@ export function useReaderNarration(
       state,
       activeIndex,
       activeSentence,
+      hasCursor,
       error,
       webSpeechAvailable,
       isPlaying: state === 'playing' || state === 'loading',
       play,
+      seek,
       pause,
       stop,
       toggle,
     }),
-    [state, activeIndex, activeSentence, error, webSpeechAvailable, play, pause, stop, toggle],
+    [state, activeIndex, activeSentence, hasCursor, error, webSpeechAvailable, play, seek, pause, stop, toggle],
   );
 }
