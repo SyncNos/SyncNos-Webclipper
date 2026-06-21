@@ -6,6 +6,7 @@ import type { ChatDetailViewProps } from '@ui/conversations/views/ChatDetailView
 import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
 import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
 import { readerPrefsToCssVars } from '@services/protocols/reader-prefs';
+import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
 
 // Props are aligned with ChatDetailView so ConversationDetailPane can dispatch
 // to either renderer with the same prop bag (see P1-T5).
@@ -75,8 +76,12 @@ export function ArticleReaderView({
   loadingDetail,
   detailError,
   setMessagesRootRef,
+  readerFeatures,
 }: ArticleReaderViewProps) {
-  const { prefs } = useReaderPrefs();
+  // readerFeatures gates each toolbar piece; chat conversations pass all-false (or
+  // omit it), so the toolbar renders nothing over the chat view.
+  const features = readerFeatures ?? { textLayout: false, theme: false, narration: false };
+  const { prefs, update } = useReaderPrefs();
   const readerVars = readerPrefsToCssVars(prefs) as CSSProperties;
   // P3-T2: reader-local theme. `system` follows the OS via the global tokens, so
   // we deliberately omit the attribute (undefined -> React renders no attribute);
@@ -89,7 +94,8 @@ export function ArticleReaderView({
   const narrationRootRef = useRef<HTMLDivElement | null>(null);
   const lastHighlightRef = useRef<HTMLElement | null>(null);
   const [narrationSource, setNarrationSource] = useState('');
-  const { activeSentence } = useReaderNarration(narrationSource, prefs.tts);
+  const narration = useReaderNarration(narrationSource, prefs.tts);
+  const { activeSentence } = narration;
 
   // Combine the external messages-root ref with our local highlight ref.
   const assignMessagesRoot = useCallback(
@@ -138,6 +144,13 @@ export function ArticleReaderView({
   return (
     <div className="tw-flex tw-min-w-0 tw-gap-4" style={readerVars} data-reader-theme={readerThemeAttr}>
       <div className="tw-min-w-0 tw-flex-1">
+        <ReaderToolbar
+          features={features}
+          prefs={prefs}
+          update={update}
+          narration={narration}
+          className="tw-mb-3"
+        />
         {listError ? (
           <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p>
         ) : null}

@@ -207,3 +207,22 @@
   --card-shadow: 0 12px 28px rgb(0 0 0 / 36%);
   --surface-inset-highlight: rgb(255 255 255 / 14%);
 }
+
+/* Reader active-sentence highlight (P4-T3 / F-P4-01) -------------------------
+   Base tint plus theme-aware overrides so the highlight stays legible across the
+   five reader themes. The reader root consumes it via the inline fallback in
+   ArticleReaderView (background-color: var(--reader-highlight, ...)). Theme-scoped
+   selectors outrank :root, so source order here is irrelevant. */
+:root {
+  --reader-highlight: rgba(250, 204, 21, 0.22);
+}
+[data-reader-theme="sepia"] {
+  --reader-highlight: rgba(150, 110, 40, 0.30);
+}
+[data-reader-theme="dark"],
+[data-reader-theme="black"] {
+  --reader-highlight: rgba(250, 204, 21, 0.26);
+}
+.reader-active-sentence {
+  transition: background-color 120ms ease;
+}
