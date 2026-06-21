@@ -537,13 +537,9 @@ export function ConversationDetailPane({
               selected={selected}
               activeId={activeId}
               detail={detail}
-              isArticle={isArticle}
               listError={listError}
               loadingDetail={loadingDetail}
               detailError={detailError}
-              markdownReadingProfile={markdownReadingProfile}
-              outlineIndexByMessageId={outlineIndexByMessageId}
-              getUserMessageRefSetter={getUserMessageRefSetter}
               setMessagesRootRef={setMessagesRootRef}
               readerFeatures={readerFeatures}
             />
@@ -552,7 +548,6 @@ export function ConversationDetailPane({
               selected={selected}
               activeId={activeId}
               detail={detail}
-              isArticle={false}
               listError={listError}
               loadingDetail={loadingDetail}
               detailError={detailError}

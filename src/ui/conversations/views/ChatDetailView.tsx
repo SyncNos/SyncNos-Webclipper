@@ -1,21 +1,15 @@
 import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
 import { t } from '@i18n';
 import type { normalizeStoredMarkdownReadingProfile } from '@services/protocols/markdown-reading-profile-storage';
+import type { DetailViewSharedProps } from '@ui/conversations/views/detail-view-props';
 
 type MarkdownReadingProfile = ReturnType<typeof normalizeStoredMarkdownReadingProfile>;
 
-export type ChatDetailViewProps = {
-  selected: any;
-  activeId: unknown;
-  detail: any;
-  isArticle: boolean;
+export type ChatDetailViewProps = DetailViewSharedProps & {
   listError?: string | null;
-  loadingDetail?: boolean;
-  detailError?: string | null;
   markdownReadingProfile: MarkdownReadingProfile;
   outlineIndexByMessageId: Map<number, number>;
   getUserMessageRefSetter: (messageId: number) => (node: HTMLDivElement | null) => void;
-  setMessagesRootRef: (node: HTMLDivElement | null) => void;
 };
 
 /**

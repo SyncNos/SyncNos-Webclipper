@@ -2,19 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
 import { t } from '@i18n';
-import type { ChatDetailViewProps } from '@ui/conversations/views/ChatDetailView';
+import type { DetailViewSharedProps } from '@ui/conversations/views/detail-view-props';
 import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
 import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
 import { readerPrefsToCssVars } from '@services/protocols/reader-prefs';
 import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
 
-// Props are aligned with ChatDetailView so ConversationDetailPane can dispatch
-// to either renderer with the same prop bag (see P1-T5).
 export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: boolean };
 
 // readerFeatures is wired in for the P6 toolbar button visibility; the text-layout
 // piece itself is always active via the `--reader-*` variables below.
-export type ArticleReaderViewProps = ChatDetailViewProps & { readerFeatures?: ReaderFeatures };
+export type ArticleReaderViewProps = DetailViewSharedProps & { readerFeatures?: ReaderFeatures };
 
 // Body typography is driven entirely by the `--reader-*` CSS variables (P2-T3).
 // These important arbitrary-property utilities override the ChatMessageBubble
