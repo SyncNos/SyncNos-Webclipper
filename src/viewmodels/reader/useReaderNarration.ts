@@ -24,6 +24,30 @@ export type UseReaderNarrationResult = {
   toggle: () => void;
 };
 
+type ReaderNarrationStats = {
+  state: ReaderTtsState;
+  isPlaying: boolean;
+  stateChanges: number;
+  errorCount: number;
+  lastError: string | null;
+  activeIndex: number;
+  updatedAt: number;
+};
+
+/**
+ * Publish a privacy-safe narration snapshot to a global debug hook
+ * (`globalThis.__syncnosReaderNarration`). Only counters / state flags are
+ * exposed — never article text, TTS prefs, or the AI endpoint API key.
+ * Best-effort: failures are swallowed so observability never breaks narration.
+ */
+function publishNarrationStats(stats: ReaderNarrationStats): void {
+  try {
+    (globalThis as Record<string, unknown>).__syncnosReaderNarration = { ...stats };
+  } catch {
+    // Ignore — observability must never break narration.
+  }
+}
+
 /**
  * React glue around the framework-agnostic {@link ReaderTtsEngine}.
  *
@@ -45,16 +69,46 @@ export function useReaderNarration(
   const [activeSentence, setActiveSentence] = useState<ReaderTtsSentence | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // P6-T3 observability: counters only — never article text, prefs, or API keys.
+  const statsRef = useRef<ReaderNarrationStats>({
+    state: 'idle',
+    isPlaying: false,
+    stateChanges: 0,
+    errorCount: 0,
+    lastError: null,
+    activeIndex: -1,
+    updatedAt: 0,
+  });
+
   // Created once; identity is preserved across renders via the ref guard.
   const engineRef = useRef<ReaderTtsEngine | null>(null);
   if (engineRef.current === null) {
     const listeners: ReaderTtsListeners = {
-      onState: (next) => setState(next),
+      onState: (next) => {
+        setState(next);
+        const s = statsRef.current;
+        s.state = next;
+        s.isPlaying = next === 'playing' || next === 'loading';
+        s.stateChanges += 1;
+        s.updatedAt = Date.now();
+        publishNarrationStats(s);
+      },
       onSentence: (index, sentence) => {
         setActiveIndex(index);
         setActiveSentence(sentence);
+        const s = statsRef.current;
+        s.activeIndex = index;
+        s.updatedAt = Date.now();
+        publishNarrationStats(s);
       },
-      onError: (err) => setError(err.message),
+      onError: (err) => {
+        setError(err.message);
+        const s = statsRef.current;
+        s.errorCount += 1;
+        s.lastError = err.message;
+        s.updatedAt = Date.now();
+        publishNarrationStats(s);
+      },
     };
     engineRef.current = new ReaderTtsEngine(ttsPrefs, listeners, deps);
   }
@@ -80,6 +134,11 @@ export function useReaderNarration(
     setActiveIndex(-1);
     setActiveSentence(null);
     setError(null);
+    const s = statsRef.current;
+    s.activeIndex = -1;
+    s.lastError = null;
+    s.updatedAt = Date.now();
+    publishNarrationStats(s);
   }, [source]);
 
   const play = useCallback(() => {
