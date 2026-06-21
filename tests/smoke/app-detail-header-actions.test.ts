@@ -376,7 +376,7 @@ describe('ConversationDetailPane header actions', () => {
     expect(header?.className).not.toContain('tw-flex-col');
   });
 
-  it('does not show comments toggle when selected conversation is not article-like', () => {
+  it('does not show comments toggle when selected conversation is chat', () => {
     currentState.selectedConversation = {
       id: 11,
       title: 'Chat',
@@ -389,6 +389,24 @@ describe('ConversationDetailPane header actions', () => {
 
     act(() => {
       root!.render(createElement(ConversationDetailPane));
+    });
+
+    expect(document.querySelector('[aria-label="Comment"]')).toBeFalsy();
+  });
+
+  it('does not show comments toggle when video reuses the article renderer', () => {
+    currentState.selectedConversation = {
+      id: 14,
+      title: 'Video',
+      source: 'web',
+      sourceType: 'video',
+      conversationKey: 'video-14',
+      url: 'https://example.com/video',
+    } as any;
+    currentState.detailHeaderActions = [];
+
+    act(() => {
+      root!.render(createElement(ConversationDetailPane, { onTriggerCommentsSidebar: vi.fn() }));
     });
 
     expect(document.querySelector('[aria-label="Comment"]')).toBeFalsy();

@@ -75,10 +75,6 @@ export function ConversationDetailPane({
   const isChatRenderer = kindView.renderer === 'chat';
   const readerFeatures = kindView.readerFeatures;
   const canOpenCommentsSidebar = kindView.commentsSidebar && typeof onTriggerCommentsSidebar === 'function';
-  useEffect(() => {
-    // dev-only: surface which renderer the detail pane delegates to
-    console.debug('[reader] renderer', kindView.renderer);
-  }, [kindView.renderer]);
   const containerPaddingClassName = 'tw-px-3 md:tw-px-4';
   const expandSidebarLabel = t('expandSidebar');
   const commentsSidebarLabel = t('openCommentsSidebar');
