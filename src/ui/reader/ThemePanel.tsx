@@ -27,8 +27,6 @@ const THEME_LABELS: Record<ReaderTheme, string> = {
 export function ThemePanel({ prefs, update, className }: ThemePanelProps) {
   const selectTheme = (theme: ReaderTheme) => {
     if (theme === prefs.theme) return;
-    // dev observability: target theme only (no PII)
-    console.debug('[reader] theme change', theme);
     void update({ theme });
   };
 

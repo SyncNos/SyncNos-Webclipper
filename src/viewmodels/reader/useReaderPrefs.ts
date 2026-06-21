@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  LEGACY_READING_PROFILE_STORAGE_KEY,
   READER_PREFS_STORAGE_KEY,
   buildReaderPrefsStoragePatch,
   normalizeReaderPrefs,
@@ -39,7 +40,7 @@ export function useReaderPrefs(): UseReaderPrefsResult {
     let disposed = false;
     void (async () => {
       try {
-        const stored = await storageGet([READER_PREFS_STORAGE_KEY]);
+        const stored = await storageGet([READER_PREFS_STORAGE_KEY, LEGACY_READING_PROFILE_STORAGE_KEY]);
         if (disposed) return;
         setPrefs(resolveReaderPrefsFromStorage(stored));
       } catch (error) {
@@ -71,8 +72,6 @@ export function useReaderPrefs(): UseReaderPrefsResult {
       ...patch,
       tts: { ...base.tts, ...(patch.tts ?? {}) },
     });
-    // dev observability: which prefs keys changed (no values, no PII)
-    console.debug('[reader] prefs update', Object.keys(patch ?? {}));
     await storageSet(buildReaderPrefsStoragePatch(merged));
     setPrefs(merged);
   }, []);
