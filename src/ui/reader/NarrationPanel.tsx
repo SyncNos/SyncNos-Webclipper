@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { SelectMenu } from '@ui/shared/SelectMenu';
 import { buttonTintClassName } from '@ui/shared/button-styles';
 import { textInputClassName } from '@ui/settings/ui';
+import { t } from '@i18n';
 import {
   READER_PREFS_LIMITS,
   READER_TTS_AUDIO_FORMATS,
@@ -26,18 +27,16 @@ export type NarrationPanelProps = {
   className?: string;
 };
 
-// TODO(P6-T2): replace literal labels with i18n keys (kept literal now so this
-// task does not depend on the locale changes scheduled for P6).
 const ENGINE_LABELS: Record<ReaderTtsEngineId, string> = {
-  web: 'Web Speech',
-  ai: 'AI endpoint',
+  web: t('readerEngineWeb'),
+  ai: t('readerEngineAi'),
 };
 const FORMAT_LABELS: Record<ReaderTtsAudioFormat, string> = {
-  opus: 'Opus',
-  mp3: 'MP3',
-  wav: 'WAV',
-  aac: 'AAC',
-  flac: 'FLAC',
+  opus: t('readerFormatOpus'),
+  mp3: t('readerFormatMp3'),
+  wav: t('readerFormatWav'),
+  aac: t('readerFormatAac'),
+  flac: t('readerFormatFlac'),
 };
 
 const STEP = { rate: 0.05 } as const;
@@ -107,15 +106,15 @@ export function NarrationPanel({
               disabled={!webSpeechAvailable}
               onClick={() => updateTts({ engine: 'web' })}
             >
-              Fall back to Web Speech
+              {t('readerNarrationFallback')}
             </button>
           ) : null}
         </div>
       ) : null}
 
-      <Row label="Engine">
+      <Row label={t('readerNarrationEngine')}>
         <SelectMenu<ReaderTtsEngineId>
-          ariaLabel="Narration engine"
+          ariaLabel={t('readerNarrationEngineAria')}
           value={tts.engine}
           onChange={(next) => updateTts({ engine: next })}
           options={READER_TTS_ENGINES.map((id) => ({
@@ -126,11 +125,11 @@ export function NarrationPanel({
         />
       </Row>
 
-      <Row label="Speed" value={`${tts.rate.toFixed(2)}x`}>
+      <Row label={t('readerNarrationSpeed')} value={`${tts.rate.toFixed(2)}x`}>
         <input
           type="range"
           className={rangeClassName}
-          aria-label="Narration speed"
+          aria-label={t('readerNarrationSpeedAria')}
           min={READER_PREFS_LIMITS.tts.rate.min}
           max={READER_PREFS_LIMITS.tts.rate.max}
           step={STEP.rate}
@@ -140,13 +139,13 @@ export function NarrationPanel({
       </Row>
 
       {tts.engine === 'web' ? (
-        <Row label="Voice">
+        <Row label={t('readerNarrationVoice')}>
           <SelectMenu<string>
-            ariaLabel="Web speech voice"
+            ariaLabel={t('readerNarrationVoiceAria')}
             value={tts.webVoiceURI}
             onChange={(next) => updateTts({ webVoiceURI: next })}
             options={[
-              { value: '', label: 'System default' },
+              { value: '', label: t('readerVoiceSystemDefault') },
               ...webVoices.map((voice) => ({ value: voice.voiceURI, label: voice.name || voice.voiceURI })),
             ]}
           />
@@ -155,22 +154,22 @@ export function NarrationPanel({
 
       {tts.engine === 'ai' ? (
         <>
-          <Row label="Endpoint">
+          <Row label={t('readerNarrationEndpoint')}>
             <input
               type="url"
               className={fieldInputClassName}
-              aria-label="AI speech endpoint"
+              aria-label={t('readerNarrationEndpointAria')}
               placeholder="http://localhost:8880/v1"
               value={tts.aiEndpoint}
               onChange={(event) => updateTts({ aiEndpoint: event.target.value })}
             />
           </Row>
 
-          <Row label="API key">
+          <Row label={t('readerNarrationApiKey')}>
             <input
               type="password"
               className={fieldInputClassName}
-              aria-label="AI speech API key"
+              aria-label={t('readerNarrationApiKeyAria')}
               placeholder="sk-..."
               autoComplete="off"
               value={tts.aiApiKey}
@@ -178,31 +177,31 @@ export function NarrationPanel({
             />
           </Row>
 
-          <Row label="Model">
+          <Row label={t('readerNarrationModel')}>
             <input
               type="text"
               className={fieldInputClassName}
-              aria-label="AI speech model"
+              aria-label={t('readerNarrationModelAria')}
               placeholder="kokoro"
               value={tts.aiModel}
               onChange={(event) => updateTts({ aiModel: event.target.value })}
             />
           </Row>
 
-          <Row label="Voice">
+          <Row label={t('readerNarrationVoice')}>
             <input
               type="text"
               className={fieldInputClassName}
-              aria-label="AI speech voice"
+              aria-label={t('readerNarrationAiVoiceAria')}
               placeholder="af_sky"
               value={tts.aiVoice}
               onChange={(event) => updateTts({ aiVoice: event.target.value })}
             />
           </Row>
 
-          <Row label="Format">
+          <Row label={t('readerNarrationFormat')}>
             <SelectMenu<ReaderTtsAudioFormat>
-              ariaLabel="AI speech audio format"
+              ariaLabel={t('readerNarrationFormatAria')}
               value={tts.aiFormat}
               onChange={(next) => updateTts({ aiFormat: next })}
               options={READER_TTS_AUDIO_FORMATS.map((id) => ({ value: id, label: FORMAT_LABELS[id] }))}

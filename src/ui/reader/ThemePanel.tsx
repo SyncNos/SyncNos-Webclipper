@@ -1,5 +1,6 @@
 import { buttonFilledClassName, buttonTintClassName } from '@ui/shared/button-styles';
 import { READER_THEMES, type ReaderPrefs, type ReaderTheme } from '@services/protocols/reader-prefs';
+import { t } from '@i18n';
 
 // Presentational, fully controlled. The owning surface (P6 ReaderToolbar) supplies
 // `prefs` and an `update` that persists the patch via the reader-prefs view-model.
@@ -9,14 +10,12 @@ export type ThemePanelProps = {
   className?: string;
 };
 
-// TODO(P6-T2): replace literal labels with i18n keys (kept literal now so this
-// task does not depend on the locale changes scheduled for P6).
 const THEME_LABELS: Record<ReaderTheme, string> = {
-  system: 'System',
-  light: 'Light',
-  sepia: 'Sepia',
-  dark: 'Dark',
-  black: 'Black',
+  system: t('readerThemeSystem'),
+  light: t('readerThemeLight'),
+  sepia: t('readerThemeSepia'),
+  dark: t('readerThemeDark'),
+  black: t('readerThemeBlack'),
 };
 
 /**
@@ -35,8 +34,8 @@ export function ThemePanel({ prefs, update, className }: ThemePanelProps) {
 
   return (
     <div className={['tw-flex tw-flex-col tw-gap-1', className].filter(Boolean).join(' ')}>
-      <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">Theme</div>
-      <div className="tw-flex tw-flex-wrap tw-gap-1.5" role="radiogroup" aria-label="Reader theme">
+      <div className="tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('readerThemeLabel')}</div>
+      <div className="tw-flex tw-flex-wrap tw-gap-1.5" role="radiogroup" aria-label={t('readerThemeAria')}>
         {READER_THEMES.map((theme) => {
           const active = theme === prefs.theme;
           return (

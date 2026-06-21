@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { buttonTintClassName } from '@ui/shared/button-styles';
+import { t } from '@i18n';
 import { SelectMenu } from '@ui/shared/SelectMenu';
 import {
   READER_FONT_FAMILIES,
@@ -19,23 +20,21 @@ export type TextLayoutPanelProps = {
   className?: string;
 };
 
-// TODO(P6-T2): replace literal labels with i18n keys (kept literal now so this
-// task does not depend on the locale changes scheduled for P6).
 const FONT_FAMILY_LABELS: Record<ReaderFontFamily, string> = {
-  serif: 'Serif',
-  sans: 'Sans-serif',
-  mono: 'Monospace',
+  serif: t('readerFontSerif'),
+  sans: t('readerFontSans'),
+  mono: t('readerFontMono'),
 };
 const TEXT_ALIGN_LABELS: Record<ReaderTextAlign, string> = {
-  left: 'Left',
-  justify: 'Justify',
+  left: t('readerAlignLeft'),
+  justify: t('readerAlignJustify'),
 };
 
 // Typography presets only overwrite the text-layout fields (never theme/tts).
 const TYPOGRAPHY_PRESETS: Array<{ id: keyof typeof READER_TYPOGRAPHY_PRESETS; label: string }> = [
-  { id: 'medium', label: 'Medium' },
-  { id: 'notion', label: 'Notion' },
-  { id: 'book', label: 'Book' },
+  { id: 'medium', label: t('readerPresetMedium') },
+  { id: 'notion', label: t('readerPresetNotion') },
+  { id: 'book', label: t('readerPresetBook') },
 ];
 
 // READER_PREFS_LIMITS only exposes min/max; step granularity is a UI concern.
@@ -70,7 +69,7 @@ function Row({ label, value, children }: { label: string; value?: string; childr
 export function TextLayoutPanel({ prefs, update, className }: TextLayoutPanelProps) {
   return (
     <div className={['tw-flex tw-flex-col tw-gap-3', className].filter(Boolean).join(' ')}>
-      <Row label="Preset">
+      <Row label={t('readerTextPreset')}>
         <div className="tw-flex tw-gap-1.5">
           {TYPOGRAPHY_PRESETS.map((preset) => (
             <button
@@ -85,29 +84,29 @@ export function TextLayoutPanel({ prefs, update, className }: TextLayoutPanelPro
         </div>
       </Row>
 
-      <Row label="Font">
+      <Row label={t('readerTextFont')}>
         <SelectMenu<ReaderFontFamily>
-          ariaLabel="Reader font family"
+          ariaLabel={t('readerFontAria')}
           value={prefs.fontFamily}
           onChange={(next) => void update({ fontFamily: next })}
           options={READER_FONT_FAMILIES.map((id) => ({ value: id, label: FONT_FAMILY_LABELS[id] }))}
         />
       </Row>
 
-      <Row label="Alignment">
+      <Row label={t('readerTextAlignment')}>
         <SelectMenu<ReaderTextAlign>
-          ariaLabel="Reader text alignment"
+          ariaLabel={t('readerAlignAria')}
           value={prefs.textAlign}
           onChange={(next) => void update({ textAlign: next })}
           options={READER_TEXT_ALIGNS.map((id) => ({ value: id, label: TEXT_ALIGN_LABELS[id] }))}
         />
       </Row>
 
-      <Row label="Font size" value={`${prefs.fontSize}px`}>
+      <Row label={t('readerTextFontSize')} value={`${prefs.fontSize}px`}>
         <input
           type="range"
           className={rangeClassName}
-          aria-label="Reader font size"
+          aria-label={t('readerFontSizeAria')}
           min={READER_PREFS_LIMITS.fontSize.min}
           max={READER_PREFS_LIMITS.fontSize.max}
           step={STEP.fontSize}
@@ -116,11 +115,11 @@ export function TextLayoutPanel({ prefs, update, className }: TextLayoutPanelPro
         />
       </Row>
 
-      <Row label="Line height" value={prefs.lineHeight.toFixed(2)}>
+      <Row label={t('readerTextLineHeight')} value={prefs.lineHeight.toFixed(2)}>
         <input
           type="range"
           className={rangeClassName}
-          aria-label="Reader line height"
+          aria-label={t('readerLineHeightAria')}
           min={READER_PREFS_LIMITS.lineHeight.min}
           max={READER_PREFS_LIMITS.lineHeight.max}
           step={STEP.lineHeight}
@@ -129,11 +128,11 @@ export function TextLayoutPanel({ prefs, update, className }: TextLayoutPanelPro
         />
       </Row>
 
-      <Row label="Content width" value={`${prefs.contentWidth}px`}>
+      <Row label={t('readerTextContentWidth')} value={`${prefs.contentWidth}px`}>
         <input
           type="range"
           className={rangeClassName}
-          aria-label="Reader content width"
+          aria-label={t('readerContentWidthAria')}
           min={READER_PREFS_LIMITS.contentWidth.min}
           max={READER_PREFS_LIMITS.contentWidth.max}
           step={STEP.contentWidth}
@@ -142,11 +141,11 @@ export function TextLayoutPanel({ prefs, update, className }: TextLayoutPanelPro
         />
       </Row>
 
-      <Row label="Letter spacing" value={`${prefs.letterSpacing.toFixed(3)}em`}>
+      <Row label={t('readerTextLetterSpacing')} value={`${prefs.letterSpacing.toFixed(3)}em`}>
         <input
           type="range"
           className={rangeClassName}
-          aria-label="Reader letter spacing"
+          aria-label={t('readerLetterSpacingAria')}
           min={READER_PREFS_LIMITS.letterSpacing.min}
           max={READER_PREFS_LIMITS.letterSpacing.max}
           step={STEP.letterSpacing}

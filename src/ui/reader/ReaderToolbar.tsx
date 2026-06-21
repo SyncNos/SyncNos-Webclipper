@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { MenuPopover } from '@ui/shared/MenuPopover';
 import { buttonFilledClassName, buttonTintClassName } from '@ui/shared/button-styles';
+import { t } from '@i18n';
 import { TextLayoutPanel } from '@ui/reader/TextLayoutPanel';
 import { ThemePanel } from '@ui/reader/ThemePanel';
 import { NarrationPanel } from '@ui/reader/NarrationPanel';
@@ -36,17 +37,15 @@ export type ReaderToolbarProps = {
 
 type OpenPanel = 'text' | 'theme' | 'narration' | null;
 
-// TODO(P6-T2): replace literal labels with i18n keys (kept literal in T1 so the
-// toolbar lands independently of the locale changes scheduled for P6-T2).
 const LABELS = {
-  toolbarAria: 'Reader tools',
-  text: 'Text & layout',
-  theme: 'Theme',
-  narration: 'Read aloud',
-  play: 'Read',
-  reading: 'Reading\u2026',
-  pause: 'Pause',
-  stop: 'Stop',
+  toolbarAria: t('readerToolbarAria'),
+  text: t('readerTextLayoutButton'),
+  theme: t('readerThemeButton'),
+  narration: t('readerNarrationButton'),
+  play: t('readerNarrationPlay'),
+  reading: t('readerNarrationReading'),
+  pause: t('readerNarrationPause'),
+  stop: t('readerNarrationStop'),
 } as const;
 
 const triggerButtonClassName = buttonTintClassName();
