@@ -12,7 +12,7 @@ export type ReaderSentenceCandidate = {
   rect: ReaderSentenceRectLike;
 };
 
-type ReaderSentenceTextSegment = {
+export type ReaderSentenceTextSegment = {
   node: Text;
   start: number;
   end: number;
@@ -50,7 +50,7 @@ function isForbiddenSentenceContainer(element: Element | null): boolean {
   return Boolean(element.closest(FORBIDDEN_SENTENCE_DECORATION_SELECTOR));
 }
 
-function collectSentenceTextSegments(root: HTMLElement): ReaderSentenceTextSegment[] {
+export function collectReaderSentenceTextSegments(root: HTMLElement): ReaderSentenceTextSegment[] {
   const segments: ReaderSentenceTextSegment[] = [];
   let offset = 0;
 
@@ -114,14 +114,18 @@ export function isReaderSentenceDecoratableTextNode(node: Node | null): node is 
   return !isForbiddenSentenceContainer(node.parentElement);
 }
 
-export function findReaderSentenceRange(root: HTMLElement, sentence: ReaderTtsSentence): Range | null {
+export function findReaderSentenceRange(
+  root: HTMLElement,
+  sentence: ReaderTtsSentence,
+  segments?: ReaderSentenceTextSegment[],
+): Range | null {
   if (!root || !sentence) return null;
   const doc = root.ownerDocument ?? (typeof document !== 'undefined' ? document : null);
   if (!doc) return null;
 
-  const segments = collectSentenceTextSegments(root);
-  const start = resolvePointAtOffset(segments, sentence.start, false);
-  const end = resolvePointAtOffset(segments, sentence.end, true);
+  const resolvedSegments = segments ?? collectReaderSentenceTextSegments(root);
+  const start = resolvePointAtOffset(resolvedSegments, sentence.start, false);
+  const end = resolvePointAtOffset(resolvedSegments, sentence.end, true);
   if (!start || !end) return null;
 
   const range = doc.createRange();
@@ -134,20 +138,22 @@ export function findReaderSentenceRangeByIndex(
   root: HTMLElement,
   sentences: ReaderTtsSentence[],
   sentenceIndex: number,
+  segments?: ReaderSentenceTextSegment[],
 ): Range | null {
   const sentence = Array.isArray(sentences) ? sentences[sentenceIndex] : null;
   if (!sentence) return null;
-  return findReaderSentenceRange(root, sentence);
+  return findReaderSentenceRange(root, sentence, segments);
 }
 
 export function findReaderSentenceElementAtOffset(
   root: HTMLElement,
   sentence: ReaderTtsSentence,
   offset: number = sentence.start,
+  segments?: ReaderSentenceTextSegment[],
 ): HTMLElement | null {
   if (!root || !sentence) return null;
-  const segments = collectSentenceTextSegments(root);
-  const point = resolvePointAtOffset(segments, offset, false);
+  const resolvedSegments = segments ?? collectReaderSentenceTextSegments(root);
+  const point = resolvePointAtOffset(resolvedSegments, offset, false);
   return point?.node.parentElement ?? null;
 }
 

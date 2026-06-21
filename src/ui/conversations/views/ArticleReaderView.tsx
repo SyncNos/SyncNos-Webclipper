@@ -6,6 +6,7 @@ import { readerPrefsToCssVars } from '@services/protocols/reader-prefs';
 import { buildSentences, type ReaderTtsSentence } from '@services/reader/tts/reader-tts-engine';
 import type { DetailViewSharedProps } from '@ui/conversations/views/detail-view-props';
 import {
+  collectReaderSentenceTextSegments,
   findReaderSentenceIndexFromTarget,
   findReaderSentenceRangeByIndex,
   pickFirstVisibleSentenceIndex,
@@ -75,9 +76,10 @@ function decorateReaderSentenceSpans(root: HTMLElement, source: string, sentence
     return;
   }
 
+  const segments = collectReaderSentenceTextSegments(root);
   for (let index = sentences.length - 1; index >= 0; index -= 1) {
     const sentence = sentences[index];
-    const range = findReaderSentenceRangeByIndex(root, sentences, index);
+    const range = findReaderSentenceRangeByIndex(root, sentences, index, segments);
     if (!range) continue;
 
     const fragment = range.extractContents();
@@ -156,6 +158,7 @@ export function ArticleReaderView({
   const activeSentenceRef = useRef<ReaderTtsSentence | null>(null);
   const [narrationSource, setNarrationSource] = useState('');
   const [sentenceDomRevision, setSentenceDomRevision] = useState(0);
+  const sentenceCountRef = useRef(0);
   const outline = useArticleOutlineMinimap(outlineRoot);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
@@ -238,6 +241,7 @@ export function ArticleReaderView({
     const root = narrationRootRef.current;
     if (!root || !features.narration) {
       sourceFromDomRef.current = '';
+      sentenceCountRef.current = 0;
       setNarrationSource('');
       return;
     }
@@ -251,16 +255,19 @@ export function ArticleReaderView({
       if (disposed) return;
 
       const currentSource = root.textContent ?? '';
-      const sourceChanged = currentSource !== sourceFromDomRef.current;
+      const previousSource = sourceFromDomRef.current;
+      const sourceChanged = currentSource !== previousSource;
+      let sentenceCount = sentenceCountRef.current;
       if (sourceChanged) {
+        sentenceCount = buildSentences(currentSource).length;
         sourceFromDomRef.current = currentSource;
+        sentenceCountRef.current = sentenceCount;
         setNarrationSource(currentSource);
       }
 
-      const sentences = buildSentences(currentSource);
       const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
       const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
-      const needsRedecorate = decoratedSource !== currentSource || decoratedCount !== sentences.length;
+      const needsRedecorate = decoratedSource !== currentSource || decoratedCount !== sentenceCount;
       if (!sourceChanged && needsRedecorate) {
         setSentenceDomRevision((value) => value + 1);
       }
@@ -304,21 +311,47 @@ export function ArticleReaderView({
     if (!root) return;
 
     if (!features.narration) {
+      sentenceCountRef.current = 0;
       clearReaderSentenceDecorations(root);
       applyActiveHighlight(null);
       return;
     }
 
-    const sentences = buildSentences(narrationSource);
-    const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
-    const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
-    const isUpToDate = decoratedSource === narrationSource && decoratedCount === sentences.length;
-    if (!isUpToDate) {
-      clearReaderSentenceDecorations(root);
-      decorateReaderSentenceSpans(root, narrationSource, sentences);
+    const win = root.ownerDocument?.defaultView ?? globalThis.window;
+    let disposed = false;
+    let rafId = 0;
+
+    const runDecoration = () => {
+      if (disposed) return;
+
+      const sentences = buildSentences(narrationSource);
+      sentenceCountRef.current = sentences.length;
+      const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
+      const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
+      const isUpToDate = decoratedSource === narrationSource && decoratedCount === sentences.length;
+      if (!isUpToDate) {
+        clearReaderSentenceDecorations(root);
+        decorateReaderSentenceSpans(root, narrationSource, sentences);
+      }
+
+      applyActiveHighlight(activeSentenceRef.current);
+    };
+
+    // Defer only the first wrapping pass so the page can paint before we mutate
+    // the whole article; later rebuilds keep their existing synchronous behavior.
+    const shouldDeferInitialDecoration = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length === 0;
+    if (!win?.requestAnimationFrame || !shouldDeferInitialDecoration) {
+      runDecoration();
+      return () => {
+        disposed = true;
+      };
     }
 
-    applyActiveHighlight(activeSentenceRef.current);
+    rafId = win.requestAnimationFrame(runDecoration);
+    return () => {
+      disposed = true;
+      if (rafId !== 0 && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
+    };
   }, [activeSentenceRef, applyActiveHighlight, features.narration, narrationSource, sentenceDomRevision]);
 
   const getFirstVisibleSentenceIndex = useCallback(() => {

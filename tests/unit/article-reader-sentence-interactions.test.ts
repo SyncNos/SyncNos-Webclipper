@@ -5,6 +5,7 @@ import { JSDOM } from 'jsdom';
 
 import { DEFAULT_READER_PREFS } from '../../src/services/protocols/reader-prefs';
 import type { ReaderTtsSentence } from '../../src/services/reader/tts/reader-tts-engine';
+import * as readerSentenceDom from '../../src/ui/reader/reader-sentence-dom';
 
 const mocks = vi.hoisted(() => {
   const play = vi.fn();
@@ -213,6 +214,18 @@ async function flushDom(): Promise<void> {
   await act(async () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+async function waitForSentenceCount(expected: number): Promise<void> {
+  await act(async () => {
+    for (let index = 0; index < 12; index += 1) {
+      if (getSentenceSpans().length === expected) return;
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
   });
 }
 
@@ -248,6 +261,16 @@ describe('ArticleReaderView sentence interactions', () => {
     await flushDom();
     expect(getSentenceRoot().innerHTML).toBe(snapshot);
     expect(getSentenceSpans()).toHaveLength(2);
+  });
+
+  it('collects sentence text segments once per decoration pass', async () => {
+    const collectSpy = vi.spyOn(readerSentenceDom, 'collectReaderSentenceTextSegments');
+
+    renderArticle(root!);
+    await flushDom();
+
+    expect(getSentenceSpans()).toHaveLength(2);
+    expect(collectSpy).toHaveBeenCalledTimes(1);
   });
 
   it('clicking a sentence seeks while idle and plays while active, without blocking links', async () => {
@@ -330,7 +353,7 @@ describe('ArticleReaderView sentence interactions', () => {
     expect(getSentenceSpans()).toHaveLength(2);
 
     rootNode.appendChild(document.createTextNode(' Third sentence.'));
-    await flushDom();
+    await waitForSentenceCount(3);
 
     expect(normalizeText(mocks.sources[mocks.sources.length - 1])).toBe(
       'Alpha sentence with link. Beta sentence. Third sentence.',
