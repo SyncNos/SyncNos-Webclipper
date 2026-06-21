@@ -125,3 +125,45 @@
 }
 
 /* Theme follows the system `prefers-color-scheme` only. */
+
+/* =====================================================================
+ * Reader-local themes (P3)
+ * Scoped strictly to [data-reader-theme=...]; MUST NOT touch :root or any
+ * global @media. light/dark are handled by the system tokens above, so only
+ * sepia and black need explicit overrides here. They redefine reading-related
+ * surface/text/border tokens; the reader container consumes them via the
+ * existing token names, leaving the rest of the app untouched.
+ * ===================================================================== */
+[data-reader-theme="sepia"] {
+  /* Surface: warm paper */
+  --bg-primary: rgb(244 236 220);
+  --bg-sunken: rgb(248 241 227);
+  --bg-card: rgb(250 244 231);
+  --bg-overlay: rgba(43, 34, 20, 0.42);
+
+  /* Text: warm ink */
+  --text-primary: rgb(74 60 44);
+  --text-secondary: rgb(124 108 86);
+
+  /* Utility */
+  --border: rgb(216 202 178);
+  --card-shadow: 0 10px 24px rgb(60 45 20 / 12%);
+  --surface-inset-highlight: rgb(255 250 240 / 60%);
+}
+
+[data-reader-theme="black"] {
+  /* Surface: true black (OLED-friendly) */
+  --bg-primary: rgb(0 0 0);
+  --bg-sunken: rgb(0 0 0);
+  --bg-card: rgb(18 18 20);
+  --bg-overlay: rgba(0, 0, 0, 0.75);
+
+  /* Text */
+  --text-primary: rgb(228 230 235);
+  --text-secondary: rgb(150 154 162);
+
+  /* Utility */
+  --border: rgb(40 42 48);
+  --card-shadow: 0 12px 28px rgb(0 0 0 / 55%);
+  --surface-inset-highlight: rgb(255 255 255 / 8%);
+}
