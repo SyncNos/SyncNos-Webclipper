@@ -552,7 +552,7 @@ export function ConversationDetailPane({
               selected={selected}
               activeId={activeId}
               detail={detail}
-              isArticle={isArticle}
+              isArticle={false}
               listError={listError}
               loadingDetail={loadingDetail}
               detailError={detailError}

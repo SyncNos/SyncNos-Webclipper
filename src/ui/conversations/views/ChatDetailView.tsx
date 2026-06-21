@@ -19,14 +19,14 @@ export type ChatDetailViewProps = {
 };
 
 /**
- * ChatDetailView renders the conversation message list (chat bubbles).
- * Extracted verbatim from ConversationDetailPane so chat rendering stays identical.
+ * ChatDetailView renders the chat-detail message list.
+ * The prop bag is still the legacy one for now; renderer-specific prop cleanup
+ * happens in the next task after the chat/article split is isolated.
  */
 export function ChatDetailView({
   selected,
   activeId,
   detail,
-  isArticle,
   listError,
   loadingDetail,
   detailError,
@@ -64,7 +64,7 @@ export function ChatDetailView({
                 (m as any).conversationId || (selected as any)?.id || activeId,
               );
 
-              if (!isArticle && role === 'user' && messageId != null) {
+              if (role === 'user' && messageId != null) {
                 return (
                   <div
                     key={String((m as any).id)}
@@ -90,7 +90,7 @@ export function ChatDetailView({
               return (
                 <ChatMessageBubble
                   key={String((m as any).id)}
-                  role={isArticle ? 'assistant' : (m as any).role}
+                  role={(m as any).role}
                   markdown={text}
                   readingProfile={markdownReadingProfile}
                   conversationId={
