@@ -254,6 +254,7 @@ describe('reader mode regression', () => {
 
     const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
     expect(shell).toBeTruthy();
+    expect(document.querySelector('[data-reader-sentence-index]')).toBeNull();
     expect(shell?.hasAttribute('data-reader-theme')).toBe(false);
     const articleMoreButton = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
     expect(articleMoreButton).toBeTruthy();

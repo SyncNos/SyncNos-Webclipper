@@ -7,6 +7,21 @@ import { DEFAULT_READER_PREFS } from '../../src/services/protocols/reader-prefs'
 import type { ReaderTtsSentence } from '../../src/services/reader/tts/reader-tts-engine';
 import * as readerSentenceDom from '../../src/ui/reader/reader-sentence-dom';
 
+const narrationState = {
+  state: 'idle' as 'idle' | 'loading' | 'playing' | 'paused',
+  activeIndex: -1,
+  activeSentence: null as ReaderTtsSentence | null,
+  hasCursor: false,
+  error: null as string | null,
+  webSpeechAvailable: true,
+  isPlaying: false,
+};
+
+const outlineState = {
+  entries: [] as any[],
+  activeIndex: null as number | null,
+};
+
 const mocks = vi.hoisted(() => {
   const play = vi.fn();
   const seek = vi.fn();
@@ -14,17 +29,8 @@ const mocks = vi.hoisted(() => {
   const stop = vi.fn();
   const toggle = vi.fn();
   const update = vi.fn();
-  const narration = {
-    state: 'idle' as 'idle' | 'loading' | 'playing' | 'paused',
-    activeIndex: -1,
-    activeSentence: null as ReaderTtsSentence | null,
-    hasCursor: false,
-    error: null as string | null,
-    webSpeechAvailable: true,
-    isPlaying: false,
-  };
   const sources: string[] = [];
-  return { play, seek, pause, stop, toggle, update, narration, sources };
+  return { play, seek, pause, stop, toggle, update, sources };
 });
 
 vi.mock('../../src/viewmodels/reader/useReaderPrefs', () => ({
@@ -34,11 +40,15 @@ vi.mock('../../src/viewmodels/reader/useReaderPrefs', () => ({
   }),
 }));
 
+vi.mock('../../src/ui/reader/ArticleOutlineMinimap', () => ({
+  useArticleOutlineMinimap: () => outlineState,
+}));
+
 vi.mock('../../src/viewmodels/reader/useReaderNarration', () => ({
   useReaderNarration: (source: string) => {
     mocks.sources.push(source);
     return {
-      ...mocks.narration,
+      ...narrationState,
       play: mocks.play,
       seek: mocks.seek,
       pause: mocks.pause,
@@ -202,8 +212,10 @@ function resetMocks() {
   mocks.stop.mockReset();
   mocks.toggle.mockReset();
   mocks.update.mockReset();
+  outlineState.entries = [];
+  outlineState.activeIndex = null;
   mocks.sources.length = 0;
-  Object.assign(mocks.narration, {
+  Object.assign(narrationState, {
     state: 'idle',
     activeIndex: -1,
     activeSentence: null,
@@ -254,28 +266,6 @@ function getSentenceSpans(): HTMLElement[] {
   return Array.from(getSentenceRoot().querySelectorAll<HTMLElement>('[data-reader-sentence-index]'));
 }
 
-function setRect(
-  element: Element,
-  rect: { top: number; bottom: number; left?: number; right?: number; width?: number; height?: number },
-) {
-  Object.defineProperty(element, 'getBoundingClientRect', {
-    configurable: true,
-    value: () => ({
-      top: rect.top,
-      bottom: rect.bottom,
-      left: rect.left ?? 0,
-      right: rect.right ?? 0,
-      width: rect.width ?? Math.max(0, (rect.right ?? 0) - (rect.left ?? 0)),
-      height: rect.height ?? Math.max(0, rect.bottom - rect.top),
-      x: rect.left ?? 0,
-      y: rect.top,
-      toJSON() {
-        return this;
-      },
-    }),
-  });
-}
-
 async function flushDom(): Promise<void> {
   await act(async () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -312,14 +302,27 @@ describe('ArticleReaderView sentence interactions', () => {
     cleanupDom();
   });
 
-  it('decorates sentences as clickable spans and keeps spans stable across rerender', async () => {
+  it('decorates sentences only after narration is engaged and keeps spans stable across rerender', async () => {
     renderArticle(root!);
     await flushDom();
+
+    expect(getSentenceSpans()).toHaveLength(0);
+
+    Object.assign(narrationState, {
+      state: 'playing',
+      activeIndex: 0,
+      activeSentence: { index: 0, text: 'Alpha sentence with link.', start: 0, end: 26 },
+      hasCursor: true,
+      isPlaying: true,
+    });
+    renderArticle(root!);
+    await waitForSentenceCount(2);
 
     const rootNode = getSentenceRoot();
     const spans = getSentenceSpans();
     expect(spans).toHaveLength(2);
     expect(spans.map((span) => span.getAttribute('data-reader-sentence-index'))).toEqual(['0', '1']);
+    expect(spans[0].classList.contains('reader-tts-sentence-active')).toBe(true);
     expect(normalizeText(mocks.sources[mocks.sources.length - 1])).toBe('Alpha sentence with link. Beta sentence.');
 
     const snapshot = rootNode.innerHTML;
@@ -332,8 +335,15 @@ describe('ArticleReaderView sentence interactions', () => {
   it('collects sentence text segments once per decoration pass', async () => {
     const collectSpy = vi.spyOn(readerSentenceDom, 'collectReaderSentenceTextSegments');
 
+    Object.assign(narrationState, {
+      state: 'loading',
+      activeIndex: -1,
+      activeSentence: null,
+      hasCursor: false,
+      isPlaying: true,
+    });
     renderArticle(root!);
-    await flushDom();
+    await waitForSentenceCount(2);
 
     expect(getSentenceSpans()).toHaveLength(2);
     expect(collectSpy).toHaveBeenCalledTimes(1);
@@ -343,6 +353,13 @@ describe('ArticleReaderView sentence interactions', () => {
     const raf = installManualRaf();
     const markdown = Array.from({ length: 140 }, (_, index) => `Sentence ${index + 1}.`).join(' ');
 
+    Object.assign(narrationState, {
+      state: 'loading',
+      activeIndex: -1,
+      activeSentence: null,
+      hasCursor: false,
+      isPlaying: true,
+    });
     renderArticle(root!, markdown);
 
     let partialCount = 0;
@@ -375,7 +392,7 @@ describe('ArticleReaderView sentence interactions', () => {
     expect(getSentenceSpans()).toHaveLength(0);
     expect((globalThis as any).__syncnosReaderPerformance?.decorateMode).toBe('idle');
 
-    Object.assign(mocks.narration, {
+    Object.assign(narrationState, {
       state: 'loading',
       activeIndex: 0,
       activeSentence: { index: 0, text: 'Sentence 1.', start: 0, end: 11 },
@@ -388,46 +405,18 @@ describe('ArticleReaderView sentence interactions', () => {
     expect(getSentenceSpans().length).toBeGreaterThan(0);
   });
 
-  it('starts huge idle documents from the visible sentence before any decoration spans exist', async () => {
-    const markdown = Array.from({ length: 700 }, (_, index) => `Sentence ${index + 1}.`).join(' ');
-
-    renderArticle(root!, markdown);
-    await flushDom();
-
-    expect(getSentenceSpans()).toHaveLength(0);
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100 });
-    Object.defineProperty(window.Range.prototype, 'getBoundingClientRect', {
-      configurable: true,
-      value(this: Range) {
-        const match = /Sentence (\d+)\./.exec(this.toString());
-        const number = match ? Number(match[1]) : 1;
-        const top = (number - 350) * 40;
-        return { top, bottom: top + 20 };
-      },
-    });
-
-    (document.querySelector('[data-testid="toolbar-play"]') as HTMLButtonElement).click();
-    expect(mocks.play).toHaveBeenLastCalledWith(349);
-  });
-
-  it('clicking a sentence seeks while idle and plays while active, without blocking links', async () => {
+  it('ignores sentence clicks while idle, then plays while active, without blocking links', async () => {
     renderArticle(root!);
     await flushDom();
 
-    const spans = getSentenceSpans();
-    const firstSentence = spans[0];
-    const firstLink = firstSentence.querySelector('a') as HTMLAnchorElement | null;
-    expect(firstLink).toBeTruthy();
+    const sentenceRoot = getSentenceRoot();
+    expect(getSentenceSpans()).toHaveLength(0);
 
-    firstSentence.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    expect(mocks.seek).toHaveBeenCalledWith(0);
+    sentenceRoot.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(mocks.seek).not.toHaveBeenCalled();
     expect(mocks.play).not.toHaveBeenCalled();
 
-    firstLink!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    expect(mocks.seek).toHaveBeenCalledTimes(1);
-    expect(mocks.play).not.toHaveBeenCalled();
-
-    Object.assign(mocks.narration, {
+    Object.assign(narrationState, {
       state: 'playing',
       activeIndex: 0,
       activeSentence: { index: 0, text: 'Alpha sentence with link.', start: 0, end: 26 },
@@ -435,56 +424,32 @@ describe('ArticleReaderView sentence interactions', () => {
       isPlaying: true,
     });
     renderArticle(root!);
-    await flushDom();
+    await waitForSentenceCount(2);
+
+    const spans = getSentenceSpans();
+    const firstSentence = spans[0];
+    const firstLink = firstSentence.querySelector('a') as HTMLAnchorElement | null;
+    expect(firstLink).toBeTruthy();
+
+    firstLink!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(mocks.play).not.toHaveBeenCalled();
 
     expect(getSentenceSpans()[0].classList.contains('reader-tts-sentence-active')).toBe(true);
     getSentenceSpans()[1].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     expect(mocks.play).toHaveBeenCalledWith(1);
   });
 
-  it('toolbar wrappers compute the first visible sentence and reuse the active cursor', async () => {
-    renderArticle(root!);
-    await flushDom();
-
-    Object.assign(mocks.narration, {
-      state: 'idle',
-      activeIndex: -1,
-      activeSentence: null,
-      hasCursor: false,
-      isPlaying: false,
-    });
-    renderArticle(root!);
-    await flushDom();
-
-    const spans = getSentenceSpans();
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100 });
-    setRect(spans[0], { top: 120, bottom: 160 });
-    setRect(spans[1], { top: 20, bottom: 60 });
-
-    (document.querySelector('[data-testid="toolbar-play"]') as HTMLButtonElement).click();
-    expect(mocks.play).toHaveBeenLastCalledWith(1);
-
-    (document.querySelector('[data-testid="toolbar-toggle"]') as HTMLButtonElement).click();
-    expect(mocks.toggle).toHaveBeenLastCalledWith(1);
-
-    Object.assign(mocks.narration, {
-      state: 'paused',
+  it('rebuilds spans after DOM mutation and disconnects its observer on unmount', async () => {
+    const disconnectSpy = vi.spyOn(MutationObserver.prototype, 'disconnect');
+    Object.assign(narrationState, {
+      state: 'playing',
       activeIndex: 0,
       activeSentence: { index: 0, text: 'Alpha sentence with link.', start: 0, end: 26 },
       hasCursor: true,
-      isPlaying: false,
+      isPlaying: true,
     });
     renderArticle(root!);
-    await flushDom();
-
-    (document.querySelector('[data-testid="toolbar-play"]') as HTMLButtonElement).click();
-    expect(mocks.play).toHaveBeenLastCalledWith(0);
-  });
-
-  it('rebuilds spans after DOM mutation and disconnects its observer on unmount', async () => {
-    const disconnectSpy = vi.spyOn(MutationObserver.prototype, 'disconnect');
-    renderArticle(root!);
-    await flushDom();
+    await waitForSentenceCount(2);
 
     const rootNode = getSentenceRoot();
     expect(getSentenceSpans()).toHaveLength(2);
