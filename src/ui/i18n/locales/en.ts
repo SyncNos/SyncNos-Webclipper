@@ -127,9 +127,6 @@ export const en = {
   readerNarrationStop: 'Stop',
   // Reader · text & layout panel
   readerTextPreset: 'Preset',
-  readerPresetMedium: 'Medium',
-  readerPresetNotion: 'Notion',
-  readerPresetBook: 'Book',
   readerTextFont: 'Font',
   readerFontAria: 'Reader font family',
   readerFontSerif: 'Serif',
