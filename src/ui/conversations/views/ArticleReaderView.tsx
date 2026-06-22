@@ -65,7 +65,6 @@ const READER_COLUMN_STYLE: CSSProperties = { maxWidth: 'var(--reader-content-wid
 const READER_SHELL_CLASS = 'tw-flex tw-w-full tw-items-start tw-gap-4';
 const READER_MAIN_CLASS = 'tw-min-w-0 tw-flex-1 tw-max-w-full';
 const READER_RAIL_CLASS = 'tw-flex-none tw-shrink-0 tw-self-start';
-const READER_INLINE_HEADER_TOOLS_CLASS = 'tw-mt-3 tw-flex tw-justify-end';
 
 /**
  * ArticleReaderView renders article / video conversations.
@@ -448,8 +447,6 @@ export function ArticleReaderView({
     );
   }, [features, prefs, readerToolbarPortalTarget, toolbarNarration, update]);
 
-  const shouldRenderInlineHeaderToolbar =
-    !readerToolbarPortalTarget && (features.textLayout || features.theme || features.narration);
   const shouldRenderInlineRail = !!outlinePayload?.entries.length;
 
   const handleSentenceClick = useCallback(
@@ -487,12 +484,6 @@ export function ArticleReaderView({
         data-reader-theme={readerThemeAttr}
       >
         <div className={READER_MAIN_CLASS} data-reader-main="article-main">
-        {shouldRenderInlineHeaderToolbar ? (
-          <div className={READER_INLINE_HEADER_TOOLS_CLASS}>
-            <ReaderHeaderToolbar features={features} prefs={prefs} update={update} narration={toolbarNarration} />
-          </div>
-        ) : null}
-
         {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
         {loadingDetail ? (
           <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>

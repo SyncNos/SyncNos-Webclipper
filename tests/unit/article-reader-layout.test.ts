@@ -153,7 +153,7 @@ describe('ArticleReaderView layout', () => {
     cleanupDom();
   });
 
-  it('renders the article shell, omits the system theme attribute, and inlines the fallback header tools when no portal target exists', () => {
+  it('renders the article shell without reader controls when no header portal target exists', () => {
     renderArticle(root!);
 
     const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
@@ -165,14 +165,12 @@ describe('ArticleReaderView layout', () => {
 
     const main = shell?.querySelector('[data-reader-main="article-main"]') as HTMLElement | null;
     const rail = shell?.querySelector('[data-reader-rail="article-rail"]') as HTMLElement | null;
-    const headerToolbar = shell?.querySelector('[data-testid="reader-header-toolbar"]') as HTMLElement | null;
     const sentenceRoot = shell?.querySelector('[data-reader-sentence-root="true"]') as HTMLElement | null;
 
     expect(main).toBeTruthy();
     expect(main?.className).toContain('tw-flex-1');
     expect(rail).toBeNull();
-    expect(headerToolbar).toBeTruthy();
-    expect(headerToolbar?.closest('[data-reader-main="article-main"]')).toBe(main);
+    expect(shell?.querySelector('[data-testid="reader-header-toolbar"]')).toBeNull();
     expect(sentenceRoot).toBeTruthy();
     expect(sentenceRoot?.style.maxWidth).toBe('var(--reader-content-width)');
   });
