@@ -93,11 +93,6 @@ const LEGACY_READER_TYPOGRAPHY_PRESETS: Record<LegacyMarkdownReadingProfileId, R
   book: DEFAULT_READER_TYPOGRAPHY_PRESET,
 };
 
-/**
- * @deprecated Legacy migration alias only. Do not import this in UI code.
- */
-export const READER_TYPOGRAPHY_PRESETS = LEGACY_READER_TYPOGRAPHY_PRESETS;
-
 export const READER_FONT_STACKS: Record<ReaderFontFamily, string> = {
   serif: 'Georgia, "Times New Roman", "Songti SC", "Noto Serif CJK SC", serif',
   sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans CJK SC", sans-serif',

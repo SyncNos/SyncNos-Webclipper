@@ -54,7 +54,7 @@ const READER_SENTENCE_DECORATION_STATUS_ATTR = 'data-reader-sentence-decoration'
 const READER_SENTENCE_DECORATION_PENDING = 'pending';
 const READER_SENTENCE_DECORATION_READY = 'ready';
 const READER_SENTENCE_CLASS = 'reader-tts-sentence';
-const READER_ACTIVE_SENTENCE_CLASS = 'reader-active-sentence';
+const READER_CURRENT_SENTENCE_CLASS = 'reader-tts-sentence-active';
 const READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE = 48;
 
 function unwrapReaderSentenceSpan(span: HTMLElement): void {
@@ -222,7 +222,7 @@ export function ArticleReaderView({
   const clearActiveHighlight = useCallback(() => {
     const previous = lastHighlightRef.current;
     if (!previous) return;
-    previous.classList.remove(READER_ACTIVE_SENTENCE_CLASS);
+    previous.classList.remove(READER_CURRENT_SENTENCE_CLASS);
     lastHighlightRef.current = null;
   }, []);
 
@@ -233,7 +233,7 @@ export function ArticleReaderView({
       if (!features.narration || !root || !sentence) return;
       const target = root.querySelector<HTMLElement>(`[${READER_SENTENCE_INDEX_ATTR}="${sentence.index}"]`);
       if (!target) return;
-      target.classList.add(READER_ACTIVE_SENTENCE_CLASS);
+      target.classList.add(READER_CURRENT_SENTENCE_CLASS);
       lastHighlightRef.current = target;
     },
     [clearActiveHighlight, features.narration],

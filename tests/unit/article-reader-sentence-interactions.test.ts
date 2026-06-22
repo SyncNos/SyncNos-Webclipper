@@ -383,7 +383,7 @@ describe('ArticleReaderView sentence interactions', () => {
     renderArticle(root!);
     await flushDom();
 
-    expect(getSentenceSpans()[0].classList.contains('reader-active-sentence')).toBe(true);
+    expect(getSentenceSpans()[0].classList.contains('reader-tts-sentence-active')).toBe(true);
     getSentenceSpans()[1].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     expect(mocks.play).toHaveBeenCalledWith(1);
   });

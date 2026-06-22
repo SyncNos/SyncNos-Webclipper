@@ -51,7 +51,6 @@ const LABELS = {
   text: t('readerTextLayoutButton'),
   theme: t('readerThemeButton'),
   narration: t('readerNarrationButton'),
-  outline: '目录',
   play: t('readerNarrationPlay'),
   reading: t('readerNarrationReading'),
   pause: t('readerNarrationPause'),

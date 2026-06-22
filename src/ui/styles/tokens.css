@@ -208,12 +208,12 @@
   --surface-inset-highlight: rgb(255 255 255 / 14%);
 }
 
-/* Reader sentence highlight (P4-T3 / F-P4-01) -------------------------------
+/* Reader sentence highlight -------------------------------------------------
    Base tint plus theme-aware overrides so the highlight stays legible across the
-   five reader themes. `ArticleReaderView` applies the `reader-active-sentence`
-   class to the decorated sentence span, and this token drives the background
-   color without any inline fallback. Theme-scoped selectors outrank :root, so
-   source order here is irrelevant. */
+   five reader themes. `ArticleReaderView` applies the
+   `reader-tts-sentence-active` class to the decorated sentence span, and this
+   token drives the background color without any inline fallback. Theme-scoped
+   selectors outrank :root, so source order here is irrelevant. */
 :root {
   --reader-highlight: rgba(250, 204, 21, 0.22);
 }
@@ -229,7 +229,7 @@
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
-.reader-active-sentence {
+.reader-tts-sentence-active {
   background-color: var(--reader-highlight, rgba(250, 204, 21, 0.22));
   transition: background-color 120ms ease;
 }
