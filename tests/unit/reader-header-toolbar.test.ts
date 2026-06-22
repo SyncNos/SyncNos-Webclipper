@@ -179,12 +179,16 @@ describe('ReaderHeaderToolbar', () => {
     expect(document.querySelector('[data-reader-header-trigger="text"] svg')).toBeTruthy();
     expect(document.querySelector('[data-reader-header-trigger="theme"] svg')).toBeTruthy();
     expect(document.querySelector('[data-reader-header-trigger="narration"] svg')).toBeTruthy();
-    expect((document.querySelector('[data-reader-header-trigger="text"]') as HTMLElement | null)?.className).toContain('tw-justify-between');
+    expect((document.querySelector('[data-reader-header-trigger="text"]') as HTMLElement | null)?.className).toContain(
+      'tw-justify-between',
+    );
 
     act(() => {
       (document.querySelector('[data-reader-header-trigger="text"]') as HTMLButtonElement).click();
     });
-    const textPanel = document.querySelector('[role="menu"][aria-label="readerTextLayoutButton"]') as HTMLElement | null;
+    const textPanel = document.querySelector(
+      '[role="menu"][aria-label="readerTextLayoutButton"]',
+    ) as HTMLElement | null;
     expect(textPanel).toBeTruthy();
     expect(textPanel?.className.includes('menu-panel')).toBe(true);
     expect(textPanel?.className.includes('tw-p-3')).toBe(false);
