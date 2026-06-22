@@ -45,10 +45,10 @@ export type ReaderPrefs = {
 export const READER_PREFS_LIMITS = {
   fontSize: { min: 14, max: 34 },
   lineHeight: { min: 1.2, max: 2.4 },
-  contentWidth: { min: 480, max: 1000 },
+  contentWidth: { min: 480, max: 2000 },
   letterSpacing: { min: -0.02, max: 0.08 },
   tts: {
-    rate: { min: 0.5, max: 2.5 },
+    rate: { min: 0.8, max: 2 },
   },
 } as const;
 
@@ -63,41 +63,34 @@ export const DEFAULT_READER_TTS_PREFS: ReaderTtsPrefs = {
   aiFormat: 'opus',
 };
 
-export const DEFAULT_READER_PREFS: ReaderPrefs = {
-  fontFamily: 'serif',
-  fontSize: 18,
-  lineHeight: 1.75,
-  contentWidth: 720,
-  letterSpacing: 0,
-  textAlign: 'left',
-  theme: 'system',
-  tts: DEFAULT_READER_TTS_PREFS,
-};
-
 export type ReaderTypographyPreset = Pick<
   ReaderPrefs,
   'fontFamily' | 'fontSize' | 'lineHeight' | 'contentWidth' | 'letterSpacing' | 'textAlign'
 >;
 
-// Keyed by the legacy markdown reading profile ids so migration is a direct lookup.
-export const READER_TYPOGRAPHY_PRESETS: Record<'medium' | 'notion' | 'book', ReaderTypographyPreset> = {
-  medium: {
-    fontFamily: 'serif',
-    fontSize: 18,
-    lineHeight: 1.75,
-    contentWidth: 720,
-    letterSpacing: 0,
-    textAlign: 'left',
-  },
-  notion: { fontFamily: 'sans', fontSize: 16, lineHeight: 1.6, contentWidth: 900, letterSpacing: 0, textAlign: 'left' },
-  book: {
-    fontFamily: 'serif',
-    fontSize: 20,
-    lineHeight: 1.9,
-    contentWidth: 640,
-    letterSpacing: 0.01,
-    textAlign: 'justify',
-  },
+// Medium/default typography is the canonical reset and the fallback for legacy profiles.
+export const DEFAULT_READER_TYPOGRAPHY_PRESET: ReaderTypographyPreset = {
+  fontFamily: 'serif',
+  fontSize: 18,
+  lineHeight: 1.75,
+  contentWidth: 680,
+  letterSpacing: 0,
+  textAlign: 'left',
+};
+
+export const DEFAULT_READER_PREFS: ReaderPrefs = {
+  ...DEFAULT_READER_TYPOGRAPHY_PRESET,
+  theme: 'system',
+  tts: DEFAULT_READER_TTS_PREFS,
+};
+
+type LegacyMarkdownReadingProfileId = 'medium' | 'notion' | 'book';
+
+// Legacy alias preserved only for migration compatibility. UI code must not use this.
+const LEGACY_READER_TYPOGRAPHY_PRESETS: Record<LegacyMarkdownReadingProfileId, ReaderTypographyPreset> = {
+  medium: DEFAULT_READER_TYPOGRAPHY_PRESET,
+  notion: DEFAULT_READER_TYPOGRAPHY_PRESET,
+  book: DEFAULT_READER_TYPOGRAPHY_PRESET,
 };
 
 export const READER_FONT_STACKS: Record<ReaderFontFamily, string> = {
@@ -158,7 +151,7 @@ export function normalizeReaderPrefs(raw: unknown): ReaderPrefs {
 // Read-only: never writes back or deletes the legacy key.
 export function readerPrefsFromLegacyProfile(legacyValue: unknown): ReaderPrefs {
   const id = resolveMarkdownReadingProfileId(legacyValue);
-  const preset = READER_TYPOGRAPHY_PRESETS[id];
+  const preset = LEGACY_READER_TYPOGRAPHY_PRESETS[id];
   return normalizeReaderPrefs({ ...DEFAULT_READER_PREFS, ...preset });
 }
 

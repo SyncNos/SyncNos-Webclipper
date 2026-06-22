@@ -282,7 +282,6 @@ const videoKind: ConversationKindDefinition = {
     },
   },
   obsidian: { folder: 'SyncNos-Videos' },
-  // TODO: subtitle renderer
   view: {
     renderer: 'article',
     readerFeatures: { textLayout: true, theme: true, narration: true },

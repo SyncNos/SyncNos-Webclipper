@@ -119,6 +119,36 @@ describe('ReaderTtsEngine (Web tier)', () => {
     expect(synth.spoken).toEqual([]);
   });
 
+  it('seek() only positions the cursor while idle and stop/load clear it', () => {
+    const synth = new FakeSynth();
+    const highlights: number[] = [];
+    const engine = new ReaderTtsEngine(
+      DEFAULT_READER_TTS_PREFS,
+      { onSentence: (i) => highlights.push(i) },
+      deps(synth),
+    );
+
+    engine.load('A. B. C.');
+    engine.seek(1);
+    expect(engine.getState()).toBe('idle');
+    expect(engine.getActiveIndex()).toBe(1);
+    expect(engine.getHasCursor()).toBe(true);
+    expect(synth.spoken).toEqual([]);
+    expect(highlights).toEqual([1]);
+
+    engine.stop();
+    expect(engine.getActiveIndex()).toBe(-1);
+    expect(engine.getHasCursor()).toBe(false);
+    expect(highlights).toEqual([1, -1]);
+
+    engine.seek(2);
+    expect(engine.getActiveIndex()).toBe(2);
+    engine.load('X. Y.');
+    expect(engine.getActiveIndex()).toBe(-1);
+    expect(engine.getHasCursor()).toBe(false);
+    expect(highlights).toEqual([1, -1, 2, -1]);
+  });
+
   it('plays sentences in order, emitting state + highlight callbacks', async () => {
     const synth = new FakeSynth();
     const states: ReaderTtsState[] = [];
@@ -168,6 +198,41 @@ describe('ReaderTtsEngine (Web tier)', () => {
     expect(synth.spoken).toEqual(['A.']);
     expect(engine.getState()).toBe('idle');
     expect(highlights).toEqual([0, -1]);
+  });
+
+  it('play(fromIndex) cancels the old utterance and restarts from the requested sentence', async () => {
+    const synth = new FakeSynth();
+    const highlights: number[] = [];
+    const engine = new ReaderTtsEngine(
+      DEFAULT_READER_TTS_PREFS,
+      { onSentence: (i) => highlights.push(i) },
+      deps(synth),
+    );
+    engine.load('A. B. C.');
+    const firstRun = engine.play();
+    expect(synth.spoken).toEqual(['A.']);
+    const firstUtterance = synth.current;
+    const restartRun = engine.play(1);
+    expect(synth.cancelCount).toBeGreaterThan(0);
+    expect(engine.getActiveIndex()).toBe(1);
+    expect(engine.getHasCursor()).toBe(true);
+    expect(synth.spoken).toEqual(['A.', 'B.']);
+
+    firstUtterance?.onend?.();
+    await tick();
+    expect(synth.spoken).toEqual(['A.', 'B.']);
+
+    synth.finish();
+    await tick();
+    expect(synth.spoken).toEqual(['A.', 'B.', 'C.']);
+    synth.finish();
+    await restartRun;
+    await firstRun;
+
+    expect(engine.getState()).toBe('idle');
+    expect(engine.getActiveIndex()).toBe(-1);
+    expect(engine.getHasCursor()).toBe(false);
+    expect(highlights).toEqual([0, -1, 1, 2, -1]);
   });
 
   it('pause() and resume() drive the underlying synth', () => {
@@ -462,6 +527,36 @@ describe('ReaderTtsEngine (AI tier)', () => {
     expect(engine.getState()).toBe('idle');
     expect(h.fetchCalls).toHaveLength(1);
     expect(h.revoked).toContain(h.created[0]);
+  });
+
+  it('play(fromIndex) aborts the in-flight AI audio and restarts from the requested sentence', async () => {
+    const h = aiHarness();
+    const engine = new ReaderTtsEngine(aiPrefs(), {}, h.deps as any);
+    engine.load('Hello. World.');
+    engine.play();
+    await tick();
+
+    expect(h.fetchCalls).toHaveLength(1);
+    expect(h.audios).toHaveLength(1);
+    const firstAudio = h.audios[0];
+
+    const restart = engine.play(1);
+    await tick();
+
+    expect(h.fetchCalls).toHaveLength(2);
+    expect(JSON.parse(h.fetchCalls[1].init.body).input).toBe('World.');
+    expect(firstAudio.paused).toBe(true);
+    expect(h.revoked).toContain(h.created[0]);
+
+    firstAudio.onended?.();
+    await tick();
+    expect(h.fetchCalls).toHaveLength(2);
+
+    h.audios[1].onended?.();
+    await restart;
+    expect(engine.getState()).toBe('idle');
+    expect(engine.getActiveIndex()).toBe(-1);
+    expect(engine.getHasCursor()).toBe(false);
   });
 
   it('reports an error and stays idle when no endpoint is configured', async () => {

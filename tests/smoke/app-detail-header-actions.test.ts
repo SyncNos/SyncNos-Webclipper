@@ -410,6 +410,8 @@ describe('ConversationDetailPane header actions', () => {
     });
 
     expect(document.querySelector('[role="toolbar"][aria-label="Reader tools"]')).toBeTruthy();
+    expect(document.querySelector('[data-reader-shell="article"]')).toBeTruthy();
+    expect(document.querySelector('[data-reader-rail="article-rail"]')).toBeTruthy();
 
     currentState.selectedConversation = {
       id: 16,

@@ -4,9 +4,9 @@ import ReactDOM from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 
 import {
+  DEFAULT_READER_PREFS,
   LEGACY_READING_PROFILE_STORAGE_KEY,
   READER_PREFS_STORAGE_KEY,
-  READER_TYPOGRAPHY_PRESETS,
 } from '../../src/services/protocols/reader-prefs';
 
 const storageState = vi.hoisted(() => ({
@@ -101,11 +101,7 @@ describe('useReaderPrefs', () => {
       await Promise.resolve();
     });
 
-    expect(snapshot?.prefs.fontFamily).toBe(READER_TYPOGRAPHY_PRESETS.book.fontFamily);
-    expect(snapshot?.prefs.fontSize).toBe(READER_TYPOGRAPHY_PRESETS.book.fontSize);
-    expect(snapshot?.prefs.lineHeight).toBe(READER_TYPOGRAPHY_PRESETS.book.lineHeight);
-    expect(snapshot?.prefs.contentWidth).toBe(READER_TYPOGRAPHY_PRESETS.book.contentWidth);
-    expect(snapshot?.prefs.textAlign).toBe(READER_TYPOGRAPHY_PRESETS.book.textAlign);
+    expect(snapshot?.prefs).toEqual(DEFAULT_READER_PREFS);
   });
 
   it('persists updates only to reader_prefs_v1', async () => {

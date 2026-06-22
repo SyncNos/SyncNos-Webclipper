@@ -1,10 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { SelectMenu } from '@ui/shared/SelectMenu';
-import { buttonTintClassName } from '@ui/shared/button-styles';
+import { buttonFilledClassName, buttonTintClassName } from '@ui/shared/button-styles';
 import { textInputClassName } from '@ui/settings/ui';
 import { t } from '@i18n';
 import {
-  READER_PREFS_LIMITS,
   READER_TTS_AUDIO_FORMATS,
   READER_TTS_ENGINES,
   type ReaderPrefs,
@@ -39,14 +38,10 @@ const FORMAT_LABELS: Record<ReaderTtsAudioFormat, string> = {
   flac: t('readerFormatFlac'),
 };
 
-const STEP = { rate: 0.05 } as const;
-
-const rangeClassName = [
-  'tw-w-full tw-cursor-pointer tw-accent-[var(--accent)]',
-  'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
-].join(' ');
+const SPEED_PRESETS = [0.8, 1, 1.25, 1.5, 2] as const;
 
 const fieldInputClassName = [textInputClassName, 'tw-w-full'].join(' ');
+const rateButtonBaseClassName = buttonTintClassName();
 
 type WebSpeechLike = {
   getVoices?: () => Array<{ voiceURI: string; name: string }>;
@@ -162,17 +157,23 @@ export function NarrationPanel({ prefs, update, error, webSpeechAvailable = true
         />
       </Row>
 
-      <Row label={t('readerNarrationSpeed')} value={`${tts.rate.toFixed(2)}x`}>
-        <input
-          type="range"
-          className={rangeClassName}
-          aria-label={t('readerNarrationSpeedAria')}
-          min={READER_PREFS_LIMITS.tts.rate.min}
-          max={READER_PREFS_LIMITS.tts.rate.max}
-          step={STEP.rate}
-          value={tts.rate}
-          onChange={(event) => updateTts({ rate: Number(event.target.value) })}
-        />
+      <Row label={t('readerNarrationSpeed')}>
+        <div className="tw-flex tw-flex-wrap tw-gap-1.5">
+          {SPEED_PRESETS.map((rate) => {
+            const selected = tts.rate === rate;
+            return (
+              <button
+                key={rate}
+                type="button"
+                className={selected ? buttonFilledClassName() : rateButtonBaseClassName}
+                aria-pressed={selected}
+                onClick={() => updateTts({ rate })}
+              >
+                {String(rate)}x
+              </button>
+            );
+          })}
+        </div>
       </Row>
 
       {tts.engine === 'web' ? (

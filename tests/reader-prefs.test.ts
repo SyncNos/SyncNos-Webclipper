@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_READER_PREFS,
+  DEFAULT_READER_TYPOGRAPHY_PRESET,
   DEFAULT_READER_TTS_PREFS,
   READER_PREFS_LIMITS,
   READER_PREFS_STORAGE_KEY,
   LEGACY_READING_PROFILE_STORAGE_KEY,
-  READER_TYPOGRAPHY_PRESETS,
   normalizeReaderPrefs,
   readerPrefsFromLegacyProfile,
   resolveReaderPrefsFromStorage,
@@ -18,6 +18,21 @@ describe('normalizeReaderPrefs', () => {
     expect(normalizeReaderPrefs(undefined)).toEqual(DEFAULT_READER_PREFS);
     expect(normalizeReaderPrefs(null)).toEqual(DEFAULT_READER_PREFS);
     expect(normalizeReaderPrefs('garbage')).toEqual(DEFAULT_READER_PREFS);
+  });
+
+  it('uses the medium/default typography preset and updated limits', () => {
+    expect(DEFAULT_READER_TYPOGRAPHY_PRESET).toEqual({
+      fontFamily: 'serif',
+      fontSize: 18,
+      lineHeight: 1.75,
+      contentWidth: 680,
+      letterSpacing: 0,
+      textAlign: 'left',
+    });
+    expect(DEFAULT_READER_PREFS.contentWidth).toBe(680);
+    expect(READER_PREFS_LIMITS.contentWidth.max).toBe(2000);
+    expect(READER_PREFS_LIMITS.tts.rate.min).toBe(0.8);
+    expect(READER_PREFS_LIMITS.tts.rate.max).toBe(2);
   });
 
   it('clamps out-of-range numbers to limits', () => {
@@ -80,23 +95,14 @@ describe('normalizeReaderPrefs', () => {
 });
 
 describe('readerPrefsFromLegacyProfile', () => {
-  it('migrates medium/notion/book presets', () => {
+  it('migrates medium/notion/book presets to medium/default typography', () => {
     for (const id of ['medium', 'notion', 'book'] as const) {
-      const p = readerPrefsFromLegacyProfile(id);
-      const preset = READER_TYPOGRAPHY_PRESETS[id];
-      expect(p.fontFamily).toBe(preset.fontFamily);
-      expect(p.fontSize).toBe(preset.fontSize);
-      expect(p.lineHeight).toBe(preset.lineHeight);
-      expect(p.contentWidth).toBe(preset.contentWidth);
-      expect(p.textAlign).toBe(preset.textAlign);
-      // migration keeps default theme + tts
-      expect(p.theme).toBe('system');
-      expect(p.tts).toEqual(DEFAULT_READER_TTS_PREFS);
+      expect(readerPrefsFromLegacyProfile(id)).toEqual(DEFAULT_READER_PREFS);
     }
   });
 
   it('falls back to medium for unknown legacy values', () => {
-    expect(readerPrefsFromLegacyProfile('???')).toEqual(readerPrefsFromLegacyProfile('medium'));
+    expect(readerPrefsFromLegacyProfile('???')).toEqual(DEFAULT_READER_PREFS);
   });
 });
 

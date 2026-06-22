@@ -177,6 +177,7 @@ export class ReaderTtsEngine {
   private readonly revokeObjectURL: (url: string) => void;
   private sentences: ReaderTtsSentence[] = [];
   private cursor = 0;
+  private hasCursor = false;
   private state: ReaderTtsState = 'idle';
   // Monotonic token: every stop()/restart bumps it so a stale async
   // continuation (a late `onend`) can detect it has been superseded.
@@ -205,7 +206,11 @@ export class ReaderTtsEngine {
   }
 
   getActiveIndex(): number {
-    return this.state === 'idle' ? -1 : this.cursor;
+    return this.hasCursor ? this.cursor : -1;
+  }
+
+  getHasCursor(): boolean {
+    return this.hasCursor;
   }
 
   updatePrefs(prefs: ReaderTtsPrefs): void {
@@ -217,17 +222,35 @@ export class ReaderTtsEngine {
     this.stop();
     this.sentences = buildSentences(source);
     this.cursor = 0;
+    this.hasCursor = false;
   }
 
   async play(fromIndex?: number): Promise<void> {
     if (this.disposed || !this.sentences.length) return;
     if (typeof fromIndex === 'number') {
-      this.cursor = Math.max(0, Math.min(fromIndex, this.sentences.length - 1));
-    } else if (this.state === 'paused') {
+      if (this.state === 'playing' || this.state === 'loading' || this.state === 'paused') {
+        this.stop();
+      }
+      this.cursor = this.clampCursorIndex(fromIndex);
+      this.hasCursor = true;
+      await this.speakFromCursor();
+      return;
+    }
+    if (this.state === 'paused') {
       this.resume();
       return;
     }
+    if (this.state === 'playing' || this.state === 'loading') return;
+    this.hasCursor = true;
     await this.speakFromCursor();
+  }
+
+  /** Position narration without starting playback. Intended for idle click-to-highlight. */
+  seek(index: number): void {
+    if (this.disposed || !this.sentences.length || this.state !== 'idle') return;
+    this.cursor = this.clampCursorIndex(index);
+    this.hasCursor = true;
+    this.emitSentence(this.cursor);
   }
 
   pause(): void {
@@ -276,7 +299,10 @@ export class ReaderTtsEngine {
     this.currentAbort?.abort();
     this.currentAbort = null;
     this.cancelCurrentAudio(new Error('AI playback cancelled'));
-    if (this.state !== 'idle') {
+    const hadCursor = this.hasCursor;
+    this.hasCursor = false;
+    this.cursor = 0;
+    if (this.state !== 'idle' || hadCursor) {
       this.setState('idle');
       this.emitSentence(-1);
     }
@@ -290,6 +316,11 @@ export class ReaderTtsEngine {
 
   // ---- internals ----
 
+  private clampCursorIndex(index: number): number {
+    if (!Number.isFinite(index)) return 0;
+    return Math.max(0, Math.min(Math.trunc(index), this.sentences.length - 1));
+  }
+
   private async speakFromCursor(): Promise<void> {
     const generation = ++this.generation;
     while (!this.disposed && generation === this.generation && this.cursor < this.sentences.length) {
@@ -301,6 +332,8 @@ export class ReaderTtsEngine {
         if (this.disposed || generation !== this.generation) return;
         this.listeners.onError?.(error instanceof Error ? error : new Error(String(error)));
         this.setState('idle');
+        this.hasCursor = false;
+        this.cursor = 0;
         this.emitSentence(-1);
         return;
       }
@@ -311,8 +344,9 @@ export class ReaderTtsEngine {
     }
     if (!this.disposed && generation === this.generation && this.cursor >= this.sentences.length) {
       this.setState('idle');
-      this.emitSentence(-1);
+      this.hasCursor = false;
       this.cursor = 0;
+      this.emitSentence(-1);
     }
   }
 
