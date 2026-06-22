@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { ChevronRight, Palette, Pause, Play, Square, Type, Volume2 } from 'lucide-react';
 
 import { t } from '@i18n';
-import { buttonFilledClassName, buttonMenuItemClassName, buttonTintClassName, menuChevronClassName } from '@ui/shared/button-styles';
+import {
+  buttonFilledClassName,
+  buttonMenuItemClassName,
+  buttonTintClassName,
+  menuChevronClassName,
+} from '@ui/shared/button-styles';
 import { MenuPopover } from '@ui/shared/MenuPopover';
 import { NarrationPanel } from '@ui/reader/NarrationPanel';
 import { TextLayoutPanel } from '@ui/reader/TextLayoutPanel';
@@ -31,21 +36,14 @@ const LABELS = {
   stop: t('readerNarrationStop'),
 } as const;
 
-const PANEL_CLASS =
-  'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
+const PANEL_CLASS = 'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
 const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-3';
 const readerTriggerClassName = () =>
   [buttonMenuItemClassName(), 'tw-w-full tw-items-center tw-justify-between tw-text-[13px]'].join(' ');
 const headerNarrationTransportButtonClassName = (active: boolean) =>
   [active ? buttonFilledClassName() : buttonTintClassName(), 'webclipper-btn--icon'].join(' ');
 
-export function ReaderHeaderToolbar({
-  features,
-  prefs,
-  update,
-  narration,
-  className,
-}: ReaderHeaderToolbarProps) {
+export function ReaderHeaderToolbar({ features, prefs, update, narration, className }: ReaderHeaderToolbarProps) {
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
 
   if (!features.textLayout && !features.theme && !features.narration) return null;
@@ -171,7 +169,12 @@ export function ReaderHeaderToolbar({
                 <Square size={18} strokeWidth={2.25} />
               </button>
             </div>
-            <NarrationPanel prefs={prefs} update={update} error={narration.error} webSpeechAvailable={narration.webSpeechAvailable} />
+            <NarrationPanel
+              prefs={prefs}
+              update={update}
+              error={narration.error}
+              webSpeechAvailable={narration.webSpeechAvailable}
+            />
           </div>
         </MenuPopover>
       ) : null}

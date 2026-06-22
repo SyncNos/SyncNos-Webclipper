@@ -196,10 +196,7 @@ function readViewportRect(root: HTMLElement): ReaderSentenceRectLike {
   return { top: 0, bottom: height };
 }
 
-export function readFirstVisibleSentenceIndexFromSentences(
-  root: HTMLElement,
-  sentences: ReaderTtsSentence[],
-): number {
+export function readFirstVisibleSentenceIndexFromSentences(root: HTMLElement, sentences: ReaderTtsSentence[]): number {
   if (!root || !Array.isArray(sentences) || !sentences.length) return 0;
 
   const segments = collectReaderSentenceTextSegments(root);
