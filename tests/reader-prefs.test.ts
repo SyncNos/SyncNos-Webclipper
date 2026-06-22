@@ -18,16 +18,16 @@ describe('normalizeReaderPrefs', () => {
     expect(normalizeReaderPrefs('garbage')).toEqual(DEFAULT_READER_PREFS);
   });
 
-  it('uses the medium/default typography preset and updated limits', () => {
+  it('uses the default typography preset and updated limits', () => {
     expect(DEFAULT_READER_TYPOGRAPHY_PRESET).toEqual({
       fontFamily: 'serif',
-      fontSize: 18,
+      fontSize: 21,
       lineHeight: 1.75,
-      contentWidth: 680,
+      contentWidth: 1000,
       letterSpacing: 0,
       textAlign: 'left',
     });
-    expect(DEFAULT_READER_PREFS.contentWidth).toBe(680);
+    expect(DEFAULT_READER_PREFS.contentWidth).toBe(1000);
     expect(READER_PREFS_LIMITS.contentWidth.max).toBe(2000);
     expect(READER_PREFS_LIMITS.tts.rate.min).toBe(0.8);
     expect(READER_PREFS_LIMITS.tts.rate.max).toBe(2);

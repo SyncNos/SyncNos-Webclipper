@@ -175,10 +175,17 @@ describe('ReaderHeaderToolbar', () => {
     const toolbar = document.querySelector('[data-reader-header-toolbar="true"]') as HTMLElement | null;
     expect(toolbar).toBeTruthy();
     expect(toolbar?.getAttribute('aria-orientation')).toBe('horizontal');
+    expect(document.querySelector('[data-reader-header-trigger="text"] svg')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-trigger="theme"] svg')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-trigger="narration"] svg')).toBeTruthy();
 
     act(() => {
       (document.querySelector('[data-reader-header-trigger="text"]') as HTMLButtonElement).click();
     });
+    const textPanel = document.querySelector('[role="menu"][aria-label="readerTextLayoutButton"]') as HTMLElement | null;
+    expect(textPanel).toBeTruthy();
+    expect(textPanel?.className.includes('menu-panel')).toBe(true);
+    expect(textPanel?.className.includes('tw-p-3')).toBe(false);
     expect(document.querySelector('[data-testid="text-layout-action"]')).toBeTruthy();
     act(() => {
       (document.querySelector('[data-testid="text-layout-action"]') as HTMLButtonElement).click();

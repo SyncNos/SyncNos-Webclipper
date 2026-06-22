@@ -66,12 +66,12 @@ export type ReaderTypographyPreset = Pick<
   'fontFamily' | 'fontSize' | 'lineHeight' | 'contentWidth' | 'letterSpacing' | 'textAlign'
 >;
 
-// Medium/default typography is the canonical reset and the reset target for reader layout.
+// Default typography is the canonical reset and the reset target for reader layout.
 export const DEFAULT_READER_TYPOGRAPHY_PRESET: ReaderTypographyPreset = {
   fontFamily: 'serif',
-  fontSize: 18,
+  fontSize: 21,
   lineHeight: 1.75,
-  contentWidth: 680,
+  contentWidth: 1000,
   letterSpacing: 0,
   textAlign: 'left',
 };

@@ -123,7 +123,7 @@ describe('TextLayoutPanel', () => {
     expect(alignSelect?.getAttribute('data-value')).toBe('justify');
   });
 
-  it('resets typography to the canonical medium/default preset', () => {
+  it('resets typography to the canonical default preset', () => {
     const update = vi.fn();
 
     act(() => {

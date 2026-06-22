@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Palette, Pause, Play, Square, Volume2 } from 'lucide-react';
+import { Palette, Pause, Play, Square, Type, Volume2 } from 'lucide-react';
 
 import { t } from '@i18n';
-import { buttonFilledClassName, buttonTintClassName, headerButtonClassName } from '@ui/shared/button-styles';
+import { buttonFilledClassName, buttonTintClassName } from '@ui/shared/button-styles';
 import { MenuPopover } from '@ui/shared/MenuPopover';
 import { NarrationPanel } from '@ui/reader/NarrationPanel';
 import { TextLayoutPanel } from '@ui/reader/TextLayoutPanel';
@@ -32,10 +32,13 @@ const LABELS = {
 } as const;
 
 const PANEL_CLASS =
-  'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-p-3 tw-text-[var(--text-primary)]';
+  'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
 const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-3';
-const headerReaderButtonClassName = (active: boolean) =>
-  [active ? buttonFilledClassName() : headerButtonClassName(), 'tw-text-[13px] tw-font-semibold'].join(' ');
+const headerReaderTriggerClassName = (active: boolean) =>
+  [
+    active ? buttonFilledClassName() : buttonTintClassName(),
+    'tw-inline-flex tw-items-center tw-gap-1.5 tw-whitespace-nowrap tw-text-[13px] tw-font-semibold',
+  ].join(' ');
 const headerNarrationTransportButtonClassName = (active: boolean) =>
   [active ? buttonFilledClassName() : buttonTintClassName(), 'webclipper-btn--icon'].join(' ');
 
@@ -78,9 +81,10 @@ export function ReaderHeaderToolbar({
               {...triggerProps}
               data-reader-header-trigger="text"
               aria-label={LABELS.text}
-              className={headerReaderButtonClassName(openPanel === 'text')}
+              className={headerReaderTriggerClassName(openPanel === 'text')}
             >
-              {LABELS.text}
+              <Type size={16} strokeWidth={2.2} aria-hidden="true" />
+              <span>{LABELS.text}</span>
             </button>
           )}
         >
@@ -105,10 +109,10 @@ export function ReaderHeaderToolbar({
               {...triggerProps}
               data-reader-header-trigger="theme"
               aria-label={LABELS.theme}
-              className={headerReaderButtonClassName(openPanel === 'theme')}
+              className={headerReaderTriggerClassName(openPanel === 'theme')}
             >
               <span className="tw-inline-flex tw-items-center tw-gap-1.5">
-                <Palette size={16} strokeWidth={2.2} />
+                <Palette size={16} strokeWidth={2.2} aria-hidden="true" />
                 <span>{LABELS.theme}</span>
               </span>
             </button>
@@ -135,10 +139,10 @@ export function ReaderHeaderToolbar({
               {...triggerProps}
               data-reader-header-trigger="narration"
               aria-label={LABELS.narration}
-              className={headerReaderButtonClassName(narrationTriggerActive)}
+              className={headerReaderTriggerClassName(narrationTriggerActive)}
             >
               <span className="tw-inline-flex tw-items-center tw-gap-1.5">
-                <Volume2 size={16} strokeWidth={2.2} />
+                <Volume2 size={16} strokeWidth={2.2} aria-hidden="true" />
                 <span>{LABELS.narration}</span>
               </span>
             </button>
