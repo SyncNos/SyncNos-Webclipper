@@ -449,4 +449,18 @@ describe('ArticleReaderView sentence interactions', () => {
 
     expect(disconnectSpy).toHaveBeenCalled();
   });
+
+  it('does not throw when a progressive decoration cleanup sees spans that were already detached', async () => {
+    const raf = installManualRaf();
+    const markdown = Array.from({ length: 140 }, (_, index) => `Sentence ${index + 1}.`).join(' ');
+
+    renderArticle(root!, markdown);
+    await raf.flushNext();
+
+    const rootNode = getSentenceRoot();
+    rootNode.innerHTML = '<p>Replaced by external renderer.</p>';
+
+    await expect(raf.flushAll()).resolves.toBeUndefined();
+    expect(rootNode.textContent).toContain('Replaced by external renderer.');
+  });
 });

@@ -60,10 +60,12 @@ const READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE = 48;
 function unwrapReaderSentenceSpan(span: HTMLElement): void {
   const parent = span.parentNode;
   if (!parent) return;
-  while (span.firstChild) {
+  while (span.firstChild && span.parentNode === parent) {
     parent.insertBefore(span.firstChild, span);
   }
-  parent.removeChild(span);
+  if (span.parentNode === parent) {
+    parent.removeChild(span);
+  }
 }
 
 function clearReaderSentenceDecorations(root: HTMLElement): void {
