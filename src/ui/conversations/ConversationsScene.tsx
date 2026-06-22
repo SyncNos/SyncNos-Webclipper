@@ -152,32 +152,30 @@ export function ConversationsScene({
   if (isNarrow) {
     if (narrowRoute === 'detail') {
       return (
-        <div className="tw-flex tw-h-full tw-min-h-0 tw-w-full tw-min-w-0 tw-flex-col tw-bg-[var(--bg-card)] tw-text-[var(--text-primary)]">
-          <div className="route-scroll tw-min-h-0 tw-flex-1 tw-overflow-auto tw-overflow-x-hidden tw-bg-[var(--bg-card)]">
-            <ConversationDetailPane
-              onBack={returnToList}
-              onTriggerCommentsSidebar={
-                canOpenCommentsFromDetail
-                  ? () => {
-                      if (typeof onOpenCommentsExternally === 'function') {
-                        onOpenCommentsExternally();
-                        return;
-                      }
-                      if (!commentsSidebarRuntime) return;
-                      openComments();
-                      void commentsSidebarRuntime.sidebarController.open({
-                        focusComposer: true,
-                        source: narrowCommentsOpenSource,
-                        ensureContext: false,
-                      });
+        <div className="route-scroll tw-flex tw-h-full tw-min-h-0 tw-w-full tw-min-w-0 tw-flex-col tw-overflow-auto tw-overflow-x-hidden tw-bg-[var(--bg-card)] tw-text-[var(--text-primary)]">
+          <ConversationDetailPane
+            onBack={returnToList}
+            onTriggerCommentsSidebar={
+              canOpenCommentsFromDetail
+                ? () => {
+                    if (typeof onOpenCommentsExternally === 'function') {
+                      onOpenCommentsExternally();
+                      return;
                     }
-                  : undefined
-              }
-              onCommentsLocatorRootChange={(root) => {
-                commentsSidebarRuntime?.setLocatorRoot(root);
-              }}
-            />
-          </div>
+                    if (!commentsSidebarRuntime) return;
+                    openComments();
+                    void commentsSidebarRuntime.sidebarController.open({
+                      focusComposer: true,
+                      source: narrowCommentsOpenSource,
+                      ensureContext: false,
+                    });
+                  }
+                : undefined
+            }
+            onCommentsLocatorRootChange={(root) => {
+              commentsSidebarRuntime?.setLocatorRoot(root);
+            }}
+          />
         </div>
       );
     }

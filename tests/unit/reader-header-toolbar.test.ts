@@ -152,7 +152,7 @@ describe('ReaderHeaderToolbar', () => {
     cleanupDom();
   });
 
-  it('renders the reader controls in a horizontal header toolbar and keeps panel buttons clickable', async () => {
+  it('renders the reader controls as vertical menu items and keeps panel buttons clickable', async () => {
     act(() => {
       root!.render(
         createElement(ReaderHeaderToolbar, {
@@ -174,10 +174,12 @@ describe('ReaderHeaderToolbar', () => {
 
     const toolbar = document.querySelector('[data-reader-header-toolbar="true"]') as HTMLElement | null;
     expect(toolbar).toBeTruthy();
-    expect(toolbar?.getAttribute('aria-orientation')).toBe('horizontal');
+    expect(toolbar?.getAttribute('role')).toBe('group');
+    expect(toolbar?.className).toContain('tw-flex-col');
     expect(document.querySelector('[data-reader-header-trigger="text"] svg')).toBeTruthy();
     expect(document.querySelector('[data-reader-header-trigger="theme"] svg')).toBeTruthy();
     expect(document.querySelector('[data-reader-header-trigger="narration"] svg')).toBeTruthy();
+    expect((document.querySelector('[data-reader-header-trigger="text"]') as HTMLElement | null)?.className).toContain('tw-justify-between');
 
     act(() => {
       (document.querySelector('[data-reader-header-trigger="text"]') as HTMLButtonElement).click();

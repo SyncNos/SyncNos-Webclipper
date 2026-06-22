@@ -18,8 +18,6 @@ import {
   decorateReaderSentenceSpansProgressively,
   readFirstVisibleReaderSentenceIndex,
   READER_CURRENT_SENTENCE_CLASS,
-  READER_EAGER_DECORATION_SENTENCE_LIMIT,
-  READER_EAGER_DECORATION_SOURCE_LENGTH_LIMIT,
   READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE,
   READER_REDECORATE_SETTLE_MS,
   READER_SENTENCE_DECORATION_PENDING,
@@ -110,14 +108,7 @@ export function ArticleReaderView({
   const outline = useArticleOutlineMinimap(outlineRoot);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
-  const shouldEagerlyDecorateSentences = useMemo(() => {
-    const sentenceCount = sentenceCountRef.current || buildSentences(narrationSource).length;
-    const hugeDocument =
-      sentenceCount > READER_EAGER_DECORATION_SENTENCE_LIMIT ||
-      narrationSource.length > READER_EAGER_DECORATION_SOURCE_LENGTH_LIMIT;
-    if (!hugeDocument) return true;
-    return narration.hasCursor || narration.state !== 'idle';
-  }, [narration.hasCursor, narration.state, narrationSource]);
+  const shouldDecorateSentences = narration.hasCursor || narration.state !== 'idle';
 
   useEffect(() => {
     publishReaderPerformanceStats({
@@ -316,15 +307,8 @@ export function ArticleReaderView({
     const root = narrationRootRef.current;
     if (!root) return;
 
-    if (!features.narration) {
+    if (!features.narration || !shouldDecorateSentences) {
       sentenceCountRef.current = 0;
-      clearReaderSentenceDecorations(root);
-      applyActiveHighlight(null);
-      return;
-    }
-
-    if (!shouldEagerlyDecorateSentences) {
-      sentenceCountRef.current = buildSentences(narrationSource).length;
       clearReaderSentenceDecorations(root);
       applyActiveHighlight(null);
       publishReaderPerformanceStats((current) => ({
@@ -409,7 +393,7 @@ export function ArticleReaderView({
     features.narration,
     narrationSource,
     sentenceDomRevision,
-    shouldEagerlyDecorateSentences,
+    shouldDecorateSentences,
   ]);
 
   const getFirstVisibleSentenceIndex = useCallback(() => {
@@ -451,7 +435,7 @@ export function ArticleReaderView({
 
   const handleSentenceClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (!features.narration) return;
+      if (!features.narration || narration.state === 'idle') return;
 
       const targetElement =
         event.target instanceof Element
@@ -463,11 +447,6 @@ export function ArticleReaderView({
 
       const index = findReaderSentenceIndexFromTarget(event.target);
       if (index == null) return;
-
-      if (narration.state === 'idle') {
-        narration.seek(index);
-        return;
-      }
 
       narration.play(index);
     },

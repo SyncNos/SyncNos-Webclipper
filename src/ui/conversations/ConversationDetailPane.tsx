@@ -1,4 +1,4 @@
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, MoreHorizontal } from 'lucide-react';
 
 import { ChatDetailView } from '@ui/conversations/views/ChatDetailView';
 import { ArticleReaderView } from '@ui/conversations/views/ArticleReaderView';
@@ -9,7 +9,8 @@ import { useChatOutlineActiveIndex } from '@ui/conversations/chat-outline/useCha
 import { t, formatConversationTitle } from '@i18n';
 import { useConversationsApp } from '@viewmodels/conversations/conversations-context';
 import { DetailHeaderActionBar } from '@ui/conversations/DetailHeaderActionBar';
-import { buttonTintClassName, headerButtonClassName } from '@ui/shared/button-styles';
+import { buttonMenuItemClassName, headerButtonClassName } from '@ui/shared/button-styles';
+import { MenuPopover } from '@ui/shared/MenuPopover';
 import { tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { countWordsFromMessages } from '@services/shared/word-count';
@@ -61,7 +62,6 @@ export function ConversationDetailPane({
   const openActions = safeActions.filter((action) => action.slot === 'open');
   const toolActions = safeActions.filter((action) => action.slot === 'tools');
 
-  const outlineButtonClass = buttonTintClassName();
   const headerIconButtonClass = headerButtonClassName();
   const kindView = conversationKinds.pick(selected as any)?.view ?? DEFAULT_VIEW;
   const isArticleRenderer = kindView.renderer === 'article';
@@ -160,6 +160,7 @@ export function ConversationDetailPane({
   const [urlEditing, setUrlEditing] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
   const [urlCleaning, setUrlCleaning] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const displayedUrl = String((selected as any)?.url || '').trim();
   const wordCount = useMemo(() => {
@@ -172,12 +173,32 @@ export function ConversationDetailPane({
     wordCount != null && Number.isFinite(wordCount)
       ? `${wordCountLabel} ${Math.max(0, Math.floor(wordCount)).toLocaleString()}`
       : '';
+  const hasReaderMoreMenuContent =
+    readerFeatures.textLayout || readerFeatures.theme || readerFeatures.narration;
+  const hasMoreMenuContent = Boolean(wordCountText) || toolActions.length > 0 || hasReaderMoreMenuContent;
+  const moreMenuPanelClassName =
+    'tw-w-[214px] tw-max-w-[min(214px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
+  const closeMoreMenu = useCallback(() => {
+    setMoreMenuOpen(false);
+    setReaderToolbarPortalTarget(null);
+  }, []);
+  const handleMoreMenuOpenChange = useCallback(
+    (next: boolean) => {
+      if (next) {
+        setMoreMenuOpen(true);
+        return;
+      }
+      closeMoreMenu();
+    },
+    [closeMoreMenu],
+  );
 
   useEffect(() => {
     setUrlEditing(false);
     setUrlDraft('');
     setUrlCleaning(false);
-  }, [activeId]);
+    closeMoreMenu();
+  }, [activeId, selected?.id, closeMoreMenu]);
 
   useEffect(() => {
     userMessageElByIdRef.current.clear();
@@ -353,18 +374,9 @@ export function ConversationDetailPane({
                           }}
                           aria-label={displayedUrl ? 'Edit URL' : 'Set URL'}
                           title={displayedUrl || t('noLinkAvailable')}
-                        >
+                          >
                           {displayedUrl || t('noLinkAvailable')}
                         </button>
-                        {wordCountText ? (
-                          <span
-                            className="tw-inline-flex tw-items-center tw-rounded-[var(--radius-chip)] tw-border tw-border-[var(--border)] tw-px-2 tw-py-0.5 tw-text-[10px] tw-font-extrabold tw-text-[var(--text-secondary)]"
-                            aria-label={wordCountText}
-                            {...tooltipAttrs(wordCountText)}
-                          >
-                            {wordCountText}
-                          </span>
-                        ) : null}
                       </>
                     )}
                   </div>
@@ -376,20 +388,6 @@ export function ConversationDetailPane({
               </div>
             </div>
             <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-end tw-gap-2 tw-whitespace-nowrap">
-              {isArticleRenderer ? (
-                <div
-                  ref={setReaderToolbarPortalTarget}
-                  className="tw-flex tw-items-center tw-gap-2"
-                  data-reader-header-toolbar-slot="true"
-                />
-              ) : null}
-              <DetailHeaderActionBar
-                actions={toolActions}
-                buttonClassName={outlineButtonClass}
-                menuTriggerLabel={t('detailHeaderToolsMenuLabel')}
-                menuTriggerAriaLabel={t('detailHeaderToolsMenuAria')}
-                menuAriaLabel={t('detailHeaderToolsMenuAria')}
-              />
               <DetailHeaderActionBar
                 actions={openActions}
                 buttonClassName={headerIconButtonClass}
@@ -397,6 +395,7 @@ export function ConversationDetailPane({
                 menuTriggerLabel={t('detailHeaderOpenInMenuLabel')}
                 menuTriggerAriaLabel={t('detailHeaderOpenInMenuAria')}
                 menuAriaLabel={t('detailHeaderOpenInMenuAria')}
+                className="tw-order-1"
               />
 
               {canOpenCommentsSidebar ? (
@@ -405,7 +404,7 @@ export function ConversationDetailPane({
                   onClick={() => {
                     onTriggerCommentsSidebar?.();
                   }}
-                  className={headerButtonClassName()}
+                  className={[headerButtonClassName(), 'tw-order-2'].join(' ')}
                   aria-label={commentsSidebarLabel}
                   {...tooltipAttrs(commentsSidebarLabel)}
                   aria-pressed={commentsSidebarOpen ? 'true' : 'false'}
@@ -423,6 +422,75 @@ export function ConversationDetailPane({
                   </svg>
                   <span className="tw-sr-only">{commentsSidebarLabel}</span>
                 </button>
+              ) : null}
+              {hasMoreMenuContent ? (
+                <MenuPopover
+                  open={moreMenuOpen}
+                  onOpenChange={handleMoreMenuOpenChange}
+                  ariaLabel={t('moreButton')}
+                  side="bottom"
+                  align="end"
+                  panelMinWidth={214}
+                  panelClassName={moreMenuPanelClassName}
+                  className="tw-order-3"
+                  trigger={(triggerProps) => (
+                    <button
+                      {...triggerProps}
+                      data-detail-header-more-trigger="true"
+                      aria-label={t('moreButton')}
+                      className={headerIconButtonClass}
+                    >
+                      <MoreHorizontal size={14} strokeWidth={2} aria-hidden="true" />
+                      <span className="tw-sr-only">{t('moreButton')}</span>
+                    </button>
+                  )}
+                >
+                  {moreMenuOpen ? (
+                    <div className="tw-flex tw-flex-col tw-gap-1">
+                      {hasReaderMoreMenuContent ? (
+                        <div
+                          ref={setReaderToolbarPortalTarget}
+                          className="tw-flex tw-flex-col tw-gap-1"
+                          data-reader-header-toolbar-slot="true"
+                        />
+                      ) : null}
+
+                      {toolActions.length ? (
+                        <div
+                          className={[
+                            hasReaderMoreMenuContent ? 'tw-border-t tw-border-[var(--border)] tw-pt-1' : '',
+                            'tw-flex tw-flex-col tw-gap-1',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          <DetailHeaderActionBar
+                            actions={toolActions}
+                            buttonClassName={buttonMenuItemClassName()}
+                            showLabelAlways
+                            closeMenuOnActionTrigger={closeMoreMenu}
+                            className="tw-w-full"
+                          />
+                        </div>
+                      ) : null}
+
+                      {wordCountText ? (
+                        <div
+                          className={[
+                            hasReaderMoreMenuContent || toolActions.length ? 'tw-border-t tw-border-[var(--border)] tw-pt-1' : '',
+                            'tw-px-2 tw-py-1 tw-text-[11px] tw-font-semibold tw-text-[var(--text-secondary)]',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          data-detail-word-count-row="true"
+                          {...tooltipAttrs(wordCountText)}
+                        >
+                          {wordCountText}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </MenuPopover>
               ) : null}
             </div>
 
@@ -446,18 +514,6 @@ export function ConversationDetailPane({
             'tw-relative tw-pb-3 md:tw-pb-4',
           ].join(' ')}
         >
-          {wordCountText && urlEditing ? (
-            <div className="tw-flex tw-justify-end">
-              <span
-                className="tw-inline-flex tw-items-center tw-rounded-[var(--radius-chip)] tw-border tw-border-[var(--border)] tw-px-2 tw-py-0.5 tw-text-[10px] tw-font-extrabold tw-text-[var(--text-secondary)]"
-                aria-label={wordCountText}
-                {...tooltipAttrs(wordCountText)}
-              >
-                {wordCountText}
-              </span>
-            </div>
-          ) : null}
-
           {isArticleRenderer ? (
             <ArticleReaderView
               selected={selected}

@@ -254,7 +254,14 @@ describe('reader mode regression', () => {
 
     const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
     expect(shell).toBeTruthy();
+    expect(document.querySelector('[data-reader-sentence-index]')).toBeNull();
     expect(shell?.hasAttribute('data-reader-theme')).toBe(false);
+    const articleMoreButton = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
+    expect(articleMoreButton).toBeTruthy();
+    act(() => {
+      articleMoreButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await flushDom();
     expect(document.querySelector('[data-reader-header-toolbar-slot="true"]')).toBeTruthy();
     expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
     expect(await waitForSelector('[data-reader-rail-wrap="outline"]')).toBeTruthy();
@@ -273,6 +280,12 @@ describe('reader mode regression', () => {
     await flushDom();
 
     expect(document.querySelector('[data-reader-shell="article"]')).toBeTruthy();
+    const videoMoreButton = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
+    expect(videoMoreButton).toBeTruthy();
+    act(() => {
+      videoMoreButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await flushDom();
     expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
     expect(await waitForSelector('[data-reader-rail-wrap="outline"]')).toBeTruthy();
 
@@ -331,6 +344,14 @@ describe('reader mode regression', () => {
     } as any;
 
     renderRoot(root!);
+    await flushDom();
+
+    const moreButton = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
+    expect(moreButton).toBeTruthy();
+
+    act(() => {
+      moreButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
     await flushDom();
 
     const narrationTrigger = document.querySelector('[data-reader-header-trigger="narration"]') as HTMLButtonElement | null;

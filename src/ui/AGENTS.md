@@ -45,6 +45,7 @@
 
 - 优先复用现有 class 组合与 shared style（例如 `src/ui/shared/button-styles.ts`）。
 - 新增 UI 状态尽量用 token 或现有 utility，不要引入新的一套“局部常量”。
+- 详情页的次级操作优先收进右上角更多菜单，菜单内入口应使用竖排的 `menu-item` 风格，避免在正文 header 里散落多个并列按钮。
 - 在可交互元素上保留可见的 `focus-visible` 样式（避免键盘可访问性回退）。
 
 ## 4. 自检命令（手动）
