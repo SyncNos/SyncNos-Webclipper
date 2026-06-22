@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import type { CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 
 import { t } from '@i18n';
 import { readerPrefsToCssVars } from '@services/protocols/reader-prefs';
@@ -28,6 +29,7 @@ import {
   READER_SENTENCE_SOURCE_ATTR,
 } from '@ui/reader/reader-sentence-decoration';
 import { publishReaderPerformanceStats, readReaderPerformanceClock } from '@ui/reader/reader-performance-debug';
+import { ReaderHeaderToolbar } from '@ui/reader/ReaderHeaderToolbar';
 import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
 import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
 import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
@@ -37,7 +39,10 @@ export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: b
 
 // readerFeatures is wired in for the P4 toolbar button visibility; the text-layout
 // piece itself is always active via the `--reader-*` variables below.
-export type ArticleReaderViewProps = DetailViewSharedProps & { readerFeatures?: ReaderFeatures };
+export type ArticleReaderViewProps = DetailViewSharedProps & {
+  readerFeatures?: ReaderFeatures;
+  readerToolbarPortalTarget?: HTMLElement | null;
+};
 
 // Body typography is driven entirely by the `--reader-*` CSS variables (P2-T3).
 // These important arbitrary-property utilities override the ChatMessageBubble
@@ -79,6 +84,7 @@ export function ArticleReaderView({
   detailError,
   setMessagesRootRef,
   readerFeatures,
+  readerToolbarPortalTarget,
 }: ArticleReaderViewProps) {
   // readerFeatures gates each toolbar piece; chat conversations pass all-false (or
   // omit it), so the toolbar renders nothing over the chat view.
@@ -432,6 +438,22 @@ export function ArticleReaderView({
     [getFirstVisibleSentenceIndex, narration],
   );
 
+  const headerToolbar = useMemo(() => {
+    if (!readerToolbarPortalTarget) return null;
+    if (!features.textLayout && !features.theme && !features.narration) return null;
+    return createPortal(
+      <ReaderHeaderToolbar features={features} prefs={prefs} update={update} narration={toolbarNarration} />,
+      readerToolbarPortalTarget,
+    );
+  }, [features, prefs, readerToolbarPortalTarget, toolbarNarration, update]);
+
+  const inlineToolbarFeatures = readerToolbarPortalTarget
+    ? { textLayout: false, theme: false, narration: false }
+    : features;
+  const shouldRenderInlineRail =
+    !!outlinePayload?.entries.length ||
+    (!readerToolbarPortalTarget && (features.textLayout || features.theme || features.narration));
+
   const handleSentenceClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (!features.narration) return;
@@ -458,13 +480,15 @@ export function ArticleReaderView({
   );
 
   return (
-    <div
-      className={READER_SHELL_CLASS}
-      style={readerVars}
-      data-reader-shell="article"
-      data-reader-theme={readerThemeAttr}
-    >
-      <div className={READER_MAIN_CLASS} data-reader-main="article-main">
+    <>
+      {headerToolbar}
+      <div
+        className={READER_SHELL_CLASS}
+        style={readerVars}
+        data-reader-shell="article"
+        data-reader-theme={readerThemeAttr}
+      >
+        <div className={READER_MAIN_CLASS} data-reader-main="article-main">
         {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
         {loadingDetail ? (
           <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
@@ -507,17 +531,20 @@ export function ArticleReaderView({
             {t('selectAConversation')}
           </p>
         )}
-      </div>
+        </div>
 
-      <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
-        <ReaderToolbar
-          features={features}
-          prefs={prefs}
-          update={update}
-          narration={toolbarNarration}
-          outline={outlinePayload}
-        />
-      </aside>
-    </div>
+        {shouldRenderInlineRail ? (
+          <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
+            <ReaderToolbar
+              features={inlineToolbarFeatures}
+              prefs={prefs}
+              update={update}
+              narration={toolbarNarration}
+              outline={outlinePayload}
+            />
+          </aside>
+        ) : null}
+      </div>
+    </>
   );
 }

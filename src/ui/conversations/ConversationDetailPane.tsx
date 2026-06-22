@@ -80,6 +80,7 @@ export function ConversationDetailPane({
   const [userMessageRefsVersion, setUserMessageRefsVersion] = useState(0);
   const [outlineScrollRoot, setOutlineScrollRoot] = useState<Element | null>(null);
   const [optimisticActiveIndex, setOptimisticActiveIndex] = useState<number | null>(null);
+  const [readerToolbarPortalTarget, setReaderToolbarPortalTarget] = useState<HTMLDivElement | null>(null);
   const outlineEntries = useMemo(
     () => (isChatRenderer && Array.isArray(detail?.messages) ? buildChatOutlineEntries(detail.messages) : []),
     [isChatRenderer, detail?.messages],
@@ -378,6 +379,13 @@ export function ConversationDetailPane({
               </div>
             </div>
             <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-end tw-gap-2 tw-whitespace-nowrap">
+              {isArticleRenderer ? (
+                <div
+                  ref={setReaderToolbarPortalTarget}
+                  className="tw-flex tw-items-center tw-gap-2"
+                  data-reader-header-toolbar-slot="true"
+                />
+              ) : null}
               <DetailHeaderActionBar
                 actions={toolActions}
                 buttonClassName={outlineButtonClass}
@@ -478,6 +486,7 @@ export function ConversationDetailPane({
               detailError={detailError}
               setMessagesRootRef={setMessagesRootRef}
               readerFeatures={readerFeatures}
+              readerToolbarPortalTarget={readerToolbarPortalTarget}
             />
           ) : (
             <ChatDetailView

@@ -47,9 +47,26 @@ vi.mock('../../src/ui/reader/ReaderToolbar', () => ({
   ReaderToolbar: () => createElement('div', { 'data-testid': 'reader-toolbar' }, 'reader-toolbar'),
 }));
 
+vi.mock('../../src/ui/reader/ReaderHeaderToolbar', () => ({
+  ReaderHeaderToolbar: () => createElement('div', { 'data-testid': 'reader-header-toolbar' }, 'reader-header-toolbar'),
+}));
+
 vi.mock('../../src/ui/shared/ChatMessageBubble', () => ({
   ChatMessageBubble: ({ markdown }: { markdown?: string }) =>
-    createElement('article', { 'data-testid': 'chat-message' }, String(markdown || '')),
+    createElement(
+      'article',
+      { 'data-testid': 'chat-message' },
+      String(markdown || '')
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line, index) => {
+          if (line.startsWith('### ')) return createElement('h3', { key: `${index}-${line}` }, line.slice(4));
+          if (line.startsWith('## ')) return createElement('h2', { key: `${index}-${line}` }, line.slice(3));
+          if (line.startsWith('# ')) return createElement('h1', { key: `${index}-${line}` }, line.slice(2));
+          return createElement('p', { key: `${index}-${line}` }, line);
+        }),
+    ),
 }));
 
 vi.mock('../../src/ui/i18n', () => ({
@@ -84,6 +101,13 @@ function cleanupDom() {
   delete (globalThis as any).Element;
   delete (globalThis as any).Node;
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+}
+
+async function flushDom(): Promise<void> {
+  await act(async () => {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 function renderArticle(root: ReactDOM.Root) {
@@ -153,5 +177,36 @@ describe('ArticleReaderView layout', () => {
     expect(toolbar?.parentElement).toBe(rail);
     expect(sentenceRoot).toBeTruthy();
     expect(sentenceRoot?.style.maxWidth).toBe('var(--reader-content-width)');
+  });
+
+  it('portals reader controls into the provided header target and keeps the inline rail for outline only', async () => {
+    const headerTarget = document.createElement('div');
+    headerTarget.setAttribute('data-reader-header-toolbar-slot', 'true');
+    document.body.appendChild(headerTarget);
+
+    act(() => {
+      root!.render(
+        createElement(ArticleReaderView, {
+          selected: { id: 42, title: 'Article' },
+          activeId: 42,
+          detail: {
+            conversationId: 42,
+            messages: [{ id: 'm-1', role: 'assistant', contentMarkdown: '# Heading\n\nAlpha sentence.' }],
+          },
+          listError: null,
+          loadingDetail: false,
+          detailError: null,
+          setMessagesRootRef: vi.fn(),
+          readerFeatures: { textLayout: true, theme: true, narration: true },
+          readerToolbarPortalTarget: headerTarget,
+        }),
+      );
+    });
+
+    await flushDom();
+
+    expect(headerTarget.querySelector('[data-testid="reader-header-toolbar"]')).toBeTruthy();
+    const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
+    expect(shell?.querySelector('[data-testid="reader-header-toolbar"]')).toBeNull();
   });
 });
