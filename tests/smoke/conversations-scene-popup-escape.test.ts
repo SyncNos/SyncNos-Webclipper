@@ -161,9 +161,10 @@ describe('ConversationsScene popup Escape behavior', () => {
     cleanupDom();
   });
 
-  it('returns from detail to list on first Escape and restores list scrollTop', () => {
-    act(() => {
+  it('returns from detail to list on first Escape and restores list scrollTop', async () => {
+    await act(async () => {
       root!.render(createElement(ConversationsScene));
+      await flushImmediate();
     });
 
     const firstListScroll = document.querySelector('.route-scroll') as HTMLDivElement | null;
@@ -174,22 +175,25 @@ describe('ConversationsScene popup Escape behavior', () => {
       value: 180,
     });
 
-    act(() => {
+    await act(async () => {
       firstListScroll!.dispatchEvent(new window.Event('scroll', { bubbles: true }));
+      await flushImmediate();
     });
 
     const row = document.querySelector('[data-conversation-id="11"]') as HTMLElement | null;
     expect(row).toBeTruthy();
-    act(() => {
+    await act(async () => {
       row!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, button: 0 }));
+      await flushImmediate();
     });
 
     expect(setActiveId).toHaveBeenCalledWith(11);
     expect(document.querySelector('[aria-label="Conversation detail"]')).toBeTruthy();
 
     const event = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-    act(() => {
+    await act(async () => {
       document.dispatchEvent(event);
+      await flushImmediate();
     });
 
     expect(event.defaultPrevented).toBe(true);
@@ -199,8 +203,9 @@ describe('ConversationsScene popup Escape behavior', () => {
     expect(restoredListScroll?.scrollTop).toBe(180);
 
     const secondEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-    act(() => {
+    await act(async () => {
       document.dispatchEvent(secondEscape);
+      await flushImmediate();
     });
     expect(secondEscape.defaultPrevented).toBe(false);
   });
