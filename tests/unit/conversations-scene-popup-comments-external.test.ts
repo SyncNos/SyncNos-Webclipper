@@ -104,7 +104,6 @@ describe('ConversationsScene (popup) comments external override', () => {
     act(() => {
       root.render(
         createElement(ConversationsScene, {
-          inlineNarrowDetailHeader: true,
           onOpenCommentsExternally: () => openExternalMock(),
         } as any),
       );

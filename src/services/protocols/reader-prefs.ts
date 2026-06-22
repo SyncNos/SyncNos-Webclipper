@@ -1,9 +1,7 @@
 // Framework-agnostic reader preference model.
 // MUST NOT import React or touch the DOM. Pure data/normalization only.
-import { resolveMarkdownReadingProfileId } from '@services/protocols/markdown-reading-profiles';
 
 export const READER_PREFS_STORAGE_KEY = 'reader_prefs_v1';
-export const LEGACY_READING_PROFILE_STORAGE_KEY = 'markdown_reading_profile_v1';
 
 export const READER_FONT_FAMILIES = ['serif', 'sans', 'mono'] as const;
 export type ReaderFontFamily = (typeof READER_FONT_FAMILIES)[number];
@@ -68,7 +66,7 @@ export type ReaderTypographyPreset = Pick<
   'fontFamily' | 'fontSize' | 'lineHeight' | 'contentWidth' | 'letterSpacing' | 'textAlign'
 >;
 
-// Medium/default typography is the canonical reset and the fallback for legacy profiles.
+// Medium/default typography is the canonical reset and the reset target for reader layout.
 export const DEFAULT_READER_TYPOGRAPHY_PRESET: ReaderTypographyPreset = {
   fontFamily: 'serif',
   fontSize: 18,
@@ -82,15 +80,6 @@ export const DEFAULT_READER_PREFS: ReaderPrefs = {
   ...DEFAULT_READER_TYPOGRAPHY_PRESET,
   theme: 'system',
   tts: DEFAULT_READER_TTS_PREFS,
-};
-
-type LegacyMarkdownReadingProfileId = 'medium' | 'notion' | 'book';
-
-// Legacy alias preserved only for migration compatibility. UI code must not use this.
-const LEGACY_READER_TYPOGRAPHY_PRESETS: Record<LegacyMarkdownReadingProfileId, ReaderTypographyPreset> = {
-  medium: DEFAULT_READER_TYPOGRAPHY_PRESET,
-  notion: DEFAULT_READER_TYPOGRAPHY_PRESET,
-  book: DEFAULT_READER_TYPOGRAPHY_PRESET,
 };
 
 export const READER_FONT_STACKS: Record<ReaderFontFamily, string> = {
@@ -147,25 +136,13 @@ export function normalizeReaderPrefs(raw: unknown): ReaderPrefs {
   };
 }
 
-// Migrate the legacy markdown reading profile id into a full ReaderPrefs.
-// Read-only: never writes back or deletes the legacy key.
-export function readerPrefsFromLegacyProfile(legacyValue: unknown): ReaderPrefs {
-  const id = resolveMarkdownReadingProfileId(legacyValue);
-  const preset = LEGACY_READER_TYPOGRAPHY_PRESETS[id];
-  return normalizeReaderPrefs({ ...DEFAULT_READER_PREFS, ...preset });
-}
-
 // Resolve prefs from a flat storage record:
 // 1) reader_prefs_v1 present -> normalize it
-// 2) else legacy key present -> migrate (read-only)
-// 3) else -> defaults
+// 2) else -> defaults
 export function resolveReaderPrefsFromStorage(storage: Record<string, unknown> | null | undefined): ReaderPrefs {
   const store = storage ?? {};
   if (store[READER_PREFS_STORAGE_KEY] != null) {
     return normalizeReaderPrefs(store[READER_PREFS_STORAGE_KEY]);
-  }
-  if (store[LEGACY_READING_PROFILE_STORAGE_KEY] != null) {
-    return readerPrefsFromLegacyProfile(store[LEGACY_READING_PROFILE_STORAGE_KEY]);
   }
   return normalizeReaderPrefs(undefined);
 }

@@ -85,7 +85,7 @@ vi.mock('../../src/ui/conversations/ConversationDetailPane', () => ({
 }));
 
 vi.mock('../../src/ui/conversations/ConversationsScene', () => ({
-  ConversationsScene: (props: { inlineNarrowDetailHeader?: boolean; listShell?: { rightSlot?: ReactNode } }) => {
+  ConversationsScene: (props: { listShell?: { rightSlot?: ReactNode } }) => {
     const [mode, setMode] = useState<'list' | 'detail' | 'detail-empty'>('list');
     const toList = () => {
       setMode('list');
@@ -93,7 +93,6 @@ vi.mock('../../src/ui/conversations/ConversationsScene', () => ({
     return createElement(
       'div',
       null,
-      createElement('div', { 'data-inline-narrow-detail-header': props.inlineNarrowDetailHeader ? '1' : '0' }),
       mode === 'list' ? createElement('div', { 'data-list-header': '1' }, props.listShell?.rightSlot ?? null) : null,
       createElement(
         'button',
@@ -203,7 +202,6 @@ describe('AppShell narrow detail header actions', () => {
       (el) => el.textContent === 'show-detail',
     ) as HTMLButtonElement | undefined;
     expect(detailButton).toBeTruthy();
-    expect(document.querySelector('[data-inline-narrow-detail-header="1"]')).toBeTruthy();
 
     act(() => {
       detailButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));

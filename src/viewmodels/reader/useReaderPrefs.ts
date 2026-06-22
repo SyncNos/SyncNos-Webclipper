@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  LEGACY_READING_PROFILE_STORAGE_KEY,
   READER_PREFS_STORAGE_KEY,
   buildReaderPrefsStoragePatch,
   normalizeReaderPrefs,
@@ -35,12 +34,12 @@ export function useReaderPrefs(): UseReaderPrefsResult {
   const prefsRef = useRef<ReaderPrefs>(prefs);
   prefsRef.current = prefs;
 
-  // Initial hydrate from storage (includes read-only legacy migration).
+  // Initial hydrate from storage.
   useEffect(() => {
     let disposed = false;
     void (async () => {
       try {
-        const stored = await storageGet([READER_PREFS_STORAGE_KEY, LEGACY_READING_PROFILE_STORAGE_KEY]);
+        const stored = await storageGet([READER_PREFS_STORAGE_KEY]);
         if (disposed) return;
         setPrefs(resolveReaderPrefsFromStorage(stored));
       } catch (error) {

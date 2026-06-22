@@ -8,6 +8,7 @@ import {
   findReaderSentenceRangeByIndex,
   isReaderSentenceDecoratableTextNode,
   pickFirstVisibleSentenceIndex,
+  readFirstVisibleSentenceIndexFromSentences,
 } from '../../src/ui/reader/reader-sentence-dom';
 
 function setupDom() {
@@ -21,6 +22,7 @@ function setupDom() {
   Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: dom.window.HTMLElement });
   Object.defineProperty(globalThis, 'Element', { configurable: true, value: dom.window.Element });
   Object.defineProperty(globalThis, 'Node', { configurable: true, value: dom.window.Node });
+  Object.defineProperty(globalThis, 'Range', { configurable: true, value: dom.window.Range });
 }
 
 function cleanupDom() {
@@ -29,6 +31,7 @@ function cleanupDom() {
   delete (globalThis as any).HTMLElement;
   delete (globalThis as any).Element;
   delete (globalThis as any).Node;
+  delete (globalThis as any).Range;
 }
 
 describe('reader-sentence DOM helpers', () => {
@@ -61,7 +64,7 @@ describe('reader-sentence DOM helpers', () => {
     expect(highlightable?.tagName).toBe('A');
   });
 
-  it('picks the first visible sentence and falls back to 0', () => {
+  it('picks the first visible sentence and falls back to the closest preceding sentence', () => {
     expect(
       pickFirstVisibleSentenceIndex(
         [
@@ -81,7 +84,36 @@ describe('reader-sentence DOM helpers', () => {
         ],
         { top: 0, bottom: 100 },
       ),
-    ).toBe(0);
+    ).toBe(3);
+
+    expect(
+      pickFirstVisibleSentenceIndex(
+        [
+          { index: 5, rect: { top: -180, bottom: -140 } },
+          { index: 6, rect: { top: -80, bottom: -20 } },
+        ],
+        { top: 0, bottom: 100 },
+      ),
+    ).toBe(6);
+  });
+
+  it('derives the first visible sentence from DOM ranges before spans exist', () => {
+    document.body.innerHTML = '<article id="article"><p>Sentence 1. Sentence 2. Sentence 3.</p></article>';
+
+    const article = document.getElementById('article') as HTMLElement;
+    const sentences = buildSentences(article.textContent ?? '');
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100 });
+    Object.defineProperty(window.Range.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value(this: Range) {
+        const text = this.toString().trim();
+        if (text === 'Sentence 1.') return { top: -120, bottom: -90 };
+        if (text === 'Sentence 2.') return { top: 16, bottom: 40 };
+        return { top: 140, bottom: 168 };
+      },
+    });
+
+    expect(readFirstVisibleSentenceIndexFromSentences(article, sentences)).toBe(1);
   });
 
   it('parses decorated span targets and skips forbidden containers', () => {

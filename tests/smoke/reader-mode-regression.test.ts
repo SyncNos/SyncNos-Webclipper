@@ -229,7 +229,7 @@ describe('reader mode regression', () => {
     cleanupDom();
   });
 
-  it('shows the reader shell for article and video detail modes, omits the system theme attr, and keeps the outline minimap visible only when headings exist', async () => {
+  it('shows the reader shell for article and video detail modes, portals reader controls into the header, and keeps the outline minimap visible only when headings exist', async () => {
     currentState.selectedConversation = {
       id: 11,
       title: 'Article',
@@ -255,8 +255,10 @@ describe('reader mode regression', () => {
     const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
     expect(shell).toBeTruthy();
     expect(shell?.hasAttribute('data-reader-theme')).toBe(false);
+    expect(document.querySelector('[data-reader-header-toolbar-slot="true"]')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
     expect(await waitForSelector('[data-reader-rail-wrap="outline"]')).toBeTruthy();
-    expect(document.querySelector('[role="toolbar"][aria-label="readerToolbarAria"]')).toBeTruthy();
+    expect(shell?.querySelector('[data-reader-header-toolbar="true"]')).toBeNull();
 
     currentState.selectedConversation = {
       id: 12,
@@ -271,7 +273,7 @@ describe('reader mode regression', () => {
     await flushDom();
 
     expect(document.querySelector('[data-reader-shell="article"]')).toBeTruthy();
-    expect(document.querySelector('[role="toolbar"][aria-label="readerToolbarAria"]')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
     expect(await waitForSelector('[data-reader-rail-wrap="outline"]')).toBeTruthy();
 
     currentState.selectedConversation = {
@@ -290,7 +292,7 @@ describe('reader mode regression', () => {
     renderRoot(root!);
     await flushDom();
 
-    expect(document.querySelector('[role="toolbar"][aria-label="readerToolbarAria"]')).toBeFalsy();
+    expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeFalsy();
   });
 
   it('hides the outline minimap when article detail has no headings', async () => {
@@ -331,9 +333,7 @@ describe('reader mode regression', () => {
     renderRoot(root!);
     await flushDom();
 
-    const narrationTrigger = document.querySelector(
-      '[data-reader-rail-trigger="narration"]',
-    ) as HTMLButtonElement | null;
+    const narrationTrigger = document.querySelector('[data-reader-header-trigger="narration"]') as HTMLButtonElement | null;
     expect(narrationTrigger).toBeTruthy();
 
     act(() => {

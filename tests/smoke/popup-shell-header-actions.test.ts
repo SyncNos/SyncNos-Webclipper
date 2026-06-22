@@ -93,7 +93,6 @@ vi.mock('../../src/viewmodels/popup/usePopupCurrentPageCapture', () => ({
 
 vi.mock('../../src/ui/conversations/ConversationsScene', () => ({
   ConversationsScene: (props: {
-    inlineNarrowDetailHeader?: boolean;
     listShell?: { rightSlot?: ReactNode; belowHeader?: ReactNode };
   }) => {
     const [mode, setMode] = useState<'list' | 'detail' | 'detail-empty' | 'detail-menu'>('list');
@@ -103,7 +102,6 @@ vi.mock('../../src/ui/conversations/ConversationsScene', () => ({
     return createElement(
       'div',
       null,
-      createElement('div', { 'data-inline-narrow-detail-header': props.inlineNarrowDetailHeader ? '1' : '0' }),
       mode === 'list' ? createElement('div', { 'data-list-shell': '1' }, props.listShell?.rightSlot ?? null) : null,
       createElement(
         'button',
@@ -227,7 +225,6 @@ describe('PopupShell header actions', () => {
     expect(document.querySelector('[aria-label="Fetch AI Chat"]')).toBeTruthy();
     expect(document.querySelector('[aria-label="Open Settings"]')).toBeTruthy();
     expect(document.querySelector('[aria-label="Open in Notion"]')).toBeFalsy();
-    expect(document.querySelector('[data-inline-narrow-detail-header="1"]')).toBeTruthy();
 
     const detailButton = Array.from(document.querySelectorAll('button')).find(
       (el) => el.textContent === 'show-detail',

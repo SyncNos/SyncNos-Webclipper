@@ -12,7 +12,8 @@ import {
   type ReaderTtsPrefs,
 } from '@services/protocols/reader-prefs';
 
-// Presentational, fully controlled. The owning surface (P4 ReaderToolbar) supplies
+// Presentational, fully controlled. The owning surface (ReaderHeaderToolbar /
+// ArticleReaderView fallback) supplies
 // `prefs` and an `update` that persists patches via the reader-prefs view-model.
 // Narration prefs live under `reader_prefs_v1.tts`; we always pass the full merged
 // `tts` object so the patch is type-safe against Partial<ReaderPrefs>.

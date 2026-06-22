@@ -389,7 +389,7 @@ describe('ConversationDetailPane header actions', () => {
     expect(header?.className).not.toContain('tw-flex-col');
   });
 
-  it('shows reader toolbar for article and video detail modes', async () => {
+  it('shows reader toolbar in the header for article and video detail modes', async () => {
     currentState.detailHeaderActions = [];
 
     currentState.selectedConversation = {
@@ -409,9 +409,9 @@ describe('ConversationDetailPane header actions', () => {
       await Promise.resolve();
     });
 
-    expect(document.querySelector('[role="toolbar"][aria-label="Reader tools"]')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-toolbar-slot="true"]')).toBeTruthy();
     expect(document.querySelector('[data-reader-shell="article"]')).toBeTruthy();
-    expect(document.querySelector('[data-reader-rail="article-rail"]')).toBeTruthy();
 
     currentState.selectedConversation = {
       id: 16,
@@ -430,7 +430,7 @@ describe('ConversationDetailPane header actions', () => {
       await Promise.resolve();
     });
 
-    expect(document.querySelector('[role="toolbar"][aria-label="Reader tools"]')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
   });
 
   it('does not show comments toggle when selected conversation is chat', () => {

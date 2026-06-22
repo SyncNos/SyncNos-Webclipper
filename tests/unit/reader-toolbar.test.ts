@@ -3,43 +3,7 @@ import { act, createElement } from 'react';
 import ReactDOM from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 
-import { DEFAULT_READER_PREFS } from '../../src/services/protocols/reader-prefs';
 import type { ReaderOutlineDomEntry } from '../../src/ui/reader/article-outline-dom';
-
-vi.mock('../../src/ui/shared/SelectMenu', () => ({
-  SelectMenu: ({
-    ariaLabel,
-    value,
-    options,
-  }: {
-    ariaLabel: string;
-    value: string;
-    options: Array<{ value: string; label: string; disabled?: boolean }>;
-  }) =>
-    createElement(
-      'div',
-      {
-        'data-select-aria': ariaLabel,
-        'data-value': value,
-      },
-      options.map((option) =>
-        createElement(
-          'div',
-          {
-            key: option.value,
-            'data-option-value': option.value,
-            'data-option-disabled': String(option.disabled ?? false),
-          },
-          option.label,
-        ),
-      ),
-    ),
-}));
-
-vi.mock('../../src/ui/shared/button-styles', () => ({
-  buttonTintClassName: () => 'btn-tint',
-  buttonFilledClassName: () => 'btn-filled',
-}));
 
 vi.mock('../../src/ui/i18n', () => ({
   t: (key: string) => key,
@@ -47,16 +11,6 @@ vi.mock('../../src/ui/i18n', () => ({
 
 vi.mock('../../src/ui/shared/hooks/useIsNarrowScreen', () => ({
   useIsNarrowScreen: vi.fn(),
-}));
-
-vi.mock('../../src/ui/reader/TextLayoutPanel', () => ({
-  TextLayoutPanel: ({ className }: { className?: string }) =>
-    createElement('div', { 'data-testid': 'text-layout-panel', className }, 'text-layout-panel'),
-}));
-
-vi.mock('../../src/ui/reader/NarrationPanel', () => ({
-  NarrationPanel: ({ className }: { className?: string }) =>
-    createElement('div', { 'data-testid': 'narration-panel', className }, 'narration-panel'),
 }));
 
 import { ReaderToolbar } from '../../src/ui/reader/ReaderToolbar';
@@ -95,33 +49,29 @@ function cleanupDom() {
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
 }
 
+function buildOutlineEntry(): ReaderOutlineDomEntry {
+  const element = document.createElement('h2');
+  Object.defineProperty(element, 'scrollIntoView', {
+    configurable: true,
+    value: vi.fn(),
+  });
+  return {
+    index: 0,
+    level: 2,
+    id: 'outline-1',
+    title: 'Outline heading',
+    element,
+    rect: { top: 24, bottom: 60 },
+  };
+}
+
 describe('ReaderToolbar', () => {
   let root: ReactDOM.Root | null = null;
-  const update = vi.fn();
-  const narration = {
-    state: 'idle' as 'idle' | 'loading' | 'playing' | 'paused',
-    isPlaying: false,
-    error: null as string | null,
-    webSpeechAvailable: true,
-    pause: vi.fn(),
-    stop: vi.fn(),
-    toggle: vi.fn(),
-  };
 
   beforeEach(() => {
     setupDom();
     root = ReactDOM.createRoot(document.getElementById('root')!);
     vi.mocked(useIsNarrowScreen).mockReturnValue(false);
-    update.mockReset();
-    narration.pause.mockReset();
-    narration.stop.mockReset();
-    narration.toggle.mockReset();
-    Object.assign(narration, {
-      state: 'idle',
-      isPlaying: false,
-      error: null,
-      webSpeechAvailable: true,
-    });
   });
 
   afterEach(() => {
@@ -134,131 +84,38 @@ describe('ReaderToolbar', () => {
 
   function renderToolbar(overrides: Partial<Parameters<typeof ReaderToolbar>[0]> = {}) {
     act(() => {
-      root!.render(
-        createElement(ReaderToolbar, {
-          features: { textLayout: true, theme: true, narration: true },
-          prefs: DEFAULT_READER_PREFS,
-          update,
-          narration,
-          ...overrides,
-        }),
-      );
+      root!.render(createElement(ReaderToolbar, { ...overrides }));
     });
   }
 
-  function getTrigger(panel: 'text' | 'theme' | 'narration'): HTMLButtonElement {
-    const trigger = document.querySelector(`[data-reader-rail-trigger="${panel}"]`) as HTMLButtonElement | null;
-    if (!trigger) throw new Error(`missing trigger: ${panel}`);
-    return trigger;
-  }
-
-  function getWrap(panel: 'text' | 'theme' | 'narration' | 'outline'): HTMLElement {
-    const wrap = document.querySelector(`[data-reader-rail-wrap="${panel}"]`) as HTMLElement | null;
-    if (!wrap) throw new Error(`missing wrap: ${panel}`);
+  function getWrap(): HTMLElement {
+    const wrap = document.querySelector('[data-reader-rail-wrap="outline"]') as HTMLElement | null;
+    if (!wrap) throw new Error('missing outline wrap');
     return wrap;
   }
 
-  function getPanel(panel: 'text' | 'theme' | 'narration' | 'outline'): HTMLElement | null {
-    return document.querySelector(`[data-reader-rail-panel="${panel}"]`) as HTMLElement | null;
+  function getPanel(): HTMLElement | null {
+    return document.querySelector('[data-reader-rail-panel="outline"]') as HTMLElement | null;
   }
 
-  async function hoverOpen(panel: 'text' | 'theme' | 'narration' | 'outline') {
+  async function hoverOpen() {
     await act(async () => {
-      getWrap(panel).dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
+      getWrap().dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
       await Promise.resolve();
     });
   }
 
-  async function hoverLeave(panel: 'text' | 'theme' | 'narration' | 'outline') {
+  async function hoverLeave() {
     await act(async () => {
-      getWrap(panel).dispatchEvent(
+      getWrap().dispatchEvent(
         new MouseEvent('mouseout', { bubbles: true, cancelable: true, relatedTarget: document.body }),
       );
       await Promise.resolve();
     });
   }
 
-  it('renders a vertical rail with icon triggers, opens one panel at a time, and drops ThemePanel titles', async () => {
-    renderToolbar();
-
-    const toolbar = document.querySelector('[role="toolbar"]') as HTMLElement | null;
-    expect(toolbar).toBeTruthy();
-    expect(toolbar?.getAttribute('aria-orientation')).toBe('vertical');
-
-    const textTrigger = getTrigger('text');
-    const themeTrigger = getTrigger('theme');
-    const narrationTrigger = getTrigger('narration');
-    expect(textTrigger.textContent).toBe('Aa');
-    expect(themeTrigger.textContent).toBe('');
-    expect(narrationTrigger.textContent).toBe('');
-    expect(textTrigger.querySelector('svg')).toBeNull();
-    expect(themeTrigger.querySelector('svg')).toBeTruthy();
-    expect(narrationTrigger.querySelector('svg')).toBeTruthy();
-
-    await hoverOpen('theme');
-    const themePanel = getPanel('theme');
-    expect(themePanel).toBeTruthy();
-    expect(themePanel?.querySelector('h3')).toBeNull();
-    expect(themePanel?.className).not.toContain('webclipper-menu-popover-panel');
-    expect(document.querySelector('.webclipper-menu-popover-panel')).toBeNull();
-
-    await hoverOpen('narration');
-    expect(getPanel('theme')).toBeNull();
-    expect(getPanel('narration')).toBeTruthy();
-    expect(document.querySelectorAll('[data-reader-rail-panel]').length).toBe(1);
-  });
-
-  it('closes the open panel on hover leave after the delay and on Escape', async () => {
-    renderToolbar();
-
-    await hoverOpen('text');
-    expect(getPanel('text')).toBeTruthy();
-
-    await hoverLeave('text');
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 180));
-    });
-    expect(getPanel('text')).toBeNull();
-
-    await hoverOpen('theme');
-    expect(getPanel('theme')).toBeTruthy();
-
-    await act(async () => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      await Promise.resolve();
-    });
-    expect(getPanel('theme')).toBeNull();
-  });
-
-  it('uses narrow panel geometry when the viewport is narrower than 720px', async () => {
-    vi.mocked(useIsNarrowScreen).mockReturnValue(true);
-    renderToolbar();
-
-    await hoverOpen('narration');
-    const panel = getPanel('narration');
-    expect(panel).toBeTruthy();
-    expect(panel?.style.right).toBe('0px');
-    expect(panel?.style.top).toBe('calc(100% + 10px)');
-    expect(panel?.style.width).toBe('300px');
-    expect(panel?.style.maxWidth).toBe('calc(100vw - 28px)');
-    expect(panel?.style.maxHeight).toBe('70vh');
-    expect(panel?.style.overflow).toBe('auto');
-  });
-
-  it('keeps the outline panel open on strip clicks and closes it after list-item clicks', async () => {
-    const outlineEntryElement = document.createElement('h2');
-    Object.defineProperty(outlineEntryElement, 'scrollIntoView', {
-      configurable: true,
-      value: vi.fn(),
-    });
-    const outlineEntry = {
-      index: 0,
-      level: 2,
-      id: 'outline-1',
-      title: 'Outline heading',
-      element: outlineEntryElement,
-      rect: { top: 24, bottom: 60 },
-    } satisfies ReaderOutlineDomEntry;
+  it('renders only the outline rail, keeps strip click non-closing, and closes after list-item clicks', async () => {
+    const outlineEntry = buildOutlineEntry();
     const onPickStripEntry = vi.fn((entry: ReaderOutlineDomEntry) => {
       entry.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -275,40 +132,90 @@ describe('ReaderToolbar', () => {
       },
     });
 
-    await hoverOpen('outline');
-    expect(getPanel('outline')).toBeTruthy();
+    const toolbar = document.querySelector('[role="toolbar"]') as HTMLElement | null;
+    expect(toolbar).toBeTruthy();
+    expect(toolbar?.getAttribute('aria-orientation')).toBe('vertical');
+    expect(document.querySelector('[data-reader-rail-wrap="text"]')).toBeNull();
+    expect(document.querySelector('[data-reader-rail-wrap="theme"]')).toBeNull();
+    expect(document.querySelector('[data-reader-rail-wrap="narration"]')).toBeNull();
+
+    await hoverOpen();
+    expect(getPanel()).toBeTruthy();
 
     const stripButton = document.querySelector(
       '[data-reader-rail-wrap="outline"] > nav button[data-reader-outline-level="lvl-2"]',
     ) as HTMLButtonElement | null;
     expect(stripButton).toBeTruthy();
-
     act(() => {
       stripButton!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
     expect(onPickStripEntry).toHaveBeenCalledTimes(1);
     expect(onPickPanelEntry).toHaveBeenCalledTimes(0);
-    expect(getPanel('outline')).toBeTruthy();
+    expect(getPanel()).toBeTruthy();
 
     const panelButton = document.querySelector(
       '[data-reader-rail-panel="outline"] button[data-reader-outline-level="lvl-2"]',
     ) as HTMLButtonElement | null;
     expect(panelButton).toBeTruthy();
-
     act(() => {
       panelButton!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
-    expect(onPickStripEntry).toHaveBeenCalledTimes(1);
     expect(onPickPanelEntry).toHaveBeenCalledTimes(1);
-    expect(getPanel('outline')).toBeNull();
-    expect(outlineEntryElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(getPanel()).toBeNull();
+    expect(outlineEntry.element.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
-  it('returns null when all reader features are disabled', () => {
+  it('closes the outline panel on hover leave after the delay and on Escape', async () => {
     renderToolbar({
-      features: { textLayout: false, theme: false, narration: false },
+      outline: {
+        entries: [buildOutlineEntry()],
+        activeIndex: 0,
+        onPickStripEntry: vi.fn(),
+        onPickPanelEntry: vi.fn(),
+      },
     });
 
+    await hoverOpen();
+    expect(getPanel()).toBeTruthy();
+
+    await hoverLeave();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 180));
+    });
+    expect(getPanel()).toBeNull();
+
+    await hoverOpen();
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(getPanel()).toBeNull();
+  });
+
+  it('uses narrow outline panel geometry when the viewport is narrower than 720px', async () => {
+    vi.mocked(useIsNarrowScreen).mockReturnValue(true);
+    renderToolbar({
+      outline: {
+        entries: [buildOutlineEntry()],
+        activeIndex: 0,
+        onPickStripEntry: vi.fn(),
+        onPickPanelEntry: vi.fn(),
+      },
+    });
+
+    await hoverOpen();
+    const panel = getPanel();
+    expect(panel).toBeTruthy();
+    expect(panel?.style.right).toBe('0px');
+    expect(panel?.style.top).toBe('calc(100% + 10px)');
+    expect(panel?.style.width).toBe('300px');
+    expect(panel?.style.maxWidth).toBe('calc(100vw - 28px)');
+    expect(panel?.style.maxHeight).toBe('70vh');
+    expect(panel?.style.overflow).toBe('auto');
+  });
+
+  it('returns null when no outline entries are available', () => {
+    renderToolbar();
     expect(document.querySelector('[role="toolbar"]')).toBeNull();
     expect(document.getElementById('root')?.innerHTML).toBe('');
   });

@@ -5,9 +5,7 @@ import {
   DEFAULT_READER_TTS_PREFS,
   READER_PREFS_LIMITS,
   READER_PREFS_STORAGE_KEY,
-  LEGACY_READING_PROFILE_STORAGE_KEY,
   normalizeReaderPrefs,
-  readerPrefsFromLegacyProfile,
   resolveReaderPrefsFromStorage,
   buildReaderPrefsStoragePatch,
   readerPrefsToCssVars,
@@ -94,18 +92,6 @@ describe('normalizeReaderPrefs', () => {
   });
 });
 
-describe('readerPrefsFromLegacyProfile', () => {
-  it('migrates medium/notion/book presets to medium/default typography', () => {
-    for (const id of ['medium', 'notion', 'book'] as const) {
-      expect(readerPrefsFromLegacyProfile(id)).toEqual(DEFAULT_READER_PREFS);
-    }
-  });
-
-  it('falls back to medium for unknown legacy values', () => {
-    expect(readerPrefsFromLegacyProfile('???')).toEqual(DEFAULT_READER_PREFS);
-  });
-});
-
 describe('resolveReaderPrefsFromStorage', () => {
   it('uses reader_prefs_v1 when present', () => {
     const p = resolveReaderPrefsFromStorage({
@@ -113,21 +99,6 @@ describe('resolveReaderPrefsFromStorage', () => {
     });
     expect(p.fontSize).toBe(30);
     expect(p.theme).toBe('black');
-  });
-
-  it('migrates legacy key when reader_prefs absent', () => {
-    const p = resolveReaderPrefsFromStorage({
-      [LEGACY_READING_PROFILE_STORAGE_KEY]: 'book',
-    });
-    expect(p).toEqual(readerPrefsFromLegacyProfile('book'));
-  });
-
-  it('prefers reader_prefs over legacy when both present', () => {
-    const p = resolveReaderPrefsFromStorage({
-      [READER_PREFS_STORAGE_KEY]: { fontFamily: 'mono' },
-      [LEGACY_READING_PROFILE_STORAGE_KEY]: 'book',
-    });
-    expect(p.fontFamily).toBe('mono');
   });
 
   it('returns defaults for empty storage', () => {

@@ -5,7 +5,6 @@ import { JSDOM } from 'jsdom';
 
 import {
   DEFAULT_READER_PREFS,
-  LEGACY_READING_PROFILE_STORAGE_KEY,
   READER_PREFS_STORAGE_KEY,
 } from '../../src/services/protocols/reader-prefs';
 
@@ -88,11 +87,7 @@ describe('useReaderPrefs', () => {
     cleanupDom();
   });
 
-  it('hydrates migrated prefs from the legacy reading profile when reader_prefs_v1 is absent', async () => {
-    storageState.items = {
-      [LEGACY_READING_PROFILE_STORAGE_KEY]: 'book',
-    };
-
+  it('falls back to default prefs when reader_prefs_v1 is absent', async () => {
     act(() => {
       root!.render(createElement(Harness));
     });
@@ -117,6 +112,5 @@ describe('useReaderPrefs', () => {
     const patch = storageState.storageSetMock.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(Object.keys(patch)).toEqual([READER_PREFS_STORAGE_KEY]);
     expect((patch[READER_PREFS_STORAGE_KEY] as { fontSize: number }).fontSize).toBe(23);
-    expect(Object.prototype.hasOwnProperty.call(patch, LEGACY_READING_PROFILE_STORAGE_KEY)).toBe(false);
   });
 });
