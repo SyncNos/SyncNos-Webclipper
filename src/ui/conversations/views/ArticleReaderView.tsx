@@ -321,7 +321,8 @@ export function ArticleReaderView({
       const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
       const decorationPending =
         root.getAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR) === READER_SENTENCE_DECORATION_PENDING;
-      const needsRedecorate = !decorationPending && (decoratedSource !== currentSource || decoratedCount !== sentenceCount);
+      const needsRedecorate =
+        !decorationPending && (decoratedSource !== currentSource || decoratedCount !== sentenceCount);
       if (!sourceChanged && needsRedecorate) {
         setSentenceDomRevision((value) => value + 1);
       }
