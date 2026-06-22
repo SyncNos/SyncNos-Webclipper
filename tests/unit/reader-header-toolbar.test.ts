@@ -175,6 +175,9 @@ describe('ReaderHeaderToolbar', () => {
     const toolbar = document.querySelector('[data-reader-header-toolbar="true"]') as HTMLElement | null;
     expect(toolbar).toBeTruthy();
     expect(toolbar?.getAttribute('aria-orientation')).toBe('horizontal');
+    expect(document.querySelector('[data-reader-header-trigger="text"] svg')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-trigger="theme"] svg')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-trigger="narration"] svg')).toBeTruthy();
 
     act(() => {
       (document.querySelector('[data-reader-header-trigger="text"]') as HTMLButtonElement).click();

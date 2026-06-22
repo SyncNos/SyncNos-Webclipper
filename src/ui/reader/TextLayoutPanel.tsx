@@ -12,9 +12,9 @@ import {
   type ReaderTextAlign,
 } from '@services/protocols/reader-prefs';
 
-// Presentational, fully controlled. The owning surface (ReaderHeaderToolbar /
-// ArticleReaderView fallback) supplies
-// `prefs` and an `update` that persists patches via the reader-prefs view-model.
+// Presentational, fully controlled. The owning surface (ReaderHeaderToolbar)
+// supplies `prefs` and an `update` that persists patches via the reader-prefs
+// view-model.
 export type TextLayoutPanelProps = {
   prefs: ReaderPrefs;
   update: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
