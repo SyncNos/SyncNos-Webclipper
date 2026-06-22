@@ -1,4 +1,4 @@
-import { ChevronLeft, MoreVertical } from 'lucide-react';
+import { ChevronLeft, MoreHorizontal } from 'lucide-react';
 
 import { ChatDetailView } from '@ui/conversations/views/ChatDetailView';
 import { ArticleReaderView } from '@ui/conversations/views/ArticleReaderView';
@@ -177,7 +177,7 @@ export function ConversationDetailPane({
     readerFeatures.textLayout || readerFeatures.theme || readerFeatures.narration;
   const hasMoreMenuContent = Boolean(wordCountText) || toolActions.length > 0 || hasReaderMoreMenuContent;
   const moreMenuPanelClassName =
-    'tw-w-[320px] tw-max-w-[min(320px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
+    'tw-w-[214px] tw-max-w-[min(214px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
   const closeMoreMenu = useCallback(() => {
     setMoreMenuOpen(false);
     setReaderToolbarPortalTarget(null);
@@ -388,6 +388,41 @@ export function ConversationDetailPane({
               </div>
             </div>
             <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-end tw-gap-2 tw-whitespace-nowrap">
+              <DetailHeaderActionBar
+                actions={openActions}
+                buttonClassName={headerIconButtonClass}
+                iconOnly
+                menuTriggerLabel={t('detailHeaderOpenInMenuLabel')}
+                menuTriggerAriaLabel={t('detailHeaderOpenInMenuAria')}
+                menuAriaLabel={t('detailHeaderOpenInMenuAria')}
+                className="tw-order-1"
+              />
+
+              {canOpenCommentsSidebar ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onTriggerCommentsSidebar?.();
+                  }}
+                  className={[headerButtonClassName(), 'tw-order-2'].join(' ')}
+                  aria-label={commentsSidebarLabel}
+                  {...tooltipAttrs(commentsSidebarLabel)}
+                  aria-pressed={commentsSidebarOpen ? 'true' : 'false'}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path
+                      d="M4 3.5H11.5C12.3284 3.5 13 4.17157 13 5V9.25C13 10.0784 12.3284 10.75 11.5 10.75H7.5L4.75 13V10.75H4C3.17157 10.75 2.5 10.0784 2.5 9.25V5C2.5 4.17157 3.17157 3.5 4 3.5Z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path d="M5.25 6H10.25" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    <path d="M5.25 8.25H9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                  <span className="tw-sr-only">{commentsSidebarLabel}</span>
+                </button>
+              ) : null}
               {hasMoreMenuContent ? (
                 <MenuPopover
                   open={moreMenuOpen}
@@ -395,8 +430,9 @@ export function ConversationDetailPane({
                   ariaLabel={t('moreButton')}
                   side="bottom"
                   align="end"
-                  panelMinWidth={320}
+                  panelMinWidth={214}
                   panelClassName={moreMenuPanelClassName}
+                  className="tw-order-3"
                   trigger={(triggerProps) => (
                     <button
                       {...triggerProps}
@@ -404,7 +440,7 @@ export function ConversationDetailPane({
                       aria-label={t('moreButton')}
                       className={headerIconButtonClass}
                     >
-                      <MoreVertical size={14} strokeWidth={2} aria-hidden="true" />
+                      <MoreHorizontal size={14} strokeWidth={2} aria-hidden="true" />
                       <span className="tw-sr-only">{t('moreButton')}</span>
                     </button>
                   )}
@@ -455,40 +491,6 @@ export function ConversationDetailPane({
                     </div>
                   ) : null}
                 </MenuPopover>
-              ) : null}
-              <DetailHeaderActionBar
-                actions={openActions}
-                buttonClassName={headerIconButtonClass}
-                iconOnly
-                menuTriggerLabel={t('detailHeaderOpenInMenuLabel')}
-                menuTriggerAriaLabel={t('detailHeaderOpenInMenuAria')}
-                menuAriaLabel={t('detailHeaderOpenInMenuAria')}
-              />
-
-              {canOpenCommentsSidebar ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onTriggerCommentsSidebar?.();
-                  }}
-                  className={headerButtonClassName()}
-                  aria-label={commentsSidebarLabel}
-                  {...tooltipAttrs(commentsSidebarLabel)}
-                  aria-pressed={commentsSidebarOpen ? 'true' : 'false'}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path
-                      d="M4 3.5H11.5C12.3284 3.5 13 4.17157 13 5V9.25C13 10.0784 12.3284 10.75 11.5 10.75H7.5L4.75 13V10.75H4C3.17157 10.75 2.5 10.0784 2.5 9.25V5C2.5 4.17157 3.17157 3.5 4 3.5Z"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path d="M5.25 6H10.25" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                    <path d="M5.25 8.25H9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                  </svg>
-                  <span className="tw-sr-only">{commentsSidebarLabel}</span>
-                </button>
               ) : null}
             </div>
 

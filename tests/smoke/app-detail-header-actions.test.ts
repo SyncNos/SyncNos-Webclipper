@@ -276,6 +276,9 @@ describe('ConversationDetailPane header actions', () => {
 
     const cacheButton = document.querySelector('[aria-label="Cache images"]') as HTMLButtonElement | null;
     expect(cacheButton).toBeTruthy();
+    const moreMenu = document.querySelector('[role="menu"][aria-label="moreButton"]') as HTMLElement | null;
+    expect(moreMenu).toBeTruthy();
+    expect(moreMenu?.className || '').toContain('tw-w-[214px]');
     expect(document.querySelector('[data-detail-word-count-row="true"]')).toBeTruthy();
 
     await act(async () => {
@@ -309,6 +312,10 @@ describe('ConversationDetailPane header actions', () => {
 
     const openBtn = document.querySelector('[aria-label="Comment"]') as HTMLButtonElement | null;
     expect(openBtn).toBeTruthy();
+    expect(openBtn?.className || '').toContain('tw-order-2');
+    const moreBtn = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
+    expect(moreBtn).toBeTruthy();
+    expect(moreBtn?.closest('.tw-order-3')).toBeTruthy();
 
     act(() => {
       openBtn!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
