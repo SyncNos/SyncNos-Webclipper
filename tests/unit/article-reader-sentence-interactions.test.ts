@@ -444,6 +444,9 @@ describe('ArticleReaderView sentence interactions', () => {
     expect(getSentenceSpans()).toHaveLength(2);
 
     rootNode.appendChild(document.createTextNode(' Third sentence.'));
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 220));
+    });
     await waitForSentenceCount(3);
 
     expect(normalizeText(mocks.sources[mocks.sources.length - 1])).toBe(

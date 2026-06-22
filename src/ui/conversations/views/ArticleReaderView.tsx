@@ -60,6 +60,7 @@ const READER_SENTENCE_DECORATION_READY = 'ready';
 const READER_SENTENCE_CLASS = 'reader-tts-sentence';
 const READER_CURRENT_SENTENCE_CLASS = 'reader-tts-sentence-active';
 const READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE = 48;
+const READER_REDECORATE_SETTLE_MS = 180;
 
 function unwrapReaderSentenceSpan(span: HTMLElement): void {
   const parent = span.parentNode;
@@ -340,6 +341,26 @@ export function ArticleReaderView({
     const observerCtor = win?.MutationObserver ?? globalThis.MutationObserver;
     let disposed = false;
     let rafId = 0;
+    let redecorateTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearRedecorateTimer = () => {
+      if (redecorateTimer === null) return;
+      clearTimeout(redecorateTimer);
+      redecorateTimer = null;
+    };
+
+    const scheduleRedecorate = () => {
+      clearRedecorateTimer();
+      redecorateTimer = setTimeout(() => {
+        redecorateTimer = null;
+        if (disposed) return;
+        publishReaderPerformanceStats((current) => ({
+          ...current,
+          observerRedecorateCount: current.observerRedecorateCount + 1,
+        }));
+        setSentenceDomRevision((value) => value + 1);
+      }, READER_REDECORATE_SETTLE_MS);
+    };
 
     const syncFromDom = () => {
       if (disposed) return;
@@ -371,12 +392,10 @@ export function ArticleReaderView({
         root.getAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR) === READER_SENTENCE_DECORATION_PENDING;
       const needsRedecorate =
         !decorationPending && (decoratedSource !== currentSource || decoratedCount !== sentenceCount);
-      if (!sourceChanged && needsRedecorate) {
-        publishReaderPerformanceStats((current) => ({
-          ...current,
-          observerRedecorateCount: current.observerRedecorateCount + 1,
-        }));
-        setSentenceDomRevision((value) => value + 1);
+      if (sourceChanged) {
+        clearRedecorateTimer();
+      } else if (needsRedecorate) {
+        scheduleRedecorate();
       }
     };
 
@@ -397,6 +416,7 @@ export function ArticleReaderView({
       scheduleSync();
       return () => {
         disposed = true;
+        clearRedecorateTimer();
         if (rafId !== 0 && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
       };
     }
@@ -413,6 +433,7 @@ export function ArticleReaderView({
     return () => {
       disposed = true;
       observer.disconnect();
+      clearRedecorateTimer();
       if (rafId !== 0 && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
     };
   }, [detail, features.narration]);
@@ -451,9 +472,7 @@ export function ArticleReaderView({
         cancelProgressiveDecoration = null;
         clearReaderSentenceDecorations(root);
         const shouldProgressivelyDecorate =
-          shouldDeferInitialDecoration &&
-          sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE &&
-          !!win?.requestAnimationFrame;
+          sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE && !!win?.requestAnimationFrame;
         if (shouldProgressivelyDecorate && win?.requestAnimationFrame) {
           cancelProgressiveDecoration = decorateReaderSentenceSpansProgressively(
             root,
