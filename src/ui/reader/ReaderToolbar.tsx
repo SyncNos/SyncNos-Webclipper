@@ -151,7 +151,7 @@ export function ReaderToolbar({ features, prefs, update, narration, outline, cla
       aria-orientation="vertical"
       aria-label={LABELS.toolbarAria}
       className={[
-        'webclipper-reader-toolbar tw-flex tw-w-fit tw-flex-col tw-items-start tw-gap-2',
+        'webclipper-reader-toolbar tw-sticky tw-top-5 tw-flex tw-w-fit tw-flex-col tw-items-start tw-gap-2',
         className || '',
       ]
         .join(' ')
