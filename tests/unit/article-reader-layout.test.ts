@@ -147,6 +147,8 @@ describe('ArticleReaderView layout', () => {
     expect(main).toBeTruthy();
     expect(main?.className).toContain('tw-flex-1');
     expect(rail).toBeTruthy();
+    expect(rail?.className).toContain('tw-sticky');
+    expect(rail?.className).toContain('tw-top-5');
     expect(rail?.className).toContain('tw-flex-none');
     expect(rail?.previousElementSibling).toBe(main);
     expect(toolbar).toBeTruthy();
