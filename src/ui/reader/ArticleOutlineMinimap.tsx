@@ -36,6 +36,7 @@ const ENTRY_LIST_BUTTON_BASE_CLASS = [
 ].join(' ');
 const STRIP_CLASS = 'tw-flex tw-flex-col tw-items-end tw-gap-2 tw-py-1 tw-pr-1';
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto tw-px-0.5';
+const OUTLINE_REBUILD_SETTLE_MS = 180;
 
 function readViewportRect(): ReaderOutlineCandidate['rect'] {
   const view = globalThis.window ?? null;
@@ -184,6 +185,13 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
     const win = root.ownerDocument?.defaultView ?? globalThis.window ?? null;
     const observerCtor = win?.MutationObserver ?? globalThis.MutationObserver;
     let disposed = false;
+    let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearRebuildTimer = () => {
+      if (rebuildTimer === null) return;
+      clearTimeout(rebuildTimer);
+      rebuildTimer = null;
+    };
 
     const schedule = (kind: 'entries' | 'active') => {
       if (disposed) return;
@@ -207,7 +215,13 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
 
     const onScroll = () => schedule('active');
     const onResize = () => schedule('active');
-    const onMutation = () => schedule('entries');
+    const onMutation = () => {
+      clearRebuildTimer();
+      rebuildTimer = setTimeout(() => {
+        rebuildTimer = null;
+        schedule('entries');
+      }, OUTLINE_REBUILD_SETTLE_MS);
+    };
 
     const observer =
       observerCtor != null
@@ -230,6 +244,7 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
       observer?.disconnect();
       scrollTarget.removeEventListener?.('scroll', onScroll);
       win?.removeEventListener?.('resize', onResize);
+      clearRebuildTimer();
       if (rafRef.current != null) {
         win?.cancelAnimationFrame?.(rafRef.current);
         rafRef.current = null;

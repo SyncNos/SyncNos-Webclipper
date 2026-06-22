@@ -364,6 +364,28 @@ describe('ArticleReaderView sentence interactions', () => {
     expect(Number(perf?.sourceLength)).toBeGreaterThan(1000);
   });
 
+  it('defers eager sentence decoration for huge idle documents until narration is engaged', async () => {
+    const markdown = Array.from({ length: 700 }, (_, index) => `Sentence ${index + 1}.`).join(' ');
+
+    renderArticle(root!, markdown);
+    await flushDom();
+
+    expect(getSentenceSpans()).toHaveLength(0);
+    expect((globalThis as any).__syncnosReaderPerformance?.decorateMode).toBe('idle');
+
+    Object.assign(mocks.narration, {
+      state: 'loading',
+      activeIndex: 0,
+      activeSentence: { index: 0, text: 'Sentence 1.', start: 0, end: 11 },
+      hasCursor: true,
+      isPlaying: true,
+    });
+    renderArticle(root!, markdown);
+    await flushDom();
+
+    expect(getSentenceSpans().length).toBeGreaterThan(0);
+  });
+
   it('clicking a sentence seeks while idle and plays while active, without blocking links', async () => {
     renderArticle(root!);
     await flushDom();

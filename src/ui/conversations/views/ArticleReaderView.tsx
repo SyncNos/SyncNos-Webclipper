@@ -61,6 +61,8 @@ const READER_SENTENCE_CLASS = 'reader-tts-sentence';
 const READER_CURRENT_SENTENCE_CLASS = 'reader-tts-sentence-active';
 const READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE = 48;
 const READER_REDECORATE_SETTLE_MS = 180;
+const READER_EAGER_DECORATION_SENTENCE_LIMIT = 400;
+const READER_EAGER_DECORATION_SOURCE_LENGTH_LIMIT = 16000;
 
 function unwrapReaderSentenceSpan(span: HTMLElement): void {
   const parent = span.parentNode;
@@ -246,6 +248,14 @@ export function ArticleReaderView({
   const outline = useArticleOutlineMinimap(outlineRoot);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
+  const shouldEagerlyDecorateSentences = useMemo(() => {
+    const sentenceCount = sentenceCountRef.current || buildSentences(narrationSource).length;
+    const hugeDocument =
+      sentenceCount > READER_EAGER_DECORATION_SENTENCE_LIMIT ||
+      narrationSource.length > READER_EAGER_DECORATION_SOURCE_LENGTH_LIMIT;
+    if (!hugeDocument) return true;
+    return narration.hasCursor || narration.state !== 'idle';
+  }, [narration.hasCursor, narration.state, narrationSource]);
 
   useEffect(() => {
     publishReaderPerformanceStats({
@@ -451,6 +461,19 @@ export function ArticleReaderView({
       return;
     }
 
+    if (!shouldEagerlyDecorateSentences) {
+      sentenceCountRef.current = buildSentences(narrationSource).length;
+      clearReaderSentenceDecorations(root);
+      applyActiveHighlight(null);
+      publishReaderPerformanceStats((current) => ({
+        ...current,
+        sourceLength: narrationSource.length,
+        sentenceCount: sentenceCountRef.current,
+        decorateMode: 'idle',
+      }));
+      return;
+    }
+
     const win = root.ownerDocument?.defaultView ?? globalThis.window;
     let disposed = false;
     let rafId = 0;
@@ -518,7 +541,14 @@ export function ArticleReaderView({
       cancelProgressiveDecoration?.();
       if (rafId !== 0 && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
     };
-  }, [activeSentenceRef, applyActiveHighlight, features.narration, narrationSource, sentenceDomRevision]);
+  }, [
+    activeSentenceRef,
+    applyActiveHighlight,
+    features.narration,
+    narrationSource,
+    sentenceDomRevision,
+    shouldEagerlyDecorateSentences,
+  ]);
 
   const getFirstVisibleSentenceIndex = useCallback(() => {
     if (!features.narration) return 0;
