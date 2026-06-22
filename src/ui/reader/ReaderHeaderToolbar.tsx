@@ -32,7 +32,7 @@ const LABELS = {
 } as const;
 
 const PANEL_CLASS =
-  'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-p-3 tw-text-[var(--text-primary)]';
+  'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
 const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-3';
 const headerReaderTriggerClassName = (active: boolean) =>
   [

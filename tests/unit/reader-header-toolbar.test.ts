@@ -182,6 +182,10 @@ describe('ReaderHeaderToolbar', () => {
     act(() => {
       (document.querySelector('[data-reader-header-trigger="text"]') as HTMLButtonElement).click();
     });
+    const textPanel = document.querySelector('[role="menu"][aria-label="readerTextLayoutButton"]') as HTMLElement | null;
+    expect(textPanel).toBeTruthy();
+    expect(textPanel?.className.includes('menu-panel')).toBe(true);
+    expect(textPanel?.className.includes('tw-p-3')).toBe(false);
     expect(document.querySelector('[data-testid="text-layout-action"]')).toBeTruthy();
     act(() => {
       (document.querySelector('[data-testid="text-layout-action"]') as HTMLButtonElement).click();
