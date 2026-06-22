@@ -241,7 +241,6 @@ describe('ConversationsScene narrow comments flow', () => {
       root!.render(
         createElement(ConversationsScene, {
           commentsSidebarRuntime,
-          inlineNarrowDetailHeader: true,
           narrowCommentsOpenSource: 'popup',
         }),
       );
@@ -338,7 +337,6 @@ describe('ConversationsScene narrow comments flow', () => {
       root!.render(
         createElement(ConversationsScene, {
           commentsSidebarRuntime,
-          inlineNarrowDetailHeader: true,
           narrowCommentsOpenSource: 'popup',
         }),
       );

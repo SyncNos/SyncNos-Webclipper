@@ -27,7 +27,6 @@ export type ConversationsSceneWideChrome = 'card' | 'none';
 
 export type ConversationsSceneProps = {
   defaultNarrowRoute?: NarrowRoute;
-  inlineNarrowDetailHeader?: boolean;
   onPopupNotionSyncStarted?: () => void;
   onPopupFeishuSyncStarted?: () => void;
   onOpenInsightsSection?: () => void;
@@ -46,7 +45,6 @@ export type ConversationsSceneProps = {
 
 export function ConversationsScene({
   defaultNarrowRoute = 'list',
-  inlineNarrowDetailHeader = false,
   onPopupNotionSyncStarted,
   onPopupFeishuSyncStarted,
   onOpenInsightsSection,
@@ -156,33 +154,29 @@ export function ConversationsScene({
       return (
         <div className="tw-flex tw-h-full tw-min-h-0 tw-w-full tw-min-w-0 tw-flex-col tw-bg-[var(--bg-card)] tw-text-[var(--text-primary)]">
           <div className="route-scroll tw-min-h-0 tw-flex-1 tw-overflow-auto tw-overflow-x-hidden tw-bg-[var(--bg-card)]">
-            {inlineNarrowDetailHeader ? (
-              <ConversationDetailPane
-                onBack={returnToList}
-                onTriggerCommentsSidebar={
-                  canOpenCommentsFromDetail
-                    ? () => {
-                        if (typeof onOpenCommentsExternally === 'function') {
-                          onOpenCommentsExternally();
-                          return;
-                        }
-                        if (!commentsSidebarRuntime) return;
-                        openComments();
-                        void commentsSidebarRuntime.sidebarController.open({
-                          focusComposer: true,
-                          source: narrowCommentsOpenSource,
-                          ensureContext: false,
-                        });
+            <ConversationDetailPane
+              onBack={returnToList}
+              onTriggerCommentsSidebar={
+                canOpenCommentsFromDetail
+                  ? () => {
+                      if (typeof onOpenCommentsExternally === 'function') {
+                        onOpenCommentsExternally();
+                        return;
                       }
-                    : undefined
-                }
-                onCommentsLocatorRootChange={(root) => {
-                  commentsSidebarRuntime?.setLocatorRoot(root);
-                }}
-              />
-            ) : (
-              <ConversationDetailPane hideHeader />
-            )}
+                      if (!commentsSidebarRuntime) return;
+                      openComments();
+                      void commentsSidebarRuntime.sidebarController.open({
+                        focusComposer: true,
+                        source: narrowCommentsOpenSource,
+                        ensureContext: false,
+                      });
+                    }
+                  : undefined
+              }
+              onCommentsLocatorRootChange={(root) => {
+                commentsSidebarRuntime?.setLocatorRoot(root);
+              }}
+            />
           </div>
         </div>
       );

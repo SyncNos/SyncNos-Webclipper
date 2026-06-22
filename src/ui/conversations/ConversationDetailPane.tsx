@@ -32,7 +32,6 @@ const DEFAULT_VIEW = {
 
 export type ConversationDetailPaneProps = {
   onBack?: () => void;
-  hideHeader?: boolean;
   onExpandSidebar?: () => void;
   onTriggerCommentsSidebar?: () => void;
   onCommentsLocatorRootChange?: (root: Element | null) => void;
@@ -41,7 +40,6 @@ export type ConversationDetailPaneProps = {
 
 export function ConversationDetailPane({
   onBack,
-  hideHeader = false,
   onExpandSidebar,
   onTriggerCommentsSidebar,
   onCommentsLocatorRootChange,
@@ -198,7 +196,7 @@ export function ConversationDetailPane({
       return;
     }
     setOutlineScrollRoot(findRouteScrollRoot(messagesRootRef.current));
-  }, [activeId, hideHeader]);
+  }, [activeId]);
 
   useEffect(() => {
     if (optimisticActiveIndex == null) return;
@@ -238,13 +236,12 @@ export function ConversationDetailPane({
   return (
     <section className="tw-min-h-full tw-bg-[var(--bg-card)]">
       <section className="tw-flex tw-flex-col tw-bg-[var(--bg-card)]" aria-label={t('conversationDetailAria')}>
-        {!hideHeader ? (
-          <header
-            className={[
-              'tw-sticky tw-top-0 tw-z-20 tw-relative tw-flex tw-items-start tw-justify-between tw-gap-2 tw-border-b tw-border-[var(--border)] tw-bg-[var(--bg-card)] tw-pt-3 tw-pb-2 md:tw-gap-3 md:tw-pt-4',
-              containerPaddingClassName,
-            ].join(' ')}
-          >
+        <header
+          className={[
+            'tw-sticky tw-top-0 tw-z-20 tw-relative tw-flex tw-items-start tw-justify-between tw-gap-2 tw-border-b tw-border-[var(--border)] tw-bg-[var(--bg-card)] tw-pt-3 tw-pb-2 md:tw-gap-3 md:tw-pt-4',
+            containerPaddingClassName,
+          ].join(' ')}
+        >
             <div className="tw-flex tw-min-w-0 tw-flex-1 tw-items-start tw-gap-2">
               {onExpandSidebar ? (
                 <button
@@ -441,17 +438,15 @@ export function ConversationDetailPane({
                 />
               </div>
             ) : null}
-          </header>
-        ) : null}
+        </header>
 
         <div
           className={[
             containerPaddingClassName,
             'tw-relative tw-pb-3 md:tw-pb-4',
-            hideHeader ? 'tw-pt-3 md:tw-pt-4' : '',
           ].join(' ')}
         >
-          {wordCountText && (hideHeader || urlEditing) ? (
+          {wordCountText && urlEditing ? (
             <div className="tw-flex tw-justify-end">
               <span
                 className="tw-inline-flex tw-items-center tw-rounded-[var(--radius-chip)] tw-border tw-border-[var(--border)] tw-px-2 tw-py-0.5 tw-text-[10px] tw-font-extrabold tw-text-[var(--text-secondary)]"
@@ -460,19 +455,6 @@ export function ConversationDetailPane({
               >
                 {wordCountText}
               </span>
-            </div>
-          ) : null}
-
-          {hideHeader && isChatRenderer ? (
-            <div
-              className="tw-absolute tw-right-3 tw-top-3 tw-z-30 md:tw-right-4 md:tw-top-4"
-              data-chat-outline-root={outlineScrollRoot ? 'route-scroll' : 'viewport'}
-            >
-              <ChatOutlinePanel
-                entries={outlineEntries}
-                activeIndex={activeOutlineIndex}
-                onPickEntry={pickOutlineEntry}
-              />
             </div>
           ) : null}
 

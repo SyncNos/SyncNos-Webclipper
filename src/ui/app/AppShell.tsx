@@ -587,7 +587,6 @@ export default function AppShell() {
                     path="/"
                     element={
                       <ConversationsScene
-                        inlineNarrowDetailHeader
                         listShell={{
                           rightSlot: (
                             <button

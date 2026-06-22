@@ -262,7 +262,6 @@ function PopupShellFrame() {
         <section id="viewChats" className="tw-h-full tw-min-h-0" aria-label={t('chatsAria')}>
           <div className="tw-flex tw-h-full tw-min-h-0 tw-flex-1 tw-flex-col">
             <ConversationsScene
-              inlineNarrowDetailHeader
               listShell={{
                 rightSlot: (
                   <>
