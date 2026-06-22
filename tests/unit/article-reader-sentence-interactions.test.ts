@@ -105,6 +105,7 @@ function setupDom() {
   Object.defineProperty(globalThis, 'Element', { configurable: true, value: dom.window.Element });
   Object.defineProperty(globalThis, 'Node', { configurable: true, value: dom.window.Node });
   Object.defineProperty(globalThis, 'Text', { configurable: true, value: dom.window.Text });
+  Object.defineProperty(globalThis, 'Range', { configurable: true, value: dom.window.Range });
   Object.defineProperty(globalThis, 'MouseEvent', { configurable: true, value: dom.window.MouseEvent });
   Object.defineProperty(globalThis, 'MutationObserver', { configurable: true, value: dom.window.MutationObserver });
   Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: raf });
@@ -123,6 +124,7 @@ function cleanupDom() {
   delete (globalThis as any).Element;
   delete (globalThis as any).Node;
   delete (globalThis as any).Text;
+  delete (globalThis as any).Range;
   delete (globalThis as any).MouseEvent;
   delete (globalThis as any).MutationObserver;
   delete (globalThis as any).requestAnimationFrame;
@@ -384,6 +386,28 @@ describe('ArticleReaderView sentence interactions', () => {
     await flushDom();
 
     expect(getSentenceSpans().length).toBeGreaterThan(0);
+  });
+
+  it('starts huge idle documents from the visible sentence before any decoration spans exist', async () => {
+    const markdown = Array.from({ length: 700 }, (_, index) => `Sentence ${index + 1}.`).join(' ');
+
+    renderArticle(root!, markdown);
+    await flushDom();
+
+    expect(getSentenceSpans()).toHaveLength(0);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100 });
+    Object.defineProperty(window.Range.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value(this: Range) {
+        const match = /Sentence (\d+)\./.exec(this.toString());
+        const number = match ? Number(match[1]) : 1;
+        const top = (number - 350) * 40;
+        return { top, bottom: top + 20 };
+      },
+    });
+
+    (document.querySelector('[data-testid="toolbar-play"]') as HTMLButtonElement).click();
+    expect(mocks.play).toHaveBeenLastCalledWith(349);
   });
 
   it('clicking a sentence seeks while idle and plays while active, without blocking links', async () => {

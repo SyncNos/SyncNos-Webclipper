@@ -7,6 +7,7 @@ import { buildSentences, type ReaderTtsSentence } from '@services/reader/tts/rea
 import type { DetailViewSharedProps } from '@ui/conversations/views/detail-view-props';
 import {
   findReaderSentenceIndexFromTarget,
+  readFirstVisibleSentenceIndexFromSentences,
 } from '@ui/reader/reader-sentence-dom';
 import { useArticleOutlineMinimap } from '@ui/reader/ArticleOutlineMinimap';
 import type { ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
@@ -409,7 +410,11 @@ export function ArticleReaderView({
     if (!features.narration) return 0;
     const root = narrationRootRef.current;
     if (!root) return 0;
-    return readFirstVisibleReaderSentenceIndex(root);
+    if (root.querySelector(`[${READER_SENTENCE_INDEX_ATTR}]`)) {
+      return readFirstVisibleReaderSentenceIndex(root);
+    }
+    const currentSource = root.textContent ?? sourceFromDomRef.current;
+    return readFirstVisibleSentenceIndexFromSentences(root, buildSentences(currentSource));
   }, [features.narration]);
 
   const toolbarNarration = useMemo(

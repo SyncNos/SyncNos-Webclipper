@@ -175,12 +175,46 @@ export function pickFirstVisibleSentenceIndex(
   const viewport = normalizeRect(viewportRect);
   if (!candidates.length || !viewport) return 0;
 
+  let lastAboveIndex: number | null = null;
   for (const candidate of candidates) {
     const { top, bottom } = candidate.rect;
     if (bottom > viewport.top && top < viewport.bottom) {
       return candidate.index;
     }
+    if (bottom <= viewport.top) {
+      lastAboveIndex = candidate.index;
+    }
   }
 
-  return 0;
+  return lastAboveIndex ?? candidates[0].index;
+}
+
+function readViewportRect(root: HTMLElement): ReaderSentenceRectLike {
+  const view = root.ownerDocument?.defaultView ?? globalThis.window ?? null;
+  const height = Number(view?.innerHeight);
+  if (!Number.isFinite(height) || height <= 0) return { top: 0, bottom: 0 };
+  return { top: 0, bottom: height };
+}
+
+export function readFirstVisibleSentenceIndexFromSentences(
+  root: HTMLElement,
+  sentences: ReaderTtsSentence[],
+): number {
+  if (!root || !Array.isArray(sentences) || !sentences.length) return 0;
+
+  const segments = collectReaderSentenceTextSegments(root);
+  const candidates = sentences
+    .map((sentence) => {
+      const range = findReaderSentenceRange(root, sentence, segments);
+      if (!range || typeof range.getBoundingClientRect !== 'function') return null;
+      const rect = range.getBoundingClientRect();
+      if (!Number.isFinite(rect.top) || !Number.isFinite(rect.bottom)) return null;
+      return {
+        index: sentence.index,
+        rect: { top: rect.top, bottom: rect.bottom },
+      } satisfies ReaderSentenceCandidate;
+    })
+    .filter((candidate): candidate is ReaderSentenceCandidate => candidate !== null);
+
+  return pickFirstVisibleSentenceIndex(candidates, readViewportRect(root));
 }
