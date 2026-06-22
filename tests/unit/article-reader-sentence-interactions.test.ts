@@ -130,6 +130,68 @@ function cleanupDom() {
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
 }
 
+function installManualRaf() {
+  let nextId = 1;
+  const queue = new Map<number, FrameRequestCallback>();
+  const requestAnimationFrame = (cb: FrameRequestCallback) => {
+    const id = nextId++;
+    queue.set(id, cb);
+    return id;
+  };
+  const cancelAnimationFrame = (id: number) => {
+    queue.delete(id);
+  };
+
+  Object.defineProperty(window, 'requestAnimationFrame', { configurable: true, value: requestAnimationFrame });
+  Object.defineProperty(window, 'cancelAnimationFrame', { configurable: true, value: cancelAnimationFrame });
+  Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: requestAnimationFrame });
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', { configurable: true, value: cancelAnimationFrame });
+
+  return {
+    async flushNext(): Promise<boolean> {
+      let ran = false;
+      await act(async () => {
+        const next = queue.entries().next();
+        if (next.done) return;
+        const [id, cb] = next.value;
+        queue.delete(id);
+        cb(Date.now());
+        ran = true;
+        await Promise.resolve();
+      });
+      return ran;
+    },
+    async flushUntil(predicate: () => boolean, maxFrames = 12): Promise<void> {
+      await act(async () => {
+        for (let index = 0; index < maxFrames; index += 1) {
+          if (predicate()) return;
+          const next = queue.entries().next();
+          if (next.done) {
+            await Promise.resolve();
+            continue;
+          }
+          const [id, cb] = next.value;
+          queue.delete(id);
+          cb(Date.now());
+          await Promise.resolve();
+        }
+      });
+    },
+    async flushAll(maxFrames = 24): Promise<void> {
+      await act(async () => {
+        for (let index = 0; index < maxFrames; index += 1) {
+          const next = queue.entries().next();
+          if (next.done) return;
+          const [id, cb] = next.value;
+          queue.delete(id);
+          cb(Date.now());
+          await Promise.resolve();
+        }
+      });
+    },
+  };
+}
+
 function resetMocks() {
   mocks.play.mockReset();
   mocks.seek.mockReset();
@@ -271,6 +333,27 @@ describe('ArticleReaderView sentence interactions', () => {
 
     expect(getSentenceSpans()).toHaveLength(2);
     expect(collectSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('progressively decorates long documents instead of wrapping every sentence in the first frame', async () => {
+    const raf = installManualRaf();
+    const markdown = Array.from({ length: 140 }, (_, index) => `Sentence ${index + 1}.`).join(' ');
+
+    renderArticle(root!, markdown);
+
+    let partialCount = 0;
+    for (let index = 0; index < 4; index += 1) {
+      const ran = await raf.flushNext();
+      if (!ran) break;
+      partialCount = getSentenceSpans().length;
+      if (partialCount > 0) break;
+    }
+
+    expect(partialCount).toBeGreaterThan(0);
+    expect(partialCount).toBeLessThan(140);
+
+    await raf.flushAll();
+    expect(getSentenceSpans()).toHaveLength(140);
   });
 
   it('clicking a sentence seeks while idle and plays while active, without blocking links', async () => {

@@ -50,8 +50,12 @@ const READER_RAIL_CLASS = 'tw-flex-none tw-shrink-0 tw-self-start';
 
 const READER_SENTENCE_SOURCE_ATTR = 'data-reader-sentence-source';
 const READER_SENTENCE_INDEX_ATTR = 'data-reader-sentence-index';
+const READER_SENTENCE_DECORATION_STATUS_ATTR = 'data-reader-sentence-decoration';
+const READER_SENTENCE_DECORATION_PENDING = 'pending';
+const READER_SENTENCE_DECORATION_READY = 'ready';
 const READER_SENTENCE_CLASS = 'reader-tts-sentence';
 const READER_ACTIVE_SENTENCE_CLASS = 'reader-active-sentence';
+const READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE = 48;
 
 function unwrapReaderSentenceSpan(span: HTMLElement): void {
   const parent = span.parentNode;
@@ -66,18 +70,18 @@ function clearReaderSentenceDecorations(root: HTMLElement): void {
   const spans = Array.from(root.querySelectorAll<HTMLElement>(`[${READER_SENTENCE_INDEX_ATTR}]`));
   spans.forEach((span) => unwrapReaderSentenceSpan(span));
   root.removeAttribute(READER_SENTENCE_SOURCE_ATTR);
+  root.removeAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR);
+  root.normalize();
 }
 
-function decorateReaderSentenceSpans(root: HTMLElement, source: string, sentences: ReaderTtsSentence[]): void {
-  const doc = root.ownerDocument ?? globalThis.document;
-  if (!doc) return;
-  if (!sentences.length) {
-    root.setAttribute(READER_SENTENCE_SOURCE_ATTR, source);
-    return;
-  }
-
+function decorateReaderSentenceRangeBatch(
+  root: HTMLElement,
+  sentences: ReaderTtsSentence[],
+  startIndex: number,
+  endIndex: number,
+): void {
   const segments = collectReaderSentenceTextSegments(root);
-  for (let index = sentences.length - 1; index >= 0; index -= 1) {
+  for (let index = endIndex - 1; index >= startIndex; index -= 1) {
     const sentence = sentences[index];
     const range = findReaderSentenceRangeByIndex(root, sentences, index, segments);
     if (!range) continue;
@@ -85,14 +89,62 @@ function decorateReaderSentenceSpans(root: HTMLElement, source: string, sentence
     const fragment = range.extractContents();
     if (!fragment.childNodes.length) continue;
 
-    const span = doc.createElement('span');
+    const span = (root.ownerDocument ?? globalThis.document)?.createElement('span');
+    if (!span) continue;
     span.className = READER_SENTENCE_CLASS;
     span.setAttribute(READER_SENTENCE_INDEX_ATTR, String(sentence.index));
     span.appendChild(fragment);
     range.insertNode(span);
   }
+}
+
+function decorateReaderSentenceSpans(root: HTMLElement, source: string, sentences: ReaderTtsSentence[]): void {
+  const doc = root.ownerDocument ?? globalThis.document;
+  if (!doc) return;
+  if (!sentences.length) {
+    root.setAttribute(READER_SENTENCE_SOURCE_ATTR, source);
+    root.setAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR, READER_SENTENCE_DECORATION_READY);
+    return;
+  }
+  decorateReaderSentenceRangeBatch(root, sentences, 0, sentences.length);
+  root.setAttribute(READER_SENTENCE_SOURCE_ATTR, source);
+  root.setAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR, READER_SENTENCE_DECORATION_READY);
+}
+
+function decorateReaderSentenceSpansProgressively(
+  root: HTMLElement,
+  source: string,
+  sentences: ReaderTtsSentence[],
+  requestFrame: (cb: FrameRequestCallback) => number,
+  cancelFrame: ((id: number) => void) | undefined,
+  onProgress: () => void,
+): () => void {
+  let cancelled = false;
+  let rafId = 0;
+  let nextIndex = 0;
 
   root.setAttribute(READER_SENTENCE_SOURCE_ATTR, source);
+  root.setAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR, READER_SENTENCE_DECORATION_PENDING);
+
+  const step = () => {
+    if (cancelled) return;
+    const batchEnd = Math.min(nextIndex + READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE, sentences.length);
+    decorateReaderSentenceRangeBatch(root, sentences, nextIndex, batchEnd);
+    nextIndex = batchEnd;
+    if (nextIndex >= sentences.length) {
+      root.setAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR, READER_SENTENCE_DECORATION_READY);
+      onProgress();
+      return;
+    }
+    onProgress();
+    rafId = requestFrame(() => step());
+  };
+
+  step();
+  return () => {
+    cancelled = true;
+    if (rafId !== 0) cancelFrame?.(rafId);
+  };
 }
 
 function readReaderSentenceViewportRect(root: HTMLElement): ReaderSentenceRectLike {
@@ -267,7 +319,9 @@ export function ArticleReaderView({
 
       const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
       const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
-      const needsRedecorate = decoratedSource !== currentSource || decoratedCount !== sentenceCount;
+      const decorationPending =
+        root.getAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR) === READER_SENTENCE_DECORATION_PENDING;
+      const needsRedecorate = !decorationPending && (decoratedSource !== currentSource || decoratedCount !== sentenceCount);
       if (!sourceChanged && needsRedecorate) {
         setSentenceDomRevision((value) => value + 1);
       }
@@ -320,6 +374,7 @@ export function ArticleReaderView({
     const win = root.ownerDocument?.defaultView ?? globalThis.window;
     let disposed = false;
     let rafId = 0;
+    let cancelProgressiveDecoration: (() => void) | null = null;
 
     const runDecoration = () => {
       if (disposed) return;
@@ -328,10 +383,29 @@ export function ArticleReaderView({
       sentenceCountRef.current = sentences.length;
       const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
       const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
-      const isUpToDate = decoratedSource === narrationSource && decoratedCount === sentences.length;
+      const decorationReady =
+        root.getAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR) === READER_SENTENCE_DECORATION_READY;
+      const isUpToDate = decorationReady && decoratedSource === narrationSource && decoratedCount === sentences.length;
       if (!isUpToDate) {
+        cancelProgressiveDecoration?.();
+        cancelProgressiveDecoration = null;
         clearReaderSentenceDecorations(root);
-        decorateReaderSentenceSpans(root, narrationSource, sentences);
+        const shouldProgressivelyDecorate =
+          shouldDeferInitialDecoration &&
+          sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE &&
+          !!win?.requestAnimationFrame;
+        if (shouldProgressivelyDecorate && win?.requestAnimationFrame) {
+          cancelProgressiveDecoration = decorateReaderSentenceSpansProgressively(
+            root,
+            narrationSource,
+            sentences,
+            win.requestAnimationFrame.bind(win),
+            win.cancelAnimationFrame?.bind(win),
+            () => applyActiveHighlight(activeSentenceRef.current),
+          );
+        } else {
+          decorateReaderSentenceSpans(root, narrationSource, sentences);
+        }
       }
 
       applyActiveHighlight(activeSentenceRef.current);
@@ -350,6 +424,7 @@ export function ArticleReaderView({
     rafId = win.requestAnimationFrame(runDecoration);
     return () => {
       disposed = true;
+      cancelProgressiveDecoration?.();
       if (rafId !== 0 && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
     };
   }, [activeSentenceRef, applyActiveHighlight, features.narration, narrationSource, sentenceDomRevision]);
