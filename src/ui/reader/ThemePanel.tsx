@@ -2,7 +2,8 @@ import { buttonFilledClassName, buttonTintClassName } from '@ui/shared/button-st
 import { READER_THEMES, type ReaderPrefs, type ReaderTheme } from '@services/protocols/reader-prefs';
 import { t } from '@i18n';
 
-// Presentational, fully controlled. The owning surface (P4 ReaderToolbar) supplies
+// Presentational, fully controlled. The owning surface (ReaderHeaderToolbar /
+// ArticleReaderView fallback) supplies
 // `prefs` and an `update` that persists the patch via the reader-prefs view-model.
 export type ThemePanelProps = {
   prefs: ReaderPrefs;

@@ -44,7 +44,8 @@ vi.mock('../../src/viewmodels/reader/useReaderNarration', () => ({
 }));
 
 vi.mock('../../src/ui/reader/ReaderToolbar', () => ({
-  ReaderToolbar: () => createElement('div', { 'data-testid': 'reader-toolbar' }, 'reader-toolbar'),
+  ReaderToolbar: ({ outline }: { outline?: { entries?: unknown[] } | null }) =>
+    outline?.entries?.length ? createElement('div', { 'data-testid': 'reader-toolbar' }, 'reader-toolbar') : null,
 }));
 
 vi.mock('../../src/ui/reader/ReaderHeaderToolbar', () => ({
@@ -152,7 +153,7 @@ describe('ArticleReaderView layout', () => {
     cleanupDom();
   });
 
-  it('renders the article shell as a row with a fixed rail sibling and omits the system theme attribute', () => {
+  it('renders the article shell, omits the system theme attribute, and inlines the fallback header tools when no portal target exists', () => {
     renderArticle(root!);
 
     const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
@@ -161,20 +162,17 @@ describe('ArticleReaderView layout', () => {
     expect(shell?.className).toContain('tw-items-start');
     expect(shell?.style.getPropertyValue('--reader-content-width')).toBe('2000px');
     expect(shell?.hasAttribute('data-reader-theme')).toBe(false);
-    expect(shell?.children).toHaveLength(2);
 
     const main = shell?.querySelector('[data-reader-main="article-main"]') as HTMLElement | null;
     const rail = shell?.querySelector('[data-reader-rail="article-rail"]') as HTMLElement | null;
-    const toolbar = shell?.querySelector('[data-testid="reader-toolbar"]') as HTMLElement | null;
+    const headerToolbar = shell?.querySelector('[data-testid="reader-header-toolbar"]') as HTMLElement | null;
     const sentenceRoot = shell?.querySelector('[data-reader-sentence-root="true"]') as HTMLElement | null;
 
     expect(main).toBeTruthy();
     expect(main?.className).toContain('tw-flex-1');
-    expect(rail).toBeTruthy();
-    expect(rail?.className).toContain('tw-flex-none');
-    expect(rail?.previousElementSibling).toBe(main);
-    expect(toolbar).toBeTruthy();
-    expect(toolbar?.parentElement).toBe(rail);
+    expect(rail).toBeNull();
+    expect(headerToolbar).toBeTruthy();
+    expect(headerToolbar?.closest('[data-reader-main="article-main"]')).toBe(main);
     expect(sentenceRoot).toBeTruthy();
     expect(sentenceRoot?.style.maxWidth).toBe('var(--reader-content-width)');
   });

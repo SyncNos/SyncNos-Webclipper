@@ -1,25 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Palette, Pause, Play, Square, Volume2 } from 'lucide-react';
 
-import { buttonFilledClassName, buttonTintClassName } from '@ui/shared/button-styles';
-import { useIsNarrowScreen } from '@ui/shared/hooks/useIsNarrowScreen';
 import { t } from '@i18n';
-import { TextLayoutPanel } from '@ui/reader/TextLayoutPanel';
-import { ThemePanel } from '@ui/reader/ThemePanel';
-import { NarrationPanel } from '@ui/reader/NarrationPanel';
+import { useIsNarrowScreen } from '@ui/shared/hooks/useIsNarrowScreen';
 import { ArticleOutlineMinimap, type ArticleOutlineMinimapState } from '@ui/reader/ArticleOutlineMinimap';
-import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
 import type { ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
 import type { ReaderPrefs } from '@services/protocols/reader-prefs';
 import type { ReaderTtsState } from '@services/reader/tts/reader-tts-engine';
 
-// Structural feature flags (mirror conversation-kinds `view.readerFeatures`). Kept
-// structural so ArticleReaderView's ReaderFeatures type is assignable without a
-// cross-module value import.
+// Structural feature flags are still shared with ReaderHeaderToolbar / ArticleReaderView.
 export type ReaderToolbarFeatures = { textLayout: boolean; theme: boolean; narration: boolean };
 
-// Narration surface owned by ArticleReaderView (useReaderNarration), passed down so
-// the toolbar controls and the sentence highlight share one engine instance.
 export type ReaderToolbarNarration = {
   state: ReaderTtsState;
   isPlaying: boolean;
@@ -31,10 +21,10 @@ export type ReaderToolbarNarration = {
 };
 
 export type ReaderToolbarProps = {
-  features: ReaderToolbarFeatures;
-  prefs: ReaderPrefs;
-  update: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
-  narration: ReaderToolbarNarration;
+  features?: ReaderToolbarFeatures;
+  prefs?: ReaderPrefs;
+  update?: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
+  narration?: ReaderToolbarNarration;
   outline?:
     | (ArticleOutlineMinimapState & {
         onPickStripEntry: (entry: ReaderOutlineDomEntry) => void;
@@ -44,39 +34,20 @@ export type ReaderToolbarProps = {
   className?: string;
 };
 
-type OpenPanel = 'text' | 'theme' | 'narration' | 'outline' | null;
-
 const LABELS = {
   toolbarAria: t('readerToolbarAria'),
-  text: t('readerTextLayoutButton'),
-  theme: t('readerThemeButton'),
-  narration: t('readerNarrationButton'),
-  play: t('readerNarrationPlay'),
-  reading: t('readerNarrationReading'),
-  pause: t('readerNarrationPause'),
-  stop: t('readerNarrationStop'),
 } as const;
 
 const PANEL_CLOSE_DELAY_MS = 160;
-const RAIL_BUTTON_BASE_CLASS = 'webclipper-btn--icon-xl tw-leading-none';
-const railTextButtonClassName = (active: boolean) =>
-  [
-    active ? buttonFilledClassName() : buttonTintClassName(),
-    RAIL_BUTTON_BASE_CLASS,
-    'tw-text-[15px] tw-font-black',
-  ].join(' ');
-const railIconButtonClassName = (active: boolean) =>
-  [active ? buttonFilledClassName() : buttonTintClassName(), RAIL_BUTTON_BASE_CLASS].join(' ');
-const narrationTransportButtonClassName = (active: boolean) =>
-  [active ? buttonFilledClassName() : buttonTintClassName(), RAIL_BUTTON_BASE_CLASS].join(' ');
 
 /**
- * ReaderToolbar — the reader rail control surface: text & layout, theme, and
- * read-aloud. The rail is vertical, the panels float left on desktop and drop
- * below on narrow screens, and only one panel can be open at a time.
+ * ReaderToolbar now owns only the article outline rail.
+ *
+ * Reader controls (text/theme/narration) live exclusively in ReaderHeaderToolbar.
+ * The outline stays beside the article because it is tied to article scroll state.
  */
-export function ReaderToolbar({ features, prefs, update, narration, outline, className }: ReaderToolbarProps) {
-  const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
+export function ReaderToolbar({ outline, className }: ReaderToolbarProps) {
+  const [openPanel, setOpenPanel] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const narrow = useIsNarrowScreen({ breakpointPx: 720 });
 
@@ -86,27 +57,16 @@ export function ReaderToolbar({ features, prefs, update, narration, outline, cla
     closeTimerRef.current = null;
   }, []);
 
-  const openNow = useCallback(
-    (panel: Exclude<OpenPanel, null>) => {
-      clearCloseTimer();
-      setOpenPanel(panel);
-    },
-    [clearCloseTimer],
-  );
-
-  const togglePanel = useCallback(
-    (panel: Exclude<OpenPanel, null>) => {
-      clearCloseTimer();
-      setOpenPanel((current) => (current === panel ? null : panel));
-    },
-    [clearCloseTimer],
-  );
+  const openNow = useCallback(() => {
+    clearCloseTimer();
+    setOpenPanel(true);
+  }, [clearCloseTimer]);
 
   const scheduleClose = useCallback(() => {
     clearCloseTimer();
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
-      setOpenPanel(null);
+      setOpenPanel(false);
     }, PANEL_CLOSE_DELAY_MS);
   }, [clearCloseTimer]);
 
@@ -124,26 +84,19 @@ export function ReaderToolbar({ features, prefs, update, narration, outline, cla
       if (event.key !== 'Escape') return;
       event.preventDefault();
       clearCloseTimer();
-      setOpenPanel(null);
+      setOpenPanel(false);
     };
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [clearCloseTimer, openPanel]);
 
-  if (!features.textLayout && !features.theme && !features.narration && !outline?.entries.length) return null;
+  if (!outline?.entries.length) return null;
 
-  const narrationTriggerActive = openPanel === 'narration' || narration.isPlaying || narration.state === 'loading';
-  const narrationActionLabel =
-    narration.state === 'loading' ? LABELS.reading : narration.isPlaying ? LABELS.pause : LABELS.play;
-  const NarrationActionIcon = narration.state === 'loading' || narration.isPlaying ? Pause : Play;
-  const handleOutlineStripPick = outline ? outline.onPickStripEntry : null;
-  const handleOutlinePanelPick = outline
-    ? (entry: ReaderOutlineDomEntry) => {
-        outline.onPickPanelEntry(entry);
-        setOpenPanel(null);
-      }
-    : null;
+  const handleOutlinePanelPick = (entry: ReaderOutlineDomEntry) => {
+    outline.onPickPanelEntry(entry);
+    setOpenPanel(false);
+  };
 
   return (
     <div
@@ -157,133 +110,16 @@ export function ReaderToolbar({ features, prefs, update, narration, outline, cla
         .join(' ')
         .trim()}
     >
-      {features.textLayout ? (
-        <ReaderRailPanel
-          id="text"
-          label={LABELS.text}
-          open={openPanel === 'text'}
-          narrow={narrow}
-          panelTitle={LABELS.text}
-          onMouseEnter={() => openNow('text')}
-          onMouseLeave={scheduleClose}
-          trigger={
-            <button
-              type="button"
-              data-reader-rail-trigger="text"
-              aria-label={LABELS.text}
-              aria-haspopup="menu"
-              aria-expanded={openPanel === 'text'}
-              title={LABELS.text}
-              className={railTextButtonClassName(openPanel === 'text')}
-              onClick={() => togglePanel('text')}
-            >
-              Aa
-            </button>
-          }
-        >
-          <TextLayoutPanel prefs={prefs} update={update} />
-        </ReaderRailPanel>
-      ) : null}
-
-      {features.theme ? (
-        <ReaderRailPanel
-          id="theme"
-          label={LABELS.theme}
-          open={openPanel === 'theme'}
-          narrow={narrow}
-          onMouseEnter={() => openNow('theme')}
-          onMouseLeave={scheduleClose}
-          trigger={
-            <button
-              type="button"
-              data-reader-rail-trigger="theme"
-              aria-label={LABELS.theme}
-              aria-haspopup="menu"
-              aria-expanded={openPanel === 'theme'}
-              title={LABELS.theme}
-              className={railIconButtonClassName(openPanel === 'theme')}
-              onClick={() => togglePanel('theme')}
-            >
-              <Palette size={18} strokeWidth={2.25} />
-            </button>
-          }
-        >
-          <ThemePanel prefs={prefs} update={update} />
-        </ReaderRailPanel>
-      ) : null}
-
-      {features.narration ? (
-        <ReaderRailPanel
-          id="narration"
-          label={LABELS.narration}
-          open={openPanel === 'narration'}
-          narrow={narrow}
-          panelTitle={LABELS.narration}
-          onMouseEnter={() => openNow('narration')}
-          onMouseLeave={scheduleClose}
-          trigger={
-            <button
-              type="button"
-              data-reader-rail-trigger="narration"
-              aria-label={LABELS.narration}
-              aria-haspopup="menu"
-              aria-expanded={openPanel === 'narration'}
-              title={LABELS.narration}
-              className={railIconButtonClassName(narrationTriggerActive)}
-              onClick={() => togglePanel('narration')}
-            >
-              <Volume2 size={18} strokeWidth={2.25} />
-            </button>
-          }
-        >
-          <div className="tw-flex tw-flex-col tw-gap-3">
-            <div className="tw-flex tw-gap-1.5">
-              <button
-                type="button"
-                className={narrationTransportButtonClassName(true)}
-                aria-label={narrationActionLabel}
-                title={narrationActionLabel}
-                aria-pressed={narration.isPlaying || narration.state === 'loading'}
-                onClick={narration.toggle}
-              >
-                <NarrationActionIcon size={18} strokeWidth={2.25} />
-              </button>
-              <button
-                type="button"
-                className={narrationTransportButtonClassName(false)}
-                aria-label={LABELS.stop}
-                title={LABELS.stop}
-                onClick={narration.stop}
-                disabled={narration.state === 'idle'}
-              >
-                <Square size={18} strokeWidth={2.25} />
-              </button>
-            </div>
-            <NarrationPanel
-              prefs={prefs}
-              update={update}
-              error={narration.error}
-              webSpeechAvailable={narration.webSpeechAvailable}
-            />
-          </div>
-        </ReaderRailPanel>
-      ) : null}
-
-      {outline?.entries.length ? (
-        handleOutlineStripPick && handleOutlinePanelPick ? (
-          <ArticleOutlineMinimap
-            entries={outline.entries}
-            activeIndex={outline.activeIndex}
-            open={openPanel === 'outline'}
-            narrow={narrow}
-            className="tw-mt-2 tw-pt-2 tw-border-t tw-border-[var(--border)]"
-            onMouseEnter={() => openNow('outline')}
-            onMouseLeave={scheduleClose}
-            onPickStripEntry={handleOutlineStripPick}
-            onPickPanelEntry={handleOutlinePanelPick}
-          />
-        ) : null
-      ) : null}
+      <ArticleOutlineMinimap
+        entries={outline.entries}
+        activeIndex={outline.activeIndex}
+        open={openPanel}
+        narrow={narrow}
+        onMouseEnter={openNow}
+        onMouseLeave={scheduleClose}
+        onPickStripEntry={outline.onPickStripEntry}
+        onPickPanelEntry={handleOutlinePanelPick}
+      />
     </div>
   );
 }
