@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Palette, Pause, Play, Square, Type, Volume2 } from 'lucide-react';
+import { ChevronRight, Palette, Pause, Play, Square, Type, Volume2 } from 'lucide-react';
 
 import { t } from '@i18n';
-import { buttonFilledClassName, buttonTintClassName } from '@ui/shared/button-styles';
+import { buttonFilledClassName, buttonMenuItemClassName, buttonTintClassName, menuChevronClassName } from '@ui/shared/button-styles';
 import { MenuPopover } from '@ui/shared/MenuPopover';
 import { NarrationPanel } from '@ui/reader/NarrationPanel';
 import { TextLayoutPanel } from '@ui/reader/TextLayoutPanel';
@@ -34,11 +34,8 @@ const LABELS = {
 const PANEL_CLASS =
   'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
 const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-3';
-const headerReaderTriggerClassName = (active: boolean) =>
-  [
-    active ? buttonFilledClassName() : buttonTintClassName(),
-    'tw-inline-flex tw-items-center tw-gap-1.5 tw-whitespace-nowrap tw-text-[13px] tw-font-semibold',
-  ].join(' ');
+const readerTriggerClassName = () =>
+  [buttonMenuItemClassName(), 'tw-w-full tw-items-center tw-justify-between tw-text-[13px]'].join(' ');
 const headerNarrationTransportButtonClassName = (active: boolean) =>
   [active ? buttonFilledClassName() : buttonTintClassName(), 'webclipper-btn--icon'].join(' ');
 
@@ -53,17 +50,15 @@ export function ReaderHeaderToolbar({
 
   if (!features.textLayout && !features.theme && !features.narration) return null;
 
-  const narrationTriggerActive = openPanel === 'narration' || narration.isPlaying || narration.state === 'loading';
   const narrationActionLabel =
     narration.state === 'loading' ? LABELS.reading : narration.isPlaying ? LABELS.pause : LABELS.play;
   const NarrationActionIcon = narration.state === 'loading' || narration.isPlaying ? Pause : Play;
 
   return (
     <div
-      role="toolbar"
-      aria-orientation="horizontal"
+      role="group"
       aria-label={LABELS.toolbarAria}
-      className={['tw-flex tw-items-center tw-gap-2', className || ''].join(' ').trim()}
+      className={['tw-flex tw-flex-col tw-gap-1', className || ''].join(' ').trim()}
       data-reader-header-toolbar="true"
     >
       {features.textLayout ? (
@@ -81,10 +76,13 @@ export function ReaderHeaderToolbar({
               {...triggerProps}
               data-reader-header-trigger="text"
               aria-label={LABELS.text}
-              className={headerReaderTriggerClassName(openPanel === 'text')}
+              className={readerTriggerClassName()}
             >
-              <Type size={16} strokeWidth={2.2} aria-hidden="true" />
-              <span>{LABELS.text}</span>
+              <span className="tw-inline-flex tw-items-center tw-gap-2">
+                <Type size={16} strokeWidth={2.2} aria-hidden="true" />
+                <span>{LABELS.text}</span>
+              </span>
+              <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" className={menuChevronClassName()} />
             </button>
           )}
         >
@@ -109,12 +107,13 @@ export function ReaderHeaderToolbar({
               {...triggerProps}
               data-reader-header-trigger="theme"
               aria-label={LABELS.theme}
-              className={headerReaderTriggerClassName(openPanel === 'theme')}
+              className={readerTriggerClassName()}
             >
-              <span className="tw-inline-flex tw-items-center tw-gap-1.5">
+              <span className="tw-inline-flex tw-items-center tw-gap-2">
                 <Palette size={16} strokeWidth={2.2} aria-hidden="true" />
                 <span>{LABELS.theme}</span>
               </span>
+              <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" className={menuChevronClassName()} />
             </button>
           )}
         >
@@ -139,12 +138,13 @@ export function ReaderHeaderToolbar({
               {...triggerProps}
               data-reader-header-trigger="narration"
               aria-label={LABELS.narration}
-              className={headerReaderTriggerClassName(narrationTriggerActive)}
+              className={readerTriggerClassName()}
             >
-              <span className="tw-inline-flex tw-items-center tw-gap-1.5">
+              <span className="tw-inline-flex tw-items-center tw-gap-2">
                 <Volume2 size={16} strokeWidth={2.2} aria-hidden="true" />
                 <span>{LABELS.narration}</span>
               </span>
+              <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" className={menuChevronClassName()} />
             </button>
           )}
         >

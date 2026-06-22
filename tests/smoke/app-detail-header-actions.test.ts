@@ -241,6 +241,16 @@ describe('ConversationDetailPane header actions', () => {
       conversationKey: 'article-11',
       url: 'https://example.com/article',
     } as any;
+    currentState.detail = {
+      conversationId: 11,
+      messages: [
+        {
+          id: 'm-1',
+          role: 'assistant',
+          contentMarkdown: 'One two three.',
+        },
+      ],
+    } as any;
     currentState.detailHeaderActions = [
       {
         id: 'cache-images',
@@ -256,8 +266,17 @@ describe('ConversationDetailPane header actions', () => {
       root!.render(createElement(ConversationDetailPane));
     });
 
+    const moreButton = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
+    expect(moreButton).toBeTruthy();
+
+    await act(async () => {
+      moreButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
     const cacheButton = document.querySelector('[aria-label="Cache images"]') as HTMLButtonElement | null;
     expect(cacheButton).toBeTruthy();
+    expect(document.querySelector('[data-detail-word-count-row="true"]')).toBeTruthy();
 
     await act(async () => {
       cacheButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
@@ -409,8 +428,16 @@ describe('ConversationDetailPane header actions', () => {
       await Promise.resolve();
     });
 
-    expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
+    const moreButton = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
+    expect(moreButton).toBeTruthy();
+
+    await act(async () => {
+      moreButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
     expect(document.querySelector('[data-reader-header-toolbar-slot="true"]')).toBeTruthy();
+    expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
     expect(document.querySelector('[data-reader-shell="article"]')).toBeTruthy();
 
     currentState.selectedConversation = {
@@ -427,6 +454,14 @@ describe('ConversationDetailPane header actions', () => {
     });
 
     await act(async () => {
+      await Promise.resolve();
+    });
+
+    const videoMoreButton = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
+    expect(videoMoreButton).toBeTruthy();
+
+    await act(async () => {
+      videoMoreButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
       await Promise.resolve();
     });
 

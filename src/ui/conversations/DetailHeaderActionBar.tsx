@@ -11,6 +11,8 @@ export type DetailHeaderActionBarProps = {
   actions: DetailHeaderAction[];
   buttonClassName: string;
   iconOnly?: boolean;
+  showLabelAlways?: boolean;
+  closeMenuOnActionTrigger?: () => void;
   triggerIcon?: ReactNode;
   menuTriggerLabel?: string;
   menuTriggerAriaLabel?: string;
@@ -22,6 +24,8 @@ export function DetailHeaderActionBar({
   actions,
   buttonClassName,
   iconOnly = false,
+  showLabelAlways = false,
+  closeMenuOnActionTrigger,
   triggerIcon,
   menuTriggerLabel,
   menuTriggerAriaLabel,
@@ -91,17 +95,18 @@ export function DetailHeaderActionBar({
     const icon = resolveActionIcon(action);
     const resolvedTriggerIcon = triggerIcon ||
       (iconOnly ? <ExternalLink size={16} strokeWidth={2} aria-hidden="true" /> : icon) || (
-        <ExternalLink size={16} strokeWidth={2} aria-hidden="true" />
-      );
+      <ExternalLink size={16} strokeWidth={2} aria-hidden="true" />
+    );
     const triggerButtonClassName = iconOnly ? buttonClassName : [buttonClassName, 'tw-text-[13px]'].join(' ');
     return (
-      <div className={className || 'tw-flex tw-items-center tw-gap-2'}>
+      <div className={['tw-flex tw-items-center tw-gap-2', className || ''].join(' ').trim()}>
         <button
           key={action.id}
           type="button"
           {...tooltipAttrs(action.label)}
           onClick={() => {
             void handleTrigger(action);
+            closeMenuOnActionTrigger?.();
           }}
           className={triggerButtonClassName}
           aria-label={action.label}
@@ -113,10 +118,16 @@ export function DetailHeaderActionBar({
           ) : (
             <span className="tw-inline-flex tw-items-center tw-gap-1.5">
               {resolvedTriggerIcon}
-              <span className="tw-hidden md:tw-inline tw-whitespace-nowrap">{buttonLabel}</span>
+              <span className={showLabelAlways ? 'tw-whitespace-nowrap' : 'tw-hidden md:tw-inline tw-whitespace-nowrap'}>
+                {buttonLabel}
+              </span>
               {busy && action.showBusyProgress ? (
                 <span
-                  className="tw-hidden md:tw-inline-flex tw-h-1.5 tw-w-14 tw-overflow-hidden tw-rounded-full tw-bg-[var(--bg-sunken)]"
+                  className={
+                    showLabelAlways
+                      ? 'tw-inline-flex tw-h-1.5 tw-w-14 tw-overflow-hidden tw-rounded-full tw-bg-[var(--bg-sunken)]'
+                      : 'tw-hidden md:tw-inline-flex tw-h-1.5 tw-w-14 tw-overflow-hidden tw-rounded-full tw-bg-[var(--bg-sunken)]'
+                  }
                   aria-hidden="true"
                 >
                   <span className="tw-h-full tw-w-1/2 tw-animate-pulse tw-rounded-full tw-bg-[var(--accent)]" />
@@ -143,7 +154,7 @@ export function DetailHeaderActionBar({
   const menuButtonClass = buttonMenuItemClassName();
 
   return (
-    <div className={className || 'tw-flex tw-items-center tw-gap-2'}>
+    <div className={['tw-flex tw-items-center tw-gap-2', className || ''].join(' ').trim()}>
       <MenuPopover
         open={menuOpen}
         onOpenChange={setMenuOpen}
@@ -165,7 +176,13 @@ export function DetailHeaderActionBar({
               <>
                 <span className="tw-inline-flex tw-items-center tw-gap-1.5">
                   {resolvedTriggerIcon}
-                  <span className="tw-hidden md:tw-inline tw-whitespace-nowrap tw-leading-none">{triggerLabel}</span>
+                  <span
+                    className={
+                      showLabelAlways ? 'tw-whitespace-nowrap tw-leading-none' : 'tw-hidden md:tw-inline tw-whitespace-nowrap tw-leading-none'
+                    }
+                  >
+                    {triggerLabel}
+                  </span>
                 </span>
                 <span
                   className="tw-ml-1 tw-w-[14px] tw-text-center tw-text-[12px] tw-font-black tw-leading-none tw-text-[var(--text-secondary)]"
@@ -185,8 +202,9 @@ export function DetailHeaderActionBar({
             type="button"
             role="menuitem"
             onClick={() => {
-              setMenuOpen(false);
               void handleTrigger(action);
+              setMenuOpen(false);
+              closeMenuOnActionTrigger?.();
             }}
             aria-disabled={action.disabled ? 'true' : undefined}
             disabled={busy || !!action.disabled}
