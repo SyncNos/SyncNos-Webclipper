@@ -49,6 +49,7 @@ function cleanupDom() {
   delete (globalThis as any).requestAnimationFrame;
   delete (globalThis as any).cancelAnimationFrame;
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+  delete (globalThis as any).__syncnosReaderPerformance;
 }
 
 function setRect(
@@ -182,6 +183,10 @@ describe('ArticleOutlineMinimap', () => {
     expect(state?.dataset.count).toBe('3');
     expect(state?.dataset.active).toBe('1');
     expect(document.querySelectorAll('[data-testid="outline-entry"]')).toHaveLength(3);
+    const perf = (globalThis as any).__syncnosReaderPerformance as Record<string, unknown> | undefined;
+    expect(Number(perf?.outlineEntries)).toBe(3);
+    expect(Number(perf?.outlineRebuildCount)).toBeGreaterThan(0);
+    expect(Number(perf?.outlineActiveRecalcCount)).toBeGreaterThan(0);
     expect(addSpy).toHaveBeenCalledWith('scroll', expect.any(Function), expect.objectContaining({ passive: true }));
     expect(addSpy).toHaveBeenCalledWith('resize', expect.any(Function), expect.objectContaining({ passive: true }));
 

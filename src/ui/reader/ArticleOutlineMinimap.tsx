@@ -7,6 +7,7 @@ import {
   pickReaderOutlineActiveIndex,
 } from '@services/protocols/reader-outline';
 import { buildReaderOutlineDomEntries, type ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
+import { publishReaderPerformanceStats } from '@ui/reader/reader-performance-debug';
 import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
 
 export type ArticleOutlineMinimapState = {
@@ -135,6 +136,11 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
     const nextActiveIndex = candidates.length
       ? pickReaderOutlineActiveIndex({ viewportRect: readViewportRect(), candidates })
       : null;
+    publishReaderPerformanceStats((current) => ({
+      ...current,
+      outlineEntries: currentEntries.length,
+      outlineActiveRecalcCount: current.outlineActiveRecalcCount + 1,
+    }));
     if (nextActiveIndex === activeIndexRef.current) return;
     activeIndexRef.current = nextActiveIndex;
     setActiveIndex(nextActiveIndex);
@@ -150,6 +156,11 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
     }
 
     const nextEntries = buildReaderOutlineDomEntries(root);
+    publishReaderPerformanceStats((current) => ({
+      ...current,
+      outlineEntries: nextEntries.length,
+      outlineRebuildCount: current.outlineRebuildCount + 1,
+    }));
 
     entriesRef.current = nextEntries;
     setEntries(nextEntries);

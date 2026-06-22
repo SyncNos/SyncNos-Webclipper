@@ -13,6 +13,10 @@ import {
   type ReaderSentenceCandidate,
   type ReaderSentenceRectLike,
 } from '@ui/reader/reader-sentence-dom';
+import {
+  publishReaderPerformanceStats,
+  readReaderPerformanceClock,
+} from '@ui/reader/reader-performance-debug';
 import { useArticleOutlineMinimap } from '@ui/reader/ArticleOutlineMinimap';
 import type { ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
 import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
@@ -81,7 +85,8 @@ function decorateReaderSentenceRangeBatch(
   sentences: ReaderTtsSentence[],
   startIndex: number,
   endIndex: number,
-): void {
+): number {
+  const startedAt = readReaderPerformanceClock();
   const segments = collectReaderSentenceTextSegments(root);
   for (let index = endIndex - 1; index >= startIndex; index -= 1) {
     const sentence = sentences[index];
@@ -98,6 +103,7 @@ function decorateReaderSentenceRangeBatch(
     span.appendChild(fragment);
     range.insertNode(span);
   }
+  return Math.max(0, readReaderPerformanceClock() - startedAt);
 }
 
 function decorateReaderSentenceSpans(root: HTMLElement, source: string, sentences: ReaderTtsSentence[]): void {
@@ -108,9 +114,19 @@ function decorateReaderSentenceSpans(root: HTMLElement, source: string, sentence
     root.setAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR, READER_SENTENCE_DECORATION_READY);
     return;
   }
-  decorateReaderSentenceRangeBatch(root, sentences, 0, sentences.length);
+  const batchDuration = decorateReaderSentenceRangeBatch(root, sentences, 0, sentences.length);
   root.setAttribute(READER_SENTENCE_SOURCE_ATTR, source);
   root.setAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR, READER_SENTENCE_DECORATION_READY);
+  publishReaderPerformanceStats((current) => ({
+    ...current,
+    decorateMode: 'sync',
+    decoratePasses: current.decoratePasses + 1,
+    decorateBatches: current.decorateBatches + 1,
+    decorateLastBatchDurationMs: batchDuration,
+    decorateLastDurationMs: batchDuration,
+    decorateTotalDurationMs: current.decorateTotalDurationMs + batchDuration,
+    decorateMaxBatchDurationMs: Math.max(current.decorateMaxBatchDurationMs, batchDuration),
+  }));
 }
 
 function decorateReaderSentenceSpansProgressively(
@@ -131,10 +147,23 @@ function decorateReaderSentenceSpansProgressively(
   const step = () => {
     if (cancelled) return;
     const batchEnd = Math.min(nextIndex + READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE, sentences.length);
-    decorateReaderSentenceRangeBatch(root, sentences, nextIndex, batchEnd);
+    const batchDuration = decorateReaderSentenceRangeBatch(root, sentences, nextIndex, batchEnd);
     nextIndex = batchEnd;
+    publishReaderPerformanceStats((current) => ({
+      ...current,
+      decorateMode: 'progressive',
+      decorateBatches: current.decorateBatches + 1,
+      decorateLastBatchDurationMs: batchDuration,
+      decorateTotalDurationMs: current.decorateTotalDurationMs + batchDuration,
+      decorateMaxBatchDurationMs: Math.max(current.decorateMaxBatchDurationMs, batchDuration),
+    }));
     if (nextIndex >= sentences.length) {
       root.setAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR, READER_SENTENCE_DECORATION_READY);
+      publishReaderPerformanceStats((current) => ({
+        ...current,
+        decoratePasses: current.decoratePasses + 1,
+        decorateLastDurationMs: current.decorateLastDurationMs + 0,
+      }));
       onProgress();
       return;
     }
@@ -216,6 +245,13 @@ export function ArticleReaderView({
   const outline = useArticleOutlineMinimap(outlineRoot);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
+
+  useEffect(() => {
+    publishReaderPerformanceStats({
+      sourceLength: narrationSource.length,
+      sentenceCount: sentenceCountRef.current,
+    });
+  }, [narrationSource]);
 
   useEffect(() => {
     activeSentenceRef.current = activeSentence;
@@ -307,6 +343,10 @@ export function ArticleReaderView({
 
     const syncFromDom = () => {
       if (disposed) return;
+      publishReaderPerformanceStats((current) => ({
+        ...current,
+        observerSyncCount: current.observerSyncCount + 1,
+      }));
 
       const currentSource = root.textContent ?? '';
       const previousSource = sourceFromDomRef.current;
@@ -317,6 +357,12 @@ export function ArticleReaderView({
         sourceFromDomRef.current = currentSource;
         sentenceCountRef.current = sentenceCount;
         setNarrationSource(currentSource);
+        publishReaderPerformanceStats((current) => ({
+          ...current,
+          sourceLength: currentSource.length,
+          sentenceCount,
+          observerSourceChangeCount: current.observerSourceChangeCount + 1,
+        }));
       }
 
       const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
@@ -326,6 +372,10 @@ export function ArticleReaderView({
       const needsRedecorate =
         !decorationPending && (decoratedSource !== currentSource || decoratedCount !== sentenceCount);
       if (!sourceChanged && needsRedecorate) {
+        publishReaderPerformanceStats((current) => ({
+          ...current,
+          observerRedecorateCount: current.observerRedecorateCount + 1,
+        }));
         setSentenceDomRevision((value) => value + 1);
       }
     };
@@ -351,7 +401,13 @@ export function ArticleReaderView({
       };
     }
 
-    const observer = new observerCtor(() => scheduleSync());
+    const observer = new observerCtor(() => {
+      publishReaderPerformanceStats((current) => ({
+        ...current,
+        observerMutationCount: current.observerMutationCount + 1,
+      }));
+      scheduleSync();
+    });
     observer.observe(root, { childList: true, subtree: true, characterData: true });
     scheduleSync();
     return () => {
@@ -384,6 +440,7 @@ export function ArticleReaderView({
 
       const sentences = buildSentences(narrationSource);
       sentenceCountRef.current = sentences.length;
+      const decorateStartedAt = readReaderPerformanceClock();
       const decoratedSource = root.getAttribute(READER_SENTENCE_SOURCE_ATTR) ?? '';
       const decoratedCount = root.querySelectorAll(`[${READER_SENTENCE_INDEX_ATTR}]`).length;
       const decorationReady =
@@ -410,6 +467,18 @@ export function ArticleReaderView({
           decorateReaderSentenceSpans(root, narrationSource, sentences);
         }
       }
+
+      publishReaderPerformanceStats((current) => ({
+        ...current,
+        sourceLength: narrationSource.length,
+        sentenceCount: sentences.length,
+        decorateMode:
+          shouldDeferInitialDecoration && sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE ? 'progressive' : 'sync',
+        decorateLastDurationMs:
+          current.decorateMode === 'progressive'
+            ? current.decorateLastDurationMs
+            : Math.max(0, readReaderPerformanceClock() - decorateStartedAt),
+      }));
 
       applyActiveHighlight(activeSentenceRef.current);
     };

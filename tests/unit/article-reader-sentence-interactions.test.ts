@@ -128,6 +128,7 @@ function cleanupDom() {
   delete (globalThis as any).requestAnimationFrame;
   delete (globalThis as any).cancelAnimationFrame;
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+  delete (globalThis as any).__syncnosReaderPerformance;
 }
 
 function installManualRaf() {
@@ -209,6 +210,7 @@ function resetMocks() {
     webSpeechAvailable: true,
     isPlaying: false,
   });
+  delete (globalThis as any).__syncnosReaderPerformance;
 }
 
 function normalizeText(value: string): string {
@@ -354,6 +356,12 @@ describe('ArticleReaderView sentence interactions', () => {
 
     await raf.flushAll();
     expect(getSentenceSpans()).toHaveLength(140);
+
+    const perf = (globalThis as any).__syncnosReaderPerformance as Record<string, unknown> | undefined;
+    expect(perf?.decorateMode).toBe('progressive');
+    expect(Number(perf?.decorateBatches)).toBeGreaterThan(1);
+    expect(Number(perf?.sentenceCount)).toBe(140);
+    expect(Number(perf?.sourceLength)).toBeGreaterThan(1000);
   });
 
   it('clicking a sentence seeks while idle and plays while active, without blocking links', async () => {
