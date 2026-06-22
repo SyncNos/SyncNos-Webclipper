@@ -361,7 +361,9 @@ export function ArticleReaderView({
         sourceLength: narrationSource.length,
         sentenceCount: sentences.length,
         decorateMode:
-          shouldDeferInitialDecoration && sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE ? 'progressive' : 'sync',
+          shouldDeferInitialDecoration && sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE
+            ? 'progressive'
+            : 'sync',
         decorateLastDurationMs:
           current.decorateMode === 'progressive'
             ? current.decorateLastDurationMs
@@ -463,55 +465,53 @@ export function ArticleReaderView({
         data-reader-theme={readerThemeAttr}
       >
         <div className={READER_MAIN_CLASS} data-reader-main="article-main">
-        {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
-        {loadingDetail ? (
-          <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
-        ) : null}
-        {detailError ? (
-          <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{detailError}</p>
-        ) : null}
+          {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
+          {loadingDetail ? (
+            <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
+          ) : null}
+          {detailError ? (
+            <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{detailError}</p>
+          ) : null}
 
-        {detail?.messages?.length ? (
-          <div
-            ref={assignMessagesRoot}
-            className="tw-mt-3 tw-grid tw-w-full tw-gap-2.5 tw-mx-auto"
-            style={READER_COLUMN_STYLE}
-            data-reader-sentence-root="true"
-            onClick={handleSentenceClick}
-          >
-            {detail.messages.map((m: any) => {
-              const text = String((m as any).contentMarkdown || (m as any).contentText || '');
-              const messageConversationId = Number((m as any).conversationId || (selected as any)?.id || activeId);
+          {detail?.messages?.length ? (
+            <div
+              ref={assignMessagesRoot}
+              className="tw-mt-3 tw-grid tw-w-full tw-gap-2.5 tw-mx-auto"
+              style={READER_COLUMN_STYLE}
+              data-reader-sentence-root="true"
+              onClick={handleSentenceClick}
+            >
+              {detail.messages.map((m: any) => {
+                const text = String((m as any).contentMarkdown || (m as any).contentText || '');
+                const messageConversationId = Number((m as any).conversationId || (selected as any)?.id || activeId);
 
-              return (
-                <ChatMessageBubble
-                  key={String((m as any).id)}
-                  role="assistant"
-                  markdown={text}
-                  conversationId={
-                    Number.isFinite(messageConversationId) && messageConversationId > 0
-                      ? messageConversationId
-                      : undefined
-                  }
-                  className={READER_PROSE_CLASS}
-                />
-              );
-            })}
-          </div>
-        ) : activeId ? (
-          <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('noMessages')}</p>
-        ) : (
-          <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-            {t('selectAConversation')}
-          </p>
-        )}
+                return (
+                  <ChatMessageBubble
+                    key={String((m as any).id)}
+                    role="assistant"
+                    markdown={text}
+                    conversationId={
+                      Number.isFinite(messageConversationId) && messageConversationId > 0
+                        ? messageConversationId
+                        : undefined
+                    }
+                    className={READER_PROSE_CLASS}
+                  />
+                );
+              })}
+            </div>
+          ) : activeId ? (
+            <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('noMessages')}</p>
+          ) : (
+            <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
+              {t('selectAConversation')}
+            </p>
+          )}
         </div>
 
         {shouldRenderInlineRail ? (
           <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
-            <ReaderToolbar
-              outline={outlinePayload}
-            />
+            <ReaderToolbar outline={outlinePayload} />
           </aside>
         ) : null}
       </div>
