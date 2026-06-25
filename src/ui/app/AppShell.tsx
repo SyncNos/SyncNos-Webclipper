@@ -619,8 +619,7 @@ export default function AppShell() {
                     }
                   />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/sync" element={<Navigate to="/settings" replace />} />
-                  <Route path="/backup" element={<Navigate to="/settings" replace />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>
             </div>
@@ -696,8 +695,7 @@ export default function AppShell() {
                     }
                   />
                   <Route path="/settings" element={<Navigate to="/" replace />} />
-                  <Route path="/sync" element={<Navigate to="/settings" replace />} />
-                  <Route path="/backup" element={<Navigate to="/settings" replace />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>
 

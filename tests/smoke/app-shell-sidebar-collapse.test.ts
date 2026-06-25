@@ -31,8 +31,8 @@ vi.mock('../../src/ui/shared/AppTooltip', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/ui/app/routes/Settings', () => ({
-  default: () => createElement('div', null, 'settings'),
+vi.mock('@ui/app/Settings', () => ({
+  default: () => createElement('div', null, 'mock-settings-page'),
 }));
 vi.mock('../../src/ui/conversations/ConversationsScene', () => ({
   ConversationsScene: (props: {
@@ -232,5 +232,20 @@ describe('AppShell sidebar collapse', () => {
       source: 'chatgpt',
       conversationKey: 'conv-42',
     });
+  });
+
+  it('does not keep legacy sync and backup app routes alive', () => {
+    for (const route of ['/sync', '/backup']) {
+      act(() => {
+        root?.unmount();
+        document.body.innerHTML = '<div id="root"></div>';
+        window.location.hash = route;
+        root = ReactDOM.createRoot(document.getElementById('root')!);
+        root.render(createElement(AppShell));
+      });
+
+      expect(document.body.textContent || '').not.toContain('mock-settings-page');
+      expect(window.location.hash).toBe('#/');
+    }
   });
 });

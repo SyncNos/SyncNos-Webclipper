@@ -25,7 +25,10 @@ function buildExtensionAppUrl(route?: string): string {
 function isExtensionAppUrl(url: unknown): boolean {
   const baseUrl = getURL(EXTENSION_APP_PATH);
   if (!baseUrl) return false;
-  return String(url || '').startsWith(baseUrl);
+  const value = String(url || '');
+  if (!value.startsWith(baseUrl)) return false;
+  const suffix = value.slice(baseUrl.length);
+  return suffix === '' || suffix.startsWith('#') || suffix.startsWith('?');
 }
 
 async function focusTabWindow(windowId: unknown): Promise<void> {
