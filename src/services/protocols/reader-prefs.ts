@@ -151,8 +151,8 @@ export function buildReaderPrefsStoragePatch(prefs: unknown): { [READER_PREFS_ST
   return { [READER_PREFS_STORAGE_KEY]: normalizeReaderPrefs(prefs) };
 }
 
-// Typography-only CSS variables. Intentionally excludes theme:
-// theme is applied via the data-reader-theme attribute (P3), not via CSS vars.
+// Typography-only CSS variables. Intentionally excludes the legacy reader theme:
+// the article theme button now writes the global app theme mode instead.
 export function readerPrefsToCssVars(prefs: unknown): Record<string, string> {
   const p = normalizeReaderPrefs(prefs);
   return {

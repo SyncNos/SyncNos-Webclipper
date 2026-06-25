@@ -14,11 +14,14 @@ import { TextLayoutPanel } from '@ui/reader/TextLayoutPanel';
 import { ThemePanel } from '@ui/reader/ThemePanel';
 import type { ReaderToolbarFeatures, ReaderToolbarNarration } from '@ui/reader/ReaderToolbar';
 import type { ReaderPrefs } from '@services/protocols/reader-prefs';
+import type { AppThemeMode } from '@services/protocols/app-theme';
 
 type ReaderHeaderToolbarProps = {
   features: ReaderToolbarFeatures;
   prefs: ReaderPrefs;
   update: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
+  themeMode: AppThemeMode;
+  updateThemeMode: (mode: AppThemeMode) => void | Promise<void>;
   narration: ReaderToolbarNarration;
   className?: string;
 };
@@ -43,7 +46,15 @@ const readerTriggerClassName = () =>
 const headerNarrationTransportButtonClassName = (active: boolean) =>
   [active ? buttonFilledClassName() : buttonTintClassName(), 'webclipper-btn--icon'].join(' ');
 
-export function ReaderHeaderToolbar({ features, prefs, update, narration, className }: ReaderHeaderToolbarProps) {
+export function ReaderHeaderToolbar({
+  features,
+  prefs,
+  update,
+  themeMode,
+  updateThemeMode,
+  narration,
+  className,
+}: ReaderHeaderToolbarProps) {
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
 
   if (!features.textLayout && !features.theme && !features.narration) return null;
@@ -116,7 +127,7 @@ export function ReaderHeaderToolbar({ features, prefs, update, narration, classN
           )}
         >
           <div className={PANEL_CONTENT_CLASS}>
-            <ThemePanel prefs={prefs} update={update} />
+            <ThemePanel mode={themeMode} update={updateThemeMode} />
           </div>
         </MenuPopover>
       ) : null}

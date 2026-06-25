@@ -31,6 +31,7 @@ import { ReaderHeaderToolbar } from '@ui/reader/ReaderHeaderToolbar';
 import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
 import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
 import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
+import { useAppThemeMode } from '@viewmodels/theme/useAppThemeMode';
 import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
 
 export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: boolean };
@@ -88,11 +89,8 @@ export function ArticleReaderView({
   // omit it), so the toolbar renders nothing over the chat view.
   const features = readerFeatures ?? { textLayout: false, theme: false, narration: false };
   const { prefs, update } = useReaderPrefs();
+  const { mode: themeMode, update: updateThemeMode } = useAppThemeMode();
   const readerVars = readerPrefsToCssVars(prefs) as CSSProperties;
-  // P3-T2: reader-local theme. `system` follows the OS via the global tokens, so
-  // we deliberately omit the attribute (undefined -> React renders no attribute);
-  // any explicit theme scopes the [data-reader-theme=...] token overrides.
-  const readerThemeAttr = prefs.theme === 'system' ? undefined : prefs.theme;
 
   // P4-T3: narration over the rendered article text. Capturing the source from
   // the rendered DOM keeps the engine's sentence offsets aligned with the text
@@ -429,10 +427,17 @@ export function ArticleReaderView({
     if (!readerToolbarPortalTarget) return null;
     if (!features.textLayout && !features.theme && !features.narration) return null;
     return createPortal(
-      <ReaderHeaderToolbar features={features} prefs={prefs} update={update} narration={toolbarNarration} />,
+      <ReaderHeaderToolbar
+        features={features}
+        prefs={prefs}
+        update={update}
+        themeMode={themeMode}
+        updateThemeMode={updateThemeMode}
+        narration={toolbarNarration}
+      />,
       readerToolbarPortalTarget,
     );
-  }, [features, prefs, readerToolbarPortalTarget, toolbarNarration, update]);
+  }, [features, prefs, readerToolbarPortalTarget, themeMode, toolbarNarration, update, updateThemeMode]);
 
   const shouldRenderInlineRail = !!outlinePayload?.entries.length;
 
@@ -463,7 +468,6 @@ export function ArticleReaderView({
         className={READER_SHELL_CLASS}
         style={readerVars}
         data-reader-shell="article"
-        data-reader-theme={readerThemeAttr}
       >
         <div className={READER_MAIN_CLASS} data-reader-main="article-main">
           {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}

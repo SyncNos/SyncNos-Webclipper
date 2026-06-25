@@ -7,6 +7,7 @@ import { DEFAULT_READER_PREFS } from '../../src/services/protocols/reader-prefs'
 
 const mocks = vi.hoisted(() => ({
   update: vi.fn(),
+  updateThemeMode: vi.fn(),
   toggle: vi.fn(),
   stop: vi.fn(),
 }));
@@ -69,13 +70,13 @@ vi.mock('../../src/ui/reader/TextLayoutPanel', () => ({
 }));
 
 vi.mock('../../src/ui/reader/ThemePanel', () => ({
-  ThemePanel: ({ update }: { update: (patch: unknown) => void }) =>
+  ThemePanel: ({ update }: { update: (mode: string) => void }) =>
     createElement(
       'button',
       {
         type: 'button',
         'data-testid': 'theme-action',
-        onClick: () => update({ theme: 'sepia' }),
+        onClick: () => update('dark'),
       },
       'theme-action',
     ),
@@ -139,6 +140,7 @@ describe('ReaderHeaderToolbar', () => {
   beforeEach(() => {
     setupDom();
     mocks.update.mockReset();
+    mocks.updateThemeMode.mockReset();
     mocks.toggle.mockReset();
     mocks.stop.mockReset();
     root = ReactDOM.createRoot(document.getElementById('root')!);
@@ -159,6 +161,8 @@ describe('ReaderHeaderToolbar', () => {
           features: { textLayout: true, theme: true, narration: true },
           prefs: DEFAULT_READER_PREFS,
           update: mocks.update,
+          themeMode: 'system',
+          updateThemeMode: mocks.updateThemeMode,
           narration: {
             state: 'paused',
             isPlaying: false,
@@ -205,7 +209,7 @@ describe('ReaderHeaderToolbar', () => {
     act(() => {
       (document.querySelector('[data-testid="theme-action"]') as HTMLButtonElement).click();
     });
-    expect(mocks.update).toHaveBeenCalledWith({ theme: 'sepia' });
+    expect(mocks.updateThemeMode).toHaveBeenCalledWith('dark');
 
     act(() => {
       (document.querySelector('[data-reader-header-trigger="narration"]') as HTMLButtonElement).click();

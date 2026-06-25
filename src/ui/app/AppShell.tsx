@@ -11,6 +11,7 @@ import { buttonIconCircleGhostClassName, headerButtonClassName } from '@ui/share
 import { AppTooltipHost, tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useResponsiveTier } from '@ui/shared/hooks/useResponsiveTier';
 import { useArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
+import { useAppThemeMode } from '@viewmodels/theme/useAppThemeMode';
 import { decodeConversationLoc, encodeConversationLoc } from '@services/shared/conversation-loc';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 import { createThreadedCommentChatWithConfig } from '@ui/comments';
@@ -48,6 +49,8 @@ function openUrlFallback(url: string): boolean {
 }
 
 export default function AppShell() {
+  useAppThemeMode();
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [wideCommentsSidebarCollapsed, setWideCommentsSidebarCollapsed] = useState(false);
