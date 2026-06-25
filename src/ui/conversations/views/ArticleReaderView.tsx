@@ -108,7 +108,8 @@ export function ArticleReaderView({
   const outline = useArticleOutlineMinimap(outlineRoot);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
-  const shouldDecorateSentences = narration.hasCursor || narration.state !== 'idle';
+  const isNarrationEngaged = features.narration && narration.state !== 'idle';
+  const shouldDecorateSentences = isNarrationEngaged;
 
   useEffect(() => {
     publishReaderPerformanceStats({
@@ -132,13 +133,13 @@ export function ArticleReaderView({
     (sentence: ReaderTtsSentence | null) => {
       clearActiveHighlight();
       const root = narrationRootRef.current;
-      if (!features.narration || !root || !sentence) return;
+      if (!isNarrationEngaged || !root || !sentence) return;
       const target = root.querySelector<HTMLElement>(`[${READER_SENTENCE_INDEX_ATTR}="${sentence.index}"]`);
       if (!target) return;
       target.classList.add(READER_CURRENT_SENTENCE_CLASS);
       lastHighlightRef.current = target;
     },
-    [clearActiveHighlight, features.narration],
+    [clearActiveHighlight, isNarrationEngaged],
   );
 
   // React effect order matters here: keep the active sentence ref fresh before
