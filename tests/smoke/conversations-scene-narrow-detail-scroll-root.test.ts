@@ -225,6 +225,7 @@ describe('ConversationsScene narrow detail scroll root', () => {
     expect(routeScrollRoot).toBeTruthy();
     expect(routeScrollRoot?.className).toContain('tw-h-full');
     expect(routeScrollRoot?.className).toContain('tw-flex-col');
+    expect(routeScrollRoot?.className).toContain('webclipper-detail-route-scroll');
     expect(routeScrollRoot?.querySelector('[data-detail-pane="1"]')).toBeTruthy();
   });
 });

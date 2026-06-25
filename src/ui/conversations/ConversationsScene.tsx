@@ -152,7 +152,7 @@ export function ConversationsScene({
   if (isNarrow) {
     if (narrowRoute === 'detail') {
       return (
-        <div className="route-scroll tw-flex tw-h-full tw-min-h-0 tw-w-full tw-min-w-0 tw-flex-col tw-overflow-auto tw-overflow-x-hidden tw-bg-[var(--bg-card)] tw-text-[var(--text-primary)]">
+        <div className="route-scroll webclipper-detail-route-scroll tw-flex tw-h-full tw-min-h-0 tw-w-full tw-min-w-0 tw-flex-col tw-overflow-auto tw-overflow-x-hidden tw-bg-[var(--bg-card)] tw-text-[var(--text-primary)]">
           <ConversationDetailPane
             onBack={returnToList}
             onTriggerCommentsSidebar={
@@ -220,7 +220,7 @@ export function ConversationsScene({
           {list}
         </aside>
       )}
-      <main className="route-scroll tw-min-h-0 tw-flex-1 tw-bg-[var(--bg-card)] tw-overflow-auto tw-overflow-x-hidden">
+      <main className="route-scroll webclipper-detail-route-scroll tw-min-h-0 tw-flex-1 tw-bg-[var(--bg-card)] tw-overflow-auto tw-overflow-x-hidden">
         {wideDetail ?? <ConversationDetailPane />}
       </main>
     </div>

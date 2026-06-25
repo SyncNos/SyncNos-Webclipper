@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .webclipper-detail-route-scroll {
+    scrollbar-width: none;
+  }
+
+  .webclipper-detail-route-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}
