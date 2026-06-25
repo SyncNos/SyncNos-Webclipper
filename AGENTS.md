@@ -6,37 +6,6 @@
 - macOS: `SyncNos/SyncNos-booknotes`
 - CLI: `SyncNos/SyncNos-CLI`
 
-## 项目结构
-
-```
-SyncNos-Webclipper/
-├── src/                         # WebClipper 逻辑与 UI
-├── public/                      # 静态资源
-├── tests/                       # 单测
-├── cloudflare-workers/          # Notion OAuth worker
-├── .github/                     # 开发指南、deepwiki 与 CI
-└── README.md
-```
-
-## 构建与运行
-
-```bash
-npm install              # 安装 WebClipper 依赖
-npm run dev              # 启动 WebClipper Chrome 开发模式
-npm run dev:firefox      # 启动 WebClipper Firefox 开发模式
-npm run dev:zen          # 启动 WebClipper Zen（Firefox 内核）开发模式
-npm run dev:safari       # 启动 WebClipper Safari 开发模式
-npm run build            # 构建 WebClipper Chrome 产物
-npm run build:firefox    # 构建 WebClipper Firefox 产物
-npm run build:zen        # 构建并产出 Zen 可安装的 unsigned `.xpi`
-npm run build:safari     # 构建 WebClipper Safari 产物（MV3）
-npm run setup:safari:xcode  # 生成/更新 Safari Web Extension Xcode 项目
-npm run compile          # TypeScript 编译检查
-npm run test             # 单元测试
-npm run check            # 产物校验（Chrome）
-npm run check:safari     # 产物校验（Safari）
-```
-
 ## WebClipper 分层与契约（必须遵守）
 
 ### 项目结构（分层）
@@ -103,31 +72,6 @@ npm run check:safari     # 产物校验（Safari）
    - `README.zh-CN.md`
 4. 未被明确要求时，不要查看或编辑国际化字段。
 5. 对版本号、DB 版本、权限、迁移等易过期事实，优先在 deepwiki 维护单一权威描述；其他入口文档只保留导航与原则，避免多处写死造成漂移。
-
-## 常用命令
-
-### WebClipper 开发与验证
-
-- 安装依赖：`npm install`
-- Chrome 开发模式：`npm run dev`
-- Firefox 开发模式：`npm run dev:firefox`
-- Zen 开发模式：`npm run dev:zen`
-- Safari 开发模式：`npm run dev:safari`
-- TypeScript 编译检查：`npm run compile`
-- 单元测试：`npm run test`
-- Chrome 构建：`npm run build`
-- Firefox 构建：`npm run build:firefox`
-- Zen 构建（输出 `.output/*-zen.xpi`）：`npm run build:zen`
-- Safari 构建：`npm run build:safari`
-- Safari Xcode 项目生成：`npm run setup:safari:xcode`
-- 产物校验：`npm run check`（Chrome）、`npm run check:safari`（Safari）
-
-### WebClipper 发布相关脚本
-
-- Chrome/Firefox 发布产物打包：`node .github/scripts/webclipper/package-release-assets.mjs`
-- AMO Source 包：`node .github/scripts/webclipper/package-amo-source.mjs`
-- AMO 发布：`node .github/scripts/webclipper/publish-amo.mjs`
-- Edge 发布：`node .github/scripts/webclipper/publish-edge.mjs`
 
 ## 测试
 
