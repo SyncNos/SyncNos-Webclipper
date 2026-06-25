@@ -73,4 +73,5 @@ export type MountOptions = {
   getLocatorRoot?: () => Element | null;
   chatWith?: ThreadedCommentsPanelChatWithConfig | null;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
+  deferReactUpdates?: boolean;
 };

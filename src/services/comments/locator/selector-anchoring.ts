@@ -7,7 +7,8 @@ function isLocatorDebugEnabled(): boolean {
   const anyGlobal = globalThis as any;
   if (anyGlobal.__SYNCNOS_DEBUG_COMMENTS_SELECTION__ === true) return true;
   try {
-    return String(anyGlobal.localStorage?.getItem?.('__SYNCNOS_DEBUG_COMMENTS_SELECTION__') || '') === '1';
+    const storage = anyGlobal.window?.localStorage;
+    return String(storage?.getItem?.('__SYNCNOS_DEBUG_COMMENTS_SELECTION__') || '') === '1';
   } catch (_e) {
     return false;
   }

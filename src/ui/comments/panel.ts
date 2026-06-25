@@ -63,6 +63,14 @@ function syncReactUpdate(run: () => void) {
   }
 }
 
+function asyncReactUpdate(run: () => void) {
+  const schedule =
+    typeof globalThis.queueMicrotask === 'function'
+      ? globalThis.queueMicrotask.bind(globalThis)
+      : (cb: () => void) => Promise.resolve().then(cb);
+  schedule(run);
+}
+
 function isEditableTarget(target: unknown): boolean {
   const el = target as HTMLElement | null;
   const tag = String(el?.tagName || '').toUpperCase();
@@ -103,6 +111,7 @@ export function mountThreadedCommentsPanel(
       ? options.commentChatWith
       : null;
   const surfaceBg = String(options.surfaceBg || '').trim();
+  const runReactUpdate = options.deferReactUpdates === true ? asyncReactUpdate : syncReactUpdate;
   let focusComposerSignal = 0;
   let escapeSignal = 0;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -152,12 +161,12 @@ export function mountThreadedCommentsPanel(
   const showNotice = (message: string) => {
     const text = String(message || '').trim();
     if (!text) return;
-    syncReactUpdate(() => {
+    runReactUpdate(() => {
       panelStore.setNotice({ message: text, visible: true });
     });
     if (noticeTimer) clearTimeout(noticeTimer);
     noticeTimer = setTimeout(() => {
-      syncReactUpdate(() => {
+      runReactUpdate(() => {
         panelStore.setNotice({ message: '', visible: false });
       });
       noticeTimer = null;
@@ -192,7 +201,7 @@ export function mountThreadedCommentsPanel(
 
   let apiRef: ThreadedCommentsPanelApi;
   const reactRoot: ReactRoot = createRoot(reactRootHost);
-  syncReactUpdate(() => {
+  runReactUpdate(() => {
     reactRoot.render(
       createElement(ThreadedCommentsPanelReactBridge, {
         store: panelStore,
@@ -223,7 +232,7 @@ export function mountThreadedCommentsPanel(
   });
 
   const setOpen = (open: boolean) => {
-    syncReactUpdate(() => {
+    runReactUpdate(() => {
       panelStore.setOpen(open);
     });
     if (open) {
@@ -247,8 +256,8 @@ export function mountThreadedCommentsPanel(
     if (keyEvent.key === 'Escape' && chatWithMenuController.handleShadowEscape(keyEvent)) return;
     if (keyEvent.key !== 'Escape') return;
     escapeSignal += 1;
-    syncReactUpdate(() => {
-      panelStore.setEscapeSignal(escapeSignal);
+      runReactUpdate(() => {
+        panelStore.setEscapeSignal(escapeSignal);
     });
   };
   const onShadowShortcutSubmitCapture = (event: Event) => {
@@ -283,7 +292,7 @@ export function mountThreadedCommentsPanel(
     }
 
     if (textarea.classList.contains('webclipper-inpage-comments-panel__composer-textarea')) {
-      syncReactUpdate(() => {
+      runReactUpdate(() => {
         panelStore.requestShortcutSubmit({ kind: 'composer', text });
       });
       return;
@@ -292,22 +301,22 @@ export function mountThreadedCommentsPanel(
     const thread = textarea.closest('.webclipper-inpage-comments-panel__thread') as HTMLElement | null;
     const rootId = Number(thread?.getAttribute('data-thread-root-id') || 0);
     if (!Number.isFinite(rootId) || rootId <= 0) return;
-    syncReactUpdate(() => {
+    runReactUpdate(() => {
       panelStore.requestShortcutSubmit({ kind: 'reply', rootId: Math.round(rootId), text });
     });
   };
   const onShadowFocusIn = () => {
-    syncReactUpdate(() => {
+    asyncReactUpdate(() => {
       panelStore.setHasFocusWithinPanel(true);
     });
   };
   const onShadowFocusOut = () => {
     try {
-      syncReactUpdate(() => {
+      asyncReactUpdate(() => {
         panelStore.setHasFocusWithinPanel(Boolean(shadow.activeElement));
       });
     } catch (_e) {
-      syncReactUpdate(() => {
+      asyncReactUpdate(() => {
         panelStore.setHasFocusWithinPanel(false);
       });
     }
@@ -340,7 +349,7 @@ export function mountThreadedCommentsPanel(
       setOpen(true);
       if (input?.focusComposer) {
         focusComposerSignal += 1;
-        syncReactUpdate(() => {
+        runReactUpdate(() => {
           panelStore.setFocusComposerSignal(focusComposerSignal);
         });
       }
@@ -357,17 +366,17 @@ export function mountThreadedCommentsPanel(
       return el.getAttribute('data-open') === '1' && (getComputedStyle(el).display || '') !== 'none';
     },
     setBusy(busy) {
-      syncReactUpdate(() => {
+      runReactUpdate(() => {
         panelStore.setBusy(Boolean(busy));
       });
     },
     setQuoteText(text) {
-      syncReactUpdate(() => {
+      runReactUpdate(() => {
         panelStore.setQuoteText(String(text || ''));
       });
     },
     setComments(items) {
-      syncReactUpdate(() => {
+      runReactUpdate(() => {
         panelStore.setComments(Array.isArray(items) ? items : []);
       });
     },
@@ -379,7 +388,7 @@ export function mountThreadedCommentsPanel(
         onClose: undefined,
         onComposerSelectionRequest: undefined,
       };
-      syncReactUpdate(() => {
+      runReactUpdate(() => {
         panelStore.setHandlers(handlersRef.current);
       });
     },
@@ -435,7 +444,7 @@ export function mountThreadedCommentsPanel(
     } catch (_e) {
       // ignore
     }
-    syncReactUpdate(() => {
+    runReactUpdate(() => {
       try {
         reactRoot.unmount();
       } catch (_e) {

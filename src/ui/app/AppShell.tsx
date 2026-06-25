@@ -48,6 +48,22 @@ function openUrlFallback(url: string): boolean {
   }
 }
 
+function readBrowserLocalStorageValue(key: string): string {
+  try {
+    return String(globalThis.window?.localStorage?.getItem(key) || '');
+  } catch (_e) {
+    return '';
+  }
+}
+
+function writeBrowserLocalStorageValue(key: string, value: string) {
+  try {
+    globalThis.window?.localStorage?.setItem(key, value);
+  } catch (_e) {
+    // ignore
+  }
+}
+
 export default function AppShell() {
   useAppThemeMode();
 
@@ -57,39 +73,21 @@ export default function AppShell() {
   const [mediumCommentsSidebarCollapsed, setMediumCommentsSidebarCollapsed] = useState(true);
 
   useEffect(() => {
-    try {
-      const v = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      if (v === '1') setSidebarCollapsed(true);
-    } catch (_e) {
-      // ignore
-    }
+    if (readBrowserLocalStorageValue(SIDEBAR_COLLAPSED_KEY) === '1') setSidebarCollapsed(true);
   }, []);
 
   useEffect(() => {
-    try {
-      const v = localStorage.getItem(COMMENTS_SIDEBAR_COLLAPSED_KEY);
-      if (v === '1') setWideCommentsSidebarCollapsed(true);
-    } catch (_e) {
-      // ignore
-    }
+    if (readBrowserLocalStorageValue(COMMENTS_SIDEBAR_COLLAPSED_KEY) === '1') setWideCommentsSidebarCollapsed(true);
   }, []);
 
   const setCollapsed = (collapsed: boolean) => {
     setSidebarCollapsed(collapsed);
-    try {
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
-    } catch (_e) {
-      // ignore
-    }
+    writeBrowserLocalStorageValue(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
   };
 
   const setWideCommentsCollapsed = (collapsed: boolean) => {
     setWideCommentsSidebarCollapsed(collapsed);
-    try {
-      localStorage.setItem(COMMENTS_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
-    } catch (_e) {
-      // ignore
-    }
+    writeBrowserLocalStorageValue(COMMENTS_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
   };
 
   const AppShellRouterProviders = useMemo(

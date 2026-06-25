@@ -61,7 +61,7 @@ export function coerceSettingsSectionKey(value: string): SettingsSectionKey | nu
 
 export function readStoredSettingsSection(): SettingsSectionKey {
   try {
-    const value = String(globalThis.localStorage?.getItem(SETTINGS_ACTIVE_SECTION_STORAGE_KEY) || '')
+    const value = String(globalThis.window?.localStorage?.getItem(SETTINGS_ACTIVE_SECTION_STORAGE_KEY) || '')
       .trim()
       .toLowerCase();
     const coerced = coerceSettingsSectionKey(value);
@@ -74,7 +74,7 @@ export function readStoredSettingsSection(): SettingsSectionKey {
 
 export function writeStoredSettingsSection(value: SettingsSectionKey) {
   try {
-    globalThis.localStorage?.setItem(SETTINGS_ACTIVE_SECTION_STORAGE_KEY, value);
+    globalThis.window?.localStorage?.setItem(SETTINGS_ACTIVE_SECTION_STORAGE_KEY, value);
   } catch (_e) {
     // ignore
   }

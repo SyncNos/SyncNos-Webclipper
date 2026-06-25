@@ -72,7 +72,8 @@ function isCommentsSelectionDebugEnabled(): boolean {
   const anyGlobal = globalThis as any;
   if (anyGlobal.__SYNCNOS_DEBUG_COMMENTS_SELECTION__ === true) return true;
   try {
-    return String(anyGlobal.localStorage?.getItem?.('__SYNCNOS_DEBUG_COMMENTS_SELECTION__') || '') === '1';
+    const storage = anyGlobal.window?.localStorage;
+    return String(storage?.getItem?.('__SYNCNOS_DEBUG_COMMENTS_SELECTION__') || '') === '1';
   } catch (_e) {
     return false;
   }
@@ -505,8 +506,9 @@ export function ThreadedCommentsPanel({
       setOpenCommentChatWithRootId(null);
       return;
     }
-    updateArmedDeleteId(null);
-  }, [openCommentChatWithRootId, snapshot.escapeSignal, updateArmedDeleteId]);
+    armedDeleteIdRef.current = null;
+    setArmedDeleteId(null);
+  }, [openCommentChatWithRootId, snapshot.escapeSignal]);
 
   const normalizedItems = Array.isArray(snapshot.comments)
     ? snapshot.comments.filter((item) => Number.isFinite(Number(item?.id)))

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { JSDOM } from 'jsdom';
 
 import { getInpageCommentsPanelApi } from '../../src/ui/inpage/inpage-comments-panel-shadow';
@@ -75,10 +76,13 @@ describe('inpage comments sidebar toggle', () => {
     cleanupDom();
   });
 
-  it('renders as a docked sidebar with a collapse button; repeat open keeps it open', () => {
+  it('renders as a docked sidebar with a collapse button; repeat open keeps it open', async () => {
     const api = getInpageCommentsPanelApi();
 
-    api.open({ focusComposer: true });
+    await act(async () => {
+      api.open({ focusComposer: true });
+      await flushReactScheduler();
+    });
 
     expect(api.isOpen()).toBe(true);
 
@@ -92,14 +96,21 @@ describe('inpage comments sidebar toggle', () => {
     const collapse = shadow?.querySelector('.webclipper-inpage-comments-panel__collapse') as HTMLButtonElement | null;
     expect(collapse).toBeTruthy();
 
-    api.setComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'Root comment' }]);
+    act(() => {
+      api.setComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'Root comment' }]);
+    });
     expect(shadow?.querySelector('.webclipper-inpage-comments-panel__comment-chatwith-trigger')).toBeTruthy();
 
-    api.open({ focusComposer: true });
+    await act(async () => {
+      api.open({ focusComposer: true });
+      await flushReactScheduler();
+    });
 
     expect(api.isOpen()).toBe(true);
 
-    collapse?.click();
+    act(() => {
+      collapse?.click();
+    });
     expect(api.isOpen()).toBe(false);
   });
 
@@ -107,9 +118,11 @@ describe('inpage comments sidebar toggle', () => {
     const api = getInpageCommentsPanelApi();
     const onComposerSelectionRequest = vi.fn();
 
-    api.setHandlers({ onComposerSelectionRequest } as any);
-    api.setComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'Root comment' }]);
-    api.open({ focusComposer: false });
+    act(() => {
+      api.setHandlers({ onComposerSelectionRequest } as any);
+      api.setComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'Root comment' }]);
+      api.open({ focusComposer: false });
+    });
 
     const host = document.getElementById('webclipper-inpage-comments-panel') as HTMLElement | null;
     expect(host).toBeTruthy();
@@ -133,9 +146,11 @@ describe('inpage comments sidebar toggle', () => {
     } as any;
     const selectionSpy = vi.spyOn(globalThis, 'getSelection').mockImplementation(() => selectionMock as Selection);
 
-    document.dispatchEvent(new window.Event('selectionchange'));
-    document.dispatchEvent(new window.Event('pointerup'));
-    await flushReactScheduler();
+    await act(async () => {
+      document.dispatchEvent(new window.Event('selectionchange'));
+      document.dispatchEvent(new window.Event('pointerup'));
+      await flushReactScheduler();
+    });
 
     expect(onComposerSelectionRequest).toHaveBeenCalledTimes(1);
     expect(onComposerSelectionRequest).toHaveBeenLastCalledWith({ trigger: 'auto' });
@@ -145,14 +160,18 @@ describe('inpage comments sidebar toggle', () => {
     ) as HTMLTextAreaElement | null;
     expect(composer).toBeTruthy();
     selectionSpy.mockImplementation(() => ({ ...selectionMock, toString: () => '' }) as Selection);
-    document.dispatchEvent(new window.Event('selectionchange'));
-    document.dispatchEvent(new window.Event('pointerup'));
-    await flushReactScheduler();
+    await act(async () => {
+      document.dispatchEvent(new window.Event('selectionchange'));
+      document.dispatchEvent(new window.Event('pointerup'));
+      await flushReactScheduler();
+    });
     expect(onComposerSelectionRequest).toHaveBeenCalledTimes(1);
 
-    document.dispatchEvent(new window.Event('selectionchange'));
-    document.dispatchEvent(new window.KeyboardEvent('keyup', { key: 'Shift', shiftKey: false }));
-    await flushReactScheduler();
+    await act(async () => {
+      document.dispatchEvent(new window.Event('selectionchange'));
+      document.dispatchEvent(new window.KeyboardEvent('keyup', { key: 'Shift', shiftKey: false }));
+      await flushReactScheduler();
+    });
     expect(onComposerSelectionRequest).toHaveBeenCalledTimes(1);
 
     expect(shadow?.querySelector('.webclipper-inpage-comments-panel__attach-selection')).toBeFalsy();
@@ -161,9 +180,11 @@ describe('inpage comments sidebar toggle', () => {
       '.webclipper-inpage-comments-panel__reply-textarea',
     ) as HTMLTextAreaElement | null;
     expect(reply).toBeTruthy();
-    document.dispatchEvent(new window.Event('selectionchange'));
-    document.dispatchEvent(new window.Event('pointerup'));
-    await flushReactScheduler();
+    await act(async () => {
+      document.dispatchEvent(new window.Event('selectionchange'));
+      document.dispatchEvent(new window.Event('pointerup'));
+      await flushReactScheduler();
+    });
     expect(onComposerSelectionRequest).toHaveBeenCalledTimes(1);
 
     selectionSpy.mockRestore();
