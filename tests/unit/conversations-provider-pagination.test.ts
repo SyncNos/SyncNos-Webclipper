@@ -377,6 +377,76 @@ describe('ConversationsProvider pagination state', () => {
     expect(String(latestState.selectedConversation?.conversationKey || '')).toBe('conv-999');
   });
 
+  it('keeps detail state aligned with the current active conversation', async () => {
+    getConversationListBootstrap.mockResolvedValue(
+      makePage([
+        makeConversation(1, 'web', 'article-1'),
+        makeConversation(2, 'web', 'article-2'),
+        makeConversation(3, 'web', 'article-3'),
+      ]),
+    );
+    const detailReqs = new Map<number, ReturnType<typeof deferred<any>>>();
+    getConversationDetail.mockImplementation((conversationId: number) => {
+      const id = Number(conversationId);
+      const req = deferred<any>();
+      detailReqs.set(id, req);
+      return req.promise;
+    });
+
+    await renderProvider();
+    await act(async () => {
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    expect(Number(latestState.activeId)).toBe(1);
+
+    await act(async () => {
+      detailReqs.get(1)?.resolve({
+        conversationId: 1,
+        messages: [{ id: 11, conversationId: 1, role: 'assistant', contentMarkdown: 'article one' }],
+      });
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    expect(Number(latestState.detail?.conversationId)).toBe(1);
+
+    act(() => {
+      latestState.setActiveId(2);
+    });
+    expect(Number(latestState.activeId)).toBe(2);
+    expect(latestState.detail).toBe(null);
+
+    act(() => {
+      latestState.setActiveId(3);
+    });
+
+    await act(async () => {
+      detailReqs.get(2)?.resolve({
+        conversationId: 2,
+        messages: [{ id: 21, conversationId: 2, role: 'assistant', contentMarkdown: 'stale article two' }],
+      });
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    expect(Number(latestState.activeId)).toBe(3);
+    expect(latestState.detail).toBe(null);
+
+    await act(async () => {
+      detailReqs.get(3)?.resolve({
+        conversationId: 3,
+        messages: [{ id: 31, conversationId: 3, role: 'assistant', contentMarkdown: 'article three' }],
+      });
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    expect(Number(latestState.detail?.conversationId)).toBe(3);
+    expect(String(latestState.detail?.messages?.[0]?.contentMarkdown || '')).toBe('article three');
+  });
+
   it('provides cache-images tools action for article conversations', async () => {
     getConversationListBootstrap.mockResolvedValue(
       makePage(

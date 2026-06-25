@@ -459,6 +459,7 @@ export function ConversationsProvider({
     setActiveIdState(id);
   }, []);
   const listRequestSeqRef = useRef(0);
+  const detailRequestSeqRef = useRef(0);
   const openTargetRequestSeqRef = useRef(0);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -913,20 +914,32 @@ export function ConversationsProvider({
   const refreshActiveDetail = useCallback(async () => {
     const id = Number(activeIdRef.current);
     if (!Number.isFinite(id) || id <= 0) {
+      detailRequestSeqRef.current += 1;
+      setLoadingDetail(false);
+      setDetailError(null);
       setDetail(null);
       return;
     }
 
+    const requestSeq = detailRequestSeqRef.current + 1;
+    detailRequestSeqRef.current = requestSeq;
     setLoadingDetail(true);
     setDetailError(null);
+    setDetail((current) => (Number((current as any)?.conversationId) === id ? current : null));
     try {
       const d = await loadDetailFor(id);
+      if (requestSeq !== detailRequestSeqRef.current || Number(activeIdRef.current) !== id) return;
+      const detailId = Number((d as any)?.conversationId);
+      if (Number.isFinite(detailId) && detailId > 0 && detailId !== id) return;
       setDetail(d);
     } catch (e) {
+      if (requestSeq !== detailRequestSeqRef.current || Number(activeIdRef.current) !== id) return;
       setDetailError((e as any)?.message ?? String(e ?? t('actionFailedFallback')));
       setDetail(null);
     } finally {
-      setLoadingDetail(false);
+      if (requestSeq === detailRequestSeqRef.current && Number(activeIdRef.current) === id) {
+        setLoadingDetail(false);
+      }
     }
   }, []);
 

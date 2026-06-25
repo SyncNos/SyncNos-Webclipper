@@ -5,8 +5,18 @@ import { JSDOM } from 'jsdom';
 import { encodeConversationLoc } from '../../src/services/shared/conversation-loc';
 import type { ReactNode } from 'react';
 
-const { responsiveTierState } = vi.hoisted(() => ({
+const { responsiveTierState, conversationsState } = vi.hoisted(() => ({
   responsiveTierState: { value: 'wide' as 'narrow' | 'medium' | 'wide' },
+  conversationsState: {
+    consumeInitialLoc: true,
+    selectedConversation: null as null | {
+      id: number;
+      source: string;
+      conversationKey: string;
+      title?: string;
+      url?: string;
+    },
+  },
 }));
 
 vi.mock('../../src/ui/i18n', () => ({
@@ -31,8 +41,8 @@ vi.mock('../../src/ui/shared/AppTooltip', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/ui/app/routes/Settings', () => ({
-  default: () => createElement('div', null, 'settings'),
+vi.mock('@ui/app/Settings', () => ({
+  default: () => createElement('div', null, 'mock-settings-page'),
 }));
 vi.mock('../../src/ui/conversations/ConversationsScene', () => ({
   ConversationsScene: (props: {
@@ -58,7 +68,7 @@ vi.mock('../../src/viewmodels/conversations/conversations-context', () => ({
     children: React.ReactNode;
     initialOpenLoc?: { source: string; conversationKey: string } | null;
   }) => {
-    if (initialOpenLoc) {
+    if (conversationsState.consumeInitialLoc && initialOpenLoc) {
       // Mirrors the real provider: consume initial loc after mount, not during render.
       Promise.resolve()
         .then(() => openConversationExternalByLoc(initialOpenLoc))
@@ -102,7 +112,7 @@ vi.mock('../../src/viewmodels/conversations/conversations-context', () => ({
     syncSelectedObsidian: vi.fn(),
     clearSyncFeedback: vi.fn(),
     deleteSelected: vi.fn(),
-    selectedConversation: null,
+    selectedConversation: conversationsState.selectedConversation,
   }),
 }));
 
@@ -184,6 +194,8 @@ describe('AppShell sidebar collapse', () => {
     setupDom();
     openConversationExternalByLoc.mockReset();
     responsiveTierState.value = 'wide';
+    conversationsState.consumeInitialLoc = true;
+    conversationsState.selectedConversation = null;
     root = ReactDOM.createRoot(document.getElementById('root')!);
   });
 
@@ -232,5 +244,58 @@ describe('AppShell sidebar collapse', () => {
       source: 'chatgpt',
       conversationKey: 'conv-42',
     });
+  });
+
+  it('does not let a stale selected conversation overwrite an external loc change', async () => {
+    const oldLoc = encodeConversationLoc({ source: 'chatgpt', conversationKey: 'conv-old' });
+    const nextLoc = encodeConversationLoc({ source: 'chatgpt', conversationKey: 'conv-next' });
+    conversationsState.selectedConversation = {
+      id: 1,
+      source: 'chatgpt',
+      conversationKey: 'conv-old',
+      title: 'Old conversation',
+      url: 'https://example.com/old',
+    };
+    conversationsState.consumeInitialLoc = false;
+    window.location.hash = `/?loc=${oldLoc}`;
+
+    await act(async () => {
+      root!.render(createElement(AppShell));
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+    openConversationExternalByLoc.mockClear();
+
+    await act(async () => {
+      window.location.hash = `/?loc=${nextLoc}`;
+      window.dispatchEvent(new window.Event('popstate'));
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    expect(openConversationExternalByLoc).toHaveBeenCalledWith({
+      source: 'chatgpt',
+      conversationKey: 'conv-next',
+    });
+    expect(openConversationExternalByLoc).not.toHaveBeenCalledWith({
+      source: 'chatgpt',
+      conversationKey: 'conv-old',
+    });
+    expect(window.location.hash).toBe(`#/?loc=${nextLoc}`);
+  });
+
+  it('does not keep legacy sync and backup app routes alive', () => {
+    for (const route of ['/sync', '/backup']) {
+      act(() => {
+        root?.unmount();
+        document.body.innerHTML = '<div id="root"></div>';
+        window.location.hash = route;
+        root = ReactDOM.createRoot(document.getElementById('root')!);
+        root.render(createElement(AppShell));
+      });
+
+      expect(document.body.textContent || '').not.toContain('mock-settings-page');
+      expect(window.location.hash).toBe('#/');
+    }
   });
 });

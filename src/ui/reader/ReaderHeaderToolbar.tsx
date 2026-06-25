@@ -2,18 +2,26 @@ import { useState } from 'react';
 import { ChevronRight, Palette, Pause, Play, Square, Type, Volume2 } from 'lucide-react';
 
 import { t } from '@i18n';
-import { buttonFilledClassName, buttonMenuItemClassName, buttonTintClassName, menuChevronClassName } from '@ui/shared/button-styles';
+import {
+  buttonFilledClassName,
+  buttonMenuItemClassName,
+  buttonTintClassName,
+  menuChevronClassName,
+} from '@ui/shared/button-styles';
 import { MenuPopover } from '@ui/shared/MenuPopover';
 import { NarrationPanel } from '@ui/reader/NarrationPanel';
 import { TextLayoutPanel } from '@ui/reader/TextLayoutPanel';
 import { ThemePanel } from '@ui/reader/ThemePanel';
 import type { ReaderToolbarFeatures, ReaderToolbarNarration } from '@ui/reader/ReaderToolbar';
 import type { ReaderPrefs } from '@services/protocols/reader-prefs';
+import type { AppThemeMode } from '@services/protocols/app-theme';
 
 type ReaderHeaderToolbarProps = {
   features: ReaderToolbarFeatures;
   prefs: ReaderPrefs;
   update: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
+  themeMode: AppThemeMode;
+  updateThemeMode: (mode: AppThemeMode) => void | Promise<void>;
   narration: ReaderToolbarNarration;
   className?: string;
 };
@@ -31,8 +39,7 @@ const LABELS = {
   stop: t('readerNarrationStop'),
 } as const;
 
-const PANEL_CLASS =
-  'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
+const PANEL_CLASS = 'tw-w-[300px] tw-max-w-[min(300px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
 const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-3';
 const readerTriggerClassName = () =>
   [buttonMenuItemClassName(), 'tw-w-full tw-items-center tw-justify-between tw-text-[13px]'].join(' ');
@@ -43,6 +50,8 @@ export function ReaderHeaderToolbar({
   features,
   prefs,
   update,
+  themeMode,
+  updateThemeMode,
   narration,
   className,
 }: ReaderHeaderToolbarProps) {
@@ -118,7 +127,7 @@ export function ReaderHeaderToolbar({
           )}
         >
           <div className={PANEL_CONTENT_CLASS}>
-            <ThemePanel prefs={prefs} update={update} />
+            <ThemePanel mode={themeMode} update={updateThemeMode} />
           </div>
         </MenuPopover>
       ) : null}
@@ -171,7 +180,12 @@ export function ReaderHeaderToolbar({
                 <Square size={18} strokeWidth={2.25} />
               </button>
             </div>
-            <NarrationPanel prefs={prefs} update={update} error={narration.error} webSpeechAvailable={narration.webSpeechAvailable} />
+            <NarrationPanel
+              prefs={prefs}
+              update={update}
+              error={narration.error}
+              webSpeechAvailable={narration.webSpeechAvailable}
+            />
           </div>
         </MenuPopover>
       ) : null}

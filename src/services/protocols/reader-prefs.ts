@@ -44,7 +44,7 @@ export const READER_PREFS_LIMITS = {
   fontSize: { min: 14, max: 34 },
   lineHeight: { min: 1.2, max: 2.4 },
   contentWidth: { min: 480, max: 2000 },
-  letterSpacing: { min: -0.02, max: 0.08 },
+  letterSpacing: { min: 0, max: 0.08 },
   tts: {
     rate: { min: 0.8, max: 2 },
   },
@@ -151,8 +151,8 @@ export function buildReaderPrefsStoragePatch(prefs: unknown): { [READER_PREFS_ST
   return { [READER_PREFS_STORAGE_KEY]: normalizeReaderPrefs(prefs) };
 }
 
-// Typography-only CSS variables. Intentionally excludes theme:
-// theme is applied via the data-reader-theme attribute (P3), not via CSS vars.
+// Typography-only CSS variables. Intentionally excludes the legacy reader theme:
+// the article theme button now writes the global app theme mode instead.
 export function readerPrefsToCssVars(prefs: unknown): Record<string, string> {
   const p = normalizeReaderPrefs(prefs);
   return {

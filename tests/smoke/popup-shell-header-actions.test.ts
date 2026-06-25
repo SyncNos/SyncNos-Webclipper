@@ -92,9 +92,7 @@ vi.mock('../../src/viewmodels/popup/usePopupCurrentPageCapture', () => ({
 }));
 
 vi.mock('../../src/ui/conversations/ConversationsScene', () => ({
-  ConversationsScene: (props: {
-    listShell?: { rightSlot?: ReactNode; belowHeader?: ReactNode };
-  }) => {
+  ConversationsScene: (props: { listShell?: { rightSlot?: ReactNode; belowHeader?: ReactNode } }) => {
     const [mode, setMode] = useState<'list' | 'detail' | 'detail-empty' | 'detail-menu'>('list');
     const toList = () => {
       setMode('list');

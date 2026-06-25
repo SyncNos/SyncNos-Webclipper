@@ -34,7 +34,7 @@ vi.mock('../../src/ui/shared/AppTooltip', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/ui/app/routes/Settings', () => ({
+vi.mock('@ui/app/Settings', () => ({
   default: () => createElement('div', null, 'settings'),
 }));
 

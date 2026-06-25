@@ -405,6 +405,36 @@ describe('ArticleReaderView sentence interactions', () => {
     expect(getSentenceSpans().length).toBeGreaterThan(0);
   });
 
+  it('clears idle narration cursor decorations instead of leaving clickable highlights visible', async () => {
+    Object.assign(narrationState, {
+      state: 'playing',
+      activeIndex: 0,
+      activeSentence: { index: 0, text: 'Alpha sentence with link.', start: 0, end: 26 },
+      hasCursor: true,
+      isPlaying: true,
+    });
+    renderArticle(root!);
+    await waitForSentenceCount(2);
+    expect(getSentenceSpans()[0].classList.contains('reader-tts-sentence-active')).toBe(true);
+
+    Object.assign(narrationState, {
+      state: 'idle',
+      activeIndex: 0,
+      activeSentence: { index: 0, text: 'Alpha sentence with link.', start: 0, end: 26 },
+      hasCursor: true,
+      isPlaying: false,
+    });
+    renderArticle(root!);
+    await flushDom();
+
+    expect(getSentenceSpans()).toHaveLength(0);
+    expect(getSentenceRoot().getAttribute('data-reader-sentence-decoration')).toBeNull();
+
+    const sentenceRoot = getSentenceRoot();
+    sentenceRoot.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(mocks.play).not.toHaveBeenCalled();
+  });
+
   it('ignores sentence clicks while idle, then plays while active, without blocking links', async () => {
     renderArticle(root!);
     await flushDom();

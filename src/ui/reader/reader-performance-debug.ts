@@ -59,7 +59,7 @@ export function publishReaderPerformanceStats(
 ): ReaderPerformanceStats {
   const scope = globalThis as Record<string, unknown>;
   const current =
-    ((scope.__syncnosReaderPerformance as ReaderPerformanceStats | undefined) ?? DEFAULT_READER_PERFORMANCE_STATS);
+    (scope.__syncnosReaderPerformance as ReaderPerformanceStats | undefined) ?? DEFAULT_READER_PERFORMANCE_STATS;
   const next = typeof patch === 'function' ? patch(current) : { ...current, ...patch };
   next.updatedAt = Date.now();
   scope.__syncnosReaderPerformance = next;

@@ -116,6 +116,12 @@ describe('TextLayoutPanel', () => {
     expect(widthInput?.max).toBe(String(READER_PREFS_LIMITS.contentWidth.max));
     expect(widthInput?.value).toBe('1500');
 
+    const letterSpacingInput = document.querySelector(
+      '[aria-label="readerLetterSpacingAria"]',
+    ) as HTMLInputElement | null;
+    expect(letterSpacingInput?.min).toBe('0');
+    expect(letterSpacingInput?.value).toBe('0.02');
+
     const fontSelect = document.querySelector('[data-select-aria="readerFontAria"]');
     expect(fontSelect?.getAttribute('data-value')).toBe('mono');
 

@@ -6,10 +6,7 @@ import {
   type ReaderSentenceCandidate,
   type ReaderSentenceRectLike,
 } from '@ui/reader/reader-sentence-dom';
-import {
-  publishReaderPerformanceStats,
-  readReaderPerformanceClock,
-} from '@ui/reader/reader-performance-debug';
+import { publishReaderPerformanceStats, readReaderPerformanceClock } from '@ui/reader/reader-performance-debug';
 
 export const READER_SENTENCE_SOURCE_ATTR = 'data-reader-sentence-source';
 export const READER_SENTENCE_INDEX_ATTR = 'data-reader-sentence-index';

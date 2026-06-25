@@ -173,11 +173,9 @@ export function ConversationDetailPane({
     wordCount != null && Number.isFinite(wordCount)
       ? `${wordCountLabel} ${Math.max(0, Math.floor(wordCount)).toLocaleString()}`
       : '';
-  const hasReaderMoreMenuContent =
-    readerFeatures.textLayout || readerFeatures.theme || readerFeatures.narration;
+  const hasReaderMoreMenuContent = readerFeatures.textLayout || readerFeatures.theme || readerFeatures.narration;
   const hasMoreMenuContent = Boolean(wordCountText) || toolActions.length > 0 || hasReaderMoreMenuContent;
-  const moreMenuPanelClassName =
-    'tw-w-[214px] tw-max-w-[min(214px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
+  const moreMenuPanelClassName = 'tw-w-[214px] tw-max-w-[min(214px,calc(100vw-28px))] tw-text-[var(--text-primary)]';
   const closeMoreMenu = useCallback(() => {
     setMoreMenuOpen(false);
     setReaderToolbarPortalTarget(null);
@@ -263,257 +261,254 @@ export function ConversationDetailPane({
             containerPaddingClassName,
           ].join(' ')}
         >
-            <div className="tw-flex tw-min-w-0 tw-flex-1 tw-items-start tw-gap-2">
-              {onExpandSidebar ? (
-                <button
-                  type="button"
-                  onClick={onExpandSidebar}
-                  className={headerIconButtonClass}
-                  aria-label={expandSidebarLabel}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path
-                      d="M9.75 3.25L13 6.5L9.75 9.75"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path d="M12.8 6.5H3.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                  </svg>
-                  <span className="tw-sr-only">{expandSidebarLabel}</span>
-                </button>
-              ) : null}
+          <div className="tw-flex tw-min-w-0 tw-flex-1 tw-items-start tw-gap-2">
+            {onExpandSidebar ? (
+              <button
+                type="button"
+                onClick={onExpandSidebar}
+                className={headerIconButtonClass}
+                aria-label={expandSidebarLabel}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M9.75 3.25L13 6.5L9.75 9.75"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M12.8 6.5H3.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+                <span className="tw-sr-only">{expandSidebarLabel}</span>
+              </button>
+            ) : null}
 
-              {onBack ? (
-                <button type="button" onClick={onBack} className={headerIconButtonClass} aria-label={t('backButton')}>
-                  <ChevronLeft size={14} strokeWidth={2} aria-hidden="true" />
-                  <span className="tw-sr-only">{t('backButton')}</span>
-                </button>
-              ) : null}
+            {onBack ? (
+              <button type="button" onClick={onBack} className={headerIconButtonClass} aria-label={t('backButton')}>
+                <ChevronLeft size={14} strokeWidth={2} aria-hidden="true" />
+                <span className="tw-sr-only">{t('backButton')}</span>
+              </button>
+            ) : null}
 
-              <div className="tw-min-w-0 tw-flex-1">
-                <h2 className="tw-m-0 tw-block tw-min-w-0 tw-truncate tw-text-[20px] tw-font-extrabold tw-leading-[1.18] tw-tracking-[-0.01em] tw-text-[var(--text-primary)]">
-                  {selected ? formatConversationTitle(selected.title) : t('detailTitle')}
-                </h2>
-                {selected ? (
-                  <div className="tw-mt-1 tw-flex tw-min-w-0 tw-items-center tw-gap-2 tw-text-[11px] tw-font-semibold tw-text-[var(--text-secondary)]">
-                    {urlEditing ? (
-                      <>
-                        <input
-                          ref={urlInputRef}
-                          className="tw-min-w-0 tw-flex-1 tw-rounded-[var(--radius-control)] tw-border tw-border-[var(--border)] tw-bg-[var(--bg-sunken)] tw-px-2 tw-py-1 tw-text-[11px] tw-font-semibold tw-text-[var(--text-primary)] focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]"
-                          value={urlDraft}
-                          onChange={(e) => setUrlDraft(e.target.value)}
-                          placeholder="https://"
-                          inputMode="url"
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Escape') {
-                              e.preventDefault();
-                              setUrlEditing(false);
-                              setUrlDraft('');
-                              return;
-                            }
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              void (async () => {
-                                try {
-                                  await saveUrlDraft();
-                                } catch (error) {
-                                  const message =
-                                    error instanceof Error && error.message
-                                      ? error.message
-                                      : String(error || t('actionFailedFallback'));
-                                  if (message === 'SYNCNOS_URL_EDIT_CANCELLED') return;
-                                  if (typeof globalThis.window?.alert === 'function') globalThis.window.alert(message);
-                                  else console.error(message);
-                                }
-                              })();
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="tw-shrink-0 tw-rounded-[var(--radius-control)] tw-border tw-border-[var(--border)] tw-bg-[var(--bg-sunken)] tw-px-2 tw-py-1 tw-text-[11px] tw-font-extrabold tw-text-[var(--text-secondary)] hover:tw-bg-[color-mix(in_srgb,var(--bg-sunken)_85%,var(--bg-card))] disabled:tw-opacity-60"
-                          disabled={urlCleaning}
-                          onClick={() => {
-                            if (urlCleaning) return;
+            <div className="tw-min-w-0 tw-flex-1">
+              <h2 className="tw-m-0 tw-block tw-min-w-0 tw-truncate tw-text-[20px] tw-font-extrabold tw-leading-[1.18] tw-tracking-[-0.01em] tw-text-[var(--text-primary)]">
+                {selected ? formatConversationTitle(selected.title) : t('detailTitle')}
+              </h2>
+              {selected ? (
+                <div className="tw-mt-1 tw-flex tw-min-w-0 tw-items-center tw-gap-2 tw-text-[11px] tw-font-semibold tw-text-[var(--text-secondary)]">
+                  {urlEditing ? (
+                    <>
+                      <input
+                        ref={urlInputRef}
+                        className="tw-min-w-0 tw-flex-1 tw-rounded-[var(--radius-control)] tw-border tw-border-[var(--border)] tw-bg-[var(--bg-sunken)] tw-px-2 tw-py-1 tw-text-[11px] tw-font-semibold tw-text-[var(--text-primary)] focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]"
+                        value={urlDraft}
+                        onChange={(e) => setUrlDraft(e.target.value)}
+                        placeholder="https://"
+                        inputMode="url"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setUrlEditing(false);
+                            setUrlDraft('');
+                            return;
+                          }
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
                             void (async () => {
-                              setUrlCleaning(true);
                               try {
-                                const cleaned = await cleanUrlDraft(String(urlDraft || ''));
-                                setUrlDraft(cleaned);
+                                await saveUrlDraft();
                               } catch (error) {
                                 const message =
                                   error instanceof Error && error.message
                                     ? error.message
                                     : String(error || t('actionFailedFallback'));
+                                if (message === 'SYNCNOS_URL_EDIT_CANCELLED') return;
                                 if (typeof globalThis.window?.alert === 'function') globalThis.window.alert(message);
                                 else console.error(message);
-                              } finally {
-                                setUrlCleaning(false);
                               }
                             })();
-                          }}
-                        >
-                          {urlCleaning ? '清理中…' : '清理参数'}
-                        </button>
-                        <span className="tw-shrink-0 tw-whitespace-nowrap tw-opacity-80">Enter 保存 · Esc 取消</span>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="tw-min-w-0 tw-flex-1 tw-truncate tw-appearance-none tw-border-0 tw-bg-transparent tw-p-0 tw-text-left tw-shadow-none tw-cursor-text focus:tw-outline-none focus-visible:tw-outline-none"
-                          onClick={() => {
-                            setUrlDraft(displayedUrl);
-                            setUrlEditing(true);
-                          }}
-                          aria-label={displayedUrl ? 'Edit URL' : 'Set URL'}
-                          title={displayedUrl || t('noLinkAvailable')}
-                          >
-                          {displayedUrl || t('noLinkAvailable')}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="tw-mt-1 tw-min-w-0 tw-truncate tw-text-[11px] tw-font-semibold tw-text-[var(--text-secondary)]">
-                    {t('selectConversationHint')}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-end tw-gap-2 tw-whitespace-nowrap">
-              <DetailHeaderActionBar
-                actions={openActions}
-                buttonClassName={headerIconButtonClass}
-                iconOnly
-                menuTriggerLabel={t('detailHeaderOpenInMenuLabel')}
-                menuTriggerAriaLabel={t('detailHeaderOpenInMenuAria')}
-                menuAriaLabel={t('detailHeaderOpenInMenuAria')}
-                className="tw-order-1"
-              />
-
-              {canOpenCommentsSidebar ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onTriggerCommentsSidebar?.();
-                  }}
-                  className={[headerButtonClassName(), 'tw-order-2'].join(' ')}
-                  aria-label={commentsSidebarLabel}
-                  {...tooltipAttrs(commentsSidebarLabel)}
-                  aria-pressed={commentsSidebarOpen ? 'true' : 'false'}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path
-                      d="M4 3.5H11.5C12.3284 3.5 13 4.17157 13 5V9.25C13 10.0784 12.3284 10.75 11.5 10.75H7.5L4.75 13V10.75H4C3.17157 10.75 2.5 10.0784 2.5 9.25V5C2.5 4.17157 3.17157 3.5 4 3.5Z"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path d="M5.25 6H10.25" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                    <path d="M5.25 8.25H9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                  </svg>
-                  <span className="tw-sr-only">{commentsSidebarLabel}</span>
-                </button>
-              ) : null}
-              {hasMoreMenuContent ? (
-                <MenuPopover
-                  open={moreMenuOpen}
-                  onOpenChange={handleMoreMenuOpenChange}
-                  ariaLabel={t('moreButton')}
-                  side="bottom"
-                  align="end"
-                  panelMinWidth={214}
-                  panelClassName={moreMenuPanelClassName}
-                  className="tw-order-3"
-                  trigger={(triggerProps) => (
-                    <button
-                      {...triggerProps}
-                      data-detail-header-more-trigger="true"
-                      aria-label={t('moreButton')}
-                      className={headerIconButtonClass}
-                    >
-                      <MoreHorizontal size={14} strokeWidth={2} aria-hidden="true" />
-                      <span className="tw-sr-only">{t('moreButton')}</span>
-                    </button>
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="tw-shrink-0 tw-rounded-[var(--radius-control)] tw-border tw-border-[var(--border)] tw-bg-[var(--bg-sunken)] tw-px-2 tw-py-1 tw-text-[11px] tw-font-extrabold tw-text-[var(--text-secondary)] hover:tw-bg-[color-mix(in_srgb,var(--bg-sunken)_85%,var(--bg-card))] disabled:tw-opacity-60"
+                        disabled={urlCleaning}
+                        onClick={() => {
+                          if (urlCleaning) return;
+                          void (async () => {
+                            setUrlCleaning(true);
+                            try {
+                              const cleaned = await cleanUrlDraft(String(urlDraft || ''));
+                              setUrlDraft(cleaned);
+                            } catch (error) {
+                              const message =
+                                error instanceof Error && error.message
+                                  ? error.message
+                                  : String(error || t('actionFailedFallback'));
+                              if (typeof globalThis.window?.alert === 'function') globalThis.window.alert(message);
+                              else console.error(message);
+                            } finally {
+                              setUrlCleaning(false);
+                            }
+                          })();
+                        }}
+                      >
+                        {urlCleaning ? '清理中…' : '清理参数'}
+                      </button>
+                      <span className="tw-shrink-0 tw-whitespace-nowrap tw-opacity-80">Enter 保存 · Esc 取消</span>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="tw-min-w-0 tw-flex-1 tw-truncate tw-appearance-none tw-border-0 tw-bg-transparent tw-p-0 tw-text-left tw-shadow-none tw-cursor-text focus:tw-outline-none focus-visible:tw-outline-none"
+                        onClick={() => {
+                          setUrlDraft(displayedUrl);
+                          setUrlEditing(true);
+                        }}
+                        aria-label={displayedUrl ? 'Edit URL' : 'Set URL'}
+                        title={displayedUrl || t('noLinkAvailable')}
+                      >
+                        {displayedUrl || t('noLinkAvailable')}
+                      </button>
+                    </>
                   )}
-                >
-                  {moreMenuOpen ? (
-                    <div className="tw-flex tw-flex-col tw-gap-1">
-                      {hasReaderMoreMenuContent ? (
-                        <div
-                          ref={setReaderToolbarPortalTarget}
-                          className="tw-flex tw-flex-col tw-gap-1"
-                          data-reader-header-toolbar-slot="true"
-                        />
-                      ) : null}
-
-                      {toolActions.length ? (
-                        <div
-                          className={[
-                            hasReaderMoreMenuContent ? 'tw-border-t tw-border-[var(--border)] tw-pt-1' : '',
-                            'tw-flex tw-flex-col tw-gap-1',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                        >
-                          <DetailHeaderActionBar
-                            actions={toolActions}
-                            buttonClassName={buttonMenuItemClassName()}
-                            showLabelAlways
-                            closeMenuOnActionTrigger={closeMoreMenu}
-                            className="tw-w-full"
-                          />
-                        </div>
-                      ) : null}
-
-                      {wordCountText ? (
-                        <div
-                          className={[
-                            hasReaderMoreMenuContent || toolActions.length ? 'tw-border-t tw-border-[var(--border)] tw-pt-1' : '',
-                            'tw-px-2 tw-py-1 tw-text-[11px] tw-font-semibold tw-text-[var(--text-secondary)]',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          data-detail-word-count-row="true"
-                          {...tooltipAttrs(wordCountText)}
-                        >
-                          {wordCountText}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </MenuPopover>
-              ) : null}
+                </div>
+              ) : (
+                <div className="tw-mt-1 tw-min-w-0 tw-truncate tw-text-[11px] tw-font-semibold tw-text-[var(--text-secondary)]">
+                  {t('selectConversationHint')}
+                </div>
+              )}
             </div>
+          </div>
+          <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-end tw-gap-2 tw-whitespace-nowrap">
+            <DetailHeaderActionBar
+              actions={openActions}
+              buttonClassName={headerIconButtonClass}
+              iconOnly
+              menuTriggerLabel={t('detailHeaderOpenInMenuLabel')}
+              menuTriggerAriaLabel={t('detailHeaderOpenInMenuAria')}
+              menuAriaLabel={t('detailHeaderOpenInMenuAria')}
+              className="tw-order-1"
+            />
 
-            {isChatRenderer ? (
-              <div
-                className="tw-absolute tw-right-0 tw-top-full tw-z-30"
-                data-chat-outline-root={outlineScrollRoot ? 'route-scroll' : 'viewport'}
+            {canOpenCommentsSidebar ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onTriggerCommentsSidebar?.();
+                }}
+                className={[headerButtonClassName(), 'tw-order-2'].join(' ')}
+                aria-label={commentsSidebarLabel}
+                {...tooltipAttrs(commentsSidebarLabel)}
+                aria-pressed={commentsSidebarOpen ? 'true' : 'false'}
               >
-                <ChatOutlinePanel
-                  entries={outlineEntries}
-                  activeIndex={activeOutlineIndex}
-                  onPickEntry={pickOutlineEntry}
-                />
-              </div>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M4 3.5H11.5C12.3284 3.5 13 4.17157 13 5V9.25C13 10.0784 12.3284 10.75 11.5 10.75H7.5L4.75 13V10.75H4C3.17157 10.75 2.5 10.0784 2.5 9.25V5C2.5 4.17157 3.17157 3.5 4 3.5Z"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M5.25 6H10.25" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  <path d="M5.25 8.25H9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+                <span className="tw-sr-only">{commentsSidebarLabel}</span>
+              </button>
             ) : null}
+            {hasMoreMenuContent ? (
+              <MenuPopover
+                open={moreMenuOpen}
+                onOpenChange={handleMoreMenuOpenChange}
+                ariaLabel={t('moreButton')}
+                side="bottom"
+                align="end"
+                panelMinWidth={214}
+                panelClassName={moreMenuPanelClassName}
+                className="tw-order-3"
+                trigger={(triggerProps) => (
+                  <button
+                    {...triggerProps}
+                    data-detail-header-more-trigger="true"
+                    aria-label={t('moreButton')}
+                    className={headerIconButtonClass}
+                  >
+                    <MoreHorizontal size={14} strokeWidth={2} aria-hidden="true" />
+                    <span className="tw-sr-only">{t('moreButton')}</span>
+                  </button>
+                )}
+              >
+                {moreMenuOpen ? (
+                  <div className="tw-flex tw-flex-col tw-gap-1">
+                    {hasReaderMoreMenuContent ? (
+                      <div
+                        ref={setReaderToolbarPortalTarget}
+                        className="tw-flex tw-flex-col tw-gap-1"
+                        data-reader-header-toolbar-slot="true"
+                      />
+                    ) : null}
+
+                    {toolActions.length ? (
+                      <div
+                        className={[
+                          hasReaderMoreMenuContent ? 'tw-border-t tw-border-[var(--border)] tw-pt-1' : '',
+                          'tw-flex tw-flex-col tw-gap-1',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <DetailHeaderActionBar
+                          actions={toolActions}
+                          buttonClassName={buttonMenuItemClassName()}
+                          showLabelAlways
+                          closeMenuOnActionTrigger={closeMoreMenu}
+                          className="tw-w-full"
+                        />
+                      </div>
+                    ) : null}
+
+                    {wordCountText ? (
+                      <div
+                        className={[
+                          hasReaderMoreMenuContent || toolActions.length
+                            ? 'tw-border-t tw-border-[var(--border)] tw-pt-1'
+                            : '',
+                          'tw-px-2 tw-py-1 tw-text-[11px] tw-font-semibold tw-text-[var(--text-secondary)]',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        data-detail-word-count-row="true"
+                        {...tooltipAttrs(wordCountText)}
+                      >
+                        {wordCountText}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </MenuPopover>
+            ) : null}
+          </div>
+
+          {isChatRenderer ? (
+            <div
+              className="tw-absolute tw-right-0 tw-top-full tw-z-30"
+              data-chat-outline-root={outlineScrollRoot ? 'route-scroll' : 'viewport'}
+            >
+              <ChatOutlinePanel
+                entries={outlineEntries}
+                activeIndex={activeOutlineIndex}
+                onPickEntry={pickOutlineEntry}
+              />
+            </div>
+          ) : null}
         </header>
 
-        <div
-          className={[
-            containerPaddingClassName,
-            'tw-relative tw-pb-3 md:tw-pb-4',
-          ].join(' ')}
-        >
+        <div className={[containerPaddingClassName, 'tw-relative tw-pb-3 md:tw-pb-4'].join(' ')}>
           {isArticleRenderer ? (
             <ArticleReaderView
               selected={selected}

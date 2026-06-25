@@ -12,6 +12,7 @@ import { buttonFilledClassName, buttonTintClassName, headerButtonClassName } fro
 import { AppTooltipHost, tooltipAttrs } from '@ui/shared/AppTooltip';
 import { usePopupCurrentPageCapture } from '@viewmodels/popup/usePopupCurrentPageCapture';
 import { usePopupOpenCurrentTabInpageCommentsSidebar } from '@viewmodels/popup/usePopupOpenAppCommentsConversation';
+import { useAppThemeMode } from '@viewmodels/theme/useAppThemeMode';
 
 const POPUP_NOTION_SYNC_NUDGE_DISMISSED_KEY = 'webclipper_popup_notion_sync_open_tab_dont_show_v1';
 const POPUP_FEISHU_SYNC_NUDGE_DISMISSED_KEY = 'webclipper_popup_feishu_sync_open_tab_dont_show_v1';
@@ -126,6 +127,8 @@ function PopupSyncNudgeDialog(props: PopupSyncNudgeDialogProps) {
 }
 
 export default function PopupShell() {
+  useAppThemeMode();
+
   return (
     <ConversationsProvider>
       <PopupShellFrame />

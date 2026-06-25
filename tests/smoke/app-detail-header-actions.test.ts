@@ -464,7 +464,9 @@ describe('ConversationDetailPane header actions', () => {
       await Promise.resolve();
     });
 
-    const videoMoreButton = document.querySelector('[data-detail-header-more-trigger="true"]') as HTMLButtonElement | null;
+    const videoMoreButton = document.querySelector(
+      '[data-detail-header-more-trigger="true"]',
+    ) as HTMLButtonElement | null;
     expect(videoMoreButton).toBeTruthy();
 
     await act(async () => {

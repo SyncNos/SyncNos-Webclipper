@@ -3,10 +3,7 @@ import { act, createElement } from 'react';
 import ReactDOM from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 
-import {
-  DEFAULT_READER_PREFS,
-  READER_PREFS_STORAGE_KEY,
-} from '../../src/services/protocols/reader-prefs';
+import { DEFAULT_READER_PREFS, READER_PREFS_STORAGE_KEY } from '../../src/services/protocols/reader-prefs';
 
 const storageState = vi.hoisted(() => ({
   items: {} as Record<string, unknown>,

@@ -95,8 +95,8 @@ export function DetailHeaderActionBar({
     const icon = resolveActionIcon(action);
     const resolvedTriggerIcon = triggerIcon ||
       (iconOnly ? <ExternalLink size={16} strokeWidth={2} aria-hidden="true" /> : icon) || (
-      <ExternalLink size={16} strokeWidth={2} aria-hidden="true" />
-    );
+        <ExternalLink size={16} strokeWidth={2} aria-hidden="true" />
+      );
     const triggerButtonClassName = iconOnly ? buttonClassName : [buttonClassName, 'tw-text-[13px]'].join(' ');
     return (
       <div className={['tw-flex tw-items-center tw-gap-2', className || ''].join(' ').trim()}>
@@ -118,7 +118,9 @@ export function DetailHeaderActionBar({
           ) : (
             <span className="tw-inline-flex tw-items-center tw-gap-1.5">
               {resolvedTriggerIcon}
-              <span className={showLabelAlways ? 'tw-whitespace-nowrap' : 'tw-hidden md:tw-inline tw-whitespace-nowrap'}>
+              <span
+                className={showLabelAlways ? 'tw-whitespace-nowrap' : 'tw-hidden md:tw-inline tw-whitespace-nowrap'}
+              >
                 {buttonLabel}
               </span>
               {busy && action.showBusyProgress ? (
@@ -178,7 +180,9 @@ export function DetailHeaderActionBar({
                   {resolvedTriggerIcon}
                   <span
                     className={
-                      showLabelAlways ? 'tw-whitespace-nowrap tw-leading-none' : 'tw-hidden md:tw-inline tw-whitespace-nowrap tw-leading-none'
+                      showLabelAlways
+                        ? 'tw-whitespace-nowrap tw-leading-none'
+                        : 'tw-hidden md:tw-inline tw-whitespace-nowrap tw-leading-none'
                     }
                   >
                     {triggerLabel}

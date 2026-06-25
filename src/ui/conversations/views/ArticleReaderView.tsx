@@ -31,6 +31,7 @@ import { ReaderHeaderToolbar } from '@ui/reader/ReaderHeaderToolbar';
 import { ReaderToolbar } from '@ui/reader/ReaderToolbar';
 import { useReaderNarration } from '@viewmodels/reader/useReaderNarration';
 import { useReaderPrefs } from '@viewmodels/reader/useReaderPrefs';
+import { useAppThemeMode } from '@viewmodels/theme/useAppThemeMode';
 import { ChatMessageBubble } from '@ui/shared/ChatMessageBubble';
 
 export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: boolean };
@@ -88,11 +89,8 @@ export function ArticleReaderView({
   // omit it), so the toolbar renders nothing over the chat view.
   const features = readerFeatures ?? { textLayout: false, theme: false, narration: false };
   const { prefs, update } = useReaderPrefs();
+  const { mode: themeMode, update: updateThemeMode } = useAppThemeMode();
   const readerVars = readerPrefsToCssVars(prefs) as CSSProperties;
-  // P3-T2: reader-local theme. `system` follows the OS via the global tokens, so
-  // we deliberately omit the attribute (undefined -> React renders no attribute);
-  // any explicit theme scopes the [data-reader-theme=...] token overrides.
-  const readerThemeAttr = prefs.theme === 'system' ? undefined : prefs.theme;
 
   // P4-T3: narration over the rendered article text. Capturing the source from
   // the rendered DOM keeps the engine's sentence offsets aligned with the text
@@ -108,7 +106,8 @@ export function ArticleReaderView({
   const outline = useArticleOutlineMinimap(outlineRoot);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
-  const shouldDecorateSentences = narration.hasCursor || narration.state !== 'idle';
+  const isNarrationEngaged = features.narration && narration.state !== 'idle';
+  const shouldDecorateSentences = isNarrationEngaged;
 
   useEffect(() => {
     publishReaderPerformanceStats({
@@ -132,13 +131,13 @@ export function ArticleReaderView({
     (sentence: ReaderTtsSentence | null) => {
       clearActiveHighlight();
       const root = narrationRootRef.current;
-      if (!features.narration || !root || !sentence) return;
+      if (!isNarrationEngaged || !root || !sentence) return;
       const target = root.querySelector<HTMLElement>(`[${READER_SENTENCE_INDEX_ATTR}="${sentence.index}"]`);
       if (!target) return;
       target.classList.add(READER_CURRENT_SENTENCE_CLASS);
       lastHighlightRef.current = target;
     },
-    [clearActiveHighlight, features.narration],
+    [clearActiveHighlight, isNarrationEngaged],
   );
 
   // React effect order matters here: keep the active sentence ref fresh before
@@ -361,7 +360,9 @@ export function ArticleReaderView({
         sourceLength: narrationSource.length,
         sentenceCount: sentences.length,
         decorateMode:
-          shouldDeferInitialDecoration && sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE ? 'progressive' : 'sync',
+          shouldDeferInitialDecoration && sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE
+            ? 'progressive'
+            : 'sync',
         decorateLastDurationMs:
           current.decorateMode === 'progressive'
             ? current.decorateLastDurationMs
@@ -426,10 +427,17 @@ export function ArticleReaderView({
     if (!readerToolbarPortalTarget) return null;
     if (!features.textLayout && !features.theme && !features.narration) return null;
     return createPortal(
-      <ReaderHeaderToolbar features={features} prefs={prefs} update={update} narration={toolbarNarration} />,
+      <ReaderHeaderToolbar
+        features={features}
+        prefs={prefs}
+        update={update}
+        themeMode={themeMode}
+        updateThemeMode={updateThemeMode}
+        narration={toolbarNarration}
+      />,
       readerToolbarPortalTarget,
     );
-  }, [features, prefs, readerToolbarPortalTarget, toolbarNarration, update]);
+  }, [features, prefs, readerToolbarPortalTarget, themeMode, toolbarNarration, update, updateThemeMode]);
 
   const shouldRenderInlineRail = !!outlinePayload?.entries.length;
 
@@ -460,58 +468,55 @@ export function ArticleReaderView({
         className={READER_SHELL_CLASS}
         style={readerVars}
         data-reader-shell="article"
-        data-reader-theme={readerThemeAttr}
       >
         <div className={READER_MAIN_CLASS} data-reader-main="article-main">
-        {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
-        {loadingDetail ? (
-          <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
-        ) : null}
-        {detailError ? (
-          <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{detailError}</p>
-        ) : null}
+          {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
+          {loadingDetail ? (
+            <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('loadingDots')}</p>
+          ) : null}
+          {detailError ? (
+            <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{detailError}</p>
+          ) : null}
 
-        {detail?.messages?.length ? (
-          <div
-            ref={assignMessagesRoot}
-            className="tw-mt-3 tw-grid tw-w-full tw-gap-2.5 tw-mx-auto"
-            style={READER_COLUMN_STYLE}
-            data-reader-sentence-root="true"
-            onClick={handleSentenceClick}
-          >
-            {detail.messages.map((m: any) => {
-              const text = String((m as any).contentMarkdown || (m as any).contentText || '');
-              const messageConversationId = Number((m as any).conversationId || (selected as any)?.id || activeId);
+          {detail?.messages?.length ? (
+            <div
+              ref={assignMessagesRoot}
+              className="tw-mt-3 tw-grid tw-w-full tw-gap-2.5 tw-mx-auto"
+              style={READER_COLUMN_STYLE}
+              data-reader-sentence-root="true"
+              onClick={handleSentenceClick}
+            >
+              {detail.messages.map((m: any) => {
+                const text = String((m as any).contentMarkdown || (m as any).contentText || '');
+                const messageConversationId = Number((m as any).conversationId || (selected as any)?.id || activeId);
 
-              return (
-                <ChatMessageBubble
-                  key={String((m as any).id)}
-                  role="assistant"
-                  markdown={text}
-                  conversationId={
-                    Number.isFinite(messageConversationId) && messageConversationId > 0
-                      ? messageConversationId
-                      : undefined
-                  }
-                  className={READER_PROSE_CLASS}
-                />
-              );
-            })}
-          </div>
-        ) : activeId ? (
-          <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('noMessages')}</p>
-        ) : (
-          <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
-            {t('selectAConversation')}
-          </p>
-        )}
+                return (
+                  <ChatMessageBubble
+                    key={String((m as any).id)}
+                    role="assistant"
+                    markdown={text}
+                    conversationId={
+                      Number.isFinite(messageConversationId) && messageConversationId > 0
+                        ? messageConversationId
+                        : undefined
+                    }
+                    className={READER_PROSE_CLASS}
+                  />
+                );
+              })}
+            </div>
+          ) : activeId ? (
+            <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">{t('noMessages')}</p>
+          ) : (
+            <p className="tw-mt-3 tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]">
+              {t('selectAConversation')}
+            </p>
+          )}
         </div>
 
         {shouldRenderInlineRail ? (
           <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
-            <ReaderToolbar
-              outline={outlinePayload}
-            />
+            <ReaderToolbar outline={outlinePayload} />
           </aside>
         ) : null}
       </div>
