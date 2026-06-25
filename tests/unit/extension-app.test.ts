@@ -70,4 +70,32 @@ describe('extension app tab routing', () => {
       url: 'chrome-extension://syncnos/app.html#/',
     });
   });
+
+  it('does not reuse legacy query-string app.html URLs', async () => {
+    tabsQuery.mockResolvedValue([
+      {
+        id: 1,
+        windowId: 10,
+        url: 'chrome-extension://syncnos/app.html?loc=legacy',
+      },
+    ]);
+
+    await openOrFocusExtensionAppTab({ route: '/' });
+
+    expect(windowsUpdate).not.toHaveBeenCalled();
+    expect(tabsUpdate).not.toHaveBeenCalled();
+    expect(tabsCreate).toHaveBeenCalledWith({
+      active: true,
+      url: 'chrome-extension://syncnos/app.html#/',
+    });
+  });
+
+  it('opens the hash-router root when no route is provided', async () => {
+    await openOrFocusExtensionAppTab();
+
+    expect(tabsCreate).toHaveBeenCalledWith({
+      active: true,
+      url: 'chrome-extension://syncnos/app.html#/',
+    });
+  });
 });
