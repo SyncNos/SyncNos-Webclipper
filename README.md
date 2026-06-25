@@ -93,7 +93,7 @@ YouTube and Bilibili video pages can capture already loaded subtitles/transcript
 - **Anti-hotlink image caching** — article images that match anti-hotlink rules are cached automatically, even if web article image caching is turned off.
 - **Markdown reading profiles** — choose Medium / Notion / Book in Inpage settings to tune how markdown is rendered in popup and app views.
 - **Database backup / restore** — full export and import of your local session database, including `image_cache` and article comment threads. Sensitive data (OAuth tokens, etc.) is automatically excluded.
-- **Theme** — follows system `prefers-color-scheme` only.
+- **Theme** — the article-mode theme control switches the global System / Light / Sepia / Dark / Black theme for popup and app.
 - **Inpage button** — configurable display scope (all sites / supported sites only / off).
 
 ## Screenshots

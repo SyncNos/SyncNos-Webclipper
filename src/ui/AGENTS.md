@@ -9,6 +9,7 @@
 | 主题 | 真源文件 | 说明 |
 | --- | --- | --- |
 | 设计 tokens | `src/ui/styles/tokens.css` | 颜色、圆角、字体等 token 的单一事实源 |
+| 全局主题 | `src/services/protocols/app-theme.ts` + `src/viewmodels/theme/useAppThemeMode.ts` | `system/light/sepia/dark/black` 写入 `app_theme_mode_v1`，通过 `html[data-theme-mode]` 驱动 popup / app |
 | 组件层 | `src/ui/**` | 只放组件/样式/DOM 面板；不直接访问 `src/platform/**` |
 | 依赖方向 | `ui → viewmodels → services → platform` | `src/ui/**` 禁止 import `@platform/*` |
 

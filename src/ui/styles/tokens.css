@@ -193,12 +193,14 @@
 }
 
 /* =====================================================================
- * Legacy reader-local themes (P3)
- * Kept for compatibility with older stored reader preferences and any external
- * preview surface that still scopes [data-reader-theme=...]. The article theme
- * button now writes [data-theme-mode] globally instead.
+ * Global extended themes plus legacy reader-local compatibility.
+ * [data-theme-mode=...] is the active app-wide surface. [data-reader-theme=...]
+ * remains here only for older stored reader preferences and external previews.
  * ===================================================================== */
+[data-theme-mode='sepia'],
 [data-reader-theme='sepia'] {
+  color-scheme: light;
+
   /* Surface: warm paper */
   --bg-primary: rgb(244 236 220);
   --bg-sunken: rgb(248 241 227);
@@ -215,7 +217,10 @@
   --surface-inset-highlight: rgb(255 250 240 / 60%);
 }
 
+[data-theme-mode='black'],
 [data-reader-theme='black'] {
+  color-scheme: dark;
+
   /* Surface: true black (OLED-friendly) */
   --bg-primary: rgb(0 0 0);
   --bg-sunken: rgb(0 0 0);
@@ -281,9 +286,12 @@
 :root {
   --reader-highlight: rgba(250, 204, 21, 0.22);
 }
+[data-theme-mode='sepia'],
 [data-reader-theme='sepia'] {
   --reader-highlight: rgba(150, 110, 40, 0.3);
 }
+[data-theme-mode='dark'],
+[data-theme-mode='black'],
 [data-reader-theme='dark'],
 [data-reader-theme='black'] {
   --reader-highlight: rgba(250, 204, 21, 0.26);

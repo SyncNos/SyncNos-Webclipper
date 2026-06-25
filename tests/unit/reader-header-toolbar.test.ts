@@ -76,7 +76,7 @@ vi.mock('../../src/ui/reader/ThemePanel', () => ({
       {
         type: 'button',
         'data-testid': 'theme-action',
-        onClick: () => update('dark'),
+        onClick: () => update('black'),
       },
       'theme-action',
     ),
@@ -209,7 +209,7 @@ describe('ReaderHeaderToolbar', () => {
     act(() => {
       (document.querySelector('[data-testid="theme-action"]') as HTMLButtonElement).click();
     });
-    expect(mocks.updateThemeMode).toHaveBeenCalledWith('dark');
+    expect(mocks.updateThemeMode).toHaveBeenCalledWith('black');
 
     act(() => {
       (document.querySelector('[data-reader-header-trigger="narration"]') as HTMLButtonElement).click();

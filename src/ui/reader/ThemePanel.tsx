@@ -11,7 +11,9 @@ export type ThemePanelProps = {
 const THEME_LABELS: Record<AppThemeMode, string> = {
   system: t('readerThemeSystem'),
   light: t('readerThemeLight'),
+  sepia: t('readerThemeSepia'),
   dark: t('readerThemeDark'),
+  black: t('readerThemeBlack'),
 };
 
 export function ThemePanel({ mode, update, className }: ThemePanelProps) {
