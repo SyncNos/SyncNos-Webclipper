@@ -180,6 +180,7 @@ export default function AppShell() {
     const navigate = useNavigate();
     const { openConversationExternalByLoc, selectedConversation, detail } = useConversationsApp();
     const lastInternalLocRef = useRef<string | null>(null);
+    const pendingExternalLocRef = useRef<string | null>(null);
     const processedLocRef = useRef<string | null>(null);
     const locMountedRef = useRef(false);
     const selectedConversationView = conversationKinds.pick(selectedConversation as any)?.view ?? null;
@@ -529,6 +530,7 @@ export default function AppShell() {
       const loc = params.get('loc');
       if (loc && lastInternalLocRef.current && loc === lastInternalLocRef.current) {
         lastInternalLocRef.current = null;
+        if (pendingExternalLocRef.current === loc) pendingExternalLocRef.current = null;
         processedLocRef.current = loc;
         return;
       }
@@ -536,17 +538,25 @@ export default function AppShell() {
 
       const decoded = decodeConversationLoc(loc);
       if (!decoded) {
+        if (pendingExternalLocRef.current === loc) pendingExternalLocRef.current = null;
         processedLocRef.current = loc;
         return;
       }
 
       processedLocRef.current = loc;
+      pendingExternalLocRef.current = loc;
       void Promise.resolve(
         openConversationExternalByLoc({
           source: decoded.source,
           conversationKey: decoded.conversationKey,
         }),
-      ).catch(() => {});
+      )
+        .catch(() => {})
+        .finally(() => {
+          globalThis.setTimeout?.(() => {
+            if (pendingExternalLocRef.current === loc) pendingExternalLocRef.current = null;
+          }, 0);
+        });
     }, [location.pathname, location.search, openConversationExternalByLoc]);
 
     useEffect(() => {
@@ -560,7 +570,11 @@ export default function AppShell() {
 
       const params = new URLSearchParams(String(location.search || ''));
       const currentLoc = params.get('loc');
-      if (currentLoc === nextLoc) return;
+      if (currentLoc === nextLoc) {
+        if (pendingExternalLocRef.current === nextLoc) pendingExternalLocRef.current = null;
+        return;
+      }
+      if (pendingExternalLocRef.current && currentLoc === pendingExternalLocRef.current) return;
 
       params.set('loc', nextLoc);
       lastInternalLocRef.current = nextLoc;
