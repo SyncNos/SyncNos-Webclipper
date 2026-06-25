@@ -35,7 +35,11 @@ const STRIP_CLASS = 'tw-flex tw-flex-col tw-items-end tw-gap-2 tw-py-1 tw-pr-1';
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
 const OUTLINE_REBUILD_SETTLE_MS = 180;
 
-function readViewportRect(): ReaderOutlineCandidate['rect'] {
+function readViewportRect(scrollRoot?: Element | null): ReaderOutlineCandidate['rect'] {
+  if (scrollRoot && typeof scrollRoot.getBoundingClientRect === 'function') {
+    const rect = scrollRoot.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom };
+  }
   const view = globalThis.window ?? null;
   const height = Number(view?.innerHeight);
   if (!Number.isFinite(height) || height <= 0) return { top: 0, bottom: 0 };
@@ -121,7 +125,10 @@ function renderOutlineItem(
   );
 }
 
-export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutlineMinimapState {
+export function useArticleOutlineMinimap(
+  root: HTMLElement | null,
+  scrollRoot?: Element | null,
+): ArticleOutlineMinimapState {
   const [entries, setEntries] = useState<ReaderOutlineDomEntry[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const entriesRef = useRef<ReaderOutlineDomEntry[]>([]);
@@ -129,20 +136,23 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
   const rafRef = useRef<number | null>(null);
   const pendingKindRef = useRef<'entries' | 'active' | null>(null);
 
-  const syncActiveIndex = useCallback((currentEntries: ReaderOutlineDomEntry[] = entriesRef.current) => {
-    const candidates = readCurrentCandidates(currentEntries);
-    const nextActiveIndex = candidates.length
-      ? pickReaderOutlineActiveIndex({ viewportRect: readViewportRect(), candidates })
-      : null;
-    publishReaderPerformanceStats((current) => ({
-      ...current,
-      outlineEntries: currentEntries.length,
-      outlineActiveRecalcCount: current.outlineActiveRecalcCount + 1,
-    }));
-    if (nextActiveIndex === activeIndexRef.current) return;
-    activeIndexRef.current = nextActiveIndex;
-    setActiveIndex(nextActiveIndex);
-  }, []);
+  const syncActiveIndex = useCallback(
+    (currentEntries: ReaderOutlineDomEntry[] = entriesRef.current) => {
+      const candidates = readCurrentCandidates(currentEntries);
+      const nextActiveIndex = candidates.length
+        ? pickReaderOutlineActiveIndex({ viewportRect: readViewportRect(scrollRoot), candidates })
+        : null;
+      publishReaderPerformanceStats((current) => ({
+        ...current,
+        outlineEntries: currentEntries.length,
+        outlineActiveRecalcCount: current.outlineActiveRecalcCount + 1,
+      }));
+      if (nextActiveIndex === activeIndexRef.current) return;
+      activeIndexRef.current = nextActiveIndex;
+      setActiveIndex(nextActiveIndex);
+    },
+    [scrollRoot],
+  );
 
   const rebuild = useCallback(() => {
     if (!root) {
@@ -231,7 +241,7 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
       observer.observe(root, { childList: true, subtree: true, characterData: true });
     }
 
-    const scrollTarget: EventTarget = win || root;
+    const scrollTarget: EventTarget = scrollRoot ?? win ?? root;
     scrollTarget.addEventListener?.('scroll', onScroll, { passive: true });
     win?.addEventListener?.('resize', onResize, { passive: true });
     schedule('entries');
@@ -248,7 +258,7 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
       }
       pendingKindRef.current = null;
     };
-  }, [rebuild, root, syncActiveIndex]);
+  }, [rebuild, root, scrollRoot, syncActiveIndex]);
 
   return { entries, activeIndex };
 }

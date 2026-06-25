@@ -184,10 +184,13 @@ describe('ArticleReaderView layout', () => {
     expect(sentenceRoot?.style.maxWidth).toBe('var(--reader-content-width)');
   });
 
-  it('portals reader controls into the provided header target and keeps the inline rail for outline only', async () => {
+  it('portals reader controls and the outline rail into their provided header targets', async () => {
     const headerTarget = document.createElement('div');
     headerTarget.setAttribute('data-reader-header-toolbar-slot', 'true');
     document.body.appendChild(headerTarget);
+    const outlineTarget = document.createElement('div');
+    outlineTarget.setAttribute('data-reader-outline-toolbar-slot', 'true');
+    document.body.appendChild(outlineTarget);
     mocks.outlineEntries.push({
       index: 0,
       level: 1,
@@ -212,6 +215,8 @@ describe('ArticleReaderView layout', () => {
           setMessagesRootRef: vi.fn(),
           readerFeatures: { textLayout: true, theme: true, narration: true },
           readerToolbarPortalTarget: headerTarget,
+          readerOutlinePortalTarget: outlineTarget,
+          outlineScrollRoot: document.body,
         }),
       );
     });
@@ -221,9 +226,9 @@ describe('ArticleReaderView layout', () => {
     expect(headerTarget.querySelector('[data-testid="reader-header-toolbar"]')).toBeTruthy();
     const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
     expect(shell?.querySelector('[data-testid="reader-header-toolbar"]')).toBeNull();
-    const rail = shell?.querySelector('[data-reader-rail="article-rail"]') as HTMLElement | null;
+    expect(shell?.querySelector('[data-reader-rail="article-rail"]')).toBeNull();
+    const rail = outlineTarget.querySelector('[data-reader-rail="article-rail"]') as HTMLElement | null;
     expect(rail).toBeTruthy();
-    expect(rail?.className).toContain('tw-sticky');
-    expect(rail?.className).toContain('tw-top-5');
+    expect(rail?.querySelector('[data-testid="reader-toolbar"]')).toBeTruthy();
   });
 });

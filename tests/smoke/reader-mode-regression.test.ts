@@ -267,6 +267,9 @@ describe('reader mode regression', () => {
     expect(document.querySelector('[data-reader-header-toolbar-slot="true"]')).toBeTruthy();
     expect(document.querySelector('[data-reader-header-toolbar="true"]')).toBeTruthy();
     expect(await waitForSelector('[data-reader-rail-wrap="outline"]')).toBeTruthy();
+    const articleOutlineSlot = document.querySelector('[data-reader-outline-toolbar-slot]');
+    expect(articleOutlineSlot).toBeTruthy();
+    expect(articleOutlineSlot?.querySelector('[data-reader-rail-wrap="outline"]')).toBeTruthy();
     expect(shell?.querySelector('[data-reader-header-toolbar="true"]')).toBeNull();
 
     currentState.selectedConversation = {
