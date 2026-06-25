@@ -9,6 +9,7 @@ import {
 import { buildReaderOutlineDomEntries, type ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
 import { publishReaderPerformanceStats } from '@ui/reader/reader-performance-debug';
 import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
+import { buttonMenuItemClassName } from '@ui/shared/button-styles';
 
 export type ArticleOutlineMinimapState = {
   entries: ReaderOutlineDomEntry[];
@@ -30,15 +31,15 @@ const ENTRY_MINIMAP_BUTTON_CLASS = [
   'tw-flex tw-w-full tw-justify-end tw-border-0 tw-bg-transparent tw-p-0 tw-leading-none',
   'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
 ].join(' ');
-const ENTRY_LIST_BUTTON_BASE_CLASS = [
-  'tw-w-full tw-border tw-px-3 tw-py-1.5 tw-text-left tw-text-xs tw-font-semibold',
-  'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
-].join(' ');
 const STRIP_CLASS = 'tw-flex tw-flex-col tw-items-end tw-gap-2 tw-py-1 tw-pr-1';
-const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto tw-px-0.5';
+const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
 const OUTLINE_REBUILD_SETTLE_MS = 180;
 
-function readViewportRect(): ReaderOutlineCandidate['rect'] {
+function readViewportRect(scrollRoot?: Element | null): ReaderOutlineCandidate['rect'] {
+  if (scrollRoot && typeof scrollRoot.getBoundingClientRect === 'function') {
+    const rect = scrollRoot.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom };
+  }
   const view = globalThis.window ?? null;
   const height = Number(view?.innerHeight);
   if (!Number.isFinite(height) || height <= 0) return { top: 0, bottom: 0 };
@@ -59,13 +60,12 @@ function readCurrentCandidates(entries: ReaderOutlineDomEntry[]): ReaderOutlineC
 }
 
 function toItemClass(active: boolean, level: number): string {
-  const levelClass = level === 3 ? 'tw-pl-7 tw-text-[12px]' : level === 2 ? 'tw-pl-4' : '';
+  const indentClass = level >= 3 ? 'tw-pl-7' : level === 2 ? 'tw-pl-5' : '';
   return [
-    ENTRY_LIST_BUTTON_BASE_CLASS,
-    levelClass,
-    active
-      ? 'tw-border-[#dfe3ff] tw-bg-[#f6f7ff] tw-text-[#3b48ff]'
-      : 'tw-border-[var(--border)] tw-bg-[var(--bg-card)] tw-text-[var(--text-secondary)] hover:tw-bg-[var(--bg-sunken)] hover:tw-text-[var(--text-primary)]',
+    buttonMenuItemClassName(),
+    'tw-min-h-8 tw-items-center tw-text-xs',
+    active ? '' : 'webclipper-btn--tone-muted',
+    indentClass,
   ]
     .filter(Boolean)
     .join(' ');
@@ -117,6 +117,7 @@ function renderOutlineItem(
       data-reader-outline-level={token}
       data-reader-outline-active={active ? 'true' : 'false'}
       className={toItemClass(active, entry.level)}
+      aria-checked={active ? 'true' : undefined}
       onClick={() => onPickPanelEntry(entry)}
     >
       {entry.title}
@@ -124,7 +125,10 @@ function renderOutlineItem(
   );
 }
 
-export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutlineMinimapState {
+export function useArticleOutlineMinimap(
+  root: HTMLElement | null,
+  scrollRoot?: Element | null,
+): ArticleOutlineMinimapState {
   const [entries, setEntries] = useState<ReaderOutlineDomEntry[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const entriesRef = useRef<ReaderOutlineDomEntry[]>([]);
@@ -132,20 +136,23 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
   const rafRef = useRef<number | null>(null);
   const pendingKindRef = useRef<'entries' | 'active' | null>(null);
 
-  const syncActiveIndex = useCallback((currentEntries: ReaderOutlineDomEntry[] = entriesRef.current) => {
-    const candidates = readCurrentCandidates(currentEntries);
-    const nextActiveIndex = candidates.length
-      ? pickReaderOutlineActiveIndex({ viewportRect: readViewportRect(), candidates })
-      : null;
-    publishReaderPerformanceStats((current) => ({
-      ...current,
-      outlineEntries: currentEntries.length,
-      outlineActiveRecalcCount: current.outlineActiveRecalcCount + 1,
-    }));
-    if (nextActiveIndex === activeIndexRef.current) return;
-    activeIndexRef.current = nextActiveIndex;
-    setActiveIndex(nextActiveIndex);
-  }, []);
+  const syncActiveIndex = useCallback(
+    (currentEntries: ReaderOutlineDomEntry[] = entriesRef.current) => {
+      const candidates = readCurrentCandidates(currentEntries);
+      const nextActiveIndex = candidates.length
+        ? pickReaderOutlineActiveIndex({ viewportRect: readViewportRect(scrollRoot), candidates })
+        : null;
+      publishReaderPerformanceStats((current) => ({
+        ...current,
+        outlineEntries: currentEntries.length,
+        outlineActiveRecalcCount: current.outlineActiveRecalcCount + 1,
+      }));
+      if (nextActiveIndex === activeIndexRef.current) return;
+      activeIndexRef.current = nextActiveIndex;
+      setActiveIndex(nextActiveIndex);
+    },
+    [scrollRoot],
+  );
 
   const rebuild = useCallback(() => {
     if (!root) {
@@ -234,7 +241,7 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
       observer.observe(root, { childList: true, subtree: true, characterData: true });
     }
 
-    const scrollTarget: EventTarget = win || root;
+    const scrollTarget: EventTarget = scrollRoot ?? win ?? root;
     scrollTarget.addEventListener?.('scroll', onScroll, { passive: true });
     win?.addEventListener?.('resize', onResize, { passive: true });
     schedule('entries');
@@ -251,7 +258,7 @@ export function useArticleOutlineMinimap(root: HTMLElement | null): ArticleOutli
       }
       pendingKindRef.current = null;
     };
-  }, [rebuild, root, syncActiveIndex]);
+  }, [rebuild, root, scrollRoot, syncActiveIndex]);
 
   return { entries, activeIndex };
 }

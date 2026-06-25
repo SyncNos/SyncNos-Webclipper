@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 
+import { menuPopoverPanelClassName } from '@ui/shared/button-styles';
+
 type ReaderRailPanelProps = {
   id: string;
   label: string;
@@ -15,16 +17,15 @@ type ReaderRailPanelProps = {
 };
 
 const PANEL_BASE_CLASS = [
-  'tw-absolute tw-z-30 tw-rounded-[var(--radius-control)] tw-border tw-border-[var(--border)]',
-  'tw-bg-[color-mix(in_srgb,var(--bg-card)_88%,transparent)] tw-p-3 tw-text-[var(--text-primary)]',
-  'tw-shadow-[0_18px_48px_rgba(0,0,0,0.18)] tw-backdrop-blur-[10px] tw-backdrop-saturate-150',
+  'tw-absolute tw-z-30 tw-text-[var(--text-primary)]',
+  menuPopoverPanelClassName(170),
   'tw-w-[300px] tw-max-w-[78vw]',
 ].join(' ');
 
 const PANEL_TITLE_CLASS =
   'tw-mb-3 tw-flex tw-items-center tw-justify-between tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]';
 
-const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-3';
+const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-1';
 
 function getPanelStyle(narrow: boolean): CSSProperties {
   if (narrow) {

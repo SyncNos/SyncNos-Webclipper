@@ -1,6 +1,6 @@
 export const APP_THEME_MODE_STORAGE_KEY = 'app_theme_mode_v1';
 
-export const APP_THEME_MODES = ['system', 'light', 'dark'] as const;
+export const APP_THEME_MODES = ['system', 'light', 'sepia', 'dark', 'black'] as const;
 export type AppThemeMode = (typeof APP_THEME_MODES)[number];
 
 const APP_THEME_MODE_SET = new Set<string>(APP_THEME_MODES);

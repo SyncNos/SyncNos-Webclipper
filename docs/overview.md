@@ -73,7 +73,7 @@ SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的
 | **Chat with AI 是"复制 + 跳转"，不是后台代聊** | detail header + settings | 这样才能保持用户对 prompt 与目标平台的控制权，也避免扩展暗中持有额外会话状态 | 没有 detail messages、平台未启用或 URL 无效时，动作直接不出现；prompt 模板可在设置中自定义 |
 | **图片缓存是"可选增强"，不是采集成功前提** | `ai_chat_cache_images_enabled` / `web_article_cache_images_enabled` + `anti_hotlink_rules_v1` + detail tools | 用户希望"离线可读"时可开启，但不应因图片链路失败影响文本采集 | 实时采集里的图片内联失败不会阻断保存；命中 anti-hotlink 规则时即使关闭 web article cache 也会自动缓存；历史会话可手动触发 `cache-images` 回填 |
 | **视频字幕采集只抓已加载字幕，不下载视频** | `VideosSection` + video transcript bridge/extract | 用户需要的是字幕文本，而不是视频文件本身 | 字幕未加载时会提示空字幕；仅支持 YouTube / Bilibili 视频页 |
-| **主题仅跟随系统** | `prefers-color-scheme` + `tokens.css` | 避免维护额外的主题切换状态与 UI；所有 UI 统一随系统暗色设置 | popup / app / inpage 全部只依赖 CSS 媒体查询，不再有 `data-theme` 手动覆盖 |
+| **主题是全局状态** | `app_theme_mode_v1` + `html[data-theme-mode]` + `tokens.css` | 文章模式主题按钮需要影响整个 popup / app，而不是只改阅读器容器 | 支持 `system/light/sepia/dark/black`；`system` 跟随 `prefers-color-scheme`，其他值强制全局 token 覆盖 |
 | **升级不应打断当前会话** | `background.ts` 的 `onInstalled` 行为 | 扩展升级后自动弹设置页会打断正在进行的阅读/对话流程 | 当前仅首次安装自动打开 About；更新保持静默 |
 | **敏感信息尽量不出本机** | WebClipper 备份 | 站点 Cookie、加密密钥、Notion OAuth token 都不能随意进备份或明文落盘 | 备份显式排除 `notion_oauth_token*` 与 `notion_oauth_client_secret` |
 | **采集站点 ≠ UI 一定显示** | WebClipper inpage 逻辑 | 扩展虽然对所有 `http(s)` 注入 content script，但 inpage 按钮是否启动还受 `inpage_display_mode` 控制 | 切换该设置后必须刷新或新开页面；旧 `inpage_supported_only` 只做兼容回读 |

@@ -202,7 +202,7 @@ async function materializeSyncnosAssetsForExport(input: {
 
 function readLocalStorageValue(key: string): string {
   try {
-    return String(localStorage.getItem(key) || '');
+    return String(globalThis.window?.localStorage?.getItem(key) || '');
   } catch (_e) {
     return '';
   }
@@ -210,8 +210,9 @@ function readLocalStorageValue(key: string): string {
 
 function writeLocalStorageValue(key: string, value: string | null) {
   try {
-    if (value == null) localStorage.removeItem(key);
-    else localStorage.setItem(key, value);
+    const storage = globalThis.window?.localStorage;
+    if (value == null) storage?.removeItem(key);
+    else storage?.setItem(key, value);
   } catch (_e) {
     // ignore
   }

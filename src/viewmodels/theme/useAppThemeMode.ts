@@ -25,7 +25,7 @@ function applyAppThemeMode(mode: AppThemeMode) {
   }
 
   root.setAttribute('data-theme-mode', normalized);
-  root.style.colorScheme = normalized;
+  root.style.colorScheme = normalized === 'sepia' || normalized === 'light' ? 'light' : 'dark';
 }
 
 export function useAppThemeMode(): UseAppThemeModeResult {

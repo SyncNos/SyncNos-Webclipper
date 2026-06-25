@@ -12,7 +12,8 @@ const mocks = vi.hoisted(() => {
   const pause = vi.fn();
   const stop = vi.fn();
   const toggle = vi.fn();
-  return { update, play, seek, pause, stop, toggle };
+  const outlineEntries: any[] = [];
+  return { update, play, seek, pause, stop, toggle, outlineEntries };
 });
 
 vi.mock('../../src/viewmodels/reader/useReaderPrefs', () => ({
@@ -46,6 +47,13 @@ vi.mock('../../src/viewmodels/reader/useReaderNarration', () => ({
 vi.mock('../../src/ui/reader/ReaderToolbar', () => ({
   ReaderToolbar: ({ outline }: { outline?: { entries?: unknown[] } | null }) =>
     outline?.entries?.length ? createElement('div', { 'data-testid': 'reader-toolbar' }, 'reader-toolbar') : null,
+}));
+
+vi.mock('../../src/ui/reader/ArticleOutlineMinimap', () => ({
+  useArticleOutlineMinimap: () => ({
+    entries: mocks.outlineEntries,
+    activeIndex: mocks.outlineEntries.length ? 0 : null,
+  }),
 }));
 
 vi.mock('../../src/ui/reader/ReaderHeaderToolbar', () => ({
@@ -142,6 +150,7 @@ describe('ArticleReaderView layout', () => {
     mocks.pause.mockReset();
     mocks.stop.mockReset();
     mocks.toggle.mockReset();
+    mocks.outlineEntries.length = 0;
     root = ReactDOM.createRoot(document.getElementById('root')!);
   });
 
@@ -175,10 +184,21 @@ describe('ArticleReaderView layout', () => {
     expect(sentenceRoot?.style.maxWidth).toBe('var(--reader-content-width)');
   });
 
-  it('portals reader controls into the provided header target and keeps the inline rail for outline only', async () => {
+  it('portals reader controls and the outline rail into their provided header targets', async () => {
     const headerTarget = document.createElement('div');
     headerTarget.setAttribute('data-reader-header-toolbar-slot', 'true');
     document.body.appendChild(headerTarget);
+    const outlineTarget = document.createElement('div');
+    outlineTarget.setAttribute('data-reader-outline-toolbar-slot', 'true');
+    document.body.appendChild(outlineTarget);
+    mocks.outlineEntries.push({
+      index: 0,
+      level: 1,
+      id: 'heading-1',
+      title: 'Heading',
+      element: document.createElement('h1'),
+      rect: { top: 0, bottom: 24 },
+    });
 
     act(() => {
       root!.render(
@@ -195,6 +215,8 @@ describe('ArticleReaderView layout', () => {
           setMessagesRootRef: vi.fn(),
           readerFeatures: { textLayout: true, theme: true, narration: true },
           readerToolbarPortalTarget: headerTarget,
+          readerOutlinePortalTarget: outlineTarget,
+          outlineScrollRoot: document.body,
         }),
       );
     });
@@ -204,5 +226,9 @@ describe('ArticleReaderView layout', () => {
     expect(headerTarget.querySelector('[data-testid="reader-header-toolbar"]')).toBeTruthy();
     const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
     expect(shell?.querySelector('[data-testid="reader-header-toolbar"]')).toBeNull();
+    expect(shell?.querySelector('[data-reader-rail="article-rail"]')).toBeNull();
+    const rail = outlineTarget.querySelector('[data-reader-rail="article-rail"]') as HTMLElement | null;
+    expect(rail).toBeTruthy();
+    expect(rail?.querySelector('[data-testid="reader-toolbar"]')).toBeTruthy();
   });
 });

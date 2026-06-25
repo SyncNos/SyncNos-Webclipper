@@ -295,9 +295,12 @@ describe('AppShell comments sidebar', () => {
     const host = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(host).toBeTruthy();
 
-    const closeBtn = (host?.shadowRoot?.querySelector('.webclipper-inpage-comments-panel__collapse') ||
-      null) as HTMLButtonElement | null;
-    expect(closeBtn).toBeTruthy();
+    const closeBtn = (await vi.waitFor(() => {
+      const btn = (host?.shadowRoot?.querySelector('.webclipper-inpage-comments-panel__collapse') ||
+        null) as HTMLButtonElement | null;
+      expect(btn).toBeTruthy();
+      return btn;
+    })) as HTMLButtonElement;
 
     act(() => {
       closeBtn!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
@@ -348,11 +351,15 @@ describe('AppShell comments sidebar', () => {
     expect(shadow).toBeTruthy();
     expect(shadow?.querySelector('.webclipper-inpage-comments-panel__attach-selection')).toBeFalsy();
 
-    // Wait a tick so the panel can install the selectionchange listener.
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await vi.waitFor(() => {
+      expect(shadow?.querySelector('.webclipper-inpage-comments-panel__reply-textarea')).toBeTruthy();
+    });
 
-    document.dispatchEvent(new window.Event('selectionchange'));
-    document.dispatchEvent(new window.Event('pointerup'));
+    await act(async () => {
+      document.dispatchEvent(new window.Event('selectionchange'));
+      document.dispatchEvent(new window.Event('pointerup'));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
 
     await vi.waitFor(() => {
       const quoteText = shadow

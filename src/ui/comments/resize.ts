@@ -50,7 +50,7 @@ function stopEvent(event: Event) {
 
 function readPersistedSidebarWidthPx(): number | null {
   try {
-    const raw = localStorage.getItem(COMMENTS_SIDEBAR_WIDTH_STORAGE_KEY);
+    const raw = globalThis.window?.localStorage?.getItem(COMMENTS_SIDEBAR_WIDTH_STORAGE_KEY);
     const parsed = Number.parseFloat(String(raw || '').trim());
     if (!Number.isFinite(parsed) || parsed <= 0) return null;
     return Math.round(parsed);
@@ -61,7 +61,7 @@ function readPersistedSidebarWidthPx(): number | null {
 
 function persistSidebarWidthPx(widthPx: number) {
   try {
-    localStorage.setItem(COMMENTS_SIDEBAR_WIDTH_STORAGE_KEY, String(Math.round(widthPx)));
+    globalThis.window?.localStorage?.setItem(COMMENTS_SIDEBAR_WIDTH_STORAGE_KEY, String(Math.round(widthPx)));
   } catch (_e) {
     // ignore
   }

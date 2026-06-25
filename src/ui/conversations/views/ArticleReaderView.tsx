@@ -41,6 +41,8 @@ export type ReaderFeatures = { textLayout: boolean; theme: boolean; narration: b
 export type ArticleReaderViewProps = DetailViewSharedProps & {
   readerFeatures?: ReaderFeatures;
   readerToolbarPortalTarget?: HTMLElement | null;
+  readerOutlinePortalTarget?: HTMLElement | null;
+  outlineScrollRoot?: Element | null;
 };
 
 // Body typography is driven entirely by the `--reader-*` CSS variables (P2-T3).
@@ -84,6 +86,8 @@ export function ArticleReaderView({
   setMessagesRootRef,
   readerFeatures,
   readerToolbarPortalTarget,
+  readerOutlinePortalTarget,
+  outlineScrollRoot,
 }: ArticleReaderViewProps) {
   // readerFeatures gates each toolbar piece; chat conversations pass all-false (or
   // omit it), so the toolbar renders nothing over the chat view.
@@ -103,7 +107,7 @@ export function ArticleReaderView({
   const [narrationSource, setNarrationSource] = useState('');
   const [sentenceDomRevision, setSentenceDomRevision] = useState(0);
   const sentenceCountRef = useRef(0);
-  const outline = useArticleOutlineMinimap(outlineRoot);
+  const outline = useArticleOutlineMinimap(outlineRoot, outlineScrollRoot);
   const narration = useReaderNarration(narrationSource, prefs.tts);
   const { activeSentence } = narration;
   const isNarrationEngaged = features.narration && narration.state !== 'idle';
@@ -440,6 +444,15 @@ export function ArticleReaderView({
   }, [features, prefs, readerToolbarPortalTarget, themeMode, toolbarNarration, update, updateThemeMode]);
 
   const shouldRenderInlineRail = !!outlinePayload?.entries.length;
+  const outlineRail = outlinePayload ? (
+    <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
+      <ReaderToolbar outline={outlinePayload} />
+    </aside>
+  ) : null;
+  const outlineToolbarPortal = useMemo(() => {
+    if (!readerOutlinePortalTarget || !outlineRail) return null;
+    return createPortal(outlineRail, readerOutlinePortalTarget);
+  }, [outlineRail, readerOutlinePortalTarget]);
 
   const handleSentenceClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -464,6 +477,7 @@ export function ArticleReaderView({
   return (
     <>
       {headerToolbar}
+      {outlineToolbarPortal}
       <div
         className={READER_SHELL_CLASS}
         style={readerVars}
@@ -514,10 +528,8 @@ export function ArticleReaderView({
           )}
         </div>
 
-        {shouldRenderInlineRail ? (
-          <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
-            <ReaderToolbar outline={outlinePayload} />
-          </aside>
+        {shouldRenderInlineRail && !readerOutlinePortalTarget ? (
+          outlineRail
         ) : null}
       </div>
     </>
