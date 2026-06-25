@@ -420,7 +420,7 @@ export function useSettingsSceneController(args: UseSettingsSceneControllerArgs)
     setAntiHotlinkRules(Array.isArray(antiHotlinkRulesDraft) ? antiHotlinkRulesDraft : []);
     setAntiHotlinkRuleErrors([]);
     setAiChatDollarMentionEnabled(local?.ai_chat_dollar_mention_enabled !== false);
-    // reader_prefs_v1 wins; falls back to migrating the legacy markdown reading profile.
+    // reader_prefs_v1 is the only source of truth for reader layout preferences.
     setReaderPrefs(resolveReaderPrefsFromStorage(local));
     setLastBackupExportAt(Number(local?.[LAST_BACKUP_EXPORT_AT_STORAGE_KEY] || 0) || 0);
     setAboutYouUserName(normalizeUserName(local?.[ABOUT_YOU_USER_NAME_STORAGE_KEY]));

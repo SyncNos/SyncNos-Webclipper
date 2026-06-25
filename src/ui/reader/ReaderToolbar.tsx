@@ -4,7 +4,6 @@ import { t } from '@i18n';
 import { useIsNarrowScreen } from '@ui/shared/hooks/useIsNarrowScreen';
 import { ArticleOutlineMinimap, type ArticleOutlineMinimapState } from '@ui/reader/ArticleOutlineMinimap';
 import type { ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
-import type { ReaderPrefs } from '@services/protocols/reader-prefs';
 import type { ReaderTtsState } from '@services/reader/tts/reader-tts-engine';
 
 // Structural feature flags are still shared with ReaderHeaderToolbar / ArticleReaderView.
@@ -21,10 +20,6 @@ export type ReaderToolbarNarration = {
 };
 
 export type ReaderToolbarProps = {
-  features?: ReaderToolbarFeatures;
-  prefs?: ReaderPrefs;
-  update?: (patch: Partial<ReaderPrefs>) => void | Promise<void>;
-  narration?: ReaderToolbarNarration;
   outline?:
     | (ArticleOutlineMinimapState & {
         onPickStripEntry: (entry: ReaderOutlineDomEntry) => void;

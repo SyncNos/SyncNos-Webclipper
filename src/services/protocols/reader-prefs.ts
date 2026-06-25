@@ -44,7 +44,7 @@ export const READER_PREFS_LIMITS = {
   fontSize: { min: 14, max: 34 },
   lineHeight: { min: 1.2, max: 2.4 },
   contentWidth: { min: 480, max: 2000 },
-  letterSpacing: { min: -0.02, max: 0.08 },
+  letterSpacing: { min: 0, max: 0.08 },
   tts: {
     rate: { min: 0.8, max: 2 },
   },

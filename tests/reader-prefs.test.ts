@@ -29,6 +29,7 @@ describe('normalizeReaderPrefs', () => {
     });
     expect(DEFAULT_READER_PREFS.contentWidth).toBe(1000);
     expect(READER_PREFS_LIMITS.contentWidth.max).toBe(2000);
+    expect(READER_PREFS_LIMITS.letterSpacing.min).toBe(0);
     expect(READER_PREFS_LIMITS.tts.rate.min).toBe(0.8);
     expect(READER_PREFS_LIMITS.tts.rate.max).toBe(2);
   });
@@ -54,7 +55,12 @@ describe('normalizeReaderPrefs', () => {
     expect(low.fontSize).toBe(READER_PREFS_LIMITS.fontSize.min);
     expect(low.lineHeight).toBe(READER_PREFS_LIMITS.lineHeight.min);
     expect(low.contentWidth).toBe(READER_PREFS_LIMITS.contentWidth.min);
-    expect(low.letterSpacing).toBe(READER_PREFS_LIMITS.letterSpacing.min);
+    expect(low.letterSpacing).toBe(0);
+  });
+
+  it('normalizes legacy negative letter spacing to zero', () => {
+    const p = normalizeReaderPrefs({ letterSpacing: -0.01 });
+    expect(p.letterSpacing).toBe(0);
   });
 
   it('falls back enums on invalid values and clamps tts.rate', () => {
@@ -120,6 +126,7 @@ describe('readerPrefsToCssVars', () => {
     const vars = readerPrefsToCssVars({ fontSize: 20, lineHeight: 1.6, theme: 'sepia' });
     expect(vars['--reader-font-size']).toBe('20px');
     expect(vars['--reader-line-height']).toBe('1.6');
+    expect(readerPrefsToCssVars({ letterSpacing: -0.02 })['--reader-letter-spacing']).toBe('0em');
     expect(vars['--reader-text-align']).toBe(DEFAULT_READER_PREFS.textAlign);
     // P3 boundary: theme must NOT leak into CSS vars
     const keys = Object.keys(vars);
