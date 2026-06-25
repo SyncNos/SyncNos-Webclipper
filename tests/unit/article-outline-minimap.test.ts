@@ -269,6 +269,9 @@ describe('ArticleOutlineMinimap', () => {
       '[data-reader-outline-active="true"][data-reader-outline-level="lvl-2"]',
     ) as HTMLButtonElement | null;
     expect(activePanelItem).toBeTruthy();
+    expect(activePanelItem?.classList.contains('webclipper-btn')).toBe(true);
+    expect(activePanelItem?.classList.contains('webclipper-btn--menu-item')).toBe(true);
+    expect(activePanelItem?.getAttribute('aria-checked')).toBe('true');
 
     const panelButtons = Array.from(panel?.querySelectorAll('button') || []) as HTMLButtonElement[];
     const secondPanelButton = panelButtons.find((button) => button.textContent === '第一策略');

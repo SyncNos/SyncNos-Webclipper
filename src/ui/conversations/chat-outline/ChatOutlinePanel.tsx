@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ChatOutlineEntry } from '@ui/conversations/chat-outline/outline-entries';
-import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
+import { ReaderRailPanel, readerRailItemButtonClassName } from '@ui/reader/ReaderRailPanel';
 
 export type ChatOutlinePanelProps = {
   entries: ChatOutlineEntry[];
@@ -15,13 +15,7 @@ const TRIGGER_CLASS = [
   'tw-grid tw-h-11 tw-w-9 tw-place-items-center tw-border-0 tw-bg-transparent tw-p-0 tw-shadow-none',
   'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
 ].join(' ');
-const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto tw-px-0.5';
-const ENTRY_BUTTON_CLASS = [
-  'tw-w-full tw-border tw-border-[var(--border)] tw-bg-[var(--bg-card)] tw-px-3 tw-py-1.5 tw-text-left tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]',
-  'hover:tw-bg-[var(--bg-sunken)] hover:tw-text-[var(--text-primary)]',
-  'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
-].join(' ');
-const ENTRY_ACTIVE_CLASS = 'tw-border-[#dfe3ff] tw-bg-[#f6f7ff] tw-text-[#3b48ff]';
+const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
 
 function toLabel(entry: ChatOutlineEntry): string {
   const text = String(entry.previewText || '').trim();
@@ -112,8 +106,9 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
             <button
               key={entry.messageKey}
               type="button"
-              className={[ENTRY_BUTTON_CLASS, isActive ? ENTRY_ACTIVE_CLASS : ''].filter(Boolean).join(' ')}
+              className={readerRailItemButtonClassName(isActive)}
               title={label}
+              aria-checked={isActive ? 'true' : undefined}
               onClick={() => onPickEntry?.(entry)}
               data-chat-outline-entry={entry.messageKey}
               data-chat-outline-active={isActive ? 'true' : 'false'}

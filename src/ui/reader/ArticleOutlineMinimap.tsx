@@ -8,7 +8,7 @@ import {
 } from '@services/protocols/reader-outline';
 import { buildReaderOutlineDomEntries, type ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
 import { publishReaderPerformanceStats } from '@ui/reader/reader-performance-debug';
-import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
+import { ReaderRailPanel, readerRailItemButtonClassName } from '@ui/reader/ReaderRailPanel';
 
 export type ArticleOutlineMinimapState = {
   entries: ReaderOutlineDomEntry[];
@@ -30,12 +30,8 @@ const ENTRY_MINIMAP_BUTTON_CLASS = [
   'tw-flex tw-w-full tw-justify-end tw-border-0 tw-bg-transparent tw-p-0 tw-leading-none',
   'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
 ].join(' ');
-const ENTRY_LIST_BUTTON_BASE_CLASS = [
-  'tw-w-full tw-border tw-px-3 tw-py-1.5 tw-text-left tw-text-xs tw-font-semibold',
-  'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
-].join(' ');
 const STRIP_CLASS = 'tw-flex tw-flex-col tw-items-end tw-gap-2 tw-py-1 tw-pr-1';
-const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto tw-px-0.5';
+const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
 const OUTLINE_REBUILD_SETTLE_MS = 180;
 
 function readViewportRect(): ReaderOutlineCandidate['rect'] {
@@ -59,16 +55,7 @@ function readCurrentCandidates(entries: ReaderOutlineDomEntry[]): ReaderOutlineC
 }
 
 function toItemClass(active: boolean, level: number): string {
-  const levelClass = level === 3 ? 'tw-pl-7 tw-text-[12px]' : level === 2 ? 'tw-pl-4' : '';
-  return [
-    ENTRY_LIST_BUTTON_BASE_CLASS,
-    levelClass,
-    active
-      ? 'tw-border-[#dfe3ff] tw-bg-[#f6f7ff] tw-text-[#3b48ff]'
-      : 'tw-border-[var(--border)] tw-bg-[var(--bg-card)] tw-text-[var(--text-secondary)] hover:tw-bg-[var(--bg-sunken)] hover:tw-text-[var(--text-primary)]',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  return readerRailItemButtonClassName(active, level >= 3 ? 2 : level === 2 ? 1 : 0);
 }
 
 function toStripBarClass(active: boolean): string {
@@ -117,6 +104,7 @@ function renderOutlineItem(
       data-reader-outline-level={token}
       data-reader-outline-active={active ? 'true' : 'false'}
       className={toItemClass(active, entry.level)}
+      aria-checked={active ? 'true' : undefined}
       onClick={() => onPickPanelEntry(entry)}
     >
       {entry.title}

@@ -96,6 +96,10 @@ describe('ChatOutlinePanel', () => {
 
     const firstEntry = panel?.querySelector('[data-chat-outline-entry="u-101"]') as HTMLButtonElement | null;
     expect(firstEntry?.textContent).toBe('1. 解释这篇文章的核心观点');
+    expect(firstEntry?.classList.contains('webclipper-btn')).toBe(true);
+    expect(firstEntry?.classList.contains('webclipper-btn--menu-item')).toBe(true);
+    expect(firstEntry?.classList.contains('webclipper-btn--tone-muted')).toBe(true);
+    expect(panel?.querySelector('[data-chat-outline-active="true"]')?.getAttribute('aria-checked')).toBe('true');
 
     act(() => {
       firstEntry!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
