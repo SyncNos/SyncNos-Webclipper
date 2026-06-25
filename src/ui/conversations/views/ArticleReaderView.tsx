@@ -63,7 +63,7 @@ const READER_PROSE_CLASS = [
 const READER_COLUMN_STYLE: CSSProperties = { maxWidth: 'var(--reader-content-width)' };
 const READER_SHELL_CLASS = 'tw-flex tw-w-full tw-items-start tw-gap-4';
 const READER_MAIN_CLASS = 'tw-min-w-0 tw-flex-1 tw-max-w-full';
-const READER_RAIL_CLASS = 'tw-flex-none tw-shrink-0 tw-self-start';
+const READER_RAIL_CLASS = 'tw-sticky tw-top-5 tw-flex-none tw-shrink-0 tw-self-start';
 
 /**
  * ArticleReaderView renders article / video conversations.

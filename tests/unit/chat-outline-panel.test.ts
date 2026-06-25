@@ -83,6 +83,10 @@ describe('ChatOutlinePanel', () => {
 
     const wrap = document.querySelector('[data-reader-rail-wrap="chat-outline"]') as HTMLElement | null;
     expect(wrap).toBeTruthy();
+    expect(wrap?.querySelectorAll('[data-chat-outline-trigger-bar]')).toHaveLength(entries.length);
+    expect(wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar')).toBe(
+      'u-102',
+    );
 
     act(() => {
       wrap!.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true, cancelable: true }));

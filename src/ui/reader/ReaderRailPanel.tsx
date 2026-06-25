@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 
-import { buttonMenuItemClassName, menuPopoverPanelClassName } from '@ui/shared/button-styles';
+import { menuPopoverPanelClassName } from '@ui/shared/button-styles';
 
 type ReaderRailPanelProps = {
   id: string;
@@ -26,18 +26,6 @@ const PANEL_TITLE_CLASS =
   'tw-mb-3 tw-flex tw-items-center tw-justify-between tw-text-xs tw-font-semibold tw-text-[var(--text-secondary)]';
 
 const PANEL_CONTENT_CLASS = 'tw-flex tw-flex-col tw-gap-1';
-
-export function readerRailItemButtonClassName(active: boolean, indentLevel = 0): string {
-  const indentClass = indentLevel >= 2 ? 'tw-pl-7' : indentLevel === 1 ? 'tw-pl-5' : '';
-  return [
-    buttonMenuItemClassName(),
-    'tw-min-h-8 tw-items-center tw-text-xs',
-    active ? '' : 'webclipper-btn--tone-muted',
-    indentClass,
-  ]
-    .filter(Boolean)
-    .join(' ');
-}
 
 function getPanelStyle(narrow: boolean): CSSProperties {
   if (narrow) {

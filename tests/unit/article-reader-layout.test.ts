@@ -12,7 +12,8 @@ const mocks = vi.hoisted(() => {
   const pause = vi.fn();
   const stop = vi.fn();
   const toggle = vi.fn();
-  return { update, play, seek, pause, stop, toggle };
+  const outlineEntries: any[] = [];
+  return { update, play, seek, pause, stop, toggle, outlineEntries };
 });
 
 vi.mock('../../src/viewmodels/reader/useReaderPrefs', () => ({
@@ -46,6 +47,13 @@ vi.mock('../../src/viewmodels/reader/useReaderNarration', () => ({
 vi.mock('../../src/ui/reader/ReaderToolbar', () => ({
   ReaderToolbar: ({ outline }: { outline?: { entries?: unknown[] } | null }) =>
     outline?.entries?.length ? createElement('div', { 'data-testid': 'reader-toolbar' }, 'reader-toolbar') : null,
+}));
+
+vi.mock('../../src/ui/reader/ArticleOutlineMinimap', () => ({
+  useArticleOutlineMinimap: () => ({
+    entries: mocks.outlineEntries,
+    activeIndex: mocks.outlineEntries.length ? 0 : null,
+  }),
 }));
 
 vi.mock('../../src/ui/reader/ReaderHeaderToolbar', () => ({
@@ -142,6 +150,7 @@ describe('ArticleReaderView layout', () => {
     mocks.pause.mockReset();
     mocks.stop.mockReset();
     mocks.toggle.mockReset();
+    mocks.outlineEntries.length = 0;
     root = ReactDOM.createRoot(document.getElementById('root')!);
   });
 
@@ -179,6 +188,14 @@ describe('ArticleReaderView layout', () => {
     const headerTarget = document.createElement('div');
     headerTarget.setAttribute('data-reader-header-toolbar-slot', 'true');
     document.body.appendChild(headerTarget);
+    mocks.outlineEntries.push({
+      index: 0,
+      level: 1,
+      id: 'heading-1',
+      title: 'Heading',
+      element: document.createElement('h1'),
+      rect: { top: 0, bottom: 24 },
+    });
 
     act(() => {
       root!.render(
@@ -204,5 +221,9 @@ describe('ArticleReaderView layout', () => {
     expect(headerTarget.querySelector('[data-testid="reader-header-toolbar"]')).toBeTruthy();
     const shell = document.querySelector('[data-reader-shell="article"]') as HTMLElement | null;
     expect(shell?.querySelector('[data-testid="reader-header-toolbar"]')).toBeNull();
+    const rail = shell?.querySelector('[data-reader-rail="article-rail"]') as HTMLElement | null;
+    expect(rail).toBeTruthy();
+    expect(rail?.className).toContain('tw-sticky');
+    expect(rail?.className).toContain('tw-top-5');
   });
 });

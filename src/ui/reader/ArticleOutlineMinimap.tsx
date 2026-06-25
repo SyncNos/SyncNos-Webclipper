@@ -8,7 +8,8 @@ import {
 } from '@services/protocols/reader-outline';
 import { buildReaderOutlineDomEntries, type ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
 import { publishReaderPerformanceStats } from '@ui/reader/reader-performance-debug';
-import { ReaderRailPanel, readerRailItemButtonClassName } from '@ui/reader/ReaderRailPanel';
+import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
+import { buttonMenuItemClassName } from '@ui/shared/button-styles';
 
 export type ArticleOutlineMinimapState = {
   entries: ReaderOutlineDomEntry[];
@@ -55,7 +56,15 @@ function readCurrentCandidates(entries: ReaderOutlineDomEntry[]): ReaderOutlineC
 }
 
 function toItemClass(active: boolean, level: number): string {
-  return readerRailItemButtonClassName(active, level >= 3 ? 2 : level === 2 ? 1 : 0);
+  const indentClass = level >= 3 ? 'tw-pl-7' : level === 2 ? 'tw-pl-5' : '';
+  return [
+    buttonMenuItemClassName(),
+    'tw-min-h-8 tw-items-center tw-text-xs',
+    active ? '' : 'webclipper-btn--tone-muted',
+    indentClass,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 function toStripBarClass(active: boolean): string {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ChatOutlineEntry } from '@ui/conversations/chat-outline/outline-entries';
-import { ReaderRailPanel, readerRailItemButtonClassName } from '@ui/reader/ReaderRailPanel';
+import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
+import { buttonMenuItemClassName } from '@ui/shared/button-styles';
 
 export type ChatOutlinePanelProps = {
   entries: ChatOutlineEntry[];
@@ -16,6 +17,19 @@ const TRIGGER_CLASS = [
   'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
 ].join(' ');
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
+const TRIGGER_BARS_CLASS = 'tw-flex tw-h-7 tw-w-[18px] tw-flex-col tw-justify-center tw-gap-1 tw-overflow-hidden';
+const TRIGGER_BAR_CLASS =
+  'tw-h-[2px] tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-transition-[opacity,width,background-color] tw-duration-150';
+
+function toItemClass(active: boolean): string {
+  return [
+    buttonMenuItemClassName(),
+    'tw-min-h-8 tw-items-center tw-text-xs',
+    active ? '' : 'webclipper-btn--tone-muted',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
 
 function toLabel(entry: ChatOutlineEntry): string {
   const text = String(entry.previewText || '').trim();
@@ -80,9 +94,21 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
         closePanelAndFocusHandle();
       }}
     >
-      <span className="tw-grid tw-h-4 tw-w-[14px] tw-content-center tw-gap-[6px]" aria-hidden="true">
-        <span className="tw-h-[2.4px] tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-opacity-80" />
-        <span className="tw-h-[2.4px] tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-opacity-80" />
+      <span className={TRIGGER_BARS_CLASS} aria-hidden="true" data-chat-outline-trigger-bars={safeEntries.length}>
+        {safeEntries.map((entry) => {
+          const isActive = Number(activeIndex) === entry.index;
+          return (
+            <span
+              key={entry.messageKey}
+              className={[
+                TRIGGER_BAR_CLASS,
+                isActive ? 'tw-w-[18px] tw-bg-[var(--text-primary)] tw-opacity-100' : 'tw-w-[14px] tw-opacity-50',
+              ].join(' ')}
+              data-chat-outline-trigger-bar={entry.messageKey}
+              data-chat-outline-trigger-active={isActive ? 'true' : 'false'}
+            />
+          );
+        })}
       </span>
     </button>
   );
@@ -106,7 +132,7 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
             <button
               key={entry.messageKey}
               type="button"
-              className={readerRailItemButtonClassName(isActive)}
+              className={toItemClass(isActive)}
               title={label}
               aria-checked={isActive ? 'true' : undefined}
               onClick={() => onPickEntry?.(entry)}
