@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getPageTitle, notionFetch as defaultNotionFetch } from '@services/sync/notion/notion-api.ts';
 
 export type NotionParentPageOption = { id: string; title: string };
