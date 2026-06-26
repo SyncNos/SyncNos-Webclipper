@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 import {
   type ReaderOutlineCandidate,
@@ -33,6 +33,13 @@ const ENTRY_MINIMAP_BUTTON_CLASS = [
 ].join(' ');
 const STRIP_CLASS = 'tw-flex tw-flex-col tw-items-end tw-gap-2 tw-py-1 tw-pr-1';
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
+const PANEL_ENTRY_LABEL_CLASS = 'tw-min-w-0 tw-flex-1 tw-text-left tw-leading-snug';
+const PANEL_ENTRY_LABEL_STYLE: CSSProperties = {
+  display: '-webkit-box',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: 2,
+  overflow: 'hidden',
+};
 const OUTLINE_REBUILD_SETTLE_MS = 180;
 
 function readViewportRect(scrollRoot?: Element | null): ReaderOutlineCandidate['rect'] {
@@ -63,7 +70,7 @@ function toItemClass(active: boolean, level: number): string {
   const indentClass = level >= 3 ? 'tw-pl-7' : level === 2 ? 'tw-pl-5' : '';
   return [
     buttonMenuItemClassName(),
-    'tw-min-h-8 tw-items-center tw-text-xs',
+    'tw-min-h-8 tw-items-start tw-text-xs',
     active ? '' : 'webclipper-btn--tone-muted',
     indentClass,
   ]
@@ -120,7 +127,9 @@ function renderOutlineItem(
       aria-checked={active ? 'true' : undefined}
       onClick={() => onPickPanelEntry(entry)}
     >
-      {entry.title}
+      <span className={PANEL_ENTRY_LABEL_CLASS} style={PANEL_ENTRY_LABEL_STYLE} data-reader-outline-entry-label={entry.id}>
+        {entry.title}
+      </span>
     </button>
   );
 }

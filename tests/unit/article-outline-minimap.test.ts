@@ -88,7 +88,7 @@ function buildArticleOutline(): { article: HTMLElement; entries: ReaderOutlineDo
       <article id="article">
         <h1>深度工作</h1>
         <p>段落</p>
-        <h2>第一策略</h2>
+        <h2>第一策略以及一个足够长的章节标题用于验证目录面板最多显示两行</h2>
         <h3>更细策略</h3>
       </article>
     `,
@@ -273,9 +273,13 @@ describe('ArticleOutlineMinimap', () => {
     expect(activePanelItem?.classList.contains('webclipper-btn--menu-item')).toBe(true);
     expect(activePanelItem?.getAttribute('aria-checked')).toBe('true');
 
+    const longHeading = '第一策略以及一个足够长的章节标题用于验证目录面板最多显示两行';
     const panelButtons = Array.from(panel?.querySelectorAll('button') || []) as HTMLButtonElement[];
-    const secondPanelButton = panelButtons.find((button) => button.textContent === '第一策略');
+    const secondPanelButton = panelButtons.find((button) => button.textContent === longHeading);
     expect(secondPanelButton).toBeTruthy();
+    const secondPanelLabel = panel?.querySelector('[data-reader-outline-entry-label="reader-outline-2"]') as HTMLElement | null;
+    expect(secondPanelLabel?.textContent).toBe(longHeading);
+    expect(secondPanelLabel?.getAttribute('style')).toContain('-webkit-line-clamp: 2');
 
     act(() => {
       secondPanelButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));

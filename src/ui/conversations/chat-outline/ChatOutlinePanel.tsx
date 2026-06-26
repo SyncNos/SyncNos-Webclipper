@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ChatOutlineEntry } from '@ui/conversations/chat-outline/outline-entries';
@@ -21,11 +22,18 @@ const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overfl
 const TRIGGER_BARS_CLASS = 'tw-flex tw-h-9 tw-w-[18px] tw-flex-col tw-justify-center tw-gap-[3px] tw-overflow-hidden';
 const TRIGGER_BAR_CLASS =
   'tw-h-[2px] tw-flex-none tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-transition-[opacity,width,background-color] tw-duration-150';
+const PANEL_ENTRY_LABEL_CLASS = 'tw-min-w-0 tw-flex-1 tw-text-left tw-leading-snug';
+const PANEL_ENTRY_LABEL_STYLE: CSSProperties = {
+  display: '-webkit-box',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: 2,
+  overflow: 'hidden',
+};
 
 function toItemClass(active: boolean): string {
   return [
     buttonMenuItemClassName(),
-    'tw-min-h-8 tw-items-center tw-text-xs',
+    'tw-min-h-8 tw-items-start tw-text-xs',
     active ? '' : 'webclipper-btn--tone-muted',
   ]
     .filter(Boolean)
@@ -161,7 +169,13 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
               data-chat-outline-entry={entry.messageKey}
               data-chat-outline-active={isActive ? 'true' : 'false'}
             >
-              {label}
+              <span
+                className={PANEL_ENTRY_LABEL_CLASS}
+                style={PANEL_ENTRY_LABEL_STYLE}
+                data-chat-outline-entry-label={entry.messageKey}
+              >
+                {label}
+              </span>
             </button>
           );
         })}

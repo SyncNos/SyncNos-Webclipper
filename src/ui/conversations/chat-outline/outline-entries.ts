@@ -7,27 +7,11 @@ export type ChatOutlineEntry = {
   previewText: string;
 };
 
-const DEFAULT_PREVIEW_MAX_LEN = 30;
-const ELLIPSIS = '…';
-
 function normalizeSingleLine(text: string): string {
   return String(text || '')
     .replace(/[\r\n\t]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function toValidMaxLen(raw: unknown): number {
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_PREVIEW_MAX_LEN;
-  return Math.max(1, Math.floor(parsed));
-}
-
-function truncatePreview(text: string, maxLen: number): string {
-  const normalized = normalizeSingleLine(text);
-  if (!normalized) return '';
-  if (normalized.length <= maxLen) return normalized;
-  return `${normalized.slice(0, maxLen)}${ELLIPSIS}`;
 }
 
 function markdownToReadableText(markdown: string): string {
@@ -57,12 +41,8 @@ export function extractMessagePlainText(message: ConversationMessage): string {
   return markdownToReadableText(String(message?.contentMarkdown || ''));
 }
 
-export function buildChatOutlineEntries(
-  messages: ConversationMessage[],
-  options?: { maxLen?: number },
-): ChatOutlineEntry[] {
+export function buildChatOutlineEntries(messages: ConversationMessage[]): ChatOutlineEntry[] {
   if (!Array.isArray(messages) || !messages.length) return [];
-  const maxLen = toValidMaxLen(options?.maxLen);
   const entries: ChatOutlineEntry[] = [];
 
   for (const message of messages) {
@@ -81,7 +61,7 @@ export function buildChatOutlineEntries(
       index,
       messageId,
       messageKey,
-      previewText: truncatePreview(extractMessagePlainText(message), maxLen),
+      previewText: extractMessagePlainText(message),
     });
   }
 

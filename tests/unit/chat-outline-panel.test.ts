@@ -89,13 +89,18 @@ describe('ChatOutlinePanel', () => {
 
   it('uses the shared rail panel without visible chat-specific directory copy', () => {
     const onPickEntry = vi.fn();
+    const longPreview = '请总结这篇文章的核心观点，并按照背景、论点、证据、结论四个部分展开说明';
+    const panelEntries = [
+      { ...entries[0], previewText: longPreview },
+      entries[1],
+    ];
     act(() => {
-      root!.render(createElement(ChatOutlinePanel, { entries, activeIndex: 2, onPickEntry }));
+      root!.render(createElement(ChatOutlinePanel, { entries: panelEntries, activeIndex: 2, onPickEntry }));
     });
 
     const wrap = document.querySelector('[data-reader-rail-wrap="chat-outline"]') as HTMLElement | null;
     expect(wrap).toBeTruthy();
-    expect(wrap?.querySelectorAll('[data-chat-outline-trigger-bar]')).toHaveLength(entries.length);
+    expect(wrap?.querySelectorAll('[data-chat-outline-trigger-bar]')).toHaveLength(panelEntries.length);
     expect(wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar')).toBe(
       'u-102',
     );
@@ -111,7 +116,9 @@ describe('ChatOutlinePanel', () => {
     expect(panel?.querySelector('[data-chat-outline-active="true"]')?.textContent).toBe('2. 给我一个行动清单');
 
     const firstEntry = panel?.querySelector('[data-chat-outline-entry="u-101"]') as HTMLButtonElement | null;
-    expect(firstEntry?.textContent).toBe('1. 解释这篇文章的核心观点');
+    expect(firstEntry?.textContent).toBe(`1. ${longPreview}`);
+    const firstEntryLabel = panel?.querySelector('[data-chat-outline-entry-label="u-101"]') as HTMLElement | null;
+    expect(firstEntryLabel?.getAttribute('style')).toContain('-webkit-line-clamp: 2');
     expect(firstEntry?.classList.contains('webclipper-btn')).toBe(true);
     expect(firstEntry?.classList.contains('webclipper-btn--menu-item')).toBe(true);
     expect(firstEntry?.classList.contains('webclipper-btn--tone-muted')).toBe(true);
@@ -120,7 +127,7 @@ describe('ChatOutlinePanel', () => {
     act(() => {
       firstEntry!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
     });
-    expect(onPickEntry).toHaveBeenCalledWith(entries[0]);
+    expect(onPickEntry).toHaveBeenCalledWith(panelEntries[0]);
   });
 
   it('keeps the trigger visible for large chat outlines while preserving the active marker', () => {
