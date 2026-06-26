@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { buildAiOptions as buildDefaultAiOptions } from '@services/sync/notion/notion-ai.ts';
 import { notionFetch as defaultNotionFetch } from '@services/sync/notion/notion-api.ts';
 import { conversationKinds as builtInConversationKinds } from '@services/protocols/conversation-kinds.ts';
@@ -9,19 +8,19 @@ const DEFAULT_DB_STORAGE_KEY = 'notion_db_id_syncnos_ai_chats';
 const SEARCH_PAGE_SIZE = 100;
 const SEARCH_MAX_PAGES = 10;
 
-async function getCachedDatabaseId(storageKey) {
+async function getCachedDatabaseId(storageKey: unknown) {
   const key = String(storageKey || '').trim() || DEFAULT_DB_STORAGE_KEY;
   const res = await storageGet([key]);
   return String((res && (res as any)[key]) || '');
 }
 
-async function setCachedDatabaseId(storageKey, databaseId) {
+async function setCachedDatabaseId(storageKey: unknown, databaseId: unknown) {
   const key = String(storageKey || '').trim() || DEFAULT_DB_STORAGE_KEY;
   await storageSet({ [key]: databaseId || '' });
   return true;
 }
 
-async function clearCachedDatabaseId(storageKey) {
+async function clearCachedDatabaseId(storageKey: unknown) {
   const key = String(storageKey || '').trim() || DEFAULT_DB_STORAGE_KEY;
   await storageRemove([key]);
   return true;
@@ -42,7 +41,7 @@ function buildAiOptions() {
 function defaultDbSpec() {
   const conversationKinds = getConversationKinds();
   const list = conversationKinds && typeof conversationKinds.list === 'function' ? conversationKinds.list() : [];
-  const chat = Array.isArray(list) ? list.find((d) => d && d.id === 'chat' && d.notion && d.notion.dbSpec) : null;
+  const chat = Array.isArray(list) ? list.find((d: any) => d && d.id === 'chat' && d.notion && d.notion.dbSpec) : null;
   if (chat && chat.notion && chat.notion.dbSpec) return chat.notion.dbSpec;
 
   // Fallback for unit tests / load-order gaps.
@@ -61,7 +60,7 @@ function defaultDbSpec() {
   };
 }
 
-function isUsableDatabase(database) {
+function isUsableDatabase(database: any): boolean {
   if (!database || typeof database !== 'object') return false;
   if (database.object != null && database.object !== 'database') return false;
   if (database.in_trash === true) return false;
@@ -69,14 +68,14 @@ function isUsableDatabase(database) {
   return true;
 }
 
-function normalizeNotionId(id) {
+function normalizeNotionId(id: unknown): string {
   return String(id || '')
     .trim()
     .toLowerCase()
     .replace(/-/g, '');
 }
 
-function readParentPageId(database) {
+function readParentPageId(database: any): string {
   try {
     const parent = database && database.parent ? database.parent : null;
     if (!parent || typeof parent !== 'object') return '';
@@ -87,28 +86,28 @@ function readParentPageId(database) {
   }
 }
 
-function matchesParentPage(database, parentPageId) {
+function matchesParentPage(database: any, parentPageId: unknown): boolean {
   const expected = normalizeNotionId(parentPageId);
   if (!expected) return true;
   const actual = normalizeNotionId(readParentPageId(database));
   return !!actual && actual === expected;
 }
 
-function readDatabaseTitle(database) {
+function readDatabaseTitle(database: any): string {
   const title = Array.isArray(database && database.title) ? database.title : [];
   return title
-    .map((x) => x?.plain_text || '')
+    .map((x: any) => x?.plain_text || '')
     .join('')
     .trim();
 }
 
-function normalizeTitle(value) {
+function normalizeTitle(value: unknown): string {
   return String(value || '')
     .trim()
     .toLowerCase();
 }
 
-function parseHttpStatus(error) {
+function parseHttpStatus(error: unknown): number {
   const fromField = Number(error && (error as any).status);
   if (Number.isFinite(fromField) && fromField > 0) return fromField;
   const message = String((error && (error as any).message) || error || '');
@@ -116,7 +115,7 @@ function parseHttpStatus(error) {
   return matched ? Number(matched[1]) : 0;
 }
 
-function parseNotionErrorCode(error) {
+function parseNotionErrorCode(error: unknown): string {
   const direct = String((error && (error as any).code) || '').trim();
   if (direct) return direct;
   const message = String((error && (error as any).message) || error || '');
@@ -124,21 +123,24 @@ function parseNotionErrorCode(error) {
   return matched ? String(matched[1] || '').trim() : '';
 }
 
-function isMissingDatabaseError(error) {
+function isMissingDatabaseError(error: unknown): boolean {
   const status = parseHttpStatus(error);
   if (status === 404 || status === 410) return true;
   const code = parseNotionErrorCode(error).toLowerCase();
   return code === 'object_not_found';
 }
 
-async function getDatabase(accessToken, databaseId) {
+async function getDatabase(accessToken: string, databaseId: string) {
   const notionFetch = getNotionFetch();
   return notionFetch({ accessToken, method: 'GET', path: `/v1/databases/${databaseId}` });
 }
 
-async function searchDatabases(accessToken, { query, parentPageId }) {
+async function searchDatabases(
+  accessToken: string,
+  { query, parentPageId }: { query?: string; parentPageId?: string },
+) {
   const notionFetch = getNotionFetch();
-  const results = [];
+  const results: any[] = [];
   let cursor = '';
   let pageCount = 0;
 
@@ -166,13 +168,16 @@ async function searchDatabases(accessToken, { query, parentPageId }) {
   return { results };
 }
 
-async function updateDatabase(accessToken, { databaseId, properties }) {
+async function updateDatabase(
+  accessToken: string,
+  { databaseId, properties }: { databaseId?: string; properties?: Record<string, unknown> },
+) {
   const body = { properties: properties || {} };
   const notionFetch = getNotionFetch();
   return notionFetch({ accessToken, method: 'PATCH', path: `/v1/databases/${databaseId}`, body });
 }
 
-function materializeDbProperties(dbSpec) {
+function materializeDbProperties(dbSpec: any) {
   const spec = dbSpec && typeof dbSpec === 'object' ? dbSpec : defaultDbSpec();
   const raw = spec.properties && typeof spec.properties === 'object' ? spec.properties : {};
   const props = { ...raw };
@@ -185,7 +190,7 @@ function materializeDbProperties(dbSpec) {
   return props;
 }
 
-async function createDatabase(accessToken, { parentPageId, dbSpec }) {
+async function createDatabase(accessToken: string, { parentPageId, dbSpec }: { parentPageId?: string; dbSpec?: any }) {
   const spec = dbSpec && typeof dbSpec === 'object' ? dbSpec : defaultDbSpec();
   const body = {
     parent: { type: 'page_id', page_id: parentPageId },
@@ -196,7 +201,15 @@ async function createDatabase(accessToken, { parentPageId, dbSpec }) {
   return notionFetch({ accessToken, method: 'POST', path: '/v1/databases', body });
 }
 
-async function ensureDatabaseSchema({ accessToken, databaseId, dbSpec }) {
+async function ensureDatabaseSchema({
+  accessToken,
+  databaseId,
+  dbSpec,
+}: {
+  accessToken: string;
+  databaseId: string;
+  dbSpec?: any;
+}) {
   const spec = dbSpec && typeof dbSpec === 'object' ? dbSpec : defaultDbSpec();
   const db = await getDatabase(accessToken, databaseId);
   const props = db && db.properties ? db.properties : {};
@@ -209,7 +222,7 @@ async function ensureDatabaseSchema({ accessToken, databaseId, dbSpec }) {
     if (ai && ai.type && ai.type !== 'multi_select') return false;
   }
 
-  const missing = {};
+  const missing: Record<string, any> = {};
   for (const [k, v] of Object.entries(patch)) {
     if (!props || !props[k]) missing[k] = v;
   }
@@ -227,7 +240,15 @@ async function ensureDatabaseSchema({ accessToken, databaseId, dbSpec }) {
   }
 }
 
-async function ensureDatabase({ accessToken, parentPageId, dbSpec }) {
+async function ensureDatabase({
+  accessToken,
+  parentPageId,
+  dbSpec,
+}: {
+  accessToken: string;
+  parentPageId?: string;
+  dbSpec?: any;
+}) {
   const spec = dbSpec && typeof dbSpec === 'object' ? dbSpec : defaultDbSpec();
   const cached = await getCachedDatabaseId(spec.storageKey);
   if (cached) {
@@ -253,7 +274,7 @@ async function ensureDatabase({ accessToken, parentPageId, dbSpec }) {
   const found = await searchDatabases(accessToken, { query: spec.title, parentPageId });
   const results = Array.isArray(found.results) ? found.results : [];
   const wantedTitle = normalizeTitle(spec.title);
-  const exact = results.find((d) => {
+  const exact = results.find((d: any) => {
     if (!matchesParentPage(d, parentPageId)) return false;
     const title = readDatabaseTitle(d);
     return normalizeTitle(title) === wantedTitle;

@@ -1,20 +1,19 @@
-// @ts-nocheck
 import { notionFetch as defaultNotionFetch } from '@services/sync/notion/notion-api.ts';
 
 const FILE_UPLOAD_VERSION = '2025-09-03';
 const DEFAULT_POLL_INTERVAL_MS = 800;
 const DEFAULT_MAX_ATTEMPTS = 20;
 
-function sleep(ms) {
+function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function isHttpUrl(url) {
+function isHttpUrl(url: unknown): boolean {
   const text = String(url || '').trim();
   return /^https?:\/\//i.test(text);
 }
 
-function sanitizeFilename(name) {
+function sanitizeFilename(name: unknown): string {
   const cleaned = String(name || '')
     .replaceAll('"', '')
     .replaceAll('\n', '')
@@ -23,7 +22,7 @@ function sanitizeFilename(name) {
   return cleaned || 'image.jpg';
 }
 
-function guessFilenameFromUrl(url) {
+function guessFilenameFromUrl(url: unknown): string {
   try {
     const u = new URL(String(url || ''));
     const last =
@@ -39,7 +38,7 @@ function guessFilenameFromUrl(url) {
   }
 }
 
-function describeFileImportResult(value) {
+function describeFileImportResult(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -61,10 +60,20 @@ function describeFileImportResult(value) {
   return String(value);
 }
 
-async function createExternalURLUpload({ accessToken, url, filename, contentType }) {
+async function createExternalURLUpload({
+  accessToken,
+  url,
+  filename,
+  contentType,
+}: {
+  accessToken?: string | null;
+  url?: string;
+  filename?: string;
+  contentType?: string;
+}) {
   const target = String(url || '').trim();
   if (!isHttpUrl(target)) throw new Error('invalid external image url');
-  const body = {
+  const body: Record<string, unknown> = {
     mode: 'external_url',
     external_url: target,
     filename: sanitizeFilename(filename || guessFilenameFromUrl(target)),
@@ -80,7 +89,17 @@ async function createExternalURLUpload({ accessToken, url, filename, contentType
   });
 }
 
-async function createFileUpload({ accessToken, filename, contentType, contentLength: _contentLength }) {
+async function createFileUpload({
+  accessToken,
+  filename,
+  contentType,
+  contentLength: _contentLength,
+}: {
+  accessToken?: string | null;
+  filename?: string;
+  contentType?: string;
+  contentLength?: number;
+}) {
   const name = sanitizeFilename(filename || '');
   const ct = String(contentType || '').trim() || 'application/octet-stream';
   const body = {
@@ -97,7 +116,19 @@ async function createFileUpload({ accessToken, filename, contentType, contentLen
   });
 }
 
-async function sendFileUpload({ accessToken, id, bytes, filename, contentType }) {
+async function sendFileUpload({
+  accessToken,
+  id,
+  bytes,
+  filename,
+  contentType,
+}: {
+  accessToken?: string | null;
+  id?: string;
+  bytes?: Uint8Array | ArrayBuffer;
+  filename?: string;
+  contentType?: string;
+}) {
   const uploadId = String(id || '').trim();
   if (!uploadId) throw new Error('missing upload id');
   if (!(bytes instanceof Uint8Array) && !(bytes instanceof ArrayBuffer)) throw new Error('invalid bytes');
@@ -106,7 +137,7 @@ async function sendFileUpload({ accessToken, id, bytes, filename, contentType })
   const ct = String(contentType || '').trim() || 'application/octet-stream';
   const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   const form = new FormData();
-  const blob = new Blob([data], { type: ct });
+  const blob = new Blob([data as BlobPart], { type: ct });
   form.append('file', blob, name);
 
   const res = await fetch(`https://api.notion.com/v1/file_uploads/${encodeURIComponent(uploadId)}/send`, {
@@ -123,7 +154,7 @@ async function sendFileUpload({ accessToken, id, bytes, filename, contentType })
   return text ? JSON.parse(text) : {};
 }
 
-async function retrieveUpload({ accessToken, id }) {
+async function retrieveUpload({ accessToken, id }: { accessToken?: string | null; id?: string }) {
   const uploadId = String(id || '').trim();
   if (!uploadId) throw new Error('missing upload id');
   return defaultNotionFetch({
@@ -135,7 +166,17 @@ async function retrieveUpload({ accessToken, id }) {
   });
 }
 
-async function waitUntilUploaded({ accessToken, id, pollIntervalMs, maxAttempts } = {}) {
+async function waitUntilUploaded({
+  accessToken,
+  id,
+  pollIntervalMs,
+  maxAttempts,
+}: {
+  accessToken?: string | null;
+  id?: string;
+  pollIntervalMs?: number;
+  maxAttempts?: number;
+} = {}) {
   const uploadId = String(id || '').trim();
   if (!uploadId) throw new Error('missing upload id');
   const interval = Number.isFinite(Number(pollIntervalMs))

@@ -1,8 +1,28 @@
-// @ts-nocheck
-
 const NOTION_VERSION = '2022-06-28';
 
-function safeJsonParse(text) {
+interface NotionApiError extends Error {
+  status?: number;
+  retryAfterMs?: number;
+  code?: string;
+  notionMessage?: string;
+  requestId?: string;
+}
+
+interface NotionFetchArgs {
+  accessToken?: string | null;
+  method: string;
+  path: string;
+  body?: unknown;
+  notionVersion?: string | null;
+}
+
+interface NotionSearchArgs {
+  accessToken?: string | null;
+  query?: string | null;
+  pageSize?: number | null;
+}
+
+function safeJsonParse(text: string | null | undefined): unknown {
   try {
     return text ? JSON.parse(text) : null;
   } catch (_e) {
@@ -10,7 +30,7 @@ function safeJsonParse(text) {
   }
 }
 
-function parseRetryAfterMs(res) {
+function parseRetryAfterMs(res: Response | null | undefined): number {
   try {
     const raw =
       res && res.headers && typeof res.headers.get === 'function'
@@ -28,7 +48,7 @@ function parseRetryAfterMs(res) {
   }
 }
 
-async function notionFetch({ accessToken, method, path, body, notionVersion }) {
+async function notionFetch({ accessToken, method, path, body, notionVersion }: NotionFetchArgs) {
   if (!accessToken) throw new Error('missing notion access token');
   const url = `https://api.notion.com${path}`;
   const res = await fetch(url, {
@@ -43,11 +63,11 @@ async function notionFetch({ accessToken, method, path, body, notionVersion }) {
   });
   const text = await res.text();
   if (!res.ok) {
-    const err = new Error(`notion api failed: ${method} ${path} HTTP ${res.status} ${text}`);
+    const err: NotionApiError = new Error(`notion api failed: ${method} ${path} HTTP ${res.status} ${text}`);
     err.status = res.status;
     const retryAfterMs = parseRetryAfterMs(res);
     if (retryAfterMs > 0) err.retryAfterMs = retryAfterMs;
-    const parsed = safeJsonParse(text);
+    const parsed = safeJsonParse(text) as Record<string, unknown> | null;
     if (parsed && typeof parsed === 'object') {
       if (parsed.code) err.code = String(parsed.code);
       if (parsed.message) err.notionMessage = String(parsed.message);
@@ -63,14 +83,14 @@ async function notionFetch({ accessToken, method, path, body, notionVersion }) {
   return text ? JSON.parse(text) : {};
 }
 
-function getPageTitle(page) {
+function getPageTitle(page: { properties?: Record<string, any>; url?: string } | null | undefined): string {
   try {
     const props = page && page.properties ? page.properties : {};
     for (const key of Object.keys(props)) {
       const p = props[key];
       if (p && p.type === 'title' && Array.isArray(p.title)) {
         const t = p.title
-          .map((x) => x.plain_text || '')
+          .map((x: any) => x.plain_text || '')
           .join('')
           .trim();
         if (t) return t;
@@ -82,8 +102,16 @@ function getPageTitle(page) {
   return page && page.url ? page.url : 'Untitled';
 }
 
-function buildSearchBody({ query, pageSize, startCursor }) {
-  const body = {
+function buildSearchBody({
+  query,
+  pageSize,
+  startCursor,
+}: {
+  query?: string | null;
+  pageSize?: number;
+  startCursor?: string | null;
+}): Record<string, unknown> {
+  const body: Record<string, unknown> = {
     filter: { property: 'object', value: 'page' },
     page_size: pageSize || 50,
   };
@@ -93,9 +121,9 @@ function buildSearchBody({ query, pageSize, startCursor }) {
   return body;
 }
 
-async function searchPages({ accessToken, query, pageSize }) {
+async function searchPages({ accessToken, query, pageSize }: NotionSearchArgs) {
   const size = Number.isFinite(Number(pageSize)) && Number(pageSize) > 0 ? Number(pageSize) : 50;
-  let cursor = null;
+  let cursor: string | null = null;
   let guard = 0;
 
   while (guard < 20) {
@@ -103,7 +131,7 @@ async function searchPages({ accessToken, query, pageSize }) {
     const body = buildSearchBody({ query, pageSize: size, startCursor: cursor });
     const res = await notionFetch({ accessToken, method: 'POST', path: '/v1/search', body });
     const results = Array.isArray(res && res.results) ? res.results : [];
-    const usableParentPages = results.filter((item) => {
+    const usableParentPages = results.filter((item: any) => {
       if (!item || item.object !== 'page') return false;
       const parent = item.parent || null;
       if (!parent) return true;

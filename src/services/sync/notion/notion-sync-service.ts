@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { optionNameForSource as defaultOptionNameForSource } from '@services/sync/notion/notion-ai.ts';
 import { notionFetch as defaultNotionFetch } from '@services/sync/notion/notion-api.ts';
 import notionImageUploadUpgrader from '@services/sync/notion/notion-image-upload-upgrader.ts';
@@ -14,36 +13,36 @@ function getNotionFetch() {
   return defaultNotionFetch;
 }
 
-function aiLabelForSource(source) {
+function aiLabelForSource(source: unknown): string {
   return defaultOptionNameForSource(source);
 }
 
-function sleep(ms) {
+function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function normalizeBlockList(blocks) {
+function normalizeBlockList(blocks: unknown): any[] {
   if (!Array.isArray(blocks)) return [];
   return Array.from(blocks).filter((block) => block && typeof block === 'object');
 }
 
-function parseHttpStatus(error) {
-  const raw = error && error.status != null ? Number(error.status) : NaN;
+function parseHttpStatus(error: unknown): number {
+  const raw = error && (error as any).status != null ? Number((error as any).status) : NaN;
   if (Number.isFinite(raw) && raw > 0) return raw;
-  const message = error && error.message ? String(error.message) : String(error || '');
+  const message = error && (error as any).message ? String((error as any).message) : String(error || '');
   const m = message.match(/\bHTTP\s+(\d{3})\b/i);
   return m ? Number(m[1]) : 0;
 }
 
-function normalizeNotionId(id) {
+function normalizeNotionId(id: unknown): string {
   return String(id || '')
     .trim()
     .toLowerCase()
     .replace(/-/g, '');
 }
 
-function retryDelayMs(error, attempt) {
-  const retryAfterMs = error && error.retryAfterMs != null ? Number(error.retryAfterMs) : 0;
+function retryDelayMs(error: unknown, attempt: unknown): number {
+  const retryAfterMs = error && (error as any).retryAfterMs != null ? Number((error as any).retryAfterMs) : 0;
   if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
     return Math.min(5000, Math.max(150, Math.round(retryAfterMs)));
   }
@@ -53,10 +52,10 @@ function retryDelayMs(error, attempt) {
   return Math.min(5000, base + jitter);
 }
 
-function splitText(text) {
+function splitText(text: unknown): string[] {
   const s = String(text || '');
   if (s.length <= MAX_TEXT) return [s];
-  const parts = [];
+  const parts: string[] = [];
   let remaining = s;
   while (remaining.length) {
     if (remaining.length <= MAX_TEXT) {
@@ -71,7 +70,7 @@ function splitText(text) {
   return parts;
 }
 
-function textBlock(content) {
+function textBlock(content: string) {
   return {
     object: 'block',
     type: 'paragraph',
@@ -81,7 +80,7 @@ function textBlock(content) {
   };
 }
 
-function headingBlock(label, color) {
+function headingBlock(label: string, color?: string) {
   return {
     object: 'block',
     type: 'heading_3',
@@ -92,8 +91,8 @@ function headingBlock(label, color) {
   };
 }
 
-let markdownBlocksApi = null;
-let imageUploadUpgraderApi = null;
+let markdownBlocksApi: any = null;
+let imageUploadUpgraderApi: any = null;
 
 function getMarkdownBlocksApi() {
   if (markdownBlocksApi) return markdownBlocksApi;
@@ -117,7 +116,7 @@ function getImageUploadUpgraderApi() {
   return null;
 }
 
-function inlineMarkdownToRichText(markdown, base = {}, link) {
+function inlineMarkdownToRichText(markdown: unknown, base: any = {}, link?: unknown) {
   const api = getMarkdownBlocksApi();
   if (api && typeof api.inlineMarkdownToRichText === 'function') {
     return api.inlineMarkdownToRichText(markdown, base, link);
@@ -127,7 +126,7 @@ function inlineMarkdownToRichText(markdown, base = {}, link) {
   return [{ type: 'text', text: { content }, annotations: { ...base } }];
 }
 
-function markdownToNotionBlocks(markdown) {
+function markdownToNotionBlocks(markdown: unknown) {
   const api = getMarkdownBlocksApi();
   if (api && typeof api.markdownToNotionBlocks === 'function') {
     return api.markdownToNotionBlocks(markdown);
@@ -143,7 +142,7 @@ function markdownToNotionBlocks(markdown) {
   ];
 }
 
-function messagesToBlocks(messages, _options) {
+function messagesToBlocks(messages: any, _options?: unknown) {
   const out = [];
   for (const m of messages || []) {
     const role = m.role || 'assistant';
@@ -166,10 +165,10 @@ function messagesToBlocks(messages, _options) {
   return out;
 }
 
-async function listChildren(accessToken, blockId) {
+async function listChildren(accessToken: string, blockId: string) {
   const notionFetch = getNotionFetch();
-  const out = [];
-  let cursor = null;
+  const out: any[] = [];
+  let cursor: string | null = null;
   for (;;) {
     const qs = cursor ? `?page_size=100&start_cursor=${encodeURIComponent(String(cursor))}` : '?page_size=100';
 
@@ -187,13 +186,13 @@ async function listChildren(accessToken, blockId) {
   return out;
 }
 
-async function archiveBlock(accessToken, blockId) {
+async function archiveBlock(accessToken: string, blockId: string) {
   const notionFetch = getNotionFetch();
   // Notion uses DELETE to archive blocks.
   return notionFetch({ accessToken, method: 'DELETE', path: `/v1/blocks/${blockId}` });
 }
 
-async function archiveBlockWithRetry(accessToken, blockId) {
+async function archiveBlockWithRetry(accessToken: string, blockId: string) {
   let attempt = 0;
   for (;;) {
     attempt += 1;
@@ -209,7 +208,7 @@ async function archiveBlockWithRetry(accessToken, blockId) {
   }
 }
 
-async function appendBatchWithRetry(accessToken, pageId, batch) {
+async function appendBatchWithRetry(accessToken: string, pageId: string, batch: unknown) {
   const children = normalizeBlockList(batch);
   if (!children.length) return {};
   const notionFetch = getNotionFetch();
@@ -233,7 +232,7 @@ async function appendBatchWithRetry(accessToken, pageId, batch) {
   }
 }
 
-async function parallelEach(items, worker, concurrency) {
+async function parallelEach(items: unknown, worker: (item: any) => unknown, concurrency?: unknown) {
   const queue = Array.isArray(items) ? items.slice() : [];
   if (!queue.length) return true;
   const size = Number.isFinite(Number(concurrency)) ? Math.max(1, Number(concurrency)) : 1;
@@ -254,7 +253,7 @@ async function parallelEach(items, worker, concurrency) {
   return true;
 }
 
-async function clearPageChildren(accessToken, pageId) {
+async function clearPageChildren(accessToken: string, pageId: string) {
   const children = await listChildren(accessToken, pageId);
   const ids = children.map((c) => (c && c.id ? String(c.id).trim() : '')).filter(Boolean);
   await parallelEach(
@@ -266,7 +265,7 @@ async function clearPageChildren(accessToken, pageId) {
   );
 }
 
-async function appendChildren(accessToken, pageId, blocks) {
+async function appendChildren(accessToken: string, pageId: string, blocks: unknown) {
   let remaining = normalizeBlockList(blocks);
   const appended = [];
   while (remaining.length) {
@@ -279,8 +278,20 @@ async function appendChildren(accessToken, pageId, blocks) {
   return { results: appended, count: appended.length };
 }
 
-function buildPageProperties({ title, url, ai, includeDate, capturedAt }) {
-  function coerceHttpUrlOrNull(input) {
+function buildPageProperties({
+  title,
+  url,
+  ai,
+  includeDate,
+  capturedAt,
+}: {
+  title?: string;
+  url?: string;
+  ai?: unknown;
+  includeDate?: boolean;
+  capturedAt?: unknown;
+}) {
+  function coerceHttpUrlOrNull(input: unknown): string | null {
     const raw = String(input ?? '').trim();
     if (!raw) return null;
     try {
@@ -293,7 +304,7 @@ function buildPageProperties({ title, url, ai, includeDate, capturedAt }) {
     }
   }
 
-  const props = {
+  const props: Record<string, any> = {
     Name: { title: [{ type: 'text', text: { content: title || 'Untitled' } }] },
     // Notion rejects empty string for URL properties; use null when missing/invalid.
     URL: { url: coerceHttpUrlOrNull(url) },
@@ -308,12 +319,36 @@ function buildPageProperties({ title, url, ai, includeDate, capturedAt }) {
   return props;
 }
 
-function resolveProperties({ properties, title, url, ai, includeDate, capturedAt }) {
+function resolveProperties({
+  properties,
+  title,
+  url,
+  ai,
+  includeDate,
+  capturedAt,
+}: {
+  properties?: any;
+  title?: string;
+  url?: string;
+  ai?: unknown;
+  includeDate?: boolean;
+  capturedAt?: unknown;
+}) {
   if (properties && typeof properties === 'object') return properties;
   return buildPageProperties({ title, url, ai, includeDate, capturedAt });
 }
 
-async function createPageInDatabase(accessToken, { databaseId, title, url, ai, properties, capturedAt }) {
+async function createPageInDatabase(
+  accessToken: string,
+  {
+    databaseId,
+    title,
+    url,
+    ai,
+    properties,
+    capturedAt,
+  }: { databaseId?: string; title?: string; url?: string; ai?: unknown; properties?: any; capturedAt?: unknown },
+) {
   const notionFetch = getNotionFetch();
   const body = {
     parent: { database_id: databaseId },
@@ -322,7 +357,16 @@ async function createPageInDatabase(accessToken, { databaseId, title, url, ai, p
   return notionFetch({ accessToken, method: 'POST', path: '/v1/pages', body });
 }
 
-async function updatePageProperties(accessToken, { pageId, title, url, ai, properties }) {
+async function updatePageProperties(
+  accessToken: string,
+  {
+    pageId,
+    title,
+    url,
+    ai,
+    properties,
+  }: { pageId?: string; title?: string; url?: string; ai?: unknown; properties?: any },
+) {
   const notionFetch = getNotionFetch();
   const body = {
     properties: resolveProperties({ properties, title, url, ai, includeDate: false }),
@@ -330,12 +374,12 @@ async function updatePageProperties(accessToken, { pageId, title, url, ai, prope
   return notionFetch({ accessToken, method: 'PATCH', path: `/v1/pages/${pageId}`, body });
 }
 
-async function getPage(accessToken, pageId) {
+async function getPage(accessToken: string, pageId: string) {
   const notionFetch = getNotionFetch();
   return notionFetch({ accessToken, method: 'GET', path: `/v1/pages/${pageId}` });
 }
 
-function isPageArchivedOrTrashed(page) {
+function isPageArchivedOrTrashed(page: any): boolean {
   try {
     if (!page || typeof page !== 'object') return true;
     if (page.archived === true) return true;
@@ -346,13 +390,13 @@ function isPageArchivedOrTrashed(page) {
   }
 }
 
-function isPageUsableForDatabase(page, databaseId) {
+function isPageUsableForDatabase(page: any, databaseId: unknown): boolean {
   if (!pageBelongsToDatabase(page, databaseId)) return false;
   if (isPageArchivedOrTrashed(page)) return false;
   return true;
 }
 
-function pageBelongsToDatabase(page, databaseId) {
+function pageBelongsToDatabase(page: any, databaseId: unknown): boolean {
   try {
     const parent = page && page.parent ? page.parent : null;
     if (!parent || parent.type !== 'database_id') return false;
@@ -365,7 +409,7 @@ function pageBelongsToDatabase(page, databaseId) {
   }
 }
 
-function hasExternalImageBlocks(blocks) {
+function hasExternalImageBlocks(blocks: unknown): boolean {
   const list = Array.isArray(blocks) ? blocks : [];
   return list.some(
     (b) =>
@@ -373,7 +417,7 @@ function hasExternalImageBlocks(blocks) {
   );
 }
 
-async function upgradeImageBlocksToFileUploads(accessToken, blocks) {
+async function upgradeImageBlocksToFileUploads(accessToken: string, blocks: unknown) {
   const api = getImageUploadUpgraderApi();
   if (api && typeof api.upgradeImageBlocksToFileUploads === 'function') {
     return api.upgradeImageBlocksToFileUploads(accessToken, blocks);

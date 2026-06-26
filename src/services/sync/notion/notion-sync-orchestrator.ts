@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { NotionServices } from '@services/sync/notion/notion-services.ts';
 import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
 import { getNotionOAuthToken } from '@services/sync/notion/auth/token-store';
@@ -30,19 +29,19 @@ const SYNC_CONVERSATION_CONCURRENCY = 2;
 
 function notionTraceEnabled() {
   try {
-    return !!(globalThis && globalThis.__SYNCNOS_NOTION_TRACE__);
+    return !!(globalThis as any).__SYNCNOS_NOTION_TRACE__;
   } catch (_e) {
     return false;
   }
 }
 
-function createConversationTrace(conversationId) {
+function createConversationTrace(conversationId: unknown) {
   const enabled = notionTraceEnabled();
   const startedAt = Date.now();
   let lastAt = startedAt;
-  const stages = [];
+  const stages: any[] = [];
 
-  function mark(stage) {
+  function mark(stage: unknown) {
     if (!enabled) return;
     const now = Date.now();
     stages.push({
@@ -53,7 +52,7 @@ function createConversationTrace(conversationId) {
     lastAt = now;
   }
 
-  function flush(meta = {}) {
+  function flush(meta: any = {}) {
     if (!enabled || !stages.length) return;
     try {
       console.debug('[SyncNos][NotionTrace]', {
@@ -70,26 +69,26 @@ function createConversationTrace(conversationId) {
   return { mark, flush };
 }
 
-function toConvoLabel(convo) {
+function toConvoLabel(convo: any): string {
   if (!convo) return '(missing conversation)';
   const t = convo.title || '';
   return t ? `"${t}"` : `conversation#${convo.id || '?'}`;
 }
 
-function isObjectNotFoundError(error) {
-  const message = error && error.message ? String(error.message) : String(error || '');
+function isObjectNotFoundError(error: unknown): boolean {
+  const message = error && (error as any).message ? String((error as any).message) : String(error || '');
   if (!message) return false;
   return message.includes('object_not_found');
 }
 
-function isMissingDatabaseError(error) {
-  const message = error && error.message ? String(error.message) : String(error || '');
+function isMissingDatabaseError(error: unknown): boolean {
+  const message = error && (error as any).message ? String((error as any).message) : String(error || '');
   if (!message) return false;
   if (!isObjectNotFoundError(error)) return false;
   return message.toLowerCase().includes('database');
 }
 
-function toPerConversationSnapshot(results) {
+function toPerConversationSnapshot(results: any[]) {
   return results.map((r) => ({
     conversationId: r.conversationId,
     conversationTitle: r.conversationTitle || '',
@@ -102,7 +101,7 @@ function toPerConversationSnapshot(results) {
   }));
 }
 
-function buildFailureSummaries(results) {
+function buildFailureSummaries(results: any[]) {
   return results
     .filter((r) => !r.ok)
     .map((r) => ({
@@ -112,24 +111,24 @@ function buildFailureSummaries(results) {
     }));
 }
 
-function buildAlreadyRunningError() {
-  const error = new Error('sync already in progress');
+function buildAlreadyRunningError(): Error {
+  const error: any = new Error('sync already in progress');
   error.code = 'sync_already_running';
   return error;
 }
 
-function parseHttpStatus(error) {
-  const explicit = error && error.status != null ? Number(error.status) : NaN;
+function parseHttpStatus(error: unknown): number {
+  const explicit = error && (error as any).status != null ? Number((error as any).status) : NaN;
   if (Number.isFinite(explicit) && explicit > 0) return explicit;
-  const message = error && error.message ? String(error.message) : String(error || '');
+  const message = error && (error as any).message ? String((error as any).message) : String(error || '');
   const match = message.match(/\bHTTP\s+(\d{3})\b/i);
   return match ? Number(match[1]) : 0;
 }
 
-function parseNotionErrorCode(error) {
-  const explicit = String(error && error.code ? error.code : '').trim();
+function parseNotionErrorCode(error: unknown): string {
+  const explicit = String(error && (error as any).code ? (error as any).code : '').trim();
   if (explicit) return explicit.toLowerCase();
-  const message = error && error.message ? String(error.message) : String(error || '');
+  const message = error && (error as any).message ? String((error as any).message) : String(error || '');
   const codeMatch = message.match(/"code"\s*:\s*"([^"]+)"/i);
   return codeMatch
     ? String(codeMatch[1] || '')
@@ -138,10 +137,10 @@ function parseNotionErrorCode(error) {
     : '';
 }
 
-function parseNotionErrorMessage(error) {
-  const explicit = error && error.notionMessage ? String(error.notionMessage) : '';
+function parseNotionErrorMessage(error: unknown): string {
+  const explicit = error && (error as any).notionMessage ? String((error as any).notionMessage) : '';
   if (explicit.trim()) return explicit.trim();
-  const message = error && error.message ? String(error.message) : String(error || '');
+  const message = error && (error as any).message ? String((error as any).message) : String(error || '');
   const apiMessageMatch = message.match(/"message"\s*:\s*"([^"]+)"/i);
   if (apiMessageMatch && apiMessageMatch[1]) {
     try {
@@ -153,15 +152,16 @@ function parseNotionErrorMessage(error) {
   return message;
 }
 
-function formatRetryHint(error) {
-  const retryAfterMs = error && error.retryAfterMs != null ? Number(error.retryAfterMs) : 0;
+function formatRetryHint(error: unknown): string {
+  const retryAfterMs = error && (error as any).retryAfterMs != null ? Number((error as any).retryAfterMs) : 0;
   if (!Number.isFinite(retryAfterMs) || retryAfterMs <= 0) return '';
   const seconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
   return ` Retry in about ${seconds}s.`;
 }
 
-function normalizeNotionSyncError(error) {
-  const rawMessage = error && error.message ? String(error.message) : String(error || 'unknown error');
+function normalizeNotionSyncError(error: unknown): string {
+  const rawMessage =
+    error && (error as any).message ? String((error as any).message) : String(error || 'unknown error');
   if (!rawMessage) return 'unknown error';
   if (!rawMessage.toLowerCase().includes('notion api failed:')) return rawMessage;
 
@@ -176,7 +176,7 @@ function normalizeNotionSyncError(error) {
   return notionMessage || rawMessage;
 }
 
-function isStaleBlockAnchorError(error) {
+function isStaleBlockAnchorError(error: unknown): boolean {
   const code = parseNotionErrorCode(error);
   if (code === 'object_not_found') return true;
   const msg = normalizeNotionSyncError(error).toLowerCase();
@@ -184,13 +184,13 @@ function isStaleBlockAnchorError(error) {
   return msg.includes('archived') || msg.includes('in_trash');
 }
 
-function toCurrentConversationTitle(convo, _id) {
+function toCurrentConversationTitle(convo: any, _id?: unknown): string {
   const title = convo && convo.title ? String(convo.title).trim() : '';
   if (title) return title;
   return '';
 }
 
-function readRichText(items) {
+function readRichText(items: unknown): string {
   const list = Array.isArray(items) ? items : [];
   return list
     .map((item) => {
@@ -202,13 +202,13 @@ function readRichText(items) {
     .join('');
 }
 
-function normalizePagePropertyValue(property) {
+function normalizePagePropertyValue(property: any): string {
   const prop = property && typeof property === 'object' ? property : {};
   if (Array.isArray(prop.title)) return readRichText(prop.title);
   if (Array.isArray(prop.rich_text)) return readRichText(prop.rich_text);
   if (Array.isArray(prop.multi_select)) {
     return prop.multi_select
-      .map((item) => String(item && item.name ? item.name : '').trim())
+      .map((item: any) => String(item && item.name ? item.name : '').trim())
       .filter(Boolean)
       .sort()
       .join('|');
@@ -223,7 +223,7 @@ function normalizePagePropertyValue(property) {
   return JSON.stringify(prop);
 }
 
-function pagePropertiesNeedUpdate(page, desiredProperties) {
+function pagePropertiesNeedUpdate(page: any, desiredProperties: any): boolean {
   const pageProperties = page && page.properties && typeof page.properties === 'object' ? page.properties : {};
   const desired = desiredProperties && typeof desiredProperties === 'object' ? desiredProperties : {};
   for (const [key, value] of Object.entries(desired)) {
@@ -233,7 +233,7 @@ function pagePropertiesNeedUpdate(page, desiredProperties) {
   return false;
 }
 
-function normalizeJob(job) {
+function normalizeJob(job: any) {
   if (!job || typeof job !== 'object') return null;
   const perConversation = toPerConversationSnapshot(Array.isArray(job.perConversation) ? job.perConversation : []);
   const okCount = Number(job.okCount);
@@ -246,7 +246,7 @@ function normalizeJob(job) {
     updatedAt: Number(job.updatedAt) || Date.now(),
     finishedAt: job.finishedAt == null ? null : Number(job.finishedAt) || null,
     conversationIds: Array.isArray(job.conversationIds)
-      ? job.conversationIds.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0)
+      ? job.conversationIds.map((x: any) => Number(x)).filter((x: any) => Number.isFinite(x) && x > 0)
       : [],
     okCount: Number.isFinite(okCount) ? okCount : perConversation.filter((r) => r.ok).length,
     failCount: Number.isFinite(failCount) ? failCount : perConversation.filter((r) => !r.ok).length,
@@ -254,7 +254,7 @@ function normalizeJob(job) {
   };
 }
 
-function canUpgradeImageBlocks(notionSyncService, blocks) {
+function canUpgradeImageBlocks(notionSyncService: any, blocks: any): boolean {
   if (!blocks || !blocks.length) return false;
   if (typeof notionSyncService.upgradeImageBlocksToFileUploads !== 'function') return false;
   if (typeof notionSyncService.hasExternalImageBlocks === 'function') {
@@ -263,7 +263,7 @@ function canUpgradeImageBlocks(notionSyncService, blocks) {
   return true;
 }
 
-function countExternalImageBlocks(blocks) {
+function countExternalImageBlocks(blocks: unknown): number {
   const list = Array.isArray(blocks) ? blocks : [];
   let count = 0;
   for (const b of list) {
@@ -273,22 +273,32 @@ function countExternalImageBlocks(blocks) {
   return count;
 }
 
-function countInlineImageOmittedPlaceholders(blocks) {
+function countInlineImageOmittedPlaceholders(blocks: unknown): number {
   const list = Array.isArray(blocks) ? blocks : [];
   let count = 0;
   for (const b of list) {
     if (!b || b.type !== 'paragraph' || !b.paragraph) continue;
     const rt = Array.isArray(b.paragraph.rich_text) ? b.paragraph.rich_text : [];
     const text = rt
-      .map((x) => (x && x.type === 'text' && x.text && x.text.content ? String(x.text.content) : ''))
+      .map((x: any) => (x && x.type === 'text' && x.text && x.text.content ? String(x.text.content) : ''))
       .join('');
     if (text.includes('[Image omitted: inline image')) count += 1;
   }
   return count;
 }
 
-async function buildBlocksForSync({ notionSyncService, accessToken, source, messagesList }) {
-  const warnings = [];
+async function buildBlocksForSync({
+  notionSyncService,
+  accessToken,
+  source,
+  messagesList,
+}: {
+  notionSyncService: any;
+  accessToken?: string;
+  source?: unknown;
+  messagesList?: any;
+}) {
+  const warnings: any[] = [];
   let blocks = notionSyncService.messagesToBlocks(messagesList, {
     source,
   });
@@ -296,7 +306,17 @@ async function buildBlocksForSync({ notionSyncService, accessToken, source, mess
   return { blocks, warnings };
 }
 
-async function maybeUpgradeBlocksWithNotionFileUploads({ notionSyncService, accessToken, blocks, warnings }) {
+async function maybeUpgradeBlocksWithNotionFileUploads({
+  notionSyncService,
+  accessToken,
+  blocks,
+  warnings,
+}: {
+  notionSyncService: any;
+  accessToken?: string;
+  blocks?: any;
+  warnings: any[];
+}) {
   let nextBlocks = Array.isArray(blocks) ? blocks : [];
   if (!canUpgradeImageBlocks(notionSyncService, nextBlocks)) return nextBlocks;
 
@@ -307,7 +327,7 @@ async function maybeUpgradeBlocksWithNotionFileUploads({ notionSyncService, acce
     warnings.push({
       code: 'notion_image_upload_failed',
       message: 'Image upload upgrade failed; keeping external images.',
-      extra: { error: e && e.message ? String(e.message) : String(e) },
+      extra: { error: e && (e as any).message ? String((e as any).message) : String(e) },
     });
     return nextBlocks;
   }
@@ -333,14 +353,14 @@ async function maybeUpgradeBlocksWithNotionFileUploads({ notionSyncService, acce
   return nextBlocks;
 }
 
-function pickArticleBodyMessages(messagesList) {
+function pickArticleBodyMessages(messagesList: unknown) {
   const list = Array.isArray(messagesList) ? messagesList : [];
   const preferred = list.filter((m) => m && String(m.messageKey || '').trim() === 'article_body');
   if (preferred.length) return preferred;
   return list;
 }
 
-function pickArticleBodyMarkdown(messagesList) {
+function pickArticleBodyMarkdown(messagesList: unknown): string {
   const list = Array.isArray(messagesList) ? messagesList : [];
   const preferred = list.find((m) => m && String(m.messageKey || '').trim() === 'article_body');
   const picked =
@@ -361,7 +381,7 @@ function pickArticleBodyMarkdown(messagesList) {
   return String(markdown || '').trim();
 }
 
-function fnv1a32(input) {
+function fnv1a32(input: unknown): string {
   const text = String(input || '');
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i += 1) {
@@ -371,18 +391,18 @@ function fnv1a32(input) {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-function computeNotionArticleDigest(messagesList) {
+function computeNotionArticleDigest(messagesList: unknown): string {
   const markdown = normalizeStandaloneImageCaptionLines(pickArticleBodyMarkdown(messagesList));
   return fnv1a32(JSON.stringify({ markdown }));
 }
 
-function stripLeadingArticleRoleHeading(blocks) {
+function stripLeadingArticleRoleHeading(blocks: unknown) {
   const list = Array.isArray(blocks) ? blocks.slice() : [];
   if (!list.length) return list;
   const first = list[0];
   if (!first || typeof first !== 'object') return list;
   if (first.type !== 'heading_3' || !first.heading_3 || !Array.isArray(first.heading_3.rich_text)) return list;
-  const label = first.heading_3.rich_text.map((x) => String(x?.plain_text || x?.text?.content || '')).join('');
+  const label = first.heading_3.rich_text.map((x: any) => String(x?.plain_text || x?.text?.content || '')).join('');
   if (
     String(label || '')
       .trim()
@@ -397,7 +417,7 @@ async function getNotionParentPageId() {
   return String((res as any)?.notion_parent_page_id || '');
 }
 
-async function clearCachedDatabaseId(notionDbManager, storageKey) {
+async function clearCachedDatabaseId(notionDbManager: any, storageKey: unknown) {
   if (notionDbManager && typeof notionDbManager.clearCachedDatabaseId === 'function') {
     await notionDbManager.clearCachedDatabaseId(storageKey);
     return true;
@@ -417,14 +437,14 @@ async function clearCachedDatabaseId(notionDbManager, storageKey) {
 }
 
 export function createNotionSyncOrchestrator(services: NotionServices) {
-  const notionJobStore = services?.jobStore;
-  const notionTokenStore = services?.tokenStore;
-  const notionDbManager = services?.dbManager;
-  const notionSyncService = services?.syncService;
-  const storage = services?.storage;
-  const conversationKinds = services?.conversationKinds;
+  const notionJobStore: any = services?.jobStore;
+  const notionTokenStore: any = services?.tokenStore;
+  const notionDbManager: any = services?.dbManager;
+  const notionSyncService: any = services?.syncService;
+  const storage: any = services?.storage;
+  const conversationKinds: any = services?.conversationKinds;
 
-  async function getSyncJobStatus(input) {
+  async function getSyncJobStatus(input: any) {
     const instanceId = input && input.instanceId != null ? String(input.instanceId) : '';
     if (!notionJobStore || typeof notionJobStore.getJob !== 'function') {
       throw new Error('notion sync job store missing');
@@ -440,7 +460,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
     return { provider: SYNC_PROVIDER, job, instanceId };
   }
 
-  async function clearSyncJobStatus(input) {
+  async function clearSyncJobStatus(input: any) {
     const instanceId = input && input.instanceId != null ? String(input.instanceId) : '';
     if (!notionJobStore || typeof notionJobStore.setJob !== 'function') {
       throw new Error('notion sync job store missing');
@@ -449,7 +469,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
     return { provider: SYNC_PROVIDER, job: null, instanceId };
   }
 
-  async function syncConversations(input) {
+  async function syncConversations(input: any) {
     const instanceId = input && input.instanceId != null ? String(input.instanceId) : '';
     const conversationIds = input ? input.conversationIds : undefined;
     if (
@@ -524,7 +544,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
       const recoveredMissingDbByStorageKey = new Set();
       const dbRecoveryPromiseByStorageKey = new Map();
 
-      async function ensureDbForKind(kind) {
+      async function ensureDbForKind(kind: any) {
         const existing = dbIdByKindId.get(kind.id);
         if (existing) return String(existing);
         const pending = dbIdPromiseByKindId.get(kind.id);
@@ -550,7 +570,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
         }
       }
 
-      async function recoverDbForStorageKey(kind, dbSpec) {
+      async function recoverDbForStorageKey(kind: any, dbSpec: any) {
         const storageKey = String(dbSpec && dbSpec.storageKey ? dbSpec.storageKey : '');
         const pending = dbRecoveryPromiseByStorageKey.get(storageKey);
         if (pending) return pending;
@@ -575,19 +595,19 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
         }
       }
 
-      const resultSlots = ids.map(() => null);
+      const resultSlots: any[] = ids.map(() => null);
       let runningJobWriteChain = Promise.resolve(true);
 
       function currentResults() {
         return resultSlots.filter(Boolean);
       }
 
-      function setResultAt(index, result) {
+      function setResultAt(index: number, result: any) {
         resultSlots[index] = result;
         return result;
       }
 
-      async function writeRunningJob(partial = {}) {
+      async function writeRunningJob(partial: any = {}) {
         runningJobWriteChain = runningJobWriteChain
           .catch(() => true)
           .then(async () => {
@@ -616,7 +636,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
         currentStage: ids.length ? 'preparing_queue' : '',
       });
 
-      async function processConversation(id, index) {
+      async function processConversation(id: any, index: number) {
         const trace = createConversationTrace(id);
         const warnings: any[] = [];
         let conversationTitle = '';
@@ -648,7 +668,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
           const kind =
             kindPicked ||
             (typeof conversationKinds.list === 'function'
-              ? (conversationKinds.list() || []).find((d) => d && d.id === 'chat')
+              ? (conversationKinds.list() || []).find((d: any) => d && d.id === 'chat')
               : null);
           if (!kind) throw new Error(`no conversation kind for ${toConvoLabel(convo)}`);
           const dbSpec = kind && kind.notion && kind.notion.dbSpec ? kind.notion.dbSpec : null;
@@ -681,7 +701,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
                 warnings.push({
                   code: 'notion_article_comments_fetch_failed',
                   message: String(failureMessage || 'Failed to load local article comments.'),
-                  extra: { error: e && e.message ? String(e.message) : String(e) },
+                  extra: { error: e && (e as any).message ? String((e as any).message) : String(e) },
                 });
                 cachedArticleComments = [];
               }

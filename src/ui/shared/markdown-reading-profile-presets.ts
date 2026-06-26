@@ -72,8 +72,8 @@ export const MARKDOWN_READING_PROFILE_PRESETS: Record<MarkdownReadingProfileId, 
     bubbleClassName: 'tw-shadow-[0_1px_0_rgb(0_0_0/3%)]',
     bubbleRoleOverrides: {
       assistant:
-        'tw-rounded-[16px] tw-px-4 tw-py-3.5 tw-bg-[color-mix(in_srgb,var(--bg-card)_97%,white)] tw-border-[color-mix(in_srgb,var(--border)_64%,transparent)]',
-      user: 'tw-rounded-[16px] tw-px-4 tw-py-3.5 tw-bg-[color-mix(in_srgb,var(--bubble-user-bg)_86%,var(--bg-card))] tw-border-[color-mix(in_srgb,var(--bubble-user-border)_68%,transparent)]',
+        'tw-rounded-[var(--radius-card)] tw-px-4 tw-py-3.5 tw-bg-[color-mix(in_srgb,var(--bg-card)_97%,white)] tw-border-[color-mix(in_srgb,var(--border)_64%,transparent)]',
+      user: 'tw-rounded-[var(--radius-card)] tw-px-4 tw-py-3.5 tw-bg-[color-mix(in_srgb,var(--bubble-user-bg)_86%,var(--bg-card))] tw-border-[color-mix(in_srgb,var(--bubble-user-border)_68%,transparent)]',
     },
     typographyClassName: [
       'tw-text-[17px] tw-leading-[1.75] tw-font-[var(--markdown-font-medium)] tw-tracking-[0.004em]',
@@ -102,8 +102,8 @@ export const MARKDOWN_READING_PROFILE_PRESETS: Record<MarkdownReadingProfileId, 
     spec: notionSpec,
     bubbleRoleOverrides: {
       assistant:
-        'tw-rounded-[12px] tw-px-3.5 tw-py-3 tw-bg-[var(--bg-card)] tw-border-[color-mix(in_srgb,var(--border)_82%,transparent)]',
-      user: 'tw-rounded-[12px] tw-px-3.5 tw-py-3 tw-bg-[color-mix(in_srgb,var(--bubble-user-bg)_92%,var(--bg-card))] tw-border-[color-mix(in_srgb,var(--bubble-user-border)_82%,transparent)]',
+        'tw-rounded-[var(--radius-card)] tw-px-3.5 tw-py-3 tw-bg-[var(--bg-card)] tw-border-[color-mix(in_srgb,var(--border)_82%,transparent)]',
+      user: 'tw-rounded-[var(--radius-card)] tw-px-3.5 tw-py-3 tw-bg-[color-mix(in_srgb,var(--bubble-user-bg)_92%,var(--bg-card))] tw-border-[color-mix(in_srgb,var(--bubble-user-border)_82%,transparent)]',
     },
     typographyClassName: [
       'tw-text-[15px] tw-leading-[1.65] tw-font-[var(--markdown-font-notion)] tw-tracking-[0.001em]',
@@ -115,7 +115,7 @@ export const MARKDOWN_READING_PROFILE_PRESETS: Record<MarkdownReadingProfileId, 
       '[&_h3]:tw-text-[19.2px] [&_h3]:tw-leading-[1.28] [&_h3]:tw-font-[620]',
       '[&_h4]:tw-text-[17.1px] [&_h4]:tw-leading-[1.33] [&_h4]:tw-font-[610]',
       '[&_h5]:tw-text-[15.6px] [&_h5]:tw-leading-[1.4] [&_h5]:tw-font-[600] [&_h6]:tw-text-[15px] [&_h6]:tw-leading-[1.45] [&_h6]:tw-font-[600]',
-      '[&_blockquote]:tw-rounded-[8px] [&_blockquote]:tw-pl-4 [&_blockquote]:tw-pr-2 [&_blockquote]:tw-py-2 [&_blockquote]:tw-bg-[color-mix(in_srgb,var(--bg-sunken)_58%,var(--bg-card))] [&_blockquote]:tw-text-[color-mix(in_srgb,var(--text-primary)_78%,var(--text-secondary))] [&_blockquote]:before:tw-content-[""] [&_blockquote]:before:tw-absolute [&_blockquote]:before:tw-left-0 [&_blockquote]:before:tw-top-[6px] [&_blockquote]:before:tw-bottom-[6px] [&_blockquote]:before:tw-w-[2px] [&_blockquote]:before:tw-rounded-full [&_blockquote]:before:tw-bg-[color-mix(in_srgb,var(--info)_45%,var(--border))]',
+      '[&_blockquote]:tw-rounded-[var(--radius-inline)] [&_blockquote]:tw-pl-4 [&_blockquote]:tw-pr-2 [&_blockquote]:tw-py-2 [&_blockquote]:tw-bg-[color-mix(in_srgb,var(--bg-sunken)_58%,var(--bg-card))] [&_blockquote]:tw-text-[color-mix(in_srgb,var(--text-primary)_78%,var(--text-secondary))] [&_blockquote]:before:tw-content-[""] [&_blockquote]:before:tw-absolute [&_blockquote]:before:tw-left-0 [&_blockquote]:before:tw-top-[6px] [&_blockquote]:before:tw-bottom-[6px] [&_blockquote]:before:tw-w-[2px] [&_blockquote]:before:tw-rounded-full [&_blockquote]:before:tw-bg-[color-mix(in_srgb,var(--info)_45%,var(--border))]',
       '[&_pre>code]:tw-text-[0.84em] [&_pre>code]:tw-leading-[1.48] [&_code]:tw-text-[0.84em] [&_kbd]:tw-text-[0.84em]',
       '[&_th]:tw-text-[0.83em] [&_th]:tw-leading-[1.42] [&_td]:tw-text-[0.83em] [&_td]:tw-leading-[1.42]',
       '[&_.syncnos-md-image-link]:tw-text-[0.83em] [&_.syncnos-md-image-link]:tw-leading-[1.4]',
@@ -134,8 +134,8 @@ export const MARKDOWN_READING_PROFILE_PRESETS: Record<MarkdownReadingProfileId, 
     bubbleClassName: 'tw-shadow-[0_1px_0_rgb(0_0_0/2%)]',
     bubbleRoleOverrides: {
       assistant:
-        'tw-rounded-[9px] tw-px-5 tw-py-4 tw-bg-[color-mix(in_srgb,var(--bg-card)_86%,var(--bg-primary))] tw-border-[color-mix(in_srgb,var(--border)_56%,transparent)]',
-      user: 'tw-rounded-[10px] tw-px-[18px] tw-py-3.5 tw-bg-[color-mix(in_srgb,var(--bubble-user-bg)_78%,var(--bg-primary))] tw-border-[color-mix(in_srgb,var(--bubble-user-border)_66%,transparent)]',
+        'tw-rounded-[var(--radius-card)] tw-px-5 tw-py-4 tw-bg-[color-mix(in_srgb,var(--bg-card)_86%,var(--bg-primary))] tw-border-[color-mix(in_srgb,var(--border)_56%,transparent)]',
+      user: 'tw-rounded-[var(--radius-card)] tw-px-[18px] tw-py-3.5 tw-bg-[color-mix(in_srgb,var(--bubble-user-bg)_78%,var(--bg-primary))] tw-border-[color-mix(in_srgb,var(--bubble-user-border)_66%,transparent)]',
     },
     typographyClassName: [
       'tw-text-[18px] tw-leading-[1.88] tw-font-[var(--markdown-font-book)] tw-tracking-[0.002em]',

@@ -1,4 +1,5 @@
-// @ts-nocheck
+type AiSourceMeta = { name: string; color: string };
+
 const AI = Object.freeze({
   chatgpt: { name: 'ChatGPT', color: 'green' },
   claude: { name: 'Claude', color: 'purple' },
@@ -11,23 +12,23 @@ const AI = Object.freeze({
   notionai: { name: 'NotionAI', color: 'brown' },
 });
 
-function normalizeSourceKey(source) {
+function normalizeSourceKey(source: unknown): string {
   return String(source || '')
     .trim()
     .toLowerCase()
     .replace(/[\s_-]+/g, '');
 }
 
-function optionNameForSource(source) {
+function optionNameForSource(source: unknown): string {
   const key = normalizeSourceKey(source);
-  const hit = AI[key];
+  const hit = (AI as Record<string, AiSourceMeta>)[key];
   if (hit && hit.name) return hit.name;
   const fallback = String(source || '').trim();
   return fallback || 'Unknown';
 }
 
-function buildAiOptions() {
-  return Object.keys(AI).map((k) => ({ name: AI[k].name, color: AI[k].color }));
+function buildAiOptions(): AiSourceMeta[] {
+  return (Object.keys(AI) as Array<keyof typeof AI>).map((k) => ({ name: AI[k].name, color: AI[k].color }));
 }
 
 const api = { AI, buildAiOptions, optionNameForSource, normalizeSourceKey };

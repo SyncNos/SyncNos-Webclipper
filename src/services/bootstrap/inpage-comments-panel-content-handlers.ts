@@ -10,7 +10,7 @@ import {
   isSelectionLikelyWithinRoot,
 } from '@services/shared/dom/selection';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
-import { getInpageCommentsPanelApi } from '@ui/inpage/inpage-comments-panel-shadow';
+import type { CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
 
 type RuntimeClient = {
   send?: (type: string, payload?: Record<string, unknown>) => Promise<any>;
@@ -122,8 +122,17 @@ export type InpageCommentsPanelController = {
   open: (input?: { tabId?: number | null; focusComposer?: boolean; ensureArticle?: boolean }) => Promise<void>;
 };
 
-export function createInpageCommentsPanelController(runtime: RuntimeClient | null): InpageCommentsPanelController {
-  const sidebarSession = createCommentSidebarSession(getInpageCommentsPanelApi(runtime));
+export type InpageCommentsPanelDeps = {
+  // Injected from the entrypoint (UI layer) so that `services` never imports `ui`
+  // directly, preserving the one-way layering rule in AGENTS.md.
+  createPanelApi: (runtime: RuntimeClient | null) => CommentSidebarPanelApi;
+};
+
+export function createInpageCommentsPanelController(
+  runtime: RuntimeClient | null,
+  deps: InpageCommentsPanelDeps,
+): InpageCommentsPanelController {
+  const sidebarSession = createCommentSidebarSession(deps.createPanelApi(runtime));
   const controller = createArticleCommentsSidebarController({
     session: sidebarSession,
     adapter: createArticleCommentsSidebarInpageAdapter(runtime),
@@ -158,11 +167,15 @@ export function createInpageCommentsPanelController(runtime: RuntimeClient | nul
   return { open };
 }
 
-export function registerInpageCommentsPanelContentHandlers(runtime: RuntimeClient | null) {
+export function registerInpageCommentsPanelContentHandlers(
+  runtime: RuntimeClient | null,
+  deps: InpageCommentsPanelDeps,
+) {
   const onMessage = (globalThis as any).chrome?.runtime?.onMessage ?? (globalThis as any).browser?.runtime?.onMessage;
-  if (!onMessage?.addListener) return { controller: createInpageCommentsPanelController(runtime), cleanup: () => {} };
+  if (!onMessage?.addListener)
+    return { controller: createInpageCommentsPanelController(runtime, deps), cleanup: () => {} };
 
-  const controller = createInpageCommentsPanelController(runtime);
+  const controller = createInpageCommentsPanelController(runtime, deps);
 
   const listener = (msg: any, _sender: any, sendResponse: (value: any) => void) => {
     if (!msg || typeof msg.type !== 'string') return undefined;
