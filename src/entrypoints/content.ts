@@ -16,6 +16,7 @@ import normalizeApi from '@services/shared/normalize.ts';
 import { inpageButtonApi } from '@ui/inpage/inpage-button-shadow.ts';
 import { inpageItemMentionApi } from '@ui/inpage/inpage-item-mention-shadow.ts';
 import { inpageTipApi } from '@ui/inpage/inpage-tip-shadow.ts';
+import { getInpageCommentsPanelApi } from '@ui/inpage/inpage-comments-panel-shadow.ts';
 import { createRuntimeClient } from '@platform/runtime/client.ts';
 
 export default defineContentScript({
@@ -33,7 +34,9 @@ export default defineContentScript({
     });
 
     registerCurrentPageCaptureContentHandlers(currentPageCapture, { inpageTip: inpageTipApi });
-    registerInpageCommentsPanelContentHandlers(runtime);
+    registerInpageCommentsPanelContentHandlers(runtime, {
+      createPanelApi: (rt) => getInpageCommentsPanelApi(rt),
+    });
     registerWebArticleExtractContentHandlers();
     registerVideoTranscriptCaptureContentHandlers(createVideoTranscriptCaptureService({ runtime }), {
       inpageTip: inpageTipApi,
