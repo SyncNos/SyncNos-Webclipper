@@ -139,8 +139,8 @@ function ArticleCommentsPanelMount({
             },
           }
         : null,
-	      commentChatWith: hasCommentChatWith
-	        ? {
+      commentChatWith: hasCommentChatWith
+        ? {
             resolveActions: async (rootComment, context, replies) => {
               const resolver = commentChatWithRef.current?.resolveActions;
               if (typeof resolver !== 'function') return [];
@@ -151,10 +151,10 @@ function ArticleCommentsPanelMount({
               if (typeof resolver !== 'function') return {};
               return await resolver();
             },
-	          }
-	        : null,
-	      deferReactUpdates: true,
-	    });
+          }
+        : null,
+      deferReactUpdates: true,
+    });
     apiRef.current = mounted.api;
     sidebarSession.attachPanel(mounted.api as any);
 

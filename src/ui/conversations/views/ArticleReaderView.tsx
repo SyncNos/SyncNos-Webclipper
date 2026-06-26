@@ -478,11 +478,7 @@ export function ArticleReaderView({
     <>
       {headerToolbar}
       {outlineToolbarPortal}
-      <div
-        className={READER_SHELL_CLASS}
-        style={readerVars}
-        data-reader-shell="article"
-      >
+      <div className={READER_SHELL_CLASS} style={readerVars} data-reader-shell="article">
         <div className={READER_MAIN_CLASS} data-reader-main="article-main">
           {listError ? <p className="tw-mt-2 tw-text-sm tw-font-semibold tw-text-[var(--error)]">{listError}</p> : null}
           {loadingDetail ? (
@@ -528,9 +524,7 @@ export function ArticleReaderView({
           )}
         </div>
 
-        {shouldRenderInlineRail && !readerOutlinePortalTarget ? (
-          outlineRail
-        ) : null}
+        {shouldRenderInlineRail && !readerOutlinePortalTarget ? outlineRail : null}
       </div>
     </>
   );

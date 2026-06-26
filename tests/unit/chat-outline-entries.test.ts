@@ -56,7 +56,7 @@ describe('buildChatOutlineEntries', () => {
     expect(entries[0]?.previewText).toBe('line 1 line 2 line 3');
   });
 
-  it('truncates strings longer than 30 chars and keeps <=30 unchanged', () => {
+  it('keeps long preview text intact so the UI can clamp by lines', () => {
     const entries = buildChatOutlineEntries([
       msg({
         id: 401,
@@ -73,7 +73,7 @@ describe('buildChatOutlineEntries', () => {
     ]);
 
     expect(entries[0]?.previewText).toBe('123456789012345678901234567890');
-    expect(entries[1]?.previewText).toBe('123456789012345678901234567890…');
+    expect(entries[1]?.previewText).toBe('12345678901234567890123456789012345');
   });
 
   it('still creates entries with empty or missing content fields', () => {
