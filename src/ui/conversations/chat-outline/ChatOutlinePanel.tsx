@@ -6,6 +6,8 @@ import { readerOutlineLevelToMinimapWidth } from '@services/protocols/reader-out
 import {
   OUTLINE_STRIP_BAR_LEVEL_1,
   OUTLINE_STRIP_BAR_LEVEL_2,
+  OUTLINE_STRIP_BUTTON_CLASS,
+  OUTLINE_STRIP_CLASS,
   outlineStripBarClassName,
 } from '@ui/reader/outline-strip-bars';
 import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
@@ -20,12 +22,7 @@ export type ChatOutlinePanelProps = {
 const CLOSE_DELAY_MS = 160;
 const OUTLINE_LABEL = 'Outline';
 const TRIGGER_MAX_BARS = 7;
-const TRIGGER_CLASS = [
-  'tw-grid tw-h-11 tw-w-9 tw-place-items-center tw-border-0 tw-bg-transparent tw-p-0 tw-shadow-none',
-  'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
-].join(' ');
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
-const TRIGGER_BARS_CLASS = 'tw-flex tw-h-9 tw-w-[22px] tw-flex-col tw-justify-center tw-gap-[3px] tw-overflow-hidden';
 const TRIGGER_ACTIVE_BAR_WIDTH = readerOutlineLevelToMinimapWidth(OUTLINE_STRIP_BAR_LEVEL_1);
 const TRIGGER_INACTIVE_BAR_WIDTH = readerOutlineLevelToMinimapWidth(OUTLINE_STRIP_BAR_LEVEL_2);
 const PANEL_ENTRY_LABEL_CLASS = 'tw-min-w-0 tw-flex-1 tw-text-left';
@@ -77,7 +74,7 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
   const safeEntries = useMemo(() => (Array.isArray(entries) ? entries : []), [entries]);
   const triggerEntries = useMemo(() => pickTriggerEntries(safeEntries, activeIndex), [activeIndex, safeEntries]);
   const [open, setOpen] = useState(false);
-  const handleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const firstTriggerButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
 
   const cancelClose = useCallback(() => {
@@ -100,7 +97,7 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
     cancelClose();
     setOpen(false);
     const focusHandle = () => {
-      handleButtonRef.current?.focus();
+      firstTriggerButtonRef.current?.focus();
     };
     if (typeof globalThis.window?.requestAnimationFrame === 'function') {
       globalThis.window.requestAnimationFrame(focusHandle);
@@ -116,37 +113,35 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
   if (!safeEntries.length) return null;
 
   const trigger = (
-    <button
-      ref={handleButtonRef}
-      type="button"
-      aria-label={OUTLINE_LABEL}
-      className={TRIGGER_CLASS}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          openPanel();
-          return;
-        }
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        closePanelAndFocusHandle();
-      }}
-    >
-      <span className={TRIGGER_BARS_CLASS} aria-hidden="true" data-chat-outline-trigger-bars={safeEntries.length}>
-        {triggerEntries.map((entry) => {
-          const isActive = Number(activeIndex) === entry.index;
-          return (
+    <nav className={OUTLINE_STRIP_CLASS} aria-label={OUTLINE_LABEL} data-chat-outline-trigger-bars={safeEntries.length}>
+      {triggerEntries.map((entry, index) => {
+        const isActive = Number(activeIndex) === entry.index;
+        const label = toLabel(entry);
+        return (
+          <button
+            key={entry.messageKey}
+            ref={index === 0 ? firstTriggerButtonRef : undefined}
+            type="button"
+            aria-label={label}
+            title={label}
+            className={OUTLINE_STRIP_BUTTON_CLASS}
+            onClick={() => onPickEntry?.(entry)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              closePanelAndFocusHandle();
+            }}
+          >
             <span
-              key={entry.messageKey}
               className={outlineStripBarClassName(isActive)}
               style={{ width: `${isActive ? TRIGGER_ACTIVE_BAR_WIDTH : TRIGGER_INACTIVE_BAR_WIDTH}px` }}
               data-chat-outline-trigger-bar={entry.messageKey}
               data-chat-outline-trigger-active={isActive ? 'true' : 'false'}
             />
-          );
-        })}
-      </span>
-    </button>
+          </button>
+        );
+      })}
+    </nav>
   );
 
   return (

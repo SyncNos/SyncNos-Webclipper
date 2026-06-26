@@ -7,7 +7,11 @@ import {
   pickReaderOutlineActiveIndex,
 } from '@services/protocols/reader-outline';
 import { buildReaderOutlineDomEntries, type ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
-import { outlineStripBarClassName } from '@ui/reader/outline-strip-bars';
+import {
+  OUTLINE_STRIP_BUTTON_CLASS,
+  OUTLINE_STRIP_CLASS,
+  outlineStripBarClassName,
+} from '@ui/reader/outline-strip-bars';
 import { publishReaderPerformanceStats } from '@ui/reader/reader-performance-debug';
 import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
 import { buttonMenuItemClassName } from '@ui/shared/button-styles';
@@ -28,11 +32,6 @@ export type ArticleOutlineMinimapProps = ArticleOutlineMinimapState & {
 };
 
 const OUTLINE_LABEL = '目录';
-const ENTRY_MINIMAP_BUTTON_CLASS = [
-  'tw-flex tw-w-full tw-justify-end tw-border-0 tw-bg-transparent tw-p-0 tw-leading-none',
-  'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
-].join(' ');
-const STRIP_CLASS = 'tw-flex tw-flex-col tw-items-end tw-gap-2 tw-py-1 tw-pr-1';
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
 const PANEL_ENTRY_LABEL_CLASS = 'tw-min-w-0 tw-flex-1 tw-text-left tw-leading-snug';
 const PANEL_ENTRY_LABEL_STYLE: CSSProperties = {
@@ -100,7 +99,7 @@ function renderOutlineItem(
         data-reader-outline-entry={entry.id}
         data-reader-outline-level={token}
         data-reader-outline-active={active ? 'true' : 'false'}
-        className={ENTRY_MINIMAP_BUTTON_CLASS}
+        className={OUTLINE_STRIP_BUTTON_CLASS}
         onClick={() => onPickStripEntry(entry)}
       >
         <span className={outlineStripBarClassName(active)} style={{ width: `${width}px` }} />
@@ -280,7 +279,7 @@ export function ArticleOutlineMinimap({
   const safeEntries = useMemo(() => (Array.isArray(entries) ? entries : []), [entries]);
   const outlineTrigger = useMemo(() => {
     return (
-      <nav className={STRIP_CLASS} aria-label={OUTLINE_LABEL}>
+      <nav className={OUTLINE_STRIP_CLASS} aria-label={OUTLINE_LABEL}>
         {safeEntries.map((entry) => renderOutlineItem(entry, activeIndex, onPickStripEntry, onPickPanelEntry, 'strip'))}
       </nav>
     );

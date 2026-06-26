@@ -145,10 +145,18 @@ describe('ChatOutlinePanel', () => {
     const bars = Array.from(wrap?.querySelectorAll('[data-chat-outline-trigger-bar]') || []);
 
     expect(barsRoot?.getAttribute('data-chat-outline-trigger-bars')).toBe('50');
-    expect(barsRoot?.className).toContain('tw-w-[22px]');
+    expect(barsRoot?.tagName).toBe('NAV');
+    expect(barsRoot?.className).toContain('tw-gap-2');
+    expect(barsRoot?.className).toContain('tw-py-1');
+    expect(barsRoot?.className).toContain('tw-pr-1');
     expect(bars).toHaveLength(7);
     expect(bars.every((bar) => (bar as HTMLElement).className.includes('tw-h-[2px]'))).toBe(true);
     expect(bars.every((bar) => (bar as HTMLElement).className.includes('tw-rounded-[var(--radius-inline)]'))).toBe(true);
+    expect(
+      Array.from(wrap?.querySelectorAll('[data-chat-outline-trigger-bars] button') || []).every((button) =>
+        (button as HTMLElement).className.includes('tw-leading-none'),
+      ),
+    ).toBe(true);
     expect((wrap?.querySelector('[data-chat-outline-trigger-bar="u-37"]') as HTMLElement | null)?.style.width).toBe(
       `${readerOutlineLevelToMinimapWidth(1)}px`,
     );
