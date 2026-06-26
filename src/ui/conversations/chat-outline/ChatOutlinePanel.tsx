@@ -12,14 +12,15 @@ export type ChatOutlinePanelProps = {
 
 const CLOSE_DELAY_MS = 160;
 const OUTLINE_LABEL = 'Outline';
+const TRIGGER_MAX_BARS = 14;
 const TRIGGER_CLASS = [
   'tw-grid tw-h-11 tw-w-9 tw-place-items-center tw-border-0 tw-bg-transparent tw-p-0 tw-shadow-none',
   'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
 ].join(' ');
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
-const TRIGGER_BARS_CLASS = 'tw-flex tw-h-7 tw-w-[18px] tw-flex-col tw-justify-center tw-gap-1 tw-overflow-hidden';
+const TRIGGER_BARS_CLASS = 'tw-flex tw-h-7 tw-w-[18px] tw-flex-col tw-justify-center tw-gap-px tw-overflow-hidden';
 const TRIGGER_BAR_CLASS =
-  'tw-h-[2px] tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-transition-[opacity,width,background-color] tw-duration-150';
+  'tw-h-px tw-flex-none tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-transition-[opacity,width,background-color] tw-duration-150';
 
 function toItemClass(active: boolean): string {
   return [
@@ -36,8 +37,29 @@ function toLabel(entry: ChatOutlineEntry): string {
   return text ? `${entry.index}. ${text}` : `${entry.index}.`;
 }
 
+function pickTriggerEntries(entries: ChatOutlineEntry[], activeIndex: number | null): ChatOutlineEntry[] {
+  if (entries.length <= TRIGGER_MAX_BARS) return entries;
+
+  const activeEntry = entries.find((entry) => entry.index === activeIndex) || null;
+  const sampleCount = activeEntry ? TRIGGER_MAX_BARS - 1 : TRIGGER_MAX_BARS;
+  const picked = new Map<string, ChatOutlineEntry>();
+
+  for (let slot = 0; slot < sampleCount; slot += 1) {
+    const position = sampleCount <= 1 ? 0 : Math.round((slot * (entries.length - 1)) / (sampleCount - 1));
+    const entry = entries[position];
+    if (entry) picked.set(entry.messageKey, entry);
+  }
+
+  if (activeEntry) picked.set(activeEntry.messageKey, activeEntry);
+
+  return Array.from(picked.values())
+    .sort((left, right) => left.index - right.index)
+    .slice(0, TRIGGER_MAX_BARS);
+}
+
 export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: ChatOutlinePanelProps) {
   const safeEntries = useMemo(() => (Array.isArray(entries) ? entries : []), [entries]);
+  const triggerEntries = useMemo(() => pickTriggerEntries(safeEntries, activeIndex), [activeIndex, safeEntries]);
   const [open, setOpen] = useState(false);
   const handleButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
@@ -95,7 +117,7 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
       }}
     >
       <span className={TRIGGER_BARS_CLASS} aria-hidden="true" data-chat-outline-trigger-bars={safeEntries.length}>
-        {safeEntries.map((entry) => {
+        {triggerEntries.map((entry) => {
           const isActive = Number(activeIndex) === entry.index;
           return (
             <span

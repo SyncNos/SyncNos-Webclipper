@@ -50,6 +50,18 @@ const entries: ChatOutlineEntry[] = [
   },
 ];
 
+function makeEntries(count: number): ChatOutlineEntry[] {
+  return Array.from({ length: count }, (_, index) => {
+    const entryIndex = index + 1;
+    return {
+      index: entryIndex,
+      messageId: 1000 + entryIndex,
+      messageKey: `u-${entryIndex}`,
+      previewText: `User prompt ${entryIndex}`,
+    };
+  });
+}
+
 describe('ChatOutlinePanel', () => {
   let root: ReactDOM.Root | null = null;
 
@@ -109,5 +121,23 @@ describe('ChatOutlinePanel', () => {
       firstEntry!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
     });
     expect(onPickEntry).toHaveBeenCalledWith(entries[0]);
+  });
+
+  it('keeps the trigger visible for large chat outlines while preserving the active marker', () => {
+    const manyEntries = makeEntries(50);
+    act(() => {
+      root!.render(createElement(ChatOutlinePanel, { entries: manyEntries, activeIndex: 37 }));
+    });
+
+    const wrap = document.querySelector('[data-reader-rail-wrap="chat-outline"]') as HTMLElement | null;
+    const barsRoot = wrap?.querySelector('[data-chat-outline-trigger-bars]') as HTMLElement | null;
+    const bars = Array.from(wrap?.querySelectorAll('[data-chat-outline-trigger-bar]') || []);
+
+    expect(barsRoot?.getAttribute('data-chat-outline-trigger-bars')).toBe('50');
+    expect(bars).toHaveLength(14);
+    expect(wrap?.querySelector('[data-chat-outline-trigger-bar="u-37"]')).toBeTruthy();
+    expect(wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar')).toBe(
+      'u-37',
+    );
   });
 });
