@@ -241,6 +241,9 @@ describe('ArticleOutlineMinimap', () => {
     expect(firstStripBar?.style.width).toBe(`${readerOutlineLevelToMinimapWidth(1)}px`);
     expect(secondStripBar?.style.width).toBe(`${readerOutlineLevelToMinimapWidth(2)}px`);
     expect(thirdStripBar?.style.width).toBe(`${readerOutlineLevelToMinimapWidth(3)}px`);
+    expect(firstStripBar?.className).toContain('tw-h-[2px]');
+    expect(secondStripBar?.className).toContain('tw-h-[2px]');
+    expect(thirdStripBar?.className).toContain('tw-h-[2px]');
     const activeStripButton = document.querySelector(
       '[data-reader-rail-wrap="outline"] [data-reader-outline-level="lvl-2"]',
     ) as HTMLButtonElement | null;

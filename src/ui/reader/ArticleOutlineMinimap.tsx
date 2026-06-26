@@ -80,7 +80,7 @@ function toItemClass(active: boolean, level: number): string {
 
 function toStripBarClass(active: boolean): string {
   return [
-    'tw-h-0.5 tw-rounded-[var(--radius-inline)] tw-transition-[opacity,background-color] tw-duration-150',
+    'tw-h-[2px] tw-flex-none tw-rounded-[var(--radius-inline)] tw-transition-[opacity,background-color] tw-duration-150',
     active ? 'tw-bg-[var(--text-primary)] tw-opacity-100' : 'tw-bg-[var(--text-secondary)] tw-opacity-40',
   ].join(' ');
 }
