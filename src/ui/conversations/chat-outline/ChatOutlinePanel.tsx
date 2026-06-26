@@ -2,6 +2,12 @@ import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ChatOutlineEntry } from '@ui/conversations/chat-outline/outline-entries';
+import { readerOutlineLevelToMinimapWidth } from '@services/protocols/reader-outline';
+import {
+  OUTLINE_STRIP_BAR_LEVEL_1,
+  OUTLINE_STRIP_BAR_LEVEL_2,
+  outlineStripBarClassName,
+} from '@ui/reader/outline-strip-bars';
 import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
 import { buttonMenuItemClassName } from '@ui/shared/button-styles';
 
@@ -19,9 +25,9 @@ const TRIGGER_CLASS = [
   'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
 ].join(' ');
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
-const TRIGGER_BARS_CLASS = 'tw-flex tw-h-9 tw-w-[18px] tw-flex-col tw-justify-center tw-gap-[3px] tw-overflow-hidden';
-const TRIGGER_BAR_CLASS =
-  'tw-h-[2px] tw-flex-none tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-transition-[opacity,width,background-color] tw-duration-150';
+const TRIGGER_BARS_CLASS = 'tw-flex tw-h-9 tw-w-[22px] tw-flex-col tw-justify-center tw-gap-[3px] tw-overflow-hidden';
+const TRIGGER_ACTIVE_BAR_WIDTH = readerOutlineLevelToMinimapWidth(OUTLINE_STRIP_BAR_LEVEL_1);
+const TRIGGER_INACTIVE_BAR_WIDTH = readerOutlineLevelToMinimapWidth(OUTLINE_STRIP_BAR_LEVEL_2);
 const PANEL_ENTRY_LABEL_CLASS = 'tw-min-w-0 tw-flex-1 tw-text-left';
 const PANEL_ENTRY_LABEL_STYLE: CSSProperties = {
   display: '-webkit-box',
@@ -132,10 +138,8 @@ export function ChatOutlinePanel({ entries, activeIndex = null, onPickEntry }: C
           return (
             <span
               key={entry.messageKey}
-              className={[
-                TRIGGER_BAR_CLASS,
-                isActive ? 'tw-w-[18px] tw-bg-[var(--text-primary)] tw-opacity-100' : 'tw-w-[14px] tw-opacity-50',
-              ].join(' ')}
+              className={outlineStripBarClassName(isActive)}
+              style={{ width: `${isActive ? TRIGGER_ACTIVE_BAR_WIDTH : TRIGGER_INACTIVE_BAR_WIDTH}px` }}
               data-chat-outline-trigger-bar={entry.messageKey}
               data-chat-outline-trigger-active={isActive ? 'true' : 'false'}
             />

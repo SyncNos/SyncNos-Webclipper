@@ -7,6 +7,7 @@ import {
   pickReaderOutlineActiveIndex,
 } from '@services/protocols/reader-outline';
 import { buildReaderOutlineDomEntries, type ReaderOutlineDomEntry } from '@ui/reader/article-outline-dom';
+import { outlineStripBarClassName } from '@ui/reader/outline-strip-bars';
 import { publishReaderPerformanceStats } from '@ui/reader/reader-performance-debug';
 import { ReaderRailPanel } from '@ui/reader/ReaderRailPanel';
 import { buttonMenuItemClassName } from '@ui/shared/button-styles';
@@ -78,13 +79,6 @@ function toItemClass(active: boolean, level: number): string {
     .join(' ');
 }
 
-function toStripBarClass(active: boolean): string {
-  return [
-    'tw-h-[2px] tw-flex-none tw-rounded-[var(--radius-inline)] tw-transition-[opacity,background-color] tw-duration-150',
-    active ? 'tw-bg-[var(--text-primary)] tw-opacity-100' : 'tw-bg-[var(--text-secondary)] tw-opacity-40',
-  ].join(' ');
-}
-
 function renderOutlineItem(
   entry: ReaderOutlineDomEntry,
   activeIndex: number | null,
@@ -109,7 +103,7 @@ function renderOutlineItem(
         className={ENTRY_MINIMAP_BUTTON_CLASS}
         onClick={() => onPickStripEntry(entry)}
       >
-        <span className={toStripBarClass(active)} style={{ width: `${width}px` }} />
+        <span className={outlineStripBarClassName(active)} style={{ width: `${width}px` }} />
       </button>
     );
   }

@@ -3,6 +3,7 @@ import { act, createElement } from 'react';
 import ReactDOM from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 
+import { readerOutlineLevelToMinimapWidth } from '../../src/services/protocols/reader-outline';
 import { ChatOutlinePanel } from '../../src/ui/conversations/chat-outline/ChatOutlinePanel';
 import type { ChatOutlineEntry } from '../../src/ui/conversations/chat-outline/outline-entries';
 
@@ -144,8 +145,16 @@ describe('ChatOutlinePanel', () => {
     const bars = Array.from(wrap?.querySelectorAll('[data-chat-outline-trigger-bar]') || []);
 
     expect(barsRoot?.getAttribute('data-chat-outline-trigger-bars')).toBe('50');
+    expect(barsRoot?.className).toContain('tw-w-[22px]');
     expect(bars).toHaveLength(7);
     expect(bars.every((bar) => (bar as HTMLElement).className.includes('tw-h-[2px]'))).toBe(true);
+    expect(bars.every((bar) => (bar as HTMLElement).className.includes('tw-rounded-[var(--radius-inline)]'))).toBe(true);
+    expect((wrap?.querySelector('[data-chat-outline-trigger-bar="u-37"]') as HTMLElement | null)?.style.width).toBe(
+      `${readerOutlineLevelToMinimapWidth(1)}px`,
+    );
+    expect((wrap?.querySelector('[data-chat-outline-trigger-bar="u-1"]') as HTMLElement | null)?.style.width).toBe(
+      `${readerOutlineLevelToMinimapWidth(2)}px`,
+    );
     expect(wrap?.querySelector('[data-chat-outline-trigger-bar="u-37"]')).toBeTruthy();
     expect(wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar')).toBe(
       'u-37',
