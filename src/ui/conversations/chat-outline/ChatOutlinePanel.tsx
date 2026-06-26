@@ -22,18 +22,20 @@ const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overfl
 const TRIGGER_BARS_CLASS = 'tw-flex tw-h-9 tw-w-[18px] tw-flex-col tw-justify-center tw-gap-[3px] tw-overflow-hidden';
 const TRIGGER_BAR_CLASS =
   'tw-h-[2px] tw-flex-none tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-transition-[opacity,width,background-color] tw-duration-150';
-const PANEL_ENTRY_LABEL_CLASS = 'tw-min-w-0 tw-flex-1 tw-text-left tw-leading-snug';
+const PANEL_ENTRY_LABEL_CLASS = 'tw-min-w-0 tw-flex-1 tw-text-left';
 const PANEL_ENTRY_LABEL_STYLE: CSSProperties = {
   display: '-webkit-box',
   WebkitBoxOrient: 'vertical',
   WebkitLineClamp: 2,
+  lineHeight: 1.35,
   overflow: 'hidden',
+  overflowWrap: 'anywhere',
 };
 
 function toItemClass(active: boolean): string {
   return [
     buttonMenuItemClassName(),
-    'tw-min-h-8 tw-items-start tw-text-xs',
+    'tw-min-h-[50px] tw-items-start tw-text-xs',
     active ? '' : 'webclipper-btn--tone-muted',
   ]
     .filter(Boolean)

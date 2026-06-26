@@ -119,6 +119,9 @@ describe('ChatOutlinePanel', () => {
     expect(firstEntry?.textContent).toBe(`1. ${longPreview}`);
     const firstEntryLabel = panel?.querySelector('[data-chat-outline-entry-label="u-101"]') as HTMLElement | null;
     expect(firstEntryLabel?.getAttribute('style')).toContain('-webkit-line-clamp: 2');
+    expect(firstEntryLabel?.getAttribute('style')).toContain('line-height: 1.35');
+    expect(firstEntryLabel?.getAttribute('style')).toContain('overflow-wrap: anywhere');
+    expect(firstEntry?.className).toContain('tw-min-h-[50px]');
     expect(firstEntry?.classList.contains('webclipper-btn')).toBe(true);
     expect(firstEntry?.classList.contains('webclipper-btn--menu-item')).toBe(true);
     expect(firstEntry?.classList.contains('webclipper-btn--tone-muted')).toBe(true);
