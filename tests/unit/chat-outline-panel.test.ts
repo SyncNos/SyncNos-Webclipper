@@ -134,7 +134,8 @@ describe('ChatOutlinePanel', () => {
     const bars = Array.from(wrap?.querySelectorAll('[data-chat-outline-trigger-bar]') || []);
 
     expect(barsRoot?.getAttribute('data-chat-outline-trigger-bars')).toBe('50');
-    expect(bars).toHaveLength(14);
+    expect(bars).toHaveLength(7);
+    expect(bars.every((bar) => (bar as HTMLElement).className.includes('tw-h-[2px]'))).toBe(true);
     expect(wrap?.querySelector('[data-chat-outline-trigger-bar="u-37"]')).toBeTruthy();
     expect(wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar')).toBe(
       'u-37',

@@ -12,15 +12,15 @@ export type ChatOutlinePanelProps = {
 
 const CLOSE_DELAY_MS = 160;
 const OUTLINE_LABEL = 'Outline';
-const TRIGGER_MAX_BARS = 14;
+const TRIGGER_MAX_BARS = 7;
 const TRIGGER_CLASS = [
   'tw-grid tw-h-11 tw-w-9 tw-place-items-center tw-border-0 tw-bg-transparent tw-p-0 tw-shadow-none',
   'focus-visible:tw-outline focus-visible:tw-outline-2 focus-visible:tw-outline-offset-2 focus-visible:tw-outline-[var(--focus-ring)]',
 ].join(' ');
 const PANEL_LIST_CLASS = 'tw-flex tw-max-h-[60vh] tw-flex-col tw-gap-1 tw-overflow-auto';
-const TRIGGER_BARS_CLASS = 'tw-flex tw-h-7 tw-w-[18px] tw-flex-col tw-justify-center tw-gap-px tw-overflow-hidden';
+const TRIGGER_BARS_CLASS = 'tw-flex tw-h-9 tw-w-[18px] tw-flex-col tw-justify-center tw-gap-[3px] tw-overflow-hidden';
 const TRIGGER_BAR_CLASS =
-  'tw-h-px tw-flex-none tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-transition-[opacity,width,background-color] tw-duration-150';
+  'tw-h-[2px] tw-flex-none tw-rounded-[var(--radius-inline)] tw-bg-[var(--text-secondary)] tw-transition-[opacity,width,background-color] tw-duration-150';
 
 function toItemClass(active: boolean): string {
   return [
