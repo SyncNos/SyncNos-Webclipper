@@ -1,15 +1,13 @@
-// @ts-nocheck
-
 import { normalizeStandaloneImageCaptionLines } from '@services/sync/shared/markdown-image-normalizer';
 
 const MAX_TEXT = 1900;
 const MAX_EQUATION_EXPRESSION = 1900;
 const MAX_RICH_TEXT_ITEMS = 100;
 
-function splitText(text) {
+function splitText(text: unknown): string[] {
   const s = String(text || '');
   if (s.length <= MAX_TEXT) return [s];
-  const parts = [];
+  const parts: string[] = [];
   let remaining = s;
   while (remaining.length) {
     if (remaining.length <= MAX_TEXT) {
@@ -24,7 +22,7 @@ function splitText(text) {
   return parts;
 }
 
-function normalizeCodeLanguage(input) {
+function normalizeCodeLanguage(input: unknown): string {
   const raw = String(input || '')
     .trim()
     .toLowerCase();
@@ -72,7 +70,7 @@ function normalizeCodeLanguage(input) {
   return allowed.has(normalized) ? normalized : 'plain text';
 }
 
-function textRich(content, { annotations, link } = {}) {
+function textRich(content: string, { annotations, link }: { annotations?: any; link?: unknown } = {}) {
   const ann = annotations || {};
   const base = {
     bold: !!ann.bold,
@@ -87,21 +85,21 @@ function textRich(content, { annotations, link } = {}) {
   return { type: 'text', text, annotations: base };
 }
 
-function normalizeEquationExpression(expression) {
+function normalizeEquationExpression(expression: unknown): string {
   return String(expression || '').trim();
 }
 
-function canUseNativeEquation(expression) {
+function canUseNativeEquation(expression: unknown): boolean {
   return normalizeEquationExpression(expression).length <= MAX_EQUATION_EXPRESSION;
 }
 
-function inlineEquationFallbackRich(expression) {
+function inlineEquationFallbackRich(expression: unknown) {
   const expr = normalizeEquationExpression(expression);
   if (!expr) return [];
   return [textRich(`$${expr}$`, { annotations: { code: true } })];
 }
 
-function blockEquationFallbackBlocks(expression) {
+function blockEquationFallbackBlocks(expression: unknown) {
   const expr = normalizeEquationExpression(expression);
   if (!expr) return [];
   const literal = `$$\n${expr}\n$$`;
@@ -117,19 +115,19 @@ function blockEquationFallbackBlocks(expression) {
     }));
 }
 
-function equationRich(expression) {
+function equationRich(expression: unknown) {
   const expr = normalizeEquationExpression(expression);
   return { type: 'equation', equation: { expression: expr } };
 }
 
-function inlineEquationRich(expression) {
+function inlineEquationRich(expression: unknown) {
   const expr = normalizeEquationExpression(expression);
   if (!expr) return [];
   if (canUseNativeEquation(expr)) return [equationRich(expr)];
   return inlineEquationFallbackRich(expr);
 }
 
-function mergeRichText(list) {
+function mergeRichText(list: any) {
   const out = [];
   for (const item of list || []) {
     if (!item) continue;
@@ -151,9 +149,9 @@ function mergeRichText(list) {
   return out;
 }
 
-function chunkRichText(list) {
-  const chunks = [];
-  let current = [];
+function chunkRichText(list: any) {
+  const chunks: any[] = [];
+  let current: any[] = [];
   let currentLen = 0;
   let currentItems = 0;
 
@@ -194,11 +192,11 @@ function chunkRichText(list) {
   return chunks;
 }
 
-function inlineMarkdownToRichText(markdown, base = {}, link) {
+function inlineMarkdownToRichText(markdown: unknown, base: any = {}, link?: unknown) {
   const src = String(markdown || '');
   if (!src) return [];
 
-  function parseWithCode(input, ann) {
+  function parseWithCode(input: string, ann: any): any[] {
     const m = input.match(/`+/);
     if (!m || m.index === undefined) return parsePlain(input, ann);
     const idx = m.index;
@@ -216,10 +214,10 @@ function inlineMarkdownToRichText(markdown, base = {}, link) {
     ];
   }
 
-  function parsePlain(input, ann) {
+  function parsePlain(input: string, ann: any): any[] {
     if (!input) return [];
 
-    const candidates = [];
+    const candidates: Array<{ kind: string; idx: number; prio: number }> = [];
 
     const linkIdx = input.indexOf('[');
     if (linkIdx >= 0) candidates.push({ kind: 'link', idx: linkIdx, prio: 1 });
@@ -319,7 +317,7 @@ function inlineMarkdownToRichText(markdown, base = {}, link) {
   return mergeRichText(parseWithCode(src, base));
 }
 
-function blocksFromInlineRichText(type, richText) {
+function blocksFromInlineRichText(type: string, richText: any) {
   const merged = mergeRichText(richText);
   const chunks = chunkRichText(merged);
   const blocks = [];
@@ -346,48 +344,48 @@ function blocksFromInlineRichText(type, richText) {
   return blocks;
 }
 
-function markdownToNotionBlocks(markdown) {
+function markdownToNotionBlocks(markdown: string) {
   const src = normalizeStandaloneImageCaptionLines(markdown).replace(/\r\n/g, '\n');
   const lines = src.split('\n');
   const out = [];
 
-  function isBlank(line) {
+  function isBlank(line: unknown): boolean {
     return !String(line || '').trim();
   }
 
-  function isHttpUrl(url) {
+  function isHttpUrl(url: unknown): boolean {
     return /^https?:\/\//i.test(String(url || '').trim());
   }
 
-  function isDataImageUrl(url) {
+  function isDataImageUrl(url: unknown): boolean {
     const text = String(url || '').trim();
     if (!text) return false;
     return /^data:image\/[a-z0-9.+-]+(?:;charset=[a-z0-9._-]+)?;base64,/i.test(text);
   }
 
-  function isSyncnosAssetUrl(url) {
+  function isSyncnosAssetUrl(url: unknown): boolean {
     const text = String(url || '').trim();
     return /^syncnos-asset:\/\/\d+$/i.test(text);
   }
 
-  function stripAngleBrackets(url) {
+  function stripAngleBrackets(url: unknown): string {
     const text = String(url || '').trim();
     if (text.startsWith('<') && text.endsWith('>')) return text.slice(1, -1).trim();
     return text;
   }
 
-  function startsWithFence(line) {
+  function startsWithFence(line: unknown): boolean {
     return String(line || '')
       .trimStart()
       .startsWith('```');
   }
 
-  function fenceLang(line) {
+  function fenceLang(line: unknown): string {
     const t = String(line || '').trimStart();
     return t.slice(3).trim();
   }
 
-  function pushCodeBlock(language, content) {
+  function pushCodeBlock(language: unknown, content: unknown) {
     const lang = normalizeCodeLanguage(language);
     const parts = splitText(content);
     for (const p of parts) {
@@ -400,7 +398,7 @@ function markdownToNotionBlocks(markdown) {
     }
   }
 
-  function pushEquationBlock(expression) {
+  function pushEquationBlock(expression: unknown) {
     const expr = normalizeEquationExpression(expression);
     if (!expr) return;
     if (canUseNativeEquation(expr)) {
@@ -410,7 +408,7 @@ function markdownToNotionBlocks(markdown) {
     out.push(...blockEquationFallbackBlocks(expr));
   }
 
-  function parseImageLine(line) {
+  function parseImageLine(line: unknown) {
     const trimmed = String(line || '').trim();
     const m = trimmed.match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)\s*$/);
     if (!m) return null;
@@ -510,7 +508,7 @@ function markdownToNotionBlocks(markdown) {
       const rich = inlineMarkdownToRichText(todo[2] || '');
       const blocks = blocksFromInlineRichText('to_do', rich);
       for (const b of blocks) {
-        if (b && b.type === 'to_do') b.to_do.checked = checked;
+        if (b && b.type === 'to_do') (b as any).to_do.checked = checked;
       }
       out.push(...blocks);
       i += 1;
