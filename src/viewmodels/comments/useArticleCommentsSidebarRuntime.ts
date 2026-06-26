@@ -31,13 +31,13 @@ export function useArticleCommentsSidebarRuntime(input: { onClose?: () => void }
     const anyGlobal = globalThis as any;
     const enabled =
       anyGlobal.__SYNCNOS_DEBUG_COMMENTS_SELECTION__ === true ||
-	      (() => {
-	        try {
-	          const storage = anyGlobal.window?.localStorage;
-	          return String(storage?.getItem?.('__SYNCNOS_DEBUG_COMMENTS_SELECTION__') || '') === '1';
-	        } catch (_e) {
-	          return false;
-	        }
+      (() => {
+        try {
+          const storage = anyGlobal.window?.localStorage;
+          return String(storage?.getItem?.('__SYNCNOS_DEBUG_COMMENTS_SELECTION__') || '') === '1';
+        } catch (_e) {
+          return false;
+        }
       })();
     if (!enabled) return;
     try {

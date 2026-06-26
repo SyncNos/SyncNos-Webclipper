@@ -280,7 +280,9 @@ describe('ArticleOutlineMinimap', () => {
     const panelButtons = Array.from(panel?.querySelectorAll('button') || []) as HTMLButtonElement[];
     const secondPanelButton = panelButtons.find((button) => button.textContent === longHeading);
     expect(secondPanelButton).toBeTruthy();
-    const secondPanelLabel = panel?.querySelector('[data-reader-outline-entry-label="reader-outline-2"]') as HTMLElement | null;
+    const secondPanelLabel = panel?.querySelector(
+      '[data-reader-outline-entry-label="reader-outline-2"]',
+    ) as HTMLElement | null;
     expect(secondPanelLabel?.textContent).toBe(longHeading);
     expect(secondPanelLabel?.getAttribute('style')).toContain('-webkit-line-clamp: 2');
 

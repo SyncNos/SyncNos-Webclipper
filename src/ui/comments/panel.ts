@@ -256,8 +256,8 @@ export function mountThreadedCommentsPanel(
     if (keyEvent.key === 'Escape' && chatWithMenuController.handleShadowEscape(keyEvent)) return;
     if (keyEvent.key !== 'Escape') return;
     escapeSignal += 1;
-      runReactUpdate(() => {
-        panelStore.setEscapeSignal(escapeSignal);
+    runReactUpdate(() => {
+      panelStore.setEscapeSignal(escapeSignal);
     });
   };
   const onShadowShortcutSubmitCapture = (event: Event) => {

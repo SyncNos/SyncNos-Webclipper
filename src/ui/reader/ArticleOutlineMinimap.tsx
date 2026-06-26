@@ -120,7 +120,11 @@ function renderOutlineItem(
       aria-checked={active ? 'true' : undefined}
       onClick={() => onPickPanelEntry(entry)}
     >
-      <span className={PANEL_ENTRY_LABEL_CLASS} style={PANEL_ENTRY_LABEL_STYLE} data-reader-outline-entry-label={entry.id}>
+      <span
+        className={PANEL_ENTRY_LABEL_CLASS}
+        style={PANEL_ENTRY_LABEL_STYLE}
+        data-reader-outline-entry-label={entry.id}
+      >
         {entry.title}
       </span>
     </button>

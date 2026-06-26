@@ -91,10 +91,7 @@ describe('ChatOutlinePanel', () => {
   it('uses the shared rail panel without visible chat-specific directory copy', () => {
     const onPickEntry = vi.fn();
     const longPreview = '请总结这篇文章的核心观点，并按照背景、论点、证据、结论四个部分展开说明';
-    const panelEntries = [
-      { ...entries[0], previewText: longPreview },
-      entries[1],
-    ];
+    const panelEntries = [{ ...entries[0], previewText: longPreview }, entries[1]];
     act(() => {
       root!.render(createElement(ChatOutlinePanel, { entries: panelEntries, activeIndex: 2, onPickEntry }));
     });
@@ -102,9 +99,9 @@ describe('ChatOutlinePanel', () => {
     const wrap = document.querySelector('[data-reader-rail-wrap="chat-outline"]') as HTMLElement | null;
     expect(wrap).toBeTruthy();
     expect(wrap?.querySelectorAll('[data-chat-outline-trigger-bar]')).toHaveLength(panelEntries.length);
-    expect(wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar')).toBe(
-      'u-102',
-    );
+    expect(
+      wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar'),
+    ).toBe('u-102');
 
     act(() => {
       wrap!.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true, cancelable: true }));
@@ -151,7 +148,9 @@ describe('ChatOutlinePanel', () => {
     expect(barsRoot?.className).toContain('tw-pr-1');
     expect(bars).toHaveLength(7);
     expect(bars.every((bar) => (bar as HTMLElement).className.includes('tw-h-[2px]'))).toBe(true);
-    expect(bars.every((bar) => (bar as HTMLElement).className.includes('tw-rounded-[var(--radius-inline)]'))).toBe(true);
+    expect(bars.every((bar) => (bar as HTMLElement).className.includes('tw-rounded-[var(--radius-inline)]'))).toBe(
+      true,
+    );
     expect(
       Array.from(wrap?.querySelectorAll('[data-chat-outline-trigger-bars] button') || []).every((button) =>
         (button as HTMLElement).className.includes('tw-leading-none'),
@@ -164,8 +163,8 @@ describe('ChatOutlinePanel', () => {
       `${readerOutlineLevelToMinimapWidth(2)}px`,
     );
     expect(wrap?.querySelector('[data-chat-outline-trigger-bar="u-37"]')).toBeTruthy();
-    expect(wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar')).toBe(
-      'u-37',
-    );
+    expect(
+      wrap?.querySelector('[data-chat-outline-trigger-active="true"]')?.getAttribute('data-chat-outline-trigger-bar'),
+    ).toBe('u-37');
   });
 });
