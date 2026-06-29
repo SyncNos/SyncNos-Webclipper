@@ -4,12 +4,7 @@ import {
   OBSIDIAN_MESSAGE_TYPES,
 } from '@platform/messaging/message-contracts';
 import { send } from '@platform/runtime/runtime';
-import type {
-  NotionSyncJobStatus,
-  ObsidianSyncStatus,
-  SyncJobStatusResponse,
-  SyncProvider,
-} from '@services/sync/models';
+import type { SyncJobStatusResponse, SyncProvider } from '@services/sync/models';
 
 export type SyncStartAck = {
   provider: SyncProvider;
@@ -28,23 +23,23 @@ function unwrap<T>(res: ApiResponse<T>): T {
   throw error;
 }
 
-export async function getNotionSyncJobStatus(): Promise<NotionSyncJobStatus> {
-  const res = await send<ApiResponse<NotionSyncJobStatus>>(NOTION_MESSAGE_TYPES.GET_SYNC_JOB_STATUS);
+export async function getNotionSyncJobStatus(): Promise<SyncJobStatusResponse> {
+  const res = await send<ApiResponse<SyncJobStatusResponse>>(NOTION_MESSAGE_TYPES.GET_SYNC_JOB_STATUS);
   return unwrap(res);
 }
 
-export async function clearNotionSyncJobStatus(): Promise<NotionSyncJobStatus> {
-  const res = await send<ApiResponse<NotionSyncJobStatus>>(NOTION_MESSAGE_TYPES.CLEAR_SYNC_JOB_STATUS);
+export async function clearNotionSyncJobStatus(): Promise<SyncJobStatusResponse> {
+  const res = await send<ApiResponse<SyncJobStatusResponse>>(NOTION_MESSAGE_TYPES.CLEAR_SYNC_JOB_STATUS);
   return unwrap(res);
 }
 
-export async function getObsidianSyncStatus(): Promise<ObsidianSyncStatus> {
-  const res = await send<ApiResponse<ObsidianSyncStatus>>(OBSIDIAN_MESSAGE_TYPES.GET_SYNC_STATUS);
+export async function getObsidianSyncStatus(): Promise<SyncJobStatusResponse> {
+  const res = await send<ApiResponse<SyncJobStatusResponse>>(OBSIDIAN_MESSAGE_TYPES.GET_SYNC_STATUS);
   return unwrap(res);
 }
 
-export async function clearObsidianSyncStatus(): Promise<ObsidianSyncStatus> {
-  const res = await send<ApiResponse<ObsidianSyncStatus>>(OBSIDIAN_MESSAGE_TYPES.CLEAR_SYNC_STATUS);
+export async function clearObsidianSyncStatus(): Promise<SyncJobStatusResponse> {
+  const res = await send<ApiResponse<SyncJobStatusResponse>>(OBSIDIAN_MESSAGE_TYPES.CLEAR_SYNC_STATUS);
   return unwrap(res);
 }
 

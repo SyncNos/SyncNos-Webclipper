@@ -6,10 +6,6 @@ export const LAST_BACKUP_EXPORT_AT_STORAGE_KEY = 'last_backup_export_at';
 export const IMAGE_CACHE_INDEX_SCHEMA_VERSION = 1;
 export const ARTICLE_COMMENTS_INDEX_SCHEMA_VERSION = 1;
 
-// Legacy export: previously we only backed up an allowlist of keys.
-// Now we back up all chrome.storage.local keys except a small sensitive denylist.
-export const STORAGE_ALLOWLIST = Object.freeze([] as string[]);
-
 const STORAGE_BACKUP_DENYLIST_EXACT = new Set<string>([
   // Never export tokens (explicit product constraint).
   'notion_oauth_token_v1',

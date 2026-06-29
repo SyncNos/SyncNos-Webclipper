@@ -222,9 +222,7 @@ function readInitialListSourceFilterKey(): string {
   const raw = readLocalStorageValue(LIST_SOURCE_FILTER_STORAGE_KEY).trim().toLowerCase();
   if (raw) return raw;
 
-  // Backward compat: older app stored filter under this key.
-  const legacy = readLocalStorageValue('webclipper_app_source_filter_key').trim().toLowerCase();
-  return legacy || LIST_SOURCE_KEY_ALL;
+  return LIST_SOURCE_KEY_ALL;
 }
 
 function readInitialListSiteFilterKey(): string {

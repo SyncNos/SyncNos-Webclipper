@@ -661,9 +661,6 @@ function cleanupButtons(activeCollectorId: string) {
     const el = document.getElementById(INPAGE_BTN_ID) as HTMLElement | null;
     if (el) destroyButton(el);
   }
-  // Cleanup legacy Notion button id from older versions.
-  const legacyNotionBtn = document.getElementById('webclipper-notionai-btn');
-  if (legacyNotionBtn) legacyNotionBtn.remove();
 }
 
 function setSaving(saving: boolean) {
