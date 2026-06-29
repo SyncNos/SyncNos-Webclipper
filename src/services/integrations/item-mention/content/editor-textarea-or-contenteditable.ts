@@ -259,3 +259,5 @@ export function createTextareaOrContentEditableEditorAdapter(): EditorAdapter {
     },
   };
 }
+
+export const textareaOrContentEditableEditorAdapter: EditorAdapter = createTextareaOrContentEditableEditorAdapter();

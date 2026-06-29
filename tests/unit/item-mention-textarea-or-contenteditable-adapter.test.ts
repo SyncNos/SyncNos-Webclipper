@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { JSDOM } from 'jsdom';
 
-import { deepseekEditorAdapter } from '../../src/services/integrations/item-mention/content/editor-deepseek';
+import { textareaOrContentEditableEditorAdapter } from '../../src/services/integrations/item-mention/content/editor-textarea-or-contenteditable';
 
 let dom: JSDOM | null = null;
 
 beforeEach(() => {
   dom = new JSDOM('<!doctype html><html><body><textarea></textarea></body></html>', {
-    url: 'https://chat.deepseek.com/',
+    url: 'https://example.com/',
     pretendToBeVisual: true,
   });
   Object.defineProperty(globalThis, 'window', { configurable: true, value: dom.window });
@@ -35,7 +35,7 @@ afterEach(() => {
   delete (globalThis as any).location;
 });
 
-describe('item-mention deepseek editor adapter', () => {
+describe('item-mention textarea/contenteditable editor adapter', () => {
   it('replaces a range in textarea', () => {
     const el = document.querySelector('textarea') as HTMLTextAreaElement;
     (el as any).getBoundingClientRect = () => ({ width: 100, height: 20, top: 0, left: 0, right: 100, bottom: 20 });
@@ -45,13 +45,13 @@ describe('item-mention deepseek editor adapter', () => {
     el.selectionEnd = 3;
     (el as any).focus?.();
 
-    const editor = deepseekEditorAdapter.detectActiveEditor();
+    const editor = textareaOrContentEditableEditorAdapter.detectActiveEditor();
     expect(editor?.kind).toBe('textarea');
 
-    const range = deepseekEditorAdapter.getSelectionRange(editor!);
+    const range = textareaOrContentEditableEditorAdapter.getSelectionRange(editor!);
     expect(range).toEqual({ start: 3, end: 3 });
 
-    const after = deepseekEditorAdapter.replaceRange(editor!, { start: 0, end: 3 }, 'MD');
+    const after = textareaOrContentEditableEditorAdapter.replaceRange(editor!, { start: 0, end: 3 }, 'MD');
     expect(el.value).toBe('MD');
     expect(after).toEqual({ start: 2, end: 2 });
   });

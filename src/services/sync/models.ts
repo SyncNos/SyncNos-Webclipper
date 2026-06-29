@@ -58,7 +58,3 @@ export type SyncJobStatusResponse = {
   job: SyncJobSnapshot | null;
   instanceId?: string;
 };
-
-export type NotionSyncJobStatus = SyncJobStatusResponse;
-
-export type ObsidianSyncStatus = SyncJobStatusResponse;
