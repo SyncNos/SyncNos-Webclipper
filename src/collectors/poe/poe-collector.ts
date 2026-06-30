@@ -302,7 +302,6 @@ export function createPoeCollectorDef(env: CollectorEnv): CollectorDefinition {
 
       if (stableAtTopRounds >= 2) break;
     }
-
   }
 
   function messageKeyFromWrapper(wrapper: any, role: any, contentText: any, sequence: any): any {

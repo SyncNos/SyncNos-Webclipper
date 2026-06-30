@@ -1,6 +1,10 @@
 import type { CurrentPageCaptureService } from '@services/bootstrap/current-page-capture';
 import { AI_CHAT_AUTO_SAVE_COLLECTOR_IDS } from '@collectors/ai-chat-sites';
-import { resolveActiveCollector, resolveActiveOrInpageCollector, type CollectorRegistryLike } from '@collectors/registry';
+import {
+  resolveActiveCollector,
+  resolveActiveOrInpageCollector,
+  type CollectorRegistryLike,
+} from '@collectors/registry';
 import { buildCaptureSuccessTipMessage } from '@services/shared/capture-tip';
 import normalizeApi from '@services/shared/normalize.ts';
 import { CORE_MESSAGE_TYPES, UI_MESSAGE_TYPES } from '@platform/messaging/message-contracts';

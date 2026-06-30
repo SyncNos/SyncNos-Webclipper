@@ -432,7 +432,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     } catch (_e) {
       // ignore
     }
-
   }
 
   async function capture(options: any = {}): Promise<any> {

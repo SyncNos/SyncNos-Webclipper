@@ -49,7 +49,10 @@ export function resolveActiveOrInpageCollector(
   return null;
 }
 
-export function resolveActiveCollector(registry: CollectorRegistryLike | null | undefined, locationArg?: CollectorLocation) {
+export function resolveActiveCollector(
+  registry: CollectorRegistryLike | null | undefined,
+  locationArg?: CollectorLocation,
+) {
   const picked = locationArg ? registry?.pickActive?.(locationArg) : registry?.pickActive?.();
   if (!picked?.collector) return null;
   return { id: picked.id, ...picked.collector };

@@ -45,14 +45,7 @@ const resolveManifest: UserManifestFn = (env) => {
   const isSafari = env.browser === 'safari';
 
   // Base permissions shared by all browsers.
-  const permissions: string[] = [
-    'storage',
-    'contextMenus',
-    'tabs',
-    'webNavigation',
-    'scripting',
-    'alarms',
-  ];
+  const permissions: string[] = ['storage', 'contextMenus', 'tabs', 'webNavigation', 'scripting', 'alarms'];
 
   // `declarativeNetRequestWithHostAccess` is Chrome 128+; Safari uses the
   // plain `declarativeNetRequest` permission instead.  The runtime code
@@ -71,10 +64,7 @@ const resolveManifest: UserManifestFn = (env) => {
     description: isSafari ? '__MSG_description__' : '__MSG_extDescription__',
     default_locale: 'en',
     permissions,
-    host_permissions: [
-      'http://*/*',
-      'https://*/*',
-    ],
+    host_permissions: ['http://*/*', 'https://*/*'],
     web_accessible_resources: [
       {
         resources: ['icons/icon-128.png'],
