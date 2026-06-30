@@ -14,7 +14,7 @@
 | `src/entrypoints/content.ts` | 内容脚本入口 | 组装 collectors registry、inpage UI、runtime observer |
 | `src/services/bootstrap/content.ts` | inpage runtime gating | 决定 `inpage_display_mode`（兼容旧 `inpage_supported_only`）与支持站点如何影响 UI 启动 |
 | `src/services/bootstrap/current-page-capture.ts` | 当前页抓取服务 | 统一判断当前标签页可否抓取，并区分 chat / article 两条手动抓取路径 |
-| `src/services/bootstrap/content-controller.ts` | 自动 / 手动保存控制器 | 单击保存、双击打开页面内评论侧边栏（inpage comments panel）、article fetch、Notion AI 发送后主动采样、Google AI Studio 手动保存都在这里 |
+| `src/services/bootstrap/content-controller.ts` | 自动 / 手动保存控制器 | 单击保存、双击打开页面内评论侧边栏（inpage comments panel）、article fetch、Notion AI 发送后主动采样、Google AI Studio / ChatGPT 手动保存（含滚动扫描水合）都在这里 |
 | `src/services/bootstrap/video-transcript-capture.ts` | 视频字幕采集服务 | 把 YouTube / Bilibili 已加载字幕格式化为 video conversation |
 | `src/services/bootstrap/video-transcript-capture-content-handlers.ts` | 视频字幕消息处理器 | 连接右键菜单、空字幕提示与 capture service |
 | `src/platform/webext/anti-hotlink-rules-store.ts` | 反防盗链规则真值与 referer 映射 | 维护 `anti_hotlink_rules_v1`，为图片下载代理和 article fetch 提供 domain → referer 规则 |
@@ -86,7 +86,7 @@
 - `anti_hotlink_rules_v1` 由 `AntiHotlinkDomainsEditor` 维护；文章抓取命中规则时会自动走图片缓存链路，即使 `web_article_cache_images_enabled` 关闭也不会把整页抓取变成失败。
 - `inpage-button-shadow.ts` 的点击结算窗口是 `400ms`：单击触发保存，双击打开页面内评论侧边栏，多击只触发彩蛋动画与提示。
 - 评论侧边栏打开后，页面 `selectionchange` 会自动附加当前选区；reply 输入框不触发附加，也不触发“空选区清空”。
-- Google AI Studio 由于虚拟化渲染，自动保存常常不完整；collector 与 controller 已经显式把它改为“手动保存优先”。
+- ChatGPT 与 Google AI Studio 都因虚拟化渲染会把离屏轮次卸载成空壳，单次自动保存常常漏掉中间轮次；二者均已退出 auto-save 集合（`AI_CHAT_AUTO_SAVE_COLLECTOR_IDS`）、改为“手动保存优先”，由 collector 的 `prepareManualCapture()` 滚动扫描水合 + 跨扫描收割恢复全量历史。
 - Notion AI 的 auto-save 不是纯 observer 模型：controller 会在发送按钮 / 回车提交后主动补采样，collector 与 backfill 层也会优先复用稳定 turn key（如 user step id / `data-block-id`）来补齐最新 tail；如果页面只给出不可靠窗口，auto-save 会安全跳过，而不是把这一帧推进成新的 baseline。
 - popup 里的 “Current Page / Fetch Current Page” 不是盲抓：`current-page-capture.ts` 会先解析当前 collector，支持页走 chat snapshot，普通网页走 article fetch，不支持页则返回显式不可抓取原因。
 - article comments 是 local-first 的注释层：它依赖 article 的 canonical URL 作为主索引，并会在 article 同步时进入 Notion / Obsidian 的评论区段，同时进入 Zip v2 备份 / 恢复；如果你改 comments 流程，一定同时看 storage、background handler、shared session、inpage 面板和 backup 目录。

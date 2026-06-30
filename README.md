@@ -45,7 +45,7 @@ One-click sync to Notion / Obsidian / Feishu(Lark), or export as Markdown / Zip.
 
 | Platform | Capture Mode |
 | --- | --- |
-| ChatGPT | Auto |
+| ChatGPT | Manual save preferred¹ |
 | Claude | Auto |
 | Gemini | Auto |
 | DeepSeek | Auto |

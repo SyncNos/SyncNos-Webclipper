@@ -19,7 +19,7 @@
 | 安装后引导策略 | `src/entrypoints/background.ts` | `install` 打开 `/settings?section=aboutme`；`update` 不自动开标签页 | 保留首次上手引导，同时避免升级打断当前会话 |
 | `inpage_display_mode` | `chrome.storage.local`, `src/services/bootstrap/content.ts` | 默认 `all`；兼容旧 `inpage_supported_only` | 控制 inpage 在 `supported / all / off` 三档中的显示范围 |
 | `SelectMenu.adaptiveMaxHeight` | `ui/shared/SelectMenu.tsx`, `ConversationListPane.tsx` | 默认 `false`；source/site 筛选启用为 `true` | 在菜单展开时基于最邻近可裁剪容器动态计算 `panelMaxHeight`，减少多余滚动条与裁切 |
-| `ai_chat_auto_save_enabled` | `chrome.storage.local` | 默认 `true` | 控制支持 AI 站点是否自动保存；开启时会在打开会话后尝试对近 200 条范围（`<=200`）做 backfill 补齐。Notion AI 额外会在发送按钮 / 回车提交后主动触发采样，并在可用时使用稳定 `messageKey` 做尾部补齐。若既找不到可靠 overlap、也没有稳定尾锚点，会安全跳过并只写 console 日志（无 UI 提示）；关闭后仍可手动保存 |
+| `ai_chat_auto_save_enabled` | `chrome.storage.local` | 默认 `true` | 控制支持 AI 站点是否自动保存（ChatGPT 与 Google AI Studio 因虚拟化渲染不在 auto-save 集合内，仅手动抓取）；开启时会在打开会话后尝试对近 200 条范围（`<=200`）做 backfill 补齐。Notion AI 额外会在发送按钮 / 回车提交后主动触发采样，并在可用时使用稳定 `messageKey` 做尾部补齐。若既找不到可靠 overlap、也没有稳定尾锚点，会安全跳过并只写 console 日志（无 UI 提示）；关闭后仍可手动保存 |
 | `ai_chat_dollar_mention_enabled` | `chrome.storage.local`, `src/services/bootstrap/content-controller.ts` | 默认 `true` | 控制支持站点的 `$ mention` 能力是否启用；关闭后 content script 会停止注入该交互（当前标签页可热更新） |
 | `ai_chat_cache_images_enabled` | `chrome.storage.local`, `src/services/conversations/background/handlers.ts` | 默认 `false` | 控制 chat 消息采集时是否尝试图片内联；历史会话可通过 detail header 的 `cache-images` 手动回填 |
 | `web_article_cache_images_enabled` | `chrome.storage.local`, `src/services/conversations/background/handlers.ts`, `src/collectors/web/article-fetch.ts` | 默认 `false` | 控制 article 消息采集时是否尝试图片内联；历史会话可通过 detail header 的 `cache-images` 手动回填 |

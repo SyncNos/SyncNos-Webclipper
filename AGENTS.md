@@ -52,6 +52,7 @@
 - **会话分页**：必须走 `bootstrap + loadMore`，禁止全量读取。契约见 [modules/webclipper.md](docs/modules/webclipper.md)。
 - **评论侧栏选区附加**：`selectionchange` 自动触发，reply 输入框不触发。行为边界见 [modules/comments.md](docs/modules/comments.md)。
 - **`$` mention**：`$` 触发候选窗，`Tab/Enter` 插入。支持站点与键盘行为见 [modules/webclipper.md](docs/modules/webclipper.md)。
+- **虚拟列表抓取（红线）**：ChatGPT / Google AI Studio 会把离屏轮次虚拟化卸载，单次读取会漏掉中间轮次；二者**禁止**加入 `AI_CHAT_AUTO_SAVE_COLLECTOR_IDS`（仅手动抓取），全量历史由 collector 的 `prepareManualCapture()` 滚动扫描水合 + 跨扫描收割恢复。真源见 `src/collectors/ai-chat-sites.ts` 与 `src/collectors/chatgpt/chatgpt-collector.ts`。
 
 ## 贡献约定
 
