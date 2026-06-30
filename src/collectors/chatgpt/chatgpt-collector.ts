@@ -616,37 +616,39 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     const prevX = Number((env.window as any)?.scrollX) || 0;
     const prevY = Number((env.window as any)?.scrollY) || 0;
 
-    // Harvest whatever is already rendered before we start moving the viewport.
-    await harvestInto(cache, root, { allowEditing: true });
-
-    for (let i = 0; i < skeleton.length; i += 1) {
-      const turnEl = skeleton[i];
-      if (turnIsHydrated(turnEl)) continue;
-      const target = scrollTargetForTurn(turnEl);
-      try {
-        (target as any)?.scrollIntoView?.({ block: 'center' });
-      } catch (_e) {
-        // ignore: scrollIntoView is unavailable in some environments
-      }
-      const start = Date.now();
-      while (Date.now() - start <= perTurnTimeoutMs) {
-        if (turnIsHydrated(turnEl)) break;
-        await sleep(pollMs);
-      }
-      if (settleMs) await sleep(settleMs);
-      // Re-harvest after this turn hydrated; captures it before it can virtualize away again.
-      await harvestInto(cache, root, { allowEditing: true });
-    }
-
-    // Final sweep to pick up anything that hydrated late.
-    await harvestInto(cache, root, { allowEditing: true });
-
-    manualHarvestCache = cache;
-
     try {
-      (env.window as any)?.scrollTo?.(prevX, prevY);
-    } catch (_e) {
-      // ignore
+      // Harvest whatever is already rendered before we start moving the viewport.
+      await harvestInto(cache, root, { allowEditing: true });
+
+      for (let i = 0; i < skeleton.length; i += 1) {
+        const turnEl = skeleton[i];
+        if (turnIsHydrated(turnEl)) continue;
+        const target = scrollTargetForTurn(turnEl);
+        try {
+          (target as any)?.scrollIntoView?.({ block: 'center' });
+        } catch (_e) {
+          // ignore: scrollIntoView is unavailable in some environments
+        }
+        const start = Date.now();
+        while (Date.now() - start <= perTurnTimeoutMs) {
+          if (turnIsHydrated(turnEl)) break;
+          await sleep(pollMs);
+        }
+        if (settleMs) await sleep(settleMs);
+        // Re-harvest after this turn hydrated; captures it before it can virtualize away again.
+        await harvestInto(cache, root, { allowEditing: true });
+      }
+
+      // Final sweep to pick up anything that hydrated late.
+      await harvestInto(cache, root, { allowEditing: true });
+
+      manualHarvestCache = cache;
+    } finally {
+      try {
+        (env.window as any)?.scrollTo?.(prevX, prevY);
+      } catch (_e) {
+        // ignore
+      }
     }
     return true;
   }
