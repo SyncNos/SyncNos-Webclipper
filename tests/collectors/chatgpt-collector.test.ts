@@ -693,8 +693,7 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
     expect(shells.length).toBe(3);
     const def = createChatgptCollectorDef(buildEnv(dom)) as any;
 
-    const prepared = await def.collector.prepareManualCapture({ perTurnTimeoutMs: 300, pollMs: 10, settleMs: 5 });
-    expect(prepared).toBe(true);
+    await def.collector.prepareManualCapture({ perTurnTimeoutMs: 300, pollMs: 10, settleMs: 5 });
     expect(counter.calls).toBe(3);
 
     const snap = (await Promise.resolve(def.collector.capture({ manual: true }))) as any;

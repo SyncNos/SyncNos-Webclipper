@@ -599,12 +599,12 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
   // into view, polls until it hydrates, and harvests after every step so turns that unmount again
   // as we scroll past are already cached. The result is stashed for the next manual capture().
   // Scroll position is restored when finished. Pure additive method; never called automatically.
-  async function prepareManualCapture(options: any = {}): Promise<boolean> {
-    if (!matches({ hostname: env.location.hostname })) return false;
+  async function prepareManualCapture(options: any = {}): Promise<void> {
+    if (!matches({ hostname: env.location.hostname })) return;
     const root = getConversationRoot();
-    if (!root) return false;
+    if (!root) return;
     const skeleton = getTurnSkeleton(root);
-    if (!skeleton.length) return false;
+    if (!skeleton.length) return;
 
     const settleMs = Math.max(0, Number(options.settleMs) || 80);
     const perTurnTimeoutMs = Math.max(120, Number(options.perTurnTimeoutMs) || 900);
@@ -650,7 +650,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         // ignore
       }
     }
-    return true;
   }
 
   async function capture(options: any): Promise<any | null> {

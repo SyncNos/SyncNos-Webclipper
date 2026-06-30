@@ -267,14 +267,14 @@ export function createPoeCollectorDef(env: CollectorEnv): CollectorDefinition {
     return { changed: false, sig: messageLoadSignature(root) };
   }
 
-  async function prepareManualCapture(options: any): Promise<any> {
-    if (!matches({ hostname: location.hostname }) || !isValidConversationUrl()) return false;
+  async function prepareManualCapture(options: any): Promise<void> {
+    if (!matches({ hostname: location.hostname }) || !isValidConversationUrl()) return;
 
     const root = getConversationRoot();
-    if (!root) return false;
+    if (!root) return;
 
     const scrollContainer = findScrollContainer(root);
-    if (!scrollContainer) return false;
+    if (!scrollContainer) return;
 
     const maxRounds = Math.max(1, Number(options && options.maxRounds) || 24);
     const settleMs = Math.max(0, Number(options && options.settleMs) || 120);
@@ -303,7 +303,6 @@ export function createPoeCollectorDef(env: CollectorEnv): CollectorDefinition {
       if (stableAtTopRounds >= 2) break;
     }
 
-    return true;
   }
 
   function messageKeyFromWrapper(wrapper: any, role: any, contentText: any, sequence: any): any {
