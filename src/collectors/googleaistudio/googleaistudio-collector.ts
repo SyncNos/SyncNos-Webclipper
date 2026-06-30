@@ -365,14 +365,14 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     return out;
   }
 
-  async function prepareManualCapture(options: any = {}): Promise<any> {
-    if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl()) return false;
+  async function prepareManualCapture(options: any = {}): Promise<void> {
+    if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl()) return;
 
     const root = getConversationRoot();
-    if (!root) return false;
+    if (!root) return;
 
     const turns: Element[] = Array.from(root.querySelectorAll('ms-chat-turn')) as any;
-    if (!turns.length) return false;
+    if (!turns.length) return;
 
     const settleMs = Math.max(0, Number(options.settleMs) || 80);
     const perTurnTimeoutMs = Math.max(120, Number(options.perTurnTimeoutMs) || 900);
@@ -432,8 +432,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     } catch (_e) {
       // ignore
     }
-
-    return true;
   }
 
   async function capture(options: any = {}): Promise<any> {

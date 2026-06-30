@@ -1,26 +1,6 @@
 import { CONTENT_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { extractWebArticleFromCurrentPage } from '@collectors/web/article-extract/engine';
-
-type ApiResponse<T> = {
-  ok: boolean;
-  data: T | null;
-  error: { message: string; extra: unknown } | null;
-};
-
-function ok<T>(data: T): ApiResponse<T> {
-  return { ok: true, data, error: null };
-}
-
-function err(message: unknown, extra?: unknown): ApiResponse<null> {
-  return {
-    ok: false,
-    data: null,
-    error: {
-      message: String(message || 'unknown error'),
-      extra: extra ?? null,
-    },
-  };
-}
+import { err, ok, type ApiResponse } from '@services/bootstrap/content-handler-response';
 
 export function registerWebArticleExtractContentHandlers() {
   const runtime = (globalThis as any).chrome?.runtime ?? (globalThis as any).browser?.runtime;

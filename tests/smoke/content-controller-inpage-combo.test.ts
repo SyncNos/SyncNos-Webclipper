@@ -248,7 +248,7 @@ describe('content-controller inpage combo', () => {
     expect(harness.tipCalls.length).toBe(0);
   });
 
-  it('auto-saves chatgpt deep research once hydration becomes available', async () => {
+  it('does not auto-save chatgpt deep research after ChatGPT became manual-capture only', async () => {
     setupDom();
     vi.useFakeTimers();
 
@@ -269,9 +269,8 @@ describe('content-controller inpage combo', () => {
     const harness = createHarness({
       collectorId: 'chatgpt',
       captureImpl: () => snapshot,
-      incrementalImpl: (snap) => {
-        expect(String(snap?.messages?.[0]?.contentText || '')).not.toMatch(/^Deep Research \(iframe\):/);
-        return { changed: true, snapshot: snap };
+      incrementalImpl: () => {
+        throw new Error('incremental should not run for chatgpt autosave');
       },
       sendImpl: async (type: string, payload?: any) => {
         if (type === 'chatgptExtractDeepResearch') {
@@ -302,9 +301,10 @@ describe('content-controller inpage combo', () => {
 
     await vi.advanceTimersByTimeAsync(15_000);
 
-    expect(harness.sendCalls.some((c) => c.type === 'upsertConversation')).toBe(true);
-    expect(harness.sendCalls.some((c) => c.type === 'syncConversationMessages')).toBe(true);
-    expect(harness.tipCalls.some((c) => String(c.text) === 'Saved')).toBe(true);
+    expect(harness.sendCalls.some((c) => c.type === 'chatgptExtractDeepResearch')).toBe(false);
+    expect(harness.sendCalls.some((c) => c.type === 'upsertConversation')).toBe(false);
+    expect(harness.sendCalls.some((c) => c.type === 'syncConversationMessages')).toBe(false);
+    expect(harness.tipCalls.some((c) => String(c.text) === 'Saved')).toBe(false);
 
     vi.useRealTimers();
   });

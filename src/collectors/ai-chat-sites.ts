@@ -31,7 +31,9 @@ export const SUPPORTED_AI_CHAT_SITES: SupportedAiChatSite[] = [
   { id: 'zai', name: 'z.ai', hosts: ['chat.z.ai'], features: { dollarMention: true } },
 ] as const;
 
-// Keep auto-save conservative: do not auto-save Google AI Studio (manual capture is supported).
+// Keep auto-save conservative: Google AI Studio and ChatGPT are manual-capture only. ChatGPT
+// virtualizes off-screen turns, so a single auto-save pass can miss the middle of a conversation;
+// its full history is recovered by the manual scroll-sweep capture instead.
 export const AI_CHAT_AUTO_SAVE_COLLECTOR_IDS = new Set(
-  SUPPORTED_AI_CHAT_SITES.map((site) => site.id).filter((id) => id !== 'googleaistudio'),
+  SUPPORTED_AI_CHAT_SITES.map((site) => site.id).filter((id) => id !== 'googleaistudio' && id !== 'chatgpt'),
 );

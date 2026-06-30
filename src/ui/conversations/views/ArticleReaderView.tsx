@@ -91,7 +91,10 @@ export function ArticleReaderView({
 }: ArticleReaderViewProps) {
   // readerFeatures gates each toolbar piece; chat conversations pass all-false (or
   // omit it), so the toolbar renders nothing over the chat view.
-  const features = readerFeatures ?? { textLayout: false, theme: false, narration: false };
+  const features = useMemo(
+    () => readerFeatures ?? { textLayout: false, theme: false, narration: false },
+    [readerFeatures],
+  );
   const { prefs, update } = useReaderPrefs();
   const { mode: themeMode, update: updateThemeMode } = useAppThemeMode();
   const readerVars = readerPrefsToCssVars(prefs) as CSSProperties;
@@ -444,11 +447,15 @@ export function ArticleReaderView({
   }, [features, prefs, readerToolbarPortalTarget, themeMode, toolbarNarration, update, updateThemeMode]);
 
   const shouldRenderInlineRail = !!outlinePayload?.entries.length;
-  const outlineRail = outlinePayload ? (
-    <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
-      <ReaderToolbar outline={outlinePayload} />
-    </aside>
-  ) : null;
+  const outlineRail = useMemo(
+    () =>
+      outlinePayload ? (
+        <aside className={READER_RAIL_CLASS} data-reader-rail="article-rail">
+          <ReaderToolbar outline={outlinePayload} />
+        </aside>
+      ) : null,
+    [outlinePayload],
+  );
   const outlineToolbarPortal = useMemo(() => {
     if (!readerOutlinePortalTarget || !outlineRail) return null;
     return createPortal(outlineRail, readerOutlinePortalTarget);

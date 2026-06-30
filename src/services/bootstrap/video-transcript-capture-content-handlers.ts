@@ -1,32 +1,12 @@
 import { CONTENT_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
+import { err, ok, type ApiResponse } from '@services/bootstrap/content-handler-response';
 import type { VideoTranscriptCaptureService } from '@services/bootstrap/video-transcript-capture';
 import { t } from '@i18n';
 import { buildCaptureSuccessTipMessage } from '@services/shared/capture-tip';
 
-type ApiResponse<T> = {
-  ok: boolean;
-  data: T | null;
-  error: { message: string; extra: unknown } | null;
-};
-
 type InpageTipApi = {
   showSaveTip?: (text: unknown, options?: { kind?: 'default' | 'error' }) => void;
 };
-
-function ok<T>(data: T): ApiResponse<T> {
-  return { ok: true, data, error: null };
-}
-
-function err(message: unknown, extra?: unknown): ApiResponse<null> {
-  return {
-    ok: false,
-    data: null,
-    error: {
-      message: String(message || 'unknown error'),
-      extra: extra ?? null,
-    },
-  };
-}
 
 function toErrorMessage(error: unknown, fallback: string): string {
   const msg = error instanceof Error ? error.message : String(error ?? '');

@@ -1,9 +1,13 @@
 import type { CurrentPageCaptureService } from '@services/bootstrap/current-page-capture';
 import { AI_CHAT_AUTO_SAVE_COLLECTOR_IDS } from '@collectors/ai-chat-sites';
-import { hydrateChatgptDeepResearchSnapshot } from '@collectors/chatgpt/chatgpt-deep-research-hydrator';
+import {
+  resolveActiveCollector,
+  resolveActiveOrInpageCollector,
+  type CollectorRegistryLike,
+} from '@collectors/registry';
 import { buildCaptureSuccessTipMessage } from '@services/shared/capture-tip';
 import normalizeApi from '@services/shared/normalize.ts';
-import { UI_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
+import { CORE_MESSAGE_TYPES, UI_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { reconcileAutoSaveBackfill } from '@services/conversations/content/autosave-backfill-reconciler';
 import {
   readInpageButtonGlobalPosition,
@@ -19,16 +23,6 @@ type RuntimeClient = {
   send?: (type: string, payload?: Record<string, unknown>) => Promise<any>;
   onInvalidated?: (listener: (error: Error) => void) => () => void;
   isInvalidContextError?: (error: unknown) => boolean;
-};
-
-type CollectorRegistry = {
-  pickActive?: () => { id: string; collector: any } | null;
-  list?: () => Array<{
-    id: string;
-    collector?: any;
-    matches?: (loc: any) => boolean;
-    inpageMatches?: (loc: any) => boolean;
-  }>;
 };
 
 type InpageButtonApi = {
@@ -59,7 +53,7 @@ type RuntimeObserverApi = {
 
 type Deps = {
   runtime: RuntimeClient | null;
-  collectorsRegistry: CollectorRegistry | null;
+  collectorsRegistry: CollectorRegistryLike | null;
   currentPageCapture: CurrentPageCaptureService;
   inpageButton: InpageButtonApi | null;
   inpageTip: InpageTipApi | null;
@@ -67,12 +61,6 @@ type Deps = {
   incrementalUpdater: { computeIncremental?: (snapshot: unknown) => any } | null;
   itemMention: { start?: () => { stop?: () => void } | null } | null;
 };
-
-const CORE_MESSAGE_TYPES = Object.freeze({
-  UPSERT_CONVERSATION: 'upsertConversation',
-  SYNC_CONVERSATION_MESSAGES: 'syncConversationMessages',
-  GET_CONVERSATION_TAIL_WINDOW_BY_SOURCE_AND_KEY: 'getConversationTailWindowBySourceAndKey',
-});
 
 const EASTER_EGG_LINES = Object.freeze({
   3: ['Combo x3! Nice rhythm.', 'Three taps. Paw approved.'],
@@ -159,36 +147,6 @@ export function createContentController(deps: Deps) {
     return runtime.send(type, payload);
   }
 
-  function getCollector() {
-    const picked = collectorsRegistry?.pickActive?.();
-    if (!picked || !picked.collector) return null;
-    return { id: picked.id, ...picked.collector };
-  }
-
-  function getInpageCollector() {
-    const list = collectorsRegistry?.list?.() || [];
-    if (!Array.isArray(list) || !list.length) return null;
-
-    const locationPayload = {
-      href: location.href,
-      hostname: location.hostname,
-      pathname: location.pathname,
-    };
-
-    for (const item of list) {
-      if (!item) continue;
-      const matcher = typeof item.inpageMatches === 'function' ? item.inpageMatches : item.matches;
-      if (typeof matcher !== 'function') continue;
-      try {
-        if (matcher(locationPayload)) return { id: item.id, ...(item.collector || {}) };
-      } catch (_error) {
-        // ignore matcher errors
-      }
-    }
-
-    return null;
-  }
-
   async function saveSnapshot(
     snapshot: any,
     options?: {
@@ -197,28 +155,6 @@ export function createContentController(deps: Deps) {
     },
   ) {
     if (!snapshot || !snapshot.conversation) return null;
-
-    if (options?.mode !== 'incremental') {
-      try {
-        const isChatgpt =
-          String(snapshot?.conversation?.source || '')
-            .trim()
-            .toLowerCase() === 'chatgpt';
-        const hasDeepResearchPlaceholders =
-          isChatgpt &&
-          Array.isArray(snapshot?.messages) &&
-          snapshot.messages.some((m: any) =>
-            String(m?.contentText || m?.contentMarkdown || '')
-              .trim()
-              .startsWith('Deep Research (iframe):'),
-          );
-        if (hasDeepResearchPlaceholders) {
-          await hydrateChatgptDeepResearchSnapshot(snapshot, send);
-        }
-      } catch (_e) {
-        // ignore hydration failures
-      }
-    }
 
     const conversationRes = await send(CORE_MESSAGE_TYPES.UPSERT_CONVERSATION, {
       payload: snapshot.conversation,
@@ -249,13 +185,6 @@ export function createContentController(deps: Deps) {
     let stopped = false;
     let manualSaveInFlight = false;
     let observer: { start?: () => void; stop?: () => void } | null = null;
-    let deepResearchHydrateInFlight = false;
-    let deepResearchLastHydrateAttemptAt = 0;
-    let deepResearchPollTimer: ReturnType<typeof setTimeout> | null = null;
-    let deepResearchPollStartedAt = 0;
-    const DEEP_RESEARCH_POLL_INTERVAL_MS = 5_000;
-    const DEEP_RESEARCH_POLL_MAX_DURATION_MS = 3 * 60_000;
-    const DEEP_RESEARCH_HYDRATE_MIN_INTERVAL_MS = 12_000;
     const BACKFILL_WINDOW_LIMIT = 200;
     const BACKFILL_RETRY_THROTTLE_MS = 10_000;
     const BACKFILL_RETRY_MAX_ATTEMPTS = 6;
@@ -329,10 +258,6 @@ export function createContentController(deps: Deps) {
       savingDepth = 0;
       inpageButton?.setSaving?.(false);
       inpageButton?.cleanupButtons?.('');
-      if (deepResearchPollTimer) {
-        clearTimeout(deepResearchPollTimer);
-        deepResearchPollTimer = null;
-      }
       backfillStateByConversation.clear();
       observer?.stop?.();
       for (const timer of proactiveNotionAiBurstTimers) clearTimeout(timer);
@@ -343,39 +268,8 @@ export function createContentController(deps: Deps) {
 
     runtime?.onInvalidated?.(() => stop());
 
-    function hasChatgptDeepResearchPlaceholderMessages(snapshot: any): boolean {
-      return (
-        Array.isArray(snapshot?.messages) &&
-        snapshot.messages.some((m: any) =>
-          String(m?.contentText || m?.contentMarkdown || '')
-            .trim()
-            .startsWith('Deep Research (iframe):'),
-        )
-      );
-    }
-
-    function clearDeepResearchPoll() {
-      if (deepResearchPollTimer) {
-        clearTimeout(deepResearchPollTimer);
-        deepResearchPollTimer = null;
-      }
-      deepResearchPollStartedAt = 0;
-    }
-
-    function ensureDeepResearchPoll(handleTick: () => Promise<void>) {
-      if (deepResearchPollTimer) return;
-      const now = Date.now();
-      if (!deepResearchPollStartedAt) deepResearchPollStartedAt = now;
-      if (now - deepResearchPollStartedAt > DEEP_RESEARCH_POLL_MAX_DURATION_MS) return;
-
-      deepResearchPollTimer = setTimeout(() => {
-        deepResearchPollTimer = null;
-        void handleTick();
-      }, DEEP_RESEARCH_POLL_INTERVAL_MS);
-    }
-
     function isNotionAiCollectorActive(): boolean {
-      const collector = getCollector();
+      const collector = resolveActiveCollector(collectorsRegistry);
       return (
         String(collector?.id || '')
           .trim()
@@ -643,8 +537,8 @@ export function createContentController(deps: Deps) {
     };
 
     async function refreshInpageButton() {
-      const collector = getCollector();
-      const inpageCollector = collector || getInpageCollector();
+      const collector = resolveActiveCollector(collectorsRegistry);
+      const inpageCollector = collector || resolveActiveOrInpageCollector(collectorsRegistry);
       const positionState = await ensureInpageButtonPositionLoadedOnce();
       inpageButton?.cleanupButtons?.(inpageCollector?.id || '');
       inpageButton?.ensureInpageButton?.({
@@ -667,45 +561,13 @@ export function createContentController(deps: Deps) {
       try {
         const collector = await refreshInpageButton();
         if (!collector || typeof collector.capture !== 'function') return;
-        if (collector.id === 'googleaistudio') return;
+        // ChatGPT and Google AI Studio are intentionally absent from AI_CHAT_AUTO_SAVE_COLLECTOR_IDS
+        // (manual-capture only), so this guard short-circuits them before any auto-save work.
         if (!AI_CHAT_AUTO_SAVE_COLLECTOR_IDS.has(String(collector.id || ''))) return;
         if (aiChatAutoSaveEnabled !== true) return;
 
         const snapshot = await Promise.resolve(collector.capture());
         if (!snapshot) return;
-
-        const isChatgpt =
-          String(collector.id || '')
-            .trim()
-            .toLowerCase() === 'chatgpt';
-        if (isChatgpt && hasChatgptDeepResearchPlaceholderMessages(snapshot)) {
-          // Deep Research reports load inside a cross-origin iframe and may initially be captured as a placeholder URL.
-          // Poll and hydrate until the report becomes available, then proceed with incremental auto-save.
-          ensureDeepResearchPoll(handleTick);
-
-          const now = Date.now();
-          const canHydrate =
-            !deepResearchHydrateInFlight &&
-            now - deepResearchLastHydrateAttemptAt >= DEEP_RESEARCH_HYDRATE_MIN_INTERVAL_MS;
-          if (!canHydrate) return;
-
-          deepResearchHydrateInFlight = true;
-          deepResearchLastHydrateAttemptAt = now;
-          beginSaving();
-          try {
-            await hydrateChatgptDeepResearchSnapshot(snapshot, send);
-          } catch (_e) {
-            // ignore hydration failures
-          } finally {
-            deepResearchHydrateInFlight = false;
-            endSaving();
-          }
-
-          if (hasChatgptDeepResearchPlaceholderMessages(snapshot)) return;
-          clearDeepResearchPoll();
-        } else {
-          clearDeepResearchPoll();
-        }
 
         const backfill = await maybeRunBackfill(snapshot);
         const incremental = incrementalUpdater?.computeIncremental?.(snapshot);
@@ -809,7 +671,7 @@ export function createContentController(deps: Deps) {
         debounceMs: 600,
         getRoot: () => {
           if (stopped) return null;
-          const collector = getCollector();
+          const collector = resolveActiveCollector(collectorsRegistry);
           return collector && typeof collector.getRoot === 'function' ? collector.getRoot() : null;
         },
         onTick: handleTick,

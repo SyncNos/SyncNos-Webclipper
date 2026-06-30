@@ -77,7 +77,7 @@ SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的
 | **升级不应打断当前会话** | `background.ts` 的 `onInstalled` 行为 | 扩展升级后自动弹设置页会打断正在进行的阅读/对话流程 | 当前仅首次安装自动打开 About；更新保持静默 |
 | **敏感信息尽量不出本机** | WebClipper 备份 | 站点 Cookie、加密密钥、Notion OAuth token 都不能随意进备份或明文落盘 | 备份显式排除 `notion_oauth_token*` 与 `notion_oauth_client_secret` |
 | **采集站点 ≠ UI 一定显示** | WebClipper inpage 逻辑 | 扩展虽然对所有 `http(s)` 注入 content script，但 inpage 按钮是否启动还受 `inpage_display_mode` 控制 | 切换该设置后必须刷新或新开页面；旧 `inpage_supported_only` 只做兼容回读 |
-| **并非所有站点都适合自动增量采集** | Google AI Studio collector | 虚拟列表会导致自动采集只看到可见消息 | 该来源保留"手动保存优先"的策略 |
+| **并非所有站点都适合自动增量采集** | ChatGPT / Google AI Studio collector | 虚拟列表会卸载离屏轮次，自动采集只看到当前可见 turns | 两者都退出 auto-save、保留"手动保存优先"；全量历史由 `prepareManualCapture()` 滚动扫描水合恢复 |
 | **评论操作需防重入且保持 root-only 选区语义** | Comments React 模块 | 评论保存/回复/删除如果并发会引发竞态和重复提交；reply 输入误触会污染引用区 | 使用 `actionInFlightRef` 和 `runBusyTask` 做防重入保护；删除改为二次确认模式；仅根输入框允许附加/清空选区引用 |
 | **评论级 Chat with AI 复制整条线程** | `chatwith-comment-actions.ts` | 单条评论发送到 AI 平台时需要带上下文才有意义 | 评论级 Chat with AI 会把该评论及其所有回复一起打包复制，而非仅复制单条 |
 

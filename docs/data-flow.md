@@ -42,7 +42,7 @@
 
 ### 4. 为什么有些来源不自动增量保存
 
-- Google AI Studio 使用虚拟化渲染；自动 observer 常常只能看到当前可见 turns，容易覆盖历史，因此该来源保留“手动保存优先”的策略。
+- ChatGPT 与 Google AI Studio 都使用虚拟化渲染；自动 observer 常常只能看到当前可见 turns，容易漏掉离屏轮次，因此两者都退出 auto-save 集合、保留“手动保存优先”策略，全量历史由 collector 的 `prepareManualCapture()` 滚动扫描水合 + 跨扫描收割恢复。
 - inpage 单击触发保存，双击打开页面内评论侧边栏（inpage comments panel），多击只触发彩蛋提示，不直接改变数据链路。
 
 ### 5. 会话详情里的手动图片补全（cache-images）
