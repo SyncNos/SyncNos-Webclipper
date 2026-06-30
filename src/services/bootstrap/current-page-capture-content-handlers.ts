@@ -1,34 +1,10 @@
 import { CURRENT_PAGE_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
+import { err, ok, type ApiResponse } from '@services/bootstrap/content-handler-response';
 import type { CurrentPageCaptureService } from '@services/bootstrap/current-page-capture';
-
-type ApiResponse<T> = {
-  ok: boolean;
-  data: T | null;
-  error: { message: string; extra: unknown } | null;
-};
 
 type InpageTipApi = {
   showSaveTip?: (text: unknown, options?: { kind?: 'default' | 'error' }) => void;
 };
-
-function normalizeTipKind(value: unknown): 'default' | 'error' {
-  return value === 'error' ? 'error' : 'default';
-}
-
-function ok<T>(data: T): ApiResponse<T> {
-  return { ok: true, data, error: null };
-}
-
-function err(message: unknown, extra?: unknown): ApiResponse<null> {
-  return {
-    ok: false,
-    data: null,
-    error: {
-      message: String(message || 'unknown error'),
-      extra: extra ?? null,
-    },
-  };
-}
 
 export function registerCurrentPageCaptureContentHandlers(
   service: CurrentPageCaptureService,
@@ -62,7 +38,9 @@ export function registerCurrentPageCaptureContentHandlers(
             showTip
               ? {
                   onProgress: (progress) => {
-                    inpageTip?.showSaveTip?.(progress?.message, { kind: normalizeTipKind(progress?.kind) });
+                    inpageTip?.showSaveTip?.(progress?.message, {
+                      kind: progress?.kind === 'error' ? 'error' : 'default',
+                    });
                   },
                 }
               : undefined,
