@@ -341,7 +341,7 @@ describe('AppShell comments sidebar', () => {
 
     const locatorRoot = document.querySelector('[data-mock-locator-root="1"]') as HTMLElement | null;
     expect(locatorRoot).toBeTruthy();
-    const selectedText = 'quote from mock';
+    const selectedText = 'quote from mock detail pane';
     const restoreSelection = mockSelectionInElement(locatorRoot!, selectedText);
     expect(restoreSelection).toBeTruthy();
 
