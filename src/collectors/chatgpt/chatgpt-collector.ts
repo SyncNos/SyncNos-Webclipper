@@ -3,6 +3,116 @@ import type { CollectorEnv } from '@collectors/collector-env.ts';
 import { appendImageMarkdown, extractImageUrlsFromElement } from '@collectors/collector-utils.ts';
 import chatgptMarkdown from '@collectors/chatgpt/chatgpt-markdown.ts';
 
+// ---- Pure turn primitives ----
+// These are env-free and side-effect-free (they never scroll or mutate the DOM), so they can be
+// unit-tested directly and reused by both the live collector and the manual scroll-sweep path.
+
+// Stable per-turn key. Prefers the turn UUID (data-turn-id), which is identical between a
+// virtualized empty shell and its hydrated form; falls back to message id, then testid, then id.
+export function turnKeyOf(el: any): string {
+  if (!el) return '';
+  const turn = el.closest ? el.closest('[data-turn-id]') : null;
+  const turnId = turn && turn.getAttribute ? turn.getAttribute('data-turn-id') : '';
+  if (turnId) return String(turnId);
+  if (el.getAttribute) {
+    const messageId = el.getAttribute('data-message-id');
+    if (messageId) return String(messageId);
+    const testid = el.getAttribute('data-testid');
+    if (testid) return String(testid);
+  }
+  return el.id ? String(el.id) : '';
+}
+
+// All conversation-turn skeleton nodes in document order, including virtualized empty shells.
+export function getTurnSkeleton(root: any): any[] {
+  if (!root || !root.querySelectorAll) return [];
+  return Array.from(
+    root.querySelectorAll("[data-testid^='conversation-turn-'], [data-testid='conversation-turn']"),
+  ) as any[];
+}
+
+// The scroll anchor element for a turn: its outer virtualization container. Returns the element
+// only and never scrolls; the caller decides whether/when to bring it into view.
+export function scrollTargetForTurn(turnEl: any): any | null {
+  if (!turnEl) return null;
+  const container = turnEl.closest ? turnEl.closest('[data-turn-id-container]') : null;
+  return container || turnEl;
+}
+
+// A turn is hydrated when it carries rendered content (a role node, an image, or non-whitespace
+// text) rather than being an empty virtualized shell.
+export function turnIsHydrated(turnEl: any): boolean {
+  if (!turnEl) return false;
+  if (turnEl.querySelector && turnEl.querySelector('[data-message-author-role]')) return true;
+  if (turnEl.querySelector && turnEl.querySelector('img')) return true;
+  const text = turnEl.textContent ? String(turnEl.textContent).trim() : '';
+  return text.length > 0;
+}
+
+// ---- Cross-pass harvest cache ----
+// Accumulates messages seen across multiple capture passes (e.g. a manual scroll-sweep) so that
+// turns which were empty virtualized shells on one pass and hydrated on another are all retained.
+// Storage is keyed by turn so a single turn that holds multiple messages (e.g. several assistant
+// bubbles) keeps them as an ordered list (see F3).
+export type HarvestCache = {
+  conversationKey: string;
+  byTurn: Map<string, any[]>;
+  seenKeys: Set<string>;
+};
+
+export function createHarvestCache(conversationKey: string): HarvestCache {
+  return { conversationKey: String(conversationKey || ''), byTurn: new Map(), seenKeys: new Set() };
+}
+
+// Pure dedupe + group. `items` are already-extracted messages tagged with their turnKey and
+// position within the turn. Returns how many new messages were added. Cross-pass identity prefers
+// a real message id; otherwise a turn-relative position so re-harvesting a hydrated turn dedupes.
+export function harvestMessagesInto(cache: HarvestCache, items: any[]): number {
+  if (!cache || !Array.isArray(items)) return 0;
+  let added = 0;
+  for (const item of items) {
+    if (!item || !item.message) continue;
+    const turnKey = String(item.turnKey || '');
+    const within =
+      typeof item.withinTurn === 'number' && Number.isFinite(item.withinTurn)
+        ? item.withinTurn
+        : (cache.byTurn.get(turnKey) || []).length;
+    const mk = item.message.messageKey ? String(item.message.messageKey) : '';
+    const stableId = mk && !mk.startsWith('fallback_') ? mk : `${turnKey}#${within}`;
+    if (cache.seenKeys.has(stableId)) continue;
+    cache.seenKeys.add(stableId);
+    const list = cache.byTurn.get(turnKey) || [];
+    list.push(item.message);
+    cache.byTurn.set(turnKey, list);
+    added += 1;
+  }
+  return added;
+}
+
+// Pure assembly. Walks the current turn skeleton in document order and emits each turn's cached
+// messages (expanding multi-message turns in insertion order), then appends any cached turns not
+// present in the skeleton. Re-sequences globally. Returns null when nothing has been harvested.
+export function assembleFromCache(cache: HarvestCache, root: any): any[] | null {
+  if (!cache || !cache.byTurn || cache.byTurn.size === 0) return null;
+  const ordered: any[] = [];
+  const used = new Set<string>();
+  for (const turnEl of getTurnSkeleton(root)) {
+    const turnKey = turnKeyOf(turnEl);
+    if (!turnKey || used.has(turnKey)) continue;
+    const list = cache.byTurn.get(turnKey);
+    if (list && list.length) {
+      for (const m of list) ordered.push(m);
+      used.add(turnKey);
+    }
+  }
+  for (const [turnKey, list] of cache.byTurn) {
+    if (used.has(turnKey)) continue;
+    for (const m of list) ordered.push(m);
+  }
+  if (!ordered.length) return null;
+  return ordered.map((m, idx) => ({ ...m, sequence: idx }));
+}
+
 export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinition {
   const DEEP_RESEARCH_MESSAGE_TYPES = Object.freeze({
     REQUEST: 'SYNCNOS_DEEP_RESEARCH_REQUEST',
@@ -20,6 +130,16 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     }
   >();
   let deepResearchListenerInstalled = false;
+
+  // Cross-pass harvest cache populated by prepareManualCapture() and consumed once by the next
+  // manual capture(). Keyed by the content-independent conversation cache key so a stale cache
+  // from a different conversation is never reused.
+  let manualHarvestCache: HarvestCache | null = null;
+  let manualHarvestConversationKey = '';
+
+  function sleep(ms: any): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+  }
 
   function ensureDeepResearchListener() {
     if (deepResearchListenerInstalled) return;
@@ -186,6 +306,17 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return `fallback_${hash}`;
   }
 
+  // Content-independent conversation cache key shared across manual prepare/capture passes and any
+  // cross-pass harvesting. Uses the URL conversation id when present (/c/, /g/.../c/); otherwise
+  // hashes host|pathname so /share/ and temporary chats stay stable regardless of message content.
+  function resolveConversationCacheKey(): string {
+    const fromUrl = findConversationIdFromUrl();
+    if (fromUrl) return String(fromUrl);
+    const seed = `${env.location.hostname}|${env.location.pathname}`;
+    const hash = env.normalize && env.normalize.fnv1a32 ? env.normalize.fnv1a32(seed) : String(Date.now());
+    return `conv_${hash}`;
+  }
+
   function isTemporaryChatMode(): boolean {
     try {
       const params = new URLSearchParams(String(env.location.search || '').replace(/^\?/, ''));
@@ -327,22 +458,21 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return 'assistant';
   }
 
-  async function collectMessages({ allowEditing }: any = {}): Promise<any[]> {
-    const root = getConversationRoot();
-    if (!root) return [];
-    if (!allowEditing && inEditMode(root)) return [];
-
+  // Gather per-turn wrappers for the current DOM. Falls back to legacy `article[data-testid=conversation-turn-*]`
+  // nodes when no structured turn wrappers are found. Pure DOM read; no viewport side effects.
+  function collectWrappers(root: any): any[] {
     const wrappers = getTurnWrappers(root);
-
     if (!wrappers.length) {
       const turns = Array.from(root.querySelectorAll("article[data-testid^='conversation-turn-']"));
       for (const turn of turns) wrappers.push(turn);
     }
+    return wrappers;
+  }
 
-    // If a conversation contains multiple deep-research iframes, we intentionally keep placeholders
-    // and let the background hydrator fill them in bulk. Partial in-page extraction would make the
-    // remaining placeholders ambiguous and can collapse reports.
-    let preferDeepResearchPlaceholders = false;
+  // If a conversation contains multiple deep-research iframes, we intentionally keep placeholders
+  // and let the background hydrator fill them in bulk. Partial in-page extraction would make the
+  // remaining placeholders ambiguous and can collapse reports.
+  function computePreferDeepResearchPlaceholders(wrappers: any[]): boolean {
     try {
       let count = 0;
       for (const w of wrappers) {
@@ -351,87 +481,207 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         if (role !== 'assistant') continue;
         if (findDeepResearchIframe(w)) count += 1;
       }
-      preferDeepResearchPlaceholders = count >= 2;
+      return count >= 2;
     } catch (_e) {
       // ignore
+      return false;
     }
+  }
+
+  // Extract a single message from one turn wrapper. Returns null when the wrapper has no
+  // textual content and no images (e.g. virtualized empty shells), so callers can skip it.
+  // Kept async because Deep Research extraction may await the iframe hydrator.
+  async function extractMessageFromWrapper(
+    el: any,
+    i: number,
+    { allowEditing, preferDeepResearchPlaceholders }: any = {},
+  ): Promise<any | null> {
+    const role = roleFromWrapper(el);
+    const messageId =
+      (el.getAttribute && (el.getAttribute('data-message-id') || el.getAttribute('data-turn-id') || el.id)) || '';
+    const node = role === 'user' ? userContentNode(el) : assistantContentNode(el);
+    const raw = node ? node.innerText || node.textContent || '' : '';
+    const fallbackText = env.normalize.normalizeText(raw);
+    let contentText =
+      role === 'assistant' && typeof chatgptMarkdown.extractAssistantText === 'function'
+        ? chatgptMarkdown.extractAssistantText(el) || fallbackText
+        : fallbackText;
+    const imageUrls = (() => {
+      const primary = extractImageUrlsFromElement(node || el);
+      if (!node || node === el) return primary;
+      const secondary = extractImageUrlsFromElement(el);
+      return Array.from(new Set(primary.concat(secondary)));
+    })();
+
+    let baseMarkdown =
+      role === 'assistant' && typeof chatgptMarkdown.extractAssistantMarkdown === 'function'
+        ? chatgptMarkdown.extractAssistantMarkdown(el) || contentText || ''
+        : contentText || '';
+
+    const deepResearchIframe = role === 'assistant' ? findDeepResearchIframe(el) : null;
+    if (role === 'assistant' && deepResearchIframe) {
+      // Prefer a fast placeholder and let the background hydrator fill the body reliably.
+      // Best-effort request is kept short to avoid blocking capture for long-running reports.
+      const iframeUrl = String(deepResearchIframe.getAttribute?.('src') || '').trim();
+      const placeholder = iframeUrl ? `Deep Research (iframe): ${iframeUrl}` : 'Deep Research (iframe)';
+
+      if (preferDeepResearchPlaceholders) {
+        contentText = placeholder;
+        baseMarkdown = placeholder;
+      } else {
+        const deepResearchCacheKeyHint = messageId || String(el.getAttribute?.('data-testid') || '') || String(i);
+        const extracted = await requestDeepResearchContent(deepResearchIframe, {
+          timeoutMs: allowEditing ? 600 : 200,
+          cacheKeyHint: deepResearchCacheKeyHint,
+        });
+        if (extracted) {
+          const markdown = String(extracted.markdown || '').trim();
+          const text = String(extracted.text || '').trim();
+          baseMarkdown = markdown || text || baseMarkdown || '';
+          contentText = env.normalize.normalizeText(text || markdown || contentText || '');
+        } else {
+          // The parent page doesn't contain the report body; only the iframe does.
+          // If extraction fails (timing/permissions), keep a stable placeholder so users can still recover the link.
+          // Some locales expose an sr-only "ChatGPT said" label as the only text sibling of the iframe.
+          // Always prefer a stable placeholder so the hydrator can reliably fill the final report.
+          contentText = placeholder;
+          baseMarkdown = placeholder;
+        }
+      }
+    }
+
+    if (!contentText && !imageUrls.length) return null;
+    const contentMarkdown = appendImageMarkdown(baseMarkdown, imageUrls);
+    const messageKey = messageId || env.normalize.makeFallbackMessageKey({ role, contentText, sequence: i });
+    return {
+      messageKey,
+      role,
+      contentText,
+      contentMarkdown,
+      sequence: i,
+      updatedAt: Date.now(),
+    };
+  }
+
+  async function collectMessages({ allowEditing }: any = {}): Promise<any[]> {
+    const root = getConversationRoot();
+    if (!root) return [];
+    if (!allowEditing && inEditMode(root)) return [];
+
+    const wrappers = collectWrappers(root);
+    const preferDeepResearchPlaceholders = computePreferDeepResearchPlaceholders(wrappers);
 
     const out: any[] = [];
     for (let i = 0; i < wrappers.length; i += 1) {
-      const el = wrappers[i];
-      const role = roleFromWrapper(el);
-      const messageId =
-        (el.getAttribute && (el.getAttribute('data-message-id') || el.getAttribute('data-turn-id') || el.id)) || '';
-      const node = role === 'user' ? userContentNode(el) : assistantContentNode(el);
-      const raw = node ? node.innerText || node.textContent || '' : '';
-      const fallbackText = env.normalize.normalizeText(raw);
-      let contentText =
-        role === 'assistant' && typeof chatgptMarkdown.extractAssistantText === 'function'
-          ? chatgptMarkdown.extractAssistantText(el) || fallbackText
-          : fallbackText;
-      const imageUrls = (() => {
-        const primary = extractImageUrlsFromElement(node || el);
-        if (!node || node === el) return primary;
-        const secondary = extractImageUrlsFromElement(el);
-        return Array.from(new Set(primary.concat(secondary)));
-      })();
-
-      let baseMarkdown =
-        role === 'assistant' && typeof chatgptMarkdown.extractAssistantMarkdown === 'function'
-          ? chatgptMarkdown.extractAssistantMarkdown(el) || contentText || ''
-          : contentText || '';
-
-      const deepResearchIframe = role === 'assistant' ? findDeepResearchIframe(el) : null;
-      if (role === 'assistant' && deepResearchIframe) {
-        // Prefer a fast placeholder and let the background hydrator fill the body reliably.
-        // Best-effort request is kept short to avoid blocking capture for long-running reports.
-        const iframeUrl = String(deepResearchIframe.getAttribute?.('src') || '').trim();
-        const placeholder = iframeUrl ? `Deep Research (iframe): ${iframeUrl}` : 'Deep Research (iframe)';
-
-        if (preferDeepResearchPlaceholders) {
-          contentText = placeholder;
-          baseMarkdown = placeholder;
-        } else {
-          const deepResearchCacheKeyHint = messageId || String(el.getAttribute?.('data-testid') || '') || String(i);
-          const extracted = await requestDeepResearchContent(deepResearchIframe, {
-            timeoutMs: allowEditing ? 600 : 200,
-            cacheKeyHint: deepResearchCacheKeyHint,
-          });
-          if (extracted) {
-            const markdown = String(extracted.markdown || '').trim();
-            const text = String(extracted.text || '').trim();
-            baseMarkdown = markdown || text || baseMarkdown || '';
-            contentText = env.normalize.normalizeText(text || markdown || contentText || '');
-          } else {
-            // The parent page doesn't contain the report body; only the iframe does.
-            // If extraction fails (timing/permissions), keep a stable placeholder so users can still recover the link.
-            // Some locales expose an sr-only "ChatGPT said" label as the only text sibling of the iframe.
-            // Always prefer a stable placeholder so the hydrator can reliably fill the final report.
-            contentText = placeholder;
-            baseMarkdown = placeholder;
-          }
-        }
-      }
-
-      if (!contentText && !imageUrls.length) continue;
-      const contentMarkdown = appendImageMarkdown(baseMarkdown, imageUrls);
-      const messageKey = messageId || env.normalize.makeFallbackMessageKey({ role, contentText, sequence: i });
-      out.push({
-        messageKey,
-        role,
-        contentText,
-        contentMarkdown,
-        sequence: i,
-        updatedAt: Date.now(),
+      const msg = await extractMessageFromWrapper(wrappers[i], i, {
+        allowEditing,
+        preferDeepResearchPlaceholders,
       });
+      if (msg) out.push(msg);
     }
 
     return out;
   }
 
+  // Harvest the currently-rendered messages from `root` into a cross-pass cache. Used by the
+  // manual scroll-sweep so that turns hydrated on different passes all survive. Each message is
+  // tagged with its stable turnKey and position within the turn before being deduped/grouped.
+  async function harvestInto(cache: HarvestCache, root: any, options: any = {}): Promise<number> {
+    if (!cache || !root) return 0;
+    const wrappers = collectWrappers(root);
+    const preferDeepResearchPlaceholders = computePreferDeepResearchPlaceholders(wrappers);
+    const perTurn = new Map<string, number>();
+    const items: any[] = [];
+    for (let i = 0; i < wrappers.length; i += 1) {
+      const el = wrappers[i];
+      const turnKey = turnKeyOf(el) || `idx_${i}`;
+      const within = perTurn.get(turnKey) || 0;
+      perTurn.set(turnKey, within + 1);
+      const message = await extractMessageFromWrapper(el, i, {
+        allowEditing: !!options.allowEditing,
+        preferDeepResearchPlaceholders,
+      });
+      if (!message) continue;
+      items.push({ turnKey, withinTurn: within, message });
+    }
+    return harvestMessagesInto(cache, items);
+  }
+
+  // Manual scroll-sweep. Walks the turn skeleton top-to-bottom, brings each still-virtualized turn
+  // into view, polls until it hydrates, and harvests after every step so turns that unmount again
+  // as we scroll past are already cached. The result is stashed for the next manual capture().
+  // Scroll position is restored when finished. Pure additive method; never called automatically.
+  async function prepareManualCapture(options: any = {}): Promise<boolean> {
+    if (!matches({ hostname: env.location.hostname })) return false;
+    const root = getConversationRoot();
+    if (!root) return false;
+    const skeleton = getTurnSkeleton(root);
+    if (!skeleton.length) return false;
+
+    const settleMs = Math.max(0, Number(options.settleMs) || 80);
+    const perTurnTimeoutMs = Math.max(120, Number(options.perTurnTimeoutMs) || 900);
+    const pollMs = Math.max(30, Number(options.pollMs) || 80);
+
+    const conversationKey = resolveConversationCacheKey();
+    const cache = createHarvestCache(conversationKey);
+
+    const prevX = Number((env.window as any)?.scrollX) || 0;
+    const prevY = Number((env.window as any)?.scrollY) || 0;
+
+    // Harvest whatever is already rendered before we start moving the viewport.
+    await harvestInto(cache, root, { allowEditing: true });
+
+    for (let i = 0; i < skeleton.length; i += 1) {
+      const turnEl = skeleton[i];
+      if (turnIsHydrated(turnEl)) continue;
+      const target = scrollTargetForTurn(turnEl);
+      try {
+        (target as any)?.scrollIntoView?.({ block: 'center' });
+      } catch (_e) {
+        // ignore: scrollIntoView is unavailable in some environments
+      }
+      const start = Date.now();
+      while (Date.now() - start <= perTurnTimeoutMs) {
+        if (turnIsHydrated(turnEl)) break;
+        await sleep(pollMs);
+      }
+      if (settleMs) await sleep(settleMs);
+      // Re-harvest after this turn hydrated; captures it before it can virtualize away again.
+      await harvestInto(cache, root, { allowEditing: true });
+    }
+
+    // Final sweep to pick up anything that hydrated late.
+    await harvestInto(cache, root, { allowEditing: true });
+
+    manualHarvestCache = cache;
+    manualHarvestConversationKey = conversationKey;
+
+    try {
+      (env.window as any)?.scrollTo?.(prevX, prevY);
+    } catch (_e) {
+      // ignore
+    }
+    return true;
+  }
+
   async function capture(options: any): Promise<any | null> {
     if (!matches({ hostname: env.location.hostname })) return null;
-    const messages = await collectMessages({ allowEditing: !!(options && options.manual) });
+    const manual = !!(options && options.manual);
+
+    // Manual capture prefers the cross-pass harvest gathered by prepareManualCapture(): it is
+    // reassembled in turn-skeleton order (expanding multi-message turns) so virtualized middle
+    // turns are not dropped. The cache is single-use and only valid for the current conversation;
+    // anything else falls back to a live single-pass collection.
+    let messages: any[] | null = null;
+    if (manual && manualHarvestCache && manualHarvestConversationKey && manualHarvestConversationKey === resolveConversationCacheKey()) {
+      const root = getConversationRoot();
+      messages = assembleFromCache(manualHarvestCache, root);
+      manualHarvestCache = null;
+      manualHarvestConversationKey = '';
+    }
+    if (!messages || !messages.length) {
+      messages = await collectMessages({ allowEditing: manual });
+    }
     if (!messages.length) return null;
     const conversationKey = findConversationIdFromUrl() || makeFallbackConversationKey(messages);
     return {
@@ -448,7 +698,17 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     };
   }
 
-  const collector = { capture, getRoot: getConversationRoot };
+  const collector = {
+    capture,
+    getRoot: getConversationRoot,
+    prepareManualCapture,
+    __test: {
+      harvestInto,
+      resolveConversationCacheKey,
+      getRoot: getConversationRoot,
+      collectMessages,
+    },
+  };
 
   return {
     id: 'chatgpt',
