@@ -135,7 +135,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
   // manual capture(). Keyed by the content-independent conversation cache key so a stale cache
   // from a different conversation is never reused.
   let manualHarvestCache: HarvestCache | null = null;
-  let manualHarvestConversationKey = '';
 
   function sleep(ms: any): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
@@ -458,17 +457,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return 'assistant';
   }
 
-  // Gather per-turn wrappers for the current DOM. Falls back to legacy `article[data-testid=conversation-turn-*]`
-  // nodes when no structured turn wrappers are found. Pure DOM read; no viewport side effects.
-  function collectWrappers(root: any): any[] {
-    const wrappers = getTurnWrappers(root);
-    if (!wrappers.length) {
-      const turns = Array.from(root.querySelectorAll("article[data-testid^='conversation-turn-']"));
-      for (const turn of turns) wrappers.push(turn);
-    }
-    return wrappers;
-  }
-
   // If a conversation contains multiple deep-research iframes, we intentionally keep placeholders
   // and let the background hydrator fill them in bulk. Partial in-page extraction would make the
   // remaining placeholders ambiguous and can collapse reports.
@@ -568,7 +556,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     if (!root) return [];
     if (!allowEditing && inEditMode(root)) return [];
 
-    const wrappers = collectWrappers(root);
+    const wrappers = getTurnWrappers(root);
     const preferDeepResearchPlaceholders = computePreferDeepResearchPlaceholders(wrappers);
 
     const out: any[] = [];
@@ -588,7 +576,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
   // tagged with its stable turnKey and position within the turn before being deduped/grouped.
   async function harvestInto(cache: HarvestCache, root: any, options: any = {}): Promise<number> {
     if (!cache || !root) return 0;
-    const wrappers = collectWrappers(root);
+    const wrappers = getTurnWrappers(root);
     const preferDeepResearchPlaceholders = computePreferDeepResearchPlaceholders(wrappers);
     const perTurn = new Map<string, number>();
     const items: any[] = [];
@@ -654,7 +642,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     await harvestInto(cache, root, { allowEditing: true });
 
     manualHarvestCache = cache;
-    manualHarvestConversationKey = conversationKey;
 
     try {
       (env.window as any)?.scrollTo?.(prevX, prevY);
@@ -673,11 +660,10 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     // turns are not dropped. The cache is single-use and only valid for the current conversation;
     // anything else falls back to a live single-pass collection.
     let messages: any[] | null = null;
-    if (manual && manualHarvestCache && manualHarvestConversationKey && manualHarvestConversationKey === resolveConversationCacheKey()) {
+    if (manual && manualHarvestCache && manualHarvestCache.conversationKey === resolveConversationCacheKey()) {
       const root = getConversationRoot();
       messages = assembleFromCache(manualHarvestCache, root);
       manualHarvestCache = null;
-      manualHarvestConversationKey = '';
     }
     if (!messages || !messages.length) {
       messages = await collectMessages({ allowEditing: manual });
