@@ -344,6 +344,9 @@ describe('AppShell comments sidebar', () => {
     const selectedText = 'quote from mock detail pane';
     const restoreSelection = mockSelectionInElement(locatorRoot!, selectedText);
     expect(restoreSelection).toBeTruthy();
+    if (!restoreSelection) {
+      throw new Error(`Failed to mock selection for text: "${selectedText}"`);
+    }
 
     const host = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(host).toBeTruthy();
