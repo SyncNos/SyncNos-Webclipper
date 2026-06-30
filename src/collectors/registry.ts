@@ -1,10 +1,59 @@
 import { assertCollectorDef, type CollectorDefinition } from '@collectors/collector-contract.ts';
 
-type CollectorLocation = {
+export type CollectorLocation = {
   href?: string;
   hostname?: string;
   pathname?: string;
 };
+
+export type CollectorRegistryLike = {
+  pickActive?: (locationArg?: CollectorLocation) => { id: string; collector: any } | null;
+  list?: () => Array<{
+    id: string;
+    collector?: any;
+    matches?: (loc: CollectorLocation) => boolean;
+    inpageMatches?: (loc: CollectorLocation) => boolean;
+  }>;
+};
+
+function currentLocation(): CollectorLocation | null {
+  if (typeof location === 'undefined') return null;
+  return {
+    href: location.href,
+    hostname: location.hostname,
+    pathname: location.pathname,
+  };
+}
+
+export function resolveActiveOrInpageCollector(
+  registry: CollectorRegistryLike | null | undefined,
+  locationArg?: CollectorLocation,
+) {
+  const active = resolveActiveCollector(registry, locationArg);
+  if (active) return active;
+
+  const locationValue = locationArg || currentLocation();
+  if (!locationValue) return null;
+
+  const list = registry?.list?.() || [];
+  for (const item of list) {
+    const matcher = typeof item.inpageMatches === 'function' ? item.inpageMatches : item.matches;
+    if (typeof matcher !== 'function') continue;
+    try {
+      if (matcher(locationValue)) return { id: item.id, ...(item.collector || {}) };
+    } catch (_error) {
+      // ignore matcher errors
+    }
+  }
+
+  return null;
+}
+
+export function resolveActiveCollector(registry: CollectorRegistryLike | null | undefined, locationArg?: CollectorLocation) {
+  const picked = locationArg ? registry?.pickActive?.(locationArg) : registry?.pickActive?.();
+  if (!picked?.collector) return null;
+  return { id: picked.id, ...picked.collector };
+}
 
 export function createCollectorsRegistry() {
   const definitions: CollectorDefinition[] = [];

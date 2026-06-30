@@ -1,25 +1,17 @@
 import { t } from '@i18n';
 import { hydrateChatgptDeepResearchSnapshot } from '@collectors/chatgpt/chatgpt-deep-research-hydrator';
+import { resolveActiveOrInpageCollector, type CollectorRegistryLike } from '@collectors/registry';
 import { DISCOURSE_OP_NOT_FOUND_ERROR, isDiscourseOpNotFoundErrorMessage } from '@collectors/web/article-fetch-errors';
+import { ARTICLE_MESSAGE_TYPES, CORE_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { buildCaptureSuccessTipMessage } from '@services/shared/capture-tip';
 
 type RuntimeClient = {
   send?: (type: string, payload?: Record<string, unknown>) => Promise<any>;
 };
 
-type CollectorRegistry = {
-  pickActive?: () => { id: string; collector: any } | null;
-  list?: () => Array<{
-    id: string;
-    collector?: any;
-    matches?: (loc: any) => boolean;
-    inpageMatches?: (loc: any) => boolean;
-  }>;
-};
-
 type CurrentPageCaptureDeps = {
   runtime: RuntimeClient | null;
-  collectorsRegistry: CollectorRegistry | null;
+  collectorsRegistry: CollectorRegistryLike | null;
 };
 
 export type CurrentPageCaptureProgress = {
@@ -43,15 +35,6 @@ export type CurrentPageCaptureResult = {
   title?: string;
   isNew?: boolean;
 };
-
-const CORE_MESSAGE_TYPES = Object.freeze({
-  UPSERT_CONVERSATION: 'upsertConversation',
-  SYNC_CONVERSATION_MESSAGES: 'syncConversationMessages',
-});
-
-const ARTICLE_MESSAGE_TYPES = Object.freeze({
-  FETCH_ACTIVE_TAB: 'fetchActiveTabArticle',
-});
 
 function errorMessage(error: unknown, fallback: string): string {
   const maybeError = error as { message?: unknown };
@@ -84,38 +67,8 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
     return runtime.send(type, payload);
   }
 
-  function getCollector() {
-    const picked = collectorsRegistry?.pickActive?.();
-    if (!picked || !picked.collector) return null;
-    return { id: picked.id, ...picked.collector };
-  }
-
-  function getInpageCollector() {
-    const list = collectorsRegistry?.list?.() || [];
-    if (!Array.isArray(list) || !list.length) return null;
-
-    const locationPayload = {
-      href: location.href,
-      hostname: location.hostname,
-      pathname: location.pathname,
-    };
-
-    for (const item of list) {
-      if (!item) continue;
-      const matcher = typeof item.inpageMatches === 'function' ? item.inpageMatches : item.matches;
-      if (typeof matcher !== 'function') continue;
-      try {
-        if (matcher(locationPayload)) return { id: item.id, ...(item.collector || {}) };
-      } catch (_error) {
-        // ignore matcher errors
-      }
-    }
-
-    return null;
-  }
-
   function resolveCaptureTarget() {
-    const collector = getCollector() || getInpageCollector();
+    const collector = resolveActiveOrInpageCollector(collectorsRegistry);
     if (!collector) {
       return {
         available: false,

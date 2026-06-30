@@ -1,9 +1,9 @@
 import type { CurrentPageCaptureService } from '@services/bootstrap/current-page-capture';
 import { AI_CHAT_AUTO_SAVE_COLLECTOR_IDS } from '@collectors/ai-chat-sites';
-import { hydrateChatgptDeepResearchSnapshot } from '@collectors/chatgpt/chatgpt-deep-research-hydrator';
+import { resolveActiveCollector, resolveActiveOrInpageCollector, type CollectorRegistryLike } from '@collectors/registry';
 import { buildCaptureSuccessTipMessage } from '@services/shared/capture-tip';
 import normalizeApi from '@services/shared/normalize.ts';
-import { UI_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
+import { CORE_MESSAGE_TYPES, UI_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { reconcileAutoSaveBackfill } from '@services/conversations/content/autosave-backfill-reconciler';
 import {
   readInpageButtonGlobalPosition,
@@ -19,16 +19,6 @@ type RuntimeClient = {
   send?: (type: string, payload?: Record<string, unknown>) => Promise<any>;
   onInvalidated?: (listener: (error: Error) => void) => () => void;
   isInvalidContextError?: (error: unknown) => boolean;
-};
-
-type CollectorRegistry = {
-  pickActive?: () => { id: string; collector: any } | null;
-  list?: () => Array<{
-    id: string;
-    collector?: any;
-    matches?: (loc: any) => boolean;
-    inpageMatches?: (loc: any) => boolean;
-  }>;
 };
 
 type InpageButtonApi = {
@@ -59,7 +49,7 @@ type RuntimeObserverApi = {
 
 type Deps = {
   runtime: RuntimeClient | null;
-  collectorsRegistry: CollectorRegistry | null;
+  collectorsRegistry: CollectorRegistryLike | null;
   currentPageCapture: CurrentPageCaptureService;
   inpageButton: InpageButtonApi | null;
   inpageTip: InpageTipApi | null;
@@ -67,12 +57,6 @@ type Deps = {
   incrementalUpdater: { computeIncremental?: (snapshot: unknown) => any } | null;
   itemMention: { start?: () => { stop?: () => void } | null } | null;
 };
-
-const CORE_MESSAGE_TYPES = Object.freeze({
-  UPSERT_CONVERSATION: 'upsertConversation',
-  SYNC_CONVERSATION_MESSAGES: 'syncConversationMessages',
-  GET_CONVERSATION_TAIL_WINDOW_BY_SOURCE_AND_KEY: 'getConversationTailWindowBySourceAndKey',
-});
 
 const EASTER_EGG_LINES = Object.freeze({
   3: ['Combo x3! Nice rhythm.', 'Three taps. Paw approved.'],
@@ -159,36 +143,6 @@ export function createContentController(deps: Deps) {
     return runtime.send(type, payload);
   }
 
-  function getCollector() {
-    const picked = collectorsRegistry?.pickActive?.();
-    if (!picked || !picked.collector) return null;
-    return { id: picked.id, ...picked.collector };
-  }
-
-  function getInpageCollector() {
-    const list = collectorsRegistry?.list?.() || [];
-    if (!Array.isArray(list) || !list.length) return null;
-
-    const locationPayload = {
-      href: location.href,
-      hostname: location.hostname,
-      pathname: location.pathname,
-    };
-
-    for (const item of list) {
-      if (!item) continue;
-      const matcher = typeof item.inpageMatches === 'function' ? item.inpageMatches : item.matches;
-      if (typeof matcher !== 'function') continue;
-      try {
-        if (matcher(locationPayload)) return { id: item.id, ...(item.collector || {}) };
-      } catch (_error) {
-        // ignore matcher errors
-      }
-    }
-
-    return null;
-  }
-
   async function saveSnapshot(
     snapshot: any,
     options?: {
@@ -197,28 +151,6 @@ export function createContentController(deps: Deps) {
     },
   ) {
     if (!snapshot || !snapshot.conversation) return null;
-
-    if (options?.mode !== 'incremental') {
-      try {
-        const isChatgpt =
-          String(snapshot?.conversation?.source || '')
-            .trim()
-            .toLowerCase() === 'chatgpt';
-        const hasDeepResearchPlaceholders =
-          isChatgpt &&
-          Array.isArray(snapshot?.messages) &&
-          snapshot.messages.some((m: any) =>
-            String(m?.contentText || m?.contentMarkdown || '')
-              .trim()
-              .startsWith('Deep Research (iframe):'),
-          );
-        if (hasDeepResearchPlaceholders) {
-          await hydrateChatgptDeepResearchSnapshot(snapshot, send);
-        }
-      } catch (_e) {
-        // ignore hydration failures
-      }
-    }
 
     const conversationRes = await send(CORE_MESSAGE_TYPES.UPSERT_CONVERSATION, {
       payload: snapshot.conversation,
@@ -333,7 +265,7 @@ export function createContentController(deps: Deps) {
     runtime?.onInvalidated?.(() => stop());
 
     function isNotionAiCollectorActive(): boolean {
-      const collector = getCollector();
+      const collector = resolveActiveCollector(collectorsRegistry);
       return (
         String(collector?.id || '')
           .trim()
@@ -601,8 +533,8 @@ export function createContentController(deps: Deps) {
     };
 
     async function refreshInpageButton() {
-      const collector = getCollector();
-      const inpageCollector = collector || getInpageCollector();
+      const collector = resolveActiveCollector(collectorsRegistry);
+      const inpageCollector = collector || resolveActiveOrInpageCollector(collectorsRegistry);
       const positionState = await ensureInpageButtonPositionLoadedOnce();
       inpageButton?.cleanupButtons?.(inpageCollector?.id || '');
       inpageButton?.ensureInpageButton?.({
@@ -735,7 +667,7 @@ export function createContentController(deps: Deps) {
         debounceMs: 600,
         getRoot: () => {
           if (stopped) return null;
-          const collector = getCollector();
+          const collector = resolveActiveCollector(collectorsRegistry);
           return collector && typeof collector.getRoot === 'function' ? collector.getRoot() : null;
         },
         onTick: handleTick,
