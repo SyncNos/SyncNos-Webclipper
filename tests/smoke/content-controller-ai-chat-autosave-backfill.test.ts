@@ -60,7 +60,7 @@ function createHarness(options: {
   };
 
   const collectorsRegistry = {
-    pickActive: () => ({ id: options.collectorId || 'chatgpt', collector }),
+    pickActive: () => ({ id: options.collectorId || 'gemini', collector }),
     list: () => [],
   };
 
@@ -114,7 +114,7 @@ function createHarness(options: {
 
 function makeSnapshot(conversationKey: string, contents: string[]) {
   return {
-    conversation: { source: 'chatgpt', conversationKey },
+    conversation: { source: 'gemini', conversationKey },
     messages: contents.map((contentText, index) => ({
       role: index % 2 === 0 ? 'user' : 'assistant',
       contentText,
@@ -142,7 +142,7 @@ describe('content-controller ai chat autosave backfill', () => {
     const tailCalls = harness.sendCalls.filter((entry) => entry.type === 'getConversationTailWindowBySourceAndKey');
     expect(tailCalls).toHaveLength(1);
     expect(tailCalls[0].payload).toMatchObject({
-      source: 'chatgpt',
+      source: 'gemini',
       conversationKey: 'c-empty',
       limit: 200,
     });
@@ -157,7 +157,7 @@ describe('content-controller ai chat autosave backfill', () => {
 
   it('dedupes incremental seed vs backfill first-write by aligning synthetic keys', async () => {
     const snapshot = makeSnapshot('c-empty-plus-seed', ['A', 'B']);
-    const stateKey = `chatgpt::c-empty-plus-seed`;
+    const stateKey = `gemini::c-empty-plus-seed`;
     const stateKeyHash = String((normalizeApi as any).fnv1a32(stateKey));
     const expectedKeys = snapshot.messages.map((message: any) => {
       const meta = getMessageIdentityMeta(message);
@@ -169,7 +169,7 @@ describe('content-controller ai chat autosave backfill', () => {
       incrementalImpl: () => ({
         changed: true,
         snapshot: {
-          conversation: { source: 'chatgpt', conversationKey: 'c-empty-plus-seed' },
+          conversation: { source: 'gemini', conversationKey: 'c-empty-plus-seed' },
           messages: snapshot.messages.map((message: any, index: number) => ({
             ...message,
             messageKey: expectedKeys[index],
@@ -228,7 +228,7 @@ describe('content-controller ai chat autosave backfill', () => {
       incrementalImpl: () => ({
         changed: true,
         snapshot: {
-          conversation: { source: 'chatgpt', conversationKey: 'c-backfill-plus-incremental' },
+          conversation: { source: 'gemini', conversationKey: 'c-backfill-plus-incremental' },
           messages: [{ messageKey: 'inc_1', role: 'assistant', contentText: 'delta', sequence: 999 }],
         },
         diff: { added: ['inc_1'], updated: [], removed: [] },
