@@ -1,8 +1,18 @@
+import * as fs from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
 import normalizeApi from '@services/shared/normalize.ts';
 import { createCollectorEnv } from '../../src/collectors/collector-env.ts';
-import { createChatgptCollectorDef } from '../../src/collectors/chatgpt/chatgpt-collector.ts';
+import {
+  createChatgptCollectorDef,
+  turnKeyOf,
+  getTurnSkeleton,
+  scrollTargetForTurn,
+  turnIsHydrated,
+  createHarvestCache,
+  harvestMessagesInto,
+  assembleFromCache,
+} from '../../src/collectors/chatgpt/chatgpt-collector.ts';
 
 function setupChatgptDom(html: string, url: string) {
   const dom = new JSDOM(`<body><main>${html}</main></body>`, { url });
@@ -457,5 +467,261 @@ describe('chatgpt-collector', () => {
     expect(snap.messages[0].role).toBe('assistant');
     expect(snap.messages[0].contentText).toBe('plain answer');
     expect(snap.messages[0].contentMarkdown).toBe('plain answer');
+  });
+});
+
+describe('chatgpt turn primitives', () => {
+  function buildTurnsDom() {
+    const html = `<!DOCTYPE html><html><body>
+      <div data-turn-id-container style="--last-known-height:120px">
+        <section data-testid="conversation-turn-1" data-turn-id="turn_a" data-turn="user">
+          <div data-message-author-role="user"><div class="whitespace-pre-wrap">你好</div></div>
+        </section>
+      </div>
+      <div data-turn-id-container style="--last-known-height:8000px">
+        <section data-testid="conversation-turn-2" data-turn-id="turn_b" data-turn="assistant"></section>
+      </div>
+      <div data-turn-id-container style="--last-known-height:200px">
+        <section data-testid="conversation-turn-3" data-turn-id="turn_c" data-turn="assistant">
+          <div data-message-author-role="assistant" data-message-id="m_c"><div class="markdown prose"><p>答</p></div></div>
+        </section>
+      </div>
+    </body></html>`;
+    return new JSDOM(html, { url: 'https://chatgpt.com/share/share_primitives_1' });
+  }
+
+  it('getTurnSkeleton returns every turn shell including empty (virtualized) ones', () => {
+    const skeleton = getTurnSkeleton(buildTurnsDom().window.document);
+    expect(skeleton.length).toBe(3);
+  });
+
+  it('turnKeyOf resolves to the same turn UUID from a deep role node and from the shell', () => {
+    const doc = buildTurnsDom().window.document;
+    const roleNode = doc.querySelector('[data-message-author-role="user"]') as any;
+    const shell1 = doc.querySelector('[data-testid="conversation-turn-1"]') as any;
+    const emptyShell = doc.querySelector('[data-testid="conversation-turn-2"]') as any;
+    expect(turnKeyOf(roleNode)).toBe('turn_a');
+    expect(turnKeyOf(shell1)).toBe('turn_a');
+    // An empty (virtualized) shell still yields its stable turn UUID.
+    expect(turnKeyOf(emptyShell)).toBe('turn_b');
+  });
+
+  it('turnIsHydrated distinguishes empty shells from rendered turns', () => {
+    const doc = buildTurnsDom().window.document;
+    const t1 = doc.querySelector('[data-testid="conversation-turn-1"]') as any;
+    const t2 = doc.querySelector('[data-testid="conversation-turn-2"]') as any;
+    const t3 = doc.querySelector('[data-testid="conversation-turn-3"]') as any;
+    expect(turnIsHydrated(t1)).toBe(true);
+    expect(turnIsHydrated(t2)).toBe(false);
+    expect(turnIsHydrated(t3)).toBe(true);
+  });
+
+  it('scrollTargetForTurn returns the outer container without scrolling', () => {
+    const doc = buildTurnsDom().window.document;
+    const shell = doc.querySelector('[data-testid="conversation-turn-1"]') as any;
+    const target = scrollTargetForTurn(shell) as any;
+    expect(target).toBeTruthy();
+    expect(target.hasAttribute('data-turn-id-container')).toBe(true);
+  });
+});
+
+describe('chatgpt harvest cache', () => {
+  function skeletonDoc() {
+    const html = `<!DOCTYPE html><html><body>
+      <div data-turn-id-container><section data-testid="conversation-turn-1" data-turn-id="turn_a"></section></div>
+      <div data-turn-id-container><section data-testid="conversation-turn-2" data-turn-id="turn_b"></section></div>
+      <div data-turn-id-container><section data-testid="conversation-turn-3" data-turn-id="turn_c"></section></div>
+    </body></html>`;
+    return new JSDOM(html, { url: 'https://chatgpt.com/share/x' }).window.document;
+  }
+  function msg(messageKey: string, role: string, text: string) {
+    return { messageKey, role, contentText: text, contentMarkdown: text, sequence: 0, updatedAt: 1 };
+  }
+
+  it('reassembles a middle turn hydrated on a later pass into its correct position', () => {
+    const doc = skeletonDoc();
+    const cache = createHarvestCache('conv_test');
+    // Pass 1: middle turn (turn_b) is an empty shell, only turn_a and turn_c are present.
+    expect(
+      harvestMessagesInto(cache, [
+        { turnKey: 'turn_a', withinTurn: 0, message: msg('m_a', 'user', 'Q1') },
+        { turnKey: 'turn_c', withinTurn: 0, message: msg('m_c', 'assistant', 'A2') },
+      ]),
+    ).toBe(2);
+    expect((assembleFromCache(cache, doc) || []).map((m: any) => m.messageKey)).toEqual(['m_a', 'm_c']);
+    // Pass 2: the middle turn hydrates; re-harvesting turn_a/turn_c must not duplicate.
+    expect(
+      harvestMessagesInto(cache, [
+        { turnKey: 'turn_a', withinTurn: 0, message: msg('m_a', 'user', 'Q1') },
+        { turnKey: 'turn_b', withinTurn: 0, message: msg('m_b', 'user', 'Q-mid') },
+        { turnKey: 'turn_c', withinTurn: 0, message: msg('m_c', 'assistant', 'A2') },
+      ]),
+    ).toBe(1);
+    const full = assembleFromCache(cache, doc) || [];
+    expect(full.map((m: any) => m.messageKey)).toEqual(['m_a', 'm_b', 'm_c']);
+    expect(full.map((m: any) => m.sequence)).toEqual([0, 1, 2]);
+  });
+
+  it('keeps multiple messages within one turn in insertion order (F3)', () => {
+    const doc = skeletonDoc();
+    const cache = createHarvestCache('conv_multi');
+    harvestMessagesInto(cache, [
+      { turnKey: 'turn_a', withinTurn: 0, message: msg('m_a', 'user', 'Q') },
+      { turnKey: 'turn_b', withinTurn: 0, message: msg('m_b1', 'assistant', 'part1') },
+      { turnKey: 'turn_b', withinTurn: 1, message: msg('m_b2', 'assistant', 'part2') },
+    ]);
+    expect((assembleFromCache(cache, doc) || []).map((m: any) => m.messageKey)).toEqual(['m_a', 'm_b1', 'm_b2']);
+  });
+
+  it('returns null when nothing has been harvested', () => {
+    expect(assembleFromCache(createHarvestCache('empty'), skeletonDoc())).toBeNull();
+  });
+});
+
+describe('chatgpt virtualized share fixture (5 rounds)', () => {
+  function loadFixture() {
+    const html = fs.readFileSync(new URL('../fixtures/chatgpt-share-virtualized.html', import.meta.url), 'utf8');
+    // F2: the real share DOM has no <main>; load it as a FULL document (no main wrapper).
+    return new JSDOM(html, { url: 'https://chatgpt.com/share/6a422ac4-0fac-83ee-8050-90dec7c22b89' });
+  }
+
+  it('captures the virtualized fixture as a full document without regression (9 messages, 3 rounds)', async () => {
+    const dom = loadFixture();
+    expect(dom.window.document.querySelectorAll('main').length).toBe(0);
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+    expect(snap).toBeTruthy();
+    expect(snap.messages.length).toBe(9);
+    expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(3);
+  });
+
+  it('fills the middle gap via cross-pass harvest once the empty shells hydrate (5 rounds)', async () => {
+    const dom = loadFixture();
+    const doc = dom.window.document;
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: doc as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    const def = createChatgptCollectorDef(env) as any;
+    const t = def.collector.__test;
+    const root = t.getRoot();
+    const cache = createHarvestCache(t.resolveConversationCacheKey());
+
+    // Pass 1: t3/t4/t5 are empty virtualized shells, so only 3 rounds are visible (the bug).
+    expect(await t.harvestInto(cache, root, { allowEditing: true })).toBe(9);
+    expect((assembleFromCache(cache, root) || []).filter((m: any) => m.role === 'user').length).toBe(3);
+
+    // Simulate scroll hydration: the 3 empty shells render their content.
+    const shells = getTurnSkeleton(doc).filter((s: any) => !turnIsHydrated(s));
+    expect(shells.length).toBe(3);
+    const injRoles = ['user', 'assistant', 'user'];
+    shells.forEach((s: any, idx: number) => {
+      const role = injRoles[idx];
+      const wrap = doc.createElement('div');
+      wrap.setAttribute('data-message-author-role', role);
+      wrap.setAttribute('data-message-id', `inj_${idx}`);
+      const inner = doc.createElement('div');
+      inner.className = role === 'user' ? 'whitespace-pre-wrap' : 'markdown prose';
+      inner.textContent = `注入-${role}-${idx}`;
+      wrap.appendChild(inner);
+      s.appendChild(wrap);
+    });
+
+    // Pass 2: the previously-empty shells are harvested; already-seen messages are not duplicated.
+    expect(await t.harvestInto(cache, root, { allowEditing: true })).toBe(3);
+    const full = assembleFromCache(cache, root) || [];
+    expect(full.length).toBe(12);
+    expect(full.filter((m: any) => m.role === 'user').length).toBe(5);
+    expect(full.every((m: any, i: number) => m.sequence === i)).toBe(true);
+    // The recovered messages land in the MIDDLE (positions 3,4,5), not appended at the end.
+    const injPositions = full
+      .map((m: any, i: number) => (String(m.contentText || '').startsWith('注入-') ? i : -1))
+      .filter((i: number) => i >= 0);
+    expect(injPositions).toEqual([3, 4, 5]);
+  });
+});
+
+describe('chatgpt manual scroll-sweep capture (P2)', () => {
+  function loadFixtureDom() {
+    const html = fs.readFileSync(new URL('../fixtures/chatgpt-share-virtualized.html', import.meta.url), 'utf8');
+    return new JSDOM(html, { url: 'https://chatgpt.com/share/6a422ac4-0fac-83ee-8050-90dec7c22b89' });
+  }
+  // Wire scrollIntoView on each empty shell's container so that scrolling it into view 'hydrates'
+  // the shell, mimicking ChatGPT's virtualized rendering. Returns a counter of scroll calls.
+  function mockHydrationOnScroll(doc: Document) {
+    const shells = getTurnSkeleton(doc).filter((s: any) => !turnIsHydrated(s));
+    const injRoles = ['user', 'assistant', 'user'];
+    const counter = { calls: 0 };
+    shells.forEach((s: any, idx: number) => {
+      const container = (s.closest && s.closest('[data-turn-id-container]')) || s;
+      const role = injRoles[idx] || 'assistant';
+      (container as any).scrollIntoView = () => {
+        counter.calls += 1;
+        if (s.querySelector('[data-message-author-role]')) return;
+        const wrap = doc.createElement('div');
+        wrap.setAttribute('data-message-author-role', role);
+        wrap.setAttribute('data-message-id', `inj_${idx}`);
+        const inner = doc.createElement('div');
+        inner.className = role === 'user' ? 'whitespace-pre-wrap' : 'markdown prose';
+        inner.textContent = `注入-${role}-${idx}`;
+        wrap.appendChild(inner);
+        s.appendChild(wrap);
+      };
+    });
+    return { shells, counter };
+  }
+  function buildEnv(dom: JSDOM) {
+    return createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+  }
+
+  it('prepareManualCapture + manual capture recovers all 5 rounds across virtualized shells', async () => {
+    const dom = loadFixtureDom();
+    (dom.window as any).scrollTo = vi.fn();
+    const { shells, counter } = mockHydrationOnScroll(dom.window.document);
+    expect(shells.length).toBe(3);
+    const def = createChatgptCollectorDef(buildEnv(dom)) as any;
+
+    const prepared = await def.collector.prepareManualCapture({ perTurnTimeoutMs: 300, pollMs: 10, settleMs: 5 });
+    expect(prepared).toBe(true);
+    expect(counter.calls).toBe(3);
+
+    const snap = (await Promise.resolve(def.collector.capture({ manual: true }))) as any;
+    expect(snap.messages.length).toBe(12);
+    expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(5);
+    expect(snap.messages.every((m: any, i: number) => m.sequence === i)).toBe(true);
+    const injPositions = snap.messages
+      .map((m: any, i: number) => (String(m.contentText || '').startsWith('注入-') ? i : -1))
+      .filter((i: number) => i >= 0);
+    expect(injPositions).toEqual([3, 4, 5]);
+  });
+
+  it('manual capture without prepareManualCapture falls back to a live single pass (3 rounds)', async () => {
+    const dom = loadFixtureDom();
+    const def = createChatgptCollectorDef(buildEnv(dom)) as any;
+    const snap = (await Promise.resolve(def.collector.capture({ manual: true }))) as any;
+    expect(snap.messages.length).toBe(9);
+    expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(3);
+  });
+
+  it('restores the scroll position after the sweep', async () => {
+    const dom = loadFixtureDom();
+    const scrollTo = vi.fn();
+    (dom.window as any).scrollTo = scrollTo;
+    mockHydrationOnScroll(dom.window.document);
+    const def = createChatgptCollectorDef(buildEnv(dom)) as any;
+    await def.collector.prepareManualCapture({ perTurnTimeoutMs: 200, pollMs: 10, settleMs: 0 });
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
 });
