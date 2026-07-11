@@ -132,7 +132,7 @@ async function createOrRefreshMenus(api: any) {
   await removeAllMenus(api);
 
   const base = {
-    contexts: ['page', 'selection'],
+    contexts: ['page', 'selection', 'video'],
     documentUrlPatterns: ['http://*/*', 'https://*/*'],
   } as any;
 
@@ -150,7 +150,7 @@ async function createOrRefreshMenus(api: any) {
   });
 
   api.create({
-    contexts: ['page'],
+    contexts: ['page', 'video'],
     documentUrlPatterns: [
       'https://www.youtube.com/watch*',
       'https://youtu.be/*',

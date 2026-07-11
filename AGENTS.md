@@ -1,11 +1,3 @@
-# 仓库指南
-
-本仓库以 WebClipper（浏览器扩展）为活动主线；Apple 客户端与 CLI 已拆分至独立仓库：
-
-- iOS: `SyncNos/SyncNos-Health`
-- macOS: `SyncNos/SyncNos-booknotes`
-- CLI: `SyncNos/SyncNos-CLI`
-
 ## WebClipper 分层与契约（必须遵守）
 
 ### 项目结构（分层）
