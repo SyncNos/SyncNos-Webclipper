@@ -40,6 +40,34 @@ afterEach(() => {
 });
 
 describe('clipper context menu save title', () => {
+  it('shows the video transcript action when right-clicking the player', async () => {
+    const menusApi = createMenusApi();
+
+    // @ts-expect-error test global
+    globalThis.chrome = {
+      contextMenus: menusApi,
+      storage: {
+        local: {
+          get: vi.fn((_keys: any, cb: any) => cb({})),
+          set: vi.fn((_v: any, cb: any) => cb?.()),
+        },
+        onChanged: {
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+        },
+      },
+    };
+
+    registerClipperContextMenu();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const createdMenus = menusApi.create.mock.calls.map(([menu]) => menu);
+    expect(createdMenus.find((menu) => menu.id === 'syncnos_clipper_root')?.contexts).toContain('video');
+    expect(createdMenus.find((menu) => menu.id === 'syncnos_clipper_save_video_transcript')?.contexts).toContain(
+      'video',
+    );
+  });
+
   it('switches to AI chat title when current page kind is chat', async () => {
     const menusApi = createMenusApi();
 
