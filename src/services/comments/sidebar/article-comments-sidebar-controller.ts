@@ -5,6 +5,7 @@ import type {
 } from '@services/comments/sidebar/comment-sidebar-contract';
 import { normalizeCommentSidebarQuoteText } from '@services/comments/sidebar/comment-sidebar-session';
 import type { ArticleCommentLocator } from '@services/comments/domain/models';
+import { normalizeArticleCommentLocator } from '@services/comments/domain/comment-locator';
 import { normalizePositiveInt } from '@services/shared/numbers';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 
@@ -58,11 +59,6 @@ function buildContextKey(context: ArticleCommentsSidebarContext | null): string 
   return `${canonicalUrl}#${conversationId ?? ''}`;
 }
 
-function normalizeLocator(locator: unknown): ArticleCommentLocator | null {
-  if (!locator || typeof locator !== 'object') return null;
-  return locator as ArticleCommentLocator;
-}
-
 export function createArticleCommentsSidebarController(input: {
   session: CommentSidebarSession;
   adapter: ArticleCommentsSidebarAdapter;
@@ -89,7 +85,7 @@ export function createArticleCommentsSidebarController(input: {
     const quoteText = normalizeCommentSidebarQuoteText(payload?.selectionText);
     if (!quoteText) return;
     session.setQuoteText(quoteText);
-    pendingRootLocator = normalizeLocator(payload?.locator);
+    pendingRootLocator = normalizeArticleCommentLocator(payload?.locator);
   };
 
   const ensureContext = async (

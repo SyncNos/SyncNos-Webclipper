@@ -1,19 +1,13 @@
-import type { ArticleCommentLocator } from '@services/comments/domain/models';
+import type { ArticleCommentDto } from '@services/comments/domain/comment-dto';
+import type { CommentThreadGraph } from '@services/comments/domain/comment-thread-graph';
 
 export type CommentSidebarOpenInput = {
   focusComposer?: boolean;
   source?: string;
 };
 
-export type CommentSidebarItem = {
-  id: number;
-  parentId: number | null;
-  authorName?: string | null;
-  createdAt?: number | null;
-  quoteText?: string | null;
-  commentText: string;
-  locator?: ArticleCommentLocator | null;
-};
+export type CommentSidebarItem = ArticleCommentDto;
+export type CommentSidebarThreadGraph = CommentThreadGraph<CommentSidebarItem>;
 
 export type CommentSaveResult = void | boolean | { ok: boolean; createdRootId?: number | null };
 

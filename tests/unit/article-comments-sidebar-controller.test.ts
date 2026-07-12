@@ -127,9 +127,10 @@ describe('article-comments-sidebar-controller', () => {
     const session = createCommentSidebarSession(panel.api as any);
 
     const locator = {
-      env: 'inpage',
-      quote: { exact: 'Quoted from page' },
-      position: { start: 0, end: 16 },
+      v: 1 as const,
+      env: 'inpage' as const,
+      quote: { type: 'TextQuoteSelector' as const, exact: 'Quoted from page' },
+      position: { type: 'TextPositionSelector' as const, start: 0, end: 16 },
     };
 
     const adapter = {

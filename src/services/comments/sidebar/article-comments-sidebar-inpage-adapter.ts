@@ -1,5 +1,6 @@
 import { ARTICLE_MESSAGE_TYPES, COMMENTS_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import { parseArticleCommentDtos } from '@services/comments/domain/comment-dto';
 
 import type { ArticleCommentsSidebarAdapter } from '@services/comments/sidebar/article-comments-sidebar-adapter';
 
@@ -31,18 +32,9 @@ export function createArticleCommentsSidebarInpageAdapter(
       const normalized = canonicalizeArticleUrl(canonicalUrl);
       if (!normalized) return [];
       if (!rt?.send) return [];
-      const res = await rt.send(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, { canonicalUrl: normalized } as any);
+      const res = await rt.send(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, { canonicalUrl: normalized });
       if (!res?.ok) return [];
-      const items = Array.isArray(res?.data) ? res.data : [];
-      return items.map((c: any) => ({
-        id: Number(c?.id),
-        parentId: c?.parentId != null ? Number(c.parentId) : null,
-        authorName: c?.authorName != null ? String(c.authorName) : null,
-        createdAt: Number(c?.createdAt) || null,
-        quoteText: String(c?.quoteText || ''),
-        commentText: String(c?.commentText || ''),
-        locator: c?.locator ?? null,
-      }));
+      return parseArticleCommentDtos(res?.data);
     },
     async ensureContext(input) {
       const ensureArticle = input?.ensureArticle !== false;
@@ -54,7 +46,7 @@ export function createArticleCommentsSidebarInpageAdapter(
       }
 
       const payload = input?.tabId ? { tabId: Number(input.tabId) } : null;
-      const res = await rt.send(ARTICLE_MESSAGE_TYPES.RESOLVE_OR_CAPTURE_ACTIVE_TAB, payload as any);
+      const res = await rt.send(ARTICLE_MESSAGE_TYPES.RESOLVE_OR_CAPTURE_ACTIVE_TAB, payload ?? undefined);
       if (!res?.ok) {
         return { canonicalUrl: fallbackUrl, conversationId: null };
       }
@@ -63,7 +55,7 @@ export function createArticleCommentsSidebarInpageAdapter(
       const conversationId = normalizeConversationId(res?.data?.conversationId);
       if (canonicalUrl && conversationId) {
         try {
-          await rt.send(COMMENTS_MESSAGE_TYPES.ATTACH_ORPHAN_ARTICLE_COMMENTS, { canonicalUrl, conversationId } as any);
+          await rt.send(COMMENTS_MESSAGE_TYPES.ATTACH_ORPHAN_ARTICLE_COMMENTS, { canonicalUrl, conversationId });
         } catch (_e) {
           // ignore
         }
@@ -80,7 +72,7 @@ export function createArticleCommentsSidebarInpageAdapter(
         quoteText,
         commentText,
         locator: locator ?? null,
-      } as any);
+      });
       if (!res?.ok) throw new Error('failed to add article comment');
       const id = Number(res?.data?.id);
       if (!Number.isFinite(id) || id <= 0) throw new Error('failed to add article comment');
@@ -96,12 +88,12 @@ export function createArticleCommentsSidebarInpageAdapter(
         parentId,
         quoteText: '',
         commentText,
-      } as any);
+      });
       if (!res?.ok) throw new Error('failed to reply article comment');
     },
     async delete({ id }) {
       if (!rt?.send) throw new Error('missing runtime for deleting article comment');
-      const res = await rt.send(COMMENTS_MESSAGE_TYPES.DELETE_ARTICLE_COMMENT, { id } as any);
+      const res = await rt.send(COMMENTS_MESSAGE_TYPES.DELETE_ARTICLE_COMMENT, { id });
       if (!res?.ok) throw new Error('failed to delete article comment');
     },
     async migrateCanonicalUrl({ fromCanonicalUrl, toCanonicalUrl, conversationId }) {
@@ -113,7 +105,7 @@ export function createArticleCommentsSidebarInpageAdapter(
         fromCanonicalUrl: from,
         toCanonicalUrl: to,
         conversationId,
-      } as any);
+      });
     },
   };
 }

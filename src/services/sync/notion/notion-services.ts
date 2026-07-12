@@ -1,3 +1,4 @@
+import type { ArticleCommentDto } from '@services/comments/domain/comment-dto';
 import type { ReconcileRunningSyncJobOptions } from '@services/sync/sync-job-store';
 
 export type NotionToken = {
@@ -31,7 +32,7 @@ export type NotionBackgroundStorage = {
   setConversationNotionPageId?: (conversationId: number, pageId: string) => Promise<any>;
   setSyncCursor?: (conversationId: number, cursor: any) => Promise<any>;
   patchSyncMapping?: (conversationId: number, patch: Record<string, unknown>) => Promise<any>;
-  getArticleCommentsByConversationId?: (conversationId: number) => Promise<any[]>;
+  getArticleCommentsByConversationId?: (conversationId: number) => Promise<ArticleCommentDto[]>;
   attachOrphanArticleCommentsToConversation?: (canonicalUrl: string, conversationId: number) => Promise<any>;
 };
 

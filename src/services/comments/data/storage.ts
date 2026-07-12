@@ -1,6 +1,7 @@
 import * as idb from '@services/comments/data/storage-idb';
+import type { AddArticleCommentInput } from '@services/comments/domain/models';
 
-export async function addArticleComment(payload: any) {
+export async function addArticleComment(payload: AddArticleCommentInput) {
   return await idb.addArticleComment(payload);
 }
 
@@ -28,9 +29,10 @@ export async function attachOrphanCommentsToConversation(canonicalUrl: string, c
   return await idb.attachOrphanCommentsToConversation(canonicalUrl, conversationId);
 }
 
-export async function migrateArticleCommentsCanonicalUrl(
-  fromCanonicalUrl: string,
-  toCanonicalUrl: string,
-): Promise<{ updated: number }> {
-  return await idb.migrateArticleCommentsCanonicalUrl(fromCanonicalUrl, toCanonicalUrl);
+export async function migrateArticleCommentsCanonicalUrl(input: {
+  fromCanonicalUrl: string;
+  toCanonicalUrl: string;
+  conversationId: number | null;
+}): Promise<{ updated: number }> {
+  return await idb.migrateArticleCommentsCanonicalUrl(input);
 }

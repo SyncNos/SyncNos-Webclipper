@@ -1,6 +1,15 @@
 import type { AddArticleCommentInput, ArticleComment } from '@services/comments/domain/models';
 import { openDb as openSchemaDb } from '@platform/idb/schema';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import { normalizeArticleCommentLocator } from '@services/comments/domain/comment-locator';
+import { serializeArticleCommentDto } from '@services/comments/domain/comment-dto';
+
+export class ArticleCommentInvariantError extends Error {
+  constructor(public readonly code: 'parent_not_found' | 'parent_not_root' | 'parent_context_mismatch') {
+    super(code);
+    this.name = 'ArticleCommentInvariantError';
+  }
+}
 
 export type ArticleCommentDeleteContext = {
   conversationId: number | null;
@@ -92,21 +101,8 @@ function normalizeCommentText(value: unknown): string {
   return String(value || '').trim();
 }
 
-function normalizeLocator(value: unknown): any | null {
-  if (!value || typeof value !== 'object') return null;
-  const v = Number((value as any).v);
-  if (v !== 1) return null;
-  const env = String((value as any).env || '').trim();
-  if (env !== 'inpage' && env !== 'app') return null;
-  const quote = (value as any).quote;
-  const position = (value as any).position;
-  if (!quote || typeof quote !== 'object') return null;
-  if (!position || typeof position !== 'object') return null;
-  return value as any;
-}
-
 function toComment(row: any): ArticleComment {
-  return {
+  const comment: ArticleComment = {
     id: Number(row?.id),
     parentId: normalizeParentId(row?.parentId),
     conversationId: normalizeConversationId(row?.conversationId),
@@ -114,10 +110,11 @@ function toComment(row: any): ArticleComment {
     authorName: safeString(row?.authorName) || null,
     quoteText: safeString(row?.quoteText),
     commentText: normalizeCommentText(row?.commentText),
-    locator: normalizeLocator(row?.locator),
+    locator: normalizeArticleCommentLocator(row?.locator),
     createdAt: Number(row?.createdAt) || 0,
     updatedAt: Number(row?.updatedAt) || 0,
   };
+  return serializeArticleCommentDto(comment);
 }
 
 export async function addArticleComment(input: AddArticleCommentInput): Promise<ArticleComment> {
@@ -133,15 +130,25 @@ export async function addArticleComment(input: AddArticleCommentInput): Promise<
 
   const createdAt = normalizeTimestamp(input?.createdAt, now);
   const updatedAt = normalizeTimestamp(input?.updatedAt, createdAt);
+  const parentId = normalizeParentId(input?.parentId);
+  const conversationId = normalizeConversationId(input?.conversationId);
+  if (parentId != null) {
+    const parent = await reqToPromise<any>(stores.article_comments.get(parentId));
+    if (!parent) throw new ArticleCommentInvariantError('parent_not_found');
+    if (normalizeParentId(parent.parentId) != null) throw new ArticleCommentInvariantError('parent_not_root');
+    if (normalizeCanonicalUrl(parent.canonicalUrl) !== canonicalUrl || normalizeConversationId(parent.conversationId) !== conversationId) {
+      throw new ArticleCommentInvariantError('parent_context_mismatch');
+    }
+  }
 
   const row: any = {
-    parentId: normalizeParentId(input?.parentId),
-    conversationId: normalizeConversationId(input?.conversationId),
+    parentId,
+    conversationId,
     canonicalUrl,
     authorName: safeString(input?.authorName) || '',
     quoteText,
     commentText,
-    locator: normalizeLocator(input?.locator),
+    locator: normalizeArticleCommentLocator(input?.locator),
     createdAt,
     updatedAt,
   };
@@ -238,31 +245,21 @@ export async function deleteArticleCommentById(id: number): Promise<boolean> {
 
   const db = await openDb();
   const { t, stores } = tx(db, ['article_comments'], 'readwrite');
-
-  await new Promise<void>((resolve, reject) => {
-    try {
-      const req = stores.article_comments.openCursor();
-      req.onerror = () => reject(req.error || new Error('cursor failed'));
-      req.onsuccess = () => {
-        const cursor = req.result as IDBCursorWithValue | null;
-        if (!cursor) return resolve();
-        const value: any = cursor.value;
-        const rowId = Number(value?.id);
-        const parentId = normalizeParentId(value?.parentId);
-        if ((Number.isFinite(rowId) && rowId === commentId) || parentId === commentId) {
-          try {
-            cursor.delete();
-          } catch (_e) {
-            // ignore and continue
-          }
-        }
-        cursor.continue();
-      };
-    } catch (e) {
-      reject(e);
+  const rows = (await reqToPromise<any[]>(stores.article_comments.getAll() as any)) || [];
+  const descendants = new Set<number>([commentId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const row of rows) {
+      const rowId = Number(row?.id);
+      const parentId = normalizeParentId(row?.parentId);
+      if (!Number.isFinite(rowId) || rowId <= 0 || parentId == null) continue;
+      if (!descendants.has(parentId) || descendants.has(rowId)) continue;
+      descendants.add(rowId);
+      changed = true;
     }
-  });
-
+  }
+  for (const rowId of descendants) stores.article_comments.delete(rowId);
   await txDone(t);
   return true;
 }
@@ -328,14 +325,17 @@ export async function attachOrphanCommentsToConversation(
   return { updated };
 }
 
-export async function migrateArticleCommentsCanonicalUrl(
-  fromCanonicalUrl: string,
-  toCanonicalUrl: string,
-): Promise<{ updated: number }> {
-  const from = normalizeCanonicalUrl(fromCanonicalUrl);
-  const to = normalizeCanonicalUrl(toCanonicalUrl);
+export async function migrateArticleCommentsCanonicalUrl(input: {
+  fromCanonicalUrl: string;
+  toCanonicalUrl: string;
+  conversationId: number | null;
+}): Promise<{ updated: number }> {
+  const from = normalizeCanonicalUrl(input?.fromCanonicalUrl);
+  const to = normalizeCanonicalUrl(input?.toCanonicalUrl);
+  const conversationId = normalizeConversationId(input?.conversationId);
   if (!from) throw new Error('fromCanonicalUrl required');
   if (!to) throw new Error('toCanonicalUrl required');
+  if (!conversationId) throw new Error('conversationId required');
   if (from === to) return { updated: 0 };
 
   const db = await openDb();
@@ -361,6 +361,8 @@ export async function migrateArticleCommentsCanonicalUrl(
   let updated = 0;
   for (const row of rows) {
     if (!row) continue;
+    const rowConversationId = normalizeConversationId(row.conversationId);
+    if (rowConversationId != null && rowConversationId !== conversationId) continue;
     row.canonicalUrl = to;
     row.updatedAt = now;
     await reqToPromise(store.put(row));

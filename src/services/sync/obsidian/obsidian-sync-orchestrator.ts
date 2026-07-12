@@ -1,3 +1,4 @@
+import { parseArticleCommentDtos, type ArticleCommentDto } from '@services/comments/domain/comment-dto';
 import { backgroundStorage as defaultBackgroundStorage } from '@services/conversations/background/storage';
 import { getObsidianConnectionConfig, getObsidianPathConfig } from '@services/sync/obsidian/settings-store';
 import {
@@ -345,15 +346,14 @@ async function decideSyncModeForConversation({
   }
 
   const isArticle = safeString(convo?.sourceType) === 'article';
-  let articleComments: any[] = [];
+  let articleComments: ArticleCommentDto[] = [];
   if (isArticle) {
     const canonicalUrl = safeString(convo?.url);
-    if (canonicalUrl && typeof (storage as any).attachOrphanArticleCommentsToConversation === 'function') {
-      await (storage as any).attachOrphanArticleCommentsToConversation(canonicalUrl, conversationId);
+    if (canonicalUrl && typeof storage.attachOrphanArticleCommentsToConversation === 'function') {
+      await storage.attachOrphanArticleCommentsToConversation(canonicalUrl, conversationId);
     }
-    if (typeof (storage as any).getArticleCommentsByConversationId === 'function') {
-      articleComments = await (storage as any).getArticleCommentsByConversationId(conversationId);
-      if (!Array.isArray(articleComments)) articleComments = [];
+    if (typeof storage.getArticleCommentsByConversationId === 'function') {
+      articleComments = parseArticleCommentDtos(await storage.getArticleCommentsByConversationId(conversationId));
     }
   }
 

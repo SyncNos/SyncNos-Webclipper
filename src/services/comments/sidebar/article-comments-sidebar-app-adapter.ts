@@ -14,15 +14,7 @@ export function createArticleCommentsSidebarAppAdapter(): ArticleCommentsSidebar
       const normalized = canonicalizeArticleUrl(canonicalUrl);
       if (!normalized) return [];
       const items = await listArticleCommentsByCanonicalUrl(normalized);
-      return (Array.isArray(items) ? items : []).map((c: any) => ({
-        id: Number(c?.id),
-        parentId: c?.parentId != null ? Number(c.parentId) : null,
-        authorName: c?.authorName != null ? String(c.authorName) : null,
-        createdAt: Number(c?.createdAt) || null,
-        quoteText: String(c?.quoteText || ''),
-        commentText: String(c?.commentText || ''),
-        locator: c?.locator ?? null,
-      }));
+      return items;
     },
     async addRoot({ canonicalUrl, conversationId, quoteText, commentText, locator }) {
       const normalized = canonicalizeArticleUrl(canonicalUrl);
@@ -34,7 +26,7 @@ export function createArticleCommentsSidebarAppAdapter(): ArticleCommentsSidebar
         quoteText,
         commentText,
         locator: locator ?? null,
-      } as any);
+      });
       const id = Number(comment?.id);
       if (!Number.isFinite(id) || id <= 0) {
         throw new Error('failed to add article comment');
@@ -50,7 +42,7 @@ export function createArticleCommentsSidebarAppAdapter(): ArticleCommentsSidebar
         parentId,
         quoteText: '',
         commentText,
-      } as any);
+      });
     },
     async delete({ id }) {
       const ok = await deleteArticleCommentById(id);

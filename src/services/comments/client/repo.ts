@@ -1,5 +1,9 @@
 import { COMMENTS_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { send } from '@platform/runtime/runtime';
+import type { ArticleCommentLocator } from '@services/comments/domain/comment-locator';
+import { normalizeArticleCommentLocator } from '@services/comments/domain/comment-locator';
+import type { ArticleCommentDto } from '@services/comments/domain/comment-dto';
+import { parseArticleCommentDto, parseArticleCommentDtos } from '@services/comments/domain/comment-dto';
 
 type ApiError = { message: string; extra: unknown } | null;
 type ApiResponse<T> = { ok: boolean; data: T | null; error: ApiError };
@@ -11,35 +15,26 @@ function unwrap<T>(res: ApiResponse<T>): T {
   throw new Error(message);
 }
 
-export type ArticleCommentDto = {
-  id: number;
-  parentId: number | null;
-  conversationId: number | null;
-  canonicalUrl: string;
-  quoteText: string;
-  commentText: string;
-  locator?: any;
-  createdAt: number;
-  updatedAt: number;
-};
-
 export async function addArticleComment(input: {
   canonicalUrl: string;
   conversationId: number | null;
   parentId?: number | null;
   quoteText?: string | null;
   commentText: string;
-  locator?: any;
+  locator?: ArticleCommentLocator | null;
 }): Promise<ArticleCommentDto> {
-  const res = await send<ApiResponse<ArticleCommentDto>>(COMMENTS_MESSAGE_TYPES.ADD_ARTICLE_COMMENT, input as any);
-  return unwrap(res);
+  const payload = { ...input, locator: normalizeArticleCommentLocator(input.locator) };
+  const res = await send<ApiResponse<ArticleCommentDto>>(COMMENTS_MESSAGE_TYPES.ADD_ARTICLE_COMMENT, payload);
+  const parsed = parseArticleCommentDto(unwrap(res));
+  if (!parsed) throw new Error('invalid article comment response');
+  return parsed;
 }
 
 export async function listArticleCommentsByCanonicalUrl(canonicalUrl: string): Promise<ArticleCommentDto[]> {
   const res = await send<ApiResponse<ArticleCommentDto[]>>(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, {
     canonicalUrl,
   });
-  return unwrap(res);
+  return parseArticleCommentDtos(unwrap(res));
 }
 
 export async function deleteArticleCommentById(id: number): Promise<boolean> {
@@ -59,7 +54,7 @@ export async function migrateArticleCommentsCanonicalUrl(input: {
   };
   const res = await send<ApiResponse<{ updated: number }>>(
     COMMENTS_MESSAGE_TYPES.MIGRATE_ARTICLE_COMMENTS_CANONICAL_URL,
-    payload as any,
+    payload,
   );
   return unwrap(res);
 }

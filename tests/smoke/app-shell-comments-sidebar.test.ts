@@ -3,6 +3,7 @@ import { act, createElement } from 'react';
 import ReactDOM from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 import type { ReactNode } from 'react';
+import { cleanupCommentsReactRoot, flushCommentsReactWork, waitForCommentsUi } from '../helpers/comments-test-harness';
 
 const { commentsByUrl, listArticleCommentsByCanonicalUrlMock, responsiveTierState, detailPaneMockState } = vi.hoisted(
   () => {
@@ -266,10 +267,8 @@ describe('AppShell comments sidebar', () => {
     root = ReactDOM.createRoot(document.getElementById('root')!);
   });
 
-  afterEach(() => {
-    act(() => {
-      root?.unmount();
-    });
+  afterEach(async () => {
+    await cleanupCommentsReactRoot(root);
     root = null;
     cleanupDom();
   });
@@ -335,7 +334,7 @@ describe('AppShell comments sidebar', () => {
       openBtn!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
 
-    await vi.waitFor(() => {
+    await waitForCommentsUi(() => {
       expect(document.querySelector('webclipper-threaded-comments-panel')).toBeTruthy();
     });
 
@@ -354,17 +353,17 @@ describe('AppShell comments sidebar', () => {
     expect(shadow).toBeTruthy();
     expect(shadow?.querySelector('.webclipper-inpage-comments-panel__attach-selection')).toBeFalsy();
 
-    await vi.waitFor(() => {
+    await waitForCommentsUi(() => {
       expect(shadow?.querySelector('.webclipper-inpage-comments-panel__reply-textarea')).toBeTruthy();
     });
 
-    await act(async () => {
+    act(() => {
       document.dispatchEvent(new window.Event('selectionchange'));
       document.dispatchEvent(new window.Event('pointerup'));
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
     });
+    await flushCommentsReactWork();
 
-    await vi.waitFor(() => {
+    await waitForCommentsUi(() => {
       const quoteText = shadow
         ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
         ?.textContent?.trim();
@@ -379,7 +378,7 @@ describe('AppShell comments sidebar', () => {
       clearBtn!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
 
-    await vi.waitFor(() => {
+    await waitForCommentsUi(() => {
       const quoteText = shadow
         ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
         ?.textContent?.trim();
@@ -391,7 +390,7 @@ describe('AppShell comments sidebar', () => {
       document.dispatchEvent(new window.Event('pointerup'));
     });
 
-    await vi.waitFor(() => {
+    await waitForCommentsUi(() => {
       const quoteText = shadow
         ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
         ?.textContent?.trim();
@@ -428,7 +427,7 @@ describe('AppShell comments sidebar', () => {
       ?.textContent?.trim();
     expect(quoteAfterComposerTyping).toBe(selectedText);
 
-    const reply = (await vi.waitFor(() => {
+    const reply = (await waitForCommentsUi(() => {
       const el = shadow?.querySelector(
         '.webclipper-inpage-comments-panel__reply-textarea',
       ) as HTMLTextAreaElement | null;

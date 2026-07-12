@@ -89,3 +89,42 @@ describe('article-comment-locator', () => {
     expect(restored?.toString()).toBe('Hello world');
   });
 });
+
+import { parseArticleCommentLocator } from '../../src/services/comments/locator';
+
+describe('article-comment-locator parser', () => {
+  it('parses a valid V2 locator without losing evidence', () => {
+    const parsed = parseArticleCommentLocator({
+      v: 2,
+      textModelVersion: 'dom-text-v2',
+      surfaceHint: 'app',
+      quote: { type: 'TextQuoteSelector', exact: 'world', prefix: 'hello ' },
+      position: { type: 'TextPositionSelector', start: 6, end: 11 },
+      boundaryPath: { start: { path: [0], offset: 6 }, end: { path: [0], offset: 11 } },
+      rootEvidence: { textModelVersion: 'dom-text-v2', textLength: 11, textHash: 'abc' },
+      documentRelativeRootPath: [1, 0],
+    });
+    expect(parsed.ok).toBe(true);
+    expect(parsed.value).toMatchObject({ v: 2, surfaceHint: 'app', rootEvidence: { textHash: 'abc' } });
+  });
+
+
+  it('rejects locator fields that exceed parser budgets', () => {
+    const base = {
+      v: 2,
+      textModelVersion: 'dom-text-v2',
+      surfaceHint: 'app',
+      quote: { type: 'TextQuoteSelector', exact: 'x'.repeat(20001) },
+      position: { type: 'TextPositionSelector', start: 0, end: 1 },
+      boundaryPath: { start: { path: [0], offset: 0 }, end: { path: [0], offset: 1 } },
+      rootEvidence: { textModelVersion: 'dom-text-v2', textLength: 1, textHash: 'x' },
+    };
+    expect(parseArticleCommentLocator(base).reason).toBe('invalid_quote');
+    expect(parseArticleCommentLocator({ ...base, quote: { type: 'TextQuoteSelector', exact: 'x' }, boundaryPath: { start: { path: Array(129).fill(0), offset: 0 }, end: { path: [0], offset: 1 } } }).reason).toBe('invalid_boundary_path');
+  });
+
+  it('rejects unsupported or malformed locator versions', () => {
+    expect(parseArticleCommentLocator({ v: 3 }).reason).toBe('unsupported_version');
+    expect(parseArticleCommentLocator({ v: 1, env: 'app', quote: { type: 'TextQuoteSelector', exact: '' }, position: { type: 'TextPositionSelector', start: 0, end: 1 } }).reason).toBe('invalid_quote');
+  });
+});

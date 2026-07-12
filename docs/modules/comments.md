@@ -17,7 +17,9 @@
 | `src/ui/comments/react/focus-rules.ts` | 聚焦规则（~34 行） | 保存后聚焦（返回 `createdRootId` 用于聚焦新评论）、回复后聚焦目标输入框、pending focus 解析 |
 | `src/ui/comments/chatwith.ts` | 头部 Chat with AI 菜单控制器（~260 行） | 处理 article detail 头部的 Chat with AI 菜单，非评论级 |
 | `src/ui/comments/comment-chatwith-config.ts` | 评论级 Chat with AI 配置（~95 行） | 创建评论级 Chat with AI 配置对象 |
-| `src/services/comments/domain/comment-metrics.ts` | 评论数统计 | `computeArticleCommentThreadCount` 计算根评论数，用于 Notion/Obsidian 同步 |
+| `src/services/comments/domain/comment-thread-graph.ts` | 唯一评论图归一化 | 统一 roots/replies 排序，并确定性分类 orphan、cycle、duplicate；指标、列表、归档和同步派生不得自行重建父子图 |
+| `src/services/comments/domain/comment-dto.ts` | runtime DTO 真源 | 统一 background/client/App/Inpage 的评论字段与 locator 解析 |
+| `src/services/comments/domain/comment-archive.ts` | Zip 评论归档契约 | 兼容读取 V1，严格校验/写出 V2，提供 roots-first 幂等导入序列与 warnings |
 | `src/services/comments/data/storage-idb.ts` | 评论存储层（~340 行） | 负责 `article_comments` 的本地读写、查询、附着 orphan 评论、canonical URL 迁移；**不计算** `commentThreadCount`（该逻辑在 `comment-metrics.ts`） |
 | `src/services/comments/background/handlers.ts` | 评论消息路由（~120 行） | 注册 5 个评论消息路由：LIST、ADD、DELETE、ATTACH_ORPHAN、**MIGRATE_CANONICAL_URL**；ADD 操作中 `locator` 仅在根评论时保存 |
 | `src/services/comments/client/repo.ts` | UI 侧客户端仓库（~60 行） | 给 React 组件提供 add / list / delete API |
@@ -40,13 +42,13 @@
 | 主键 | `id` 自增 | 便于回复树与删除操作 |
 | 主要字段 | `canonicalUrl`, `conversationId`, `parentId`, `authorName?`, `quoteText`, `commentText`, `locator?`, `createdAt`, `updatedAt` | `canonicalUrl` 会去掉 hash 后再归一；`locator` 是可选的可恢复选区信息 |
 | 索引 | `by_canonicalUrl_createdAt`, `by_conversationId_createdAt` | 支持按 article 和按会话两种读取路径 |
-| 线程关系 | `parentId` | `null` 表示 root comment；非空表示 reply |
+| 线程关系 | `parentId` | `null` 表示 root；新写入只允许 reply 指向同一 conversation/canonical URL 下的 root。历史 orphan/cycle/duplicate 由唯一 thread graph 确定性归一化 |
 | orphan 处理 | `conversationId = null` | 页面未解析出会话时先落本地，随后 attach |
 
 - `article_comments` 是 article 的本地注释层，会在 article 同步时参与 Notion / Obsidian 评论区段更新，并随 Zip v2 备份 / 导入一起保留。
 - **Notion 同步**：conversation 对象携带 `commentThreadCount`，写入 Notion "Comment Threads" 属性（数字类型）。
 - **Obsidian 写入**：frontmatter 包含 `comments_root_count`，Markdown 包含 `## Comments` 章节。
-- 旧版或被裁剪的 Zip v2 备份如果缺少 `assets/article-comments/index.json`，恢复时仍会丢失评论线程；排查时先看 manifest。
+- Zip 评论索引读取兼容 schema V1（可缺少 `authorName`/`locator` 并产生 warning）；当前导出写 schema V2，保留 author 与 V1/V2 locator。导入先校验完整父子图，再按 root → reply 顺序幂等合并。缺少索引的旧备份仍不会恢复评论。
 
 ## React 架构
 
@@ -203,10 +205,18 @@ const handleDelete = (commentId: string) => {
 | 评论级 Chat with AI | `comment-chatwith-config.ts`, `chatwith-comment-actions.ts` | 平台选择、payload 构建 |
 | 头部 Chat with AI 菜单 | `chatwith.ts` | article detail 头部菜单（非评论级） |
 | 防重入保护 | `runBusyTask` + `actionInFlightRef` | 所有异步操作（保存/删除/回复） |
-| 评论数同步到 Notion | `notion-sync-orchestrator.ts`, `comment-metrics.ts` | Notion 页面属性 |
-| 评论数同步到 Obsidian | `obsidian-markdown-writer.ts` | frontmatter + Markdown 章节 |
+| 评论图同步到 Notion | `notion-comments-renderer.ts`, `comment-thread-graph.ts` | 根线程数、author、quote、locator/version digest 与评论区块 |
+| 评论图同步到 Obsidian | `obsidian-markdown-writer.ts`, `comment-thread-graph.ts` | frontmatter + Markdown 章节使用同一 roots/replies 排序 |
 | 备份 / 恢复评论线程 | `export.ts`, `import.ts`, `backup-utils.ts` | Zip v2 归档 |
 | article detail UI | `ArticleCommentsSection.tsx`（支持 sidebar/embedded 两种模式） | 评论列表刷新 |
 | 页面内评论面板 | `inpage-comments-panel-shadow.ts`, `comment-sidebar-session.ts` | shadow root、侧边栏状态、评论级 Chat with AI 上下文 |
 | 消息契约 | `message-contracts.ts`, background handlers | UI / background / content 三端（含 MIGRATE_CANONICAL_URL） |
 | panel.ts 桥接层 | `panel.ts`（~470 行） | dock 控制器、resize、shadow DOM 事件、notice 计时器 |
+
+## P1 数据契约硬性规则
+
+- runtime 跨边界只使用 `comment-dto.ts` 的 parser/serializer，禁止 UI、handler、adapter 自定义字段映射。
+- 删除 root 时递归删除全部后代；新 reply 必须指向同上下文 root。
+- canonical URL migration 必须携带 `conversationId`，只迁移该 conversation 与明确 orphan，不得改写同 URL 下其他 conversation。
+- 新归档导出只写规范图；导入错误必须显式失败或记录 warning，禁止 silent cycle skip。
+- P1 只建立 V1/V2 读写兼容基础，不启用 V2 生产 writer。

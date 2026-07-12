@@ -243,13 +243,32 @@ describe('conversations pagination storage-idb', () => {
       parentId: root.id,
       createdAt: 2,
     });
-    await addArticleComment({
+    // Insert a malformed historical row directly. The public write path now
+    // rejects missing parents, while list projections must remain resilient to
+    // data created by older versions or damaged imports.
+    const rawDb = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('webclipper');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rawTx = rawDb.transaction(['article_comments'], 'readwrite');
+    rawTx.objectStore('article_comments').add({
       conversationId: Number(article.id),
-      canonicalUrl: 'https://example.com/thread?utm_source=x',
+      canonicalUrl: 'https://example.com/thread',
+      authorName: '',
+      quoteText: '',
       commentText: 'orphan',
+      locator: null,
       parentId: 999,
       createdAt: 3,
+      updatedAt: 3,
     });
+    await new Promise<void>((resolve, reject) => {
+      rawTx.oncomplete = () => resolve();
+      rawTx.onerror = () => reject(rawTx.error);
+      rawTx.onabort = () => reject(rawTx.error);
+    });
+    rawDb.close();
 
     const page = await getConversationListBootstrap({ sourceKey: 'all', siteKey: 'all', limit: 10 });
     const articleItem = page.items.find((item) => item.sourceType === 'article');

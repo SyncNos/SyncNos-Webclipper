@@ -56,9 +56,9 @@
 
 1. 用户在 article detail 或 inpage comments panel 中打开评论区。
 2. `ArticleCommentsSection.tsx` 先按 canonical URL 读取 `article_comments`，并把结果交给 threaded panel。
-3. 新评论、回复、删除与 orphan attach 都通过 comments background handlers 统一落库；`conversationId` 解析出来后会刷新 detail。
-4. 面板的 open / close / quote / focus / busy 由 shared session 统一调度；评论线程可选使用 `locator` 恢复 Range/上下文（TextQuote/TextPosition selectors），但不做“持久高亮回显”式的正文标注。
-5. Zip v2 备份会把 `article_comments` 写入 `assets/article-comments/index.json`，导入时按 merge 规则把评论线程恢复回本地库。
+3. 新评论、回复、删除与 orphan attach 都通过 service-owned DTO 和 comments background handlers 统一落库；reply 写入校验父 root 与 conversation/canonical identity，root 删除递归清理全部后代。
+4. 面板的 open / close / quote / focus / busy 由 shared session 统一调度；locator 读取兼容 V1/V2，但 P1 期间生产 writer 仍保持 V1。
+5. 所有消费者先通过唯一 thread graph 归一化 roots/replies。Zip v2 导出写 comment archive schema V2；导入兼容 V1，校验父子图后 roots-first 幂等合并，并返回 warnings。
 
 ## WebClipper：从本地会话到外部目标
 
@@ -102,7 +102,7 @@
 | WebClipper `sync_mappings` | IndexedDB | `notionPageId`, `lastSyncedMessageKey`, `lastSyncedSequence`, `lastSyncedAt` | 决定 Notion / Obsidian 是否可增量追加 |
 | WebClipper conversation | IndexedDB | `sourceType`, `source`, `conversationKey`, `lastCapturedAt` | UI 排序、导出、同步、备份的基础 |
 | WebClipper message | IndexedDB | `messageKey`, `sequence`, `updatedAt`, `contentMarkdown` | 生成 Notion blocks / Markdown / Obsidian 内容；图片可在实时采集或 backfill 时内联更新 |
-| WebClipper `article_comments` | IndexedDB | `canonicalUrl`, `conversationId`, `parentId`, `quoteText`, `commentText`, `locator?` | article 详情页的本地评论线程与回复 / 删除 |
+| WebClipper `article_comments` | IndexedDB | `canonicalUrl`, `conversationId`, `parentId`, `authorName`, `quoteText`, `commentText`, `locator?`, timestamps | article 评论事实源；thread graph 负责异常历史图归一化，DTO 负责跨 runtime 字段完整性 |
 | WebClipper 图片缓存开关 | `chrome.storage.local` | `ai_chat_cache_images_enabled`, `web_article_cache_images_enabled`, `anti_hotlink_rules_v1` | 分别控制 chat/article 消息图片内联策略；`anti_hotlink_rules_v1` 命中时会自动缓存 article 图片；历史消息需手动触发 backfill |
 
 ## 图表
