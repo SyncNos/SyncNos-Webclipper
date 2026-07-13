@@ -95,7 +95,7 @@ describe('Threaded comments panel auto-attach selection trigger', () => {
 
     const onComposerSelectionRequest = vi.fn();
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: true });
-    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onComposerSelectionRequest } as any);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onComposerSelectionRequest } as any);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
@@ -123,7 +123,7 @@ describe('Threaded comments panel auto-attach selection trigger', () => {
 
     const onComposerSelectionRequest = vi.fn();
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: true });
-    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onComposerSelectionRequest } as any);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onComposerSelectionRequest } as any);
 
     const selectionMock = {
       rangeCount: 1,
@@ -157,7 +157,7 @@ describe('Threaded comments panel auto-attach selection trigger', () => {
 
     const onComposerSelectionRequest = vi.fn();
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: true });
-    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onComposerSelectionRequest } as any);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onComposerSelectionRequest } as any);
 
     const selectionState = installMutableSelectionMock('Quoted text');
 
@@ -188,14 +188,16 @@ describe('Threaded comments panel auto-attach selection trigger', () => {
 
     const onComposerSelectionRequest = vi.fn();
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: true });
-    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onComposerSelectionRequest } as any);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onComposerSelectionRequest } as any);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
     const shadow = panel!.shadowRoot!;
     const selectionState = installMutableSelectionMock('Quoted text');
 
-    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: Date.now(), commentText: 'root' },
+    ]);
 
     document.dispatchEvent(new window.Event('selectionchange'));
     document.dispatchEvent(new window.Event('pointerup'));
@@ -238,10 +240,10 @@ describe('Threaded comments panel auto-attach selection trigger', () => {
     const onComposerSelectionRequest = vi.fn();
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: true });
 
-    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({
       onComposerSelectionRequest,
       onComposerQuoteClearRequest: () => {
-        getCommentSidebarPanelTestDriver(mounted.api).setQuoteText('');
+        getCommentSidebarPanelTestDriver(mounted.api).updateComposerQuote('');
       },
     } as any);
 
@@ -257,7 +259,7 @@ describe('Threaded comments panel auto-attach selection trigger', () => {
 
     expect(onComposerSelectionRequest).toHaveBeenCalledTimes(1);
 
-    getCommentSidebarPanelTestDriver(mounted.api).setQuoteText(selectionState.text);
+    getCommentSidebarPanelTestDriver(mounted.api).updateComposerQuote(selectionState.text);
     await flushCommentsReactWork();
 
     const clearBtn = shadow.querySelector('.webclipper-inpage-comments-panel__quote-clear') as HTMLButtonElement | null;

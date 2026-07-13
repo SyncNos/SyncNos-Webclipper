@@ -4,10 +4,7 @@ import {
   type ThreadedCommentsPanelChatWithAction,
   type ThreadedCommentsPanelCommentChatWithContext,
 } from '@ui/comments';
-import type {
-  CommentSidebarItem,
-  CommentSidebarPanelApi,
-} from '@services/comments/sidebar/comment-sidebar-contract';
+import type { CommentSidebarItem, CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
 import { createInpageCommentRootSource } from '@ui/comments/inpage-comment-root-source';
 import { toDisplayCommentQuote } from '@services/comments/locator/comment-quote-policy';
 import type { InpageCommentsDomSource } from '@services/bootstrap/inpage-comments-panel-content-handlers';
@@ -232,6 +229,7 @@ function ensurePanel(): { el: HTMLElement; api: CommentSidebarPanelApi } {
     dockPage: true,
     initiallyOpen: false,
     variant: 'sidebar',
+    surface: 'inpage',
     surfaceBg: 'var(--bg-card)',
     showHeader: true,
     showCollapseButton: true,

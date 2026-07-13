@@ -1,35 +1,19 @@
 import type { ArticleCommentLocator } from '@services/comments/domain/comment-locator';
-import type { CommentSidebarItem, CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
+import type { CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
 
 export type ThreadedCommentsPanelApi = CommentSidebarPanelApi;
 
-export type ThreadedCommentsPanelChatWithAction = {
-  id: string;
-  label: string;
-  disabled?: boolean;
-  onTrigger?: () => void | string | Promise<void | string>;
-};
+import type {
+  CommentOptionalAction,
+  CommentPanelOptionalActionConfig,
+  CommentThreadOptionalActionConfig,
+  CommentThreadOptionalActionContext,
+} from '@viewmodels/comments/useCommentOptionalActions';
 
-export type ThreadedCommentsPanelChatWithConfig = {
-  resolveActions: () => Promise<ThreadedCommentsPanelChatWithAction[]>;
-  resolveSingleActionLabel?: () => Promise<string | null>;
-};
-
-export type ThreadedCommentsPanelCommentChatWithContext = {
-  articleTitle?: string | null;
-  canonicalUrl?: string | null;
-};
-
-export type ThreadedCommentsPanelCommentChatWithConfig = {
-  resolveActions: (
-    rootComment: CommentSidebarItem,
-    context: ThreadedCommentsPanelCommentChatWithContext,
-    replies?: CommentSidebarItem[] | null,
-  ) => Promise<ThreadedCommentsPanelChatWithAction[]>;
-  resolveContext?: () =>
-    | ThreadedCommentsPanelCommentChatWithContext
-    | Promise<ThreadedCommentsPanelCommentChatWithContext>;
-};
+export type ThreadedCommentsPanelChatWithAction = CommentOptionalAction;
+export type ThreadedCommentsPanelChatWithConfig = CommentPanelOptionalActionConfig;
+export type ThreadedCommentsPanelCommentChatWithContext = CommentThreadOptionalActionContext;
+export type ThreadedCommentsPanelCommentChatWithConfig = CommentThreadOptionalActionConfig;
 
 export type CommentLocatorSurfaceRoots = {
   sourceRoot: Element;
@@ -42,6 +26,7 @@ export type MountOptions = {
   showHeader?: boolean;
   showCollapseButton?: boolean;
   variant?: 'sidebar';
+  surface?: 'app-wide' | 'app-narrow' | 'inpage';
   fullWidth?: boolean;
   surfaceBg?: string;
   headerDivider?: boolean;

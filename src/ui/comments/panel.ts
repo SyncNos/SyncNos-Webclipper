@@ -6,7 +6,6 @@ import { normalizeArticleCommentLocator, type ArticleCommentLocator } from '@ser
 import { resolveCommentAnchor } from '@services/comments/locator/resolve-comment-anchor';
 import type { CommentSidebarHostActions } from '@services/comments/sidebar/comment-sidebar-contract';
 
-import { createChatWithMenuController } from './chatwith';
 import { createCommentAnchorController } from './comment-anchor-controller';
 import { createDockController } from './dock';
 import { createCommentRangeMarkerRegistry } from './range-marker-registry';
@@ -27,13 +26,13 @@ type ThreadedCommentsPanelReactBridgeProps = {
   surfaceBg?: string;
   showHeader: boolean;
   showCollapseButton: boolean;
-  showHeaderChatWith: boolean;
+  chatWith: MountOptions['chatWith'];
   commentChatWith: MountOptions['commentChatWith'];
   onRequestClose: () => void;
-  onHeaderChatWithRootChange?: (el: HTMLDivElement | null) => void;
   locateThreadRoot?: (rootId: number) => Promise<ThreadLocateResult>;
   onLocateFailed?: (reason: string) => void;
   showNotice: (message: string) => void;
+  onNoticeExpired: () => void;
 };
 
 function ThreadedCommentsPanelReactBridge(props: ThreadedCommentsPanelReactBridgeProps) {
@@ -44,16 +43,16 @@ function ThreadedCommentsPanelReactBridge(props: ThreadedCommentsPanelReactBridg
     surfaceBg: props.surfaceBg,
     showHeader: props.showHeader,
     showCollapseButton: props.showCollapseButton,
-    showHeaderChatWith: props.showHeaderChatWith,
+    chatWith: props.chatWith || null,
     snapshot,
     actions: props.actions,
     onRequestClose: props.onRequestClose,
-    onHeaderChatWithRootChange: props.onHeaderChatWithRootChange,
     setPendingFocusRootId: props.setPendingFocusRootId,
     locateThreadRoot: props.locateThreadRoot,
     onLocateFailed: props.onLocateFailed,
     commentChatWith: props.commentChatWith || null,
     showNotice: props.showNotice,
+    onNoticeExpired: props.onNoticeExpired,
   });
 }
 
@@ -75,18 +74,6 @@ function asyncReactUpdate(run: () => void) {
       ? globalThis.queueMicrotask.bind(globalThis)
       : (cb: () => void) => Promise.resolve().then(cb);
   schedule(run);
-}
-
-function isEditableTarget(target: unknown): boolean {
-  const el = target as HTMLElement | null;
-  const tag = String(el?.tagName || '').toUpperCase();
-  if (tag === 'TEXTAREA' || tag === 'INPUT') return true;
-  try {
-    if (el?.isContentEditable) return true;
-  } catch (_e) {
-    // ignore
-  }
-  return false;
 }
 
 function readLocatorSurfaceRoots(options: MountOptions) {
@@ -234,6 +221,7 @@ export function mountThreadedCommentsPanel(
   const isOverlay = options.overlay === true;
   const variant = 'sidebar' as const;
   const isFullWidth = options.fullWidth === true;
+  const surface = options.surface || (isOverlay ? 'inpage' : isFullWidth ? 'app-narrow' : 'app-wide');
   const showHeader = options.showHeader !== false;
   const showCollapseButton = options.showCollapseButton ?? options.overlay === true;
   const dockPage = options.dockPage === true && options.overlay === true;
@@ -244,12 +232,17 @@ export function mountThreadedCommentsPanel(
       ? options.commentChatWith
       : null;
   const surfaceBg = String(options.surfaceBg || '').trim();
-  const runReactUpdate = options.deferReactUpdates === true ? asyncReactUpdate : syncReactUpdate;
-  let escapeSignal = 0;
-  let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
+  const runReactUpdate =
+    options.deferReactUpdates === true
+      ? (run: () => void) =>
+          asyncReactUpdate(() => {
+            if (!disposed) run();
+          })
+      : syncReactUpdate;
   if (isOverlay) el.setAttribute('data-overlay', '1');
   if (variant === 'sidebar') el.setAttribute('data-variant', 'sidebar');
+  el.setAttribute('data-surface', surface);
   if (isFullWidth) {
     el.setAttribute('data-layout', 'full-width');
     el.style.width = '100%';
@@ -318,19 +311,13 @@ export function mountThreadedCommentsPanel(
     runReactUpdate(() => {
       panelController.setNotice({ message: text, visible: true });
     });
-    if (noticeTimer) clearTimeout(noticeTimer);
-    noticeTimer = setTimeout(() => {
-      runReactUpdate(() => {
-        panelController.setNotice({ message: '', visible: false });
-      });
-      noticeTimer = null;
-    }, 1600);
   };
-
-  const chatWithMenuController = createChatWithMenuController({
-    config: chatWithConfig,
-    showNotice,
-  });
+  const expireNotice = () => {
+    if (disposed) return;
+    runReactUpdate(() => {
+      panelController.setNotice({ message: '', visible: false });
+    });
+  };
 
   const reactRootHost = document.createElement('div');
   reactRootHost.className = 'webclipper-inpage-comments-panel__react-root';
@@ -366,13 +353,9 @@ export function mountThreadedCommentsPanel(
         surfaceBg: surfaceBg || undefined,
         showHeader,
         showCollapseButton,
-        showHeaderChatWith: Boolean(chatWithConfig),
+        chatWith: chatWithConfig,
         commentChatWith: commentChatWithConfig,
         onRequestClose: () => panelController.actions.close(),
-        onHeaderChatWithRootChange: (rootEl) => {
-          if (!chatWithConfig || !rootEl) return;
-          chatWithMenuController.attachRoot(rootEl);
-        },
         locateThreadRoot: async (rootId) => {
           const root = panelStore
             .getSnapshot()
@@ -396,6 +379,7 @@ export function mountThreadedCommentsPanel(
         },
         onLocateFailed: (reason) => showNotice(locateFailureNotice(reason)),
         showNotice,
+        onNoticeExpired: expireNotice,
       }),
     );
   });
@@ -407,7 +391,6 @@ export function mountThreadedCommentsPanel(
       dockController.setOpen(true);
       return;
     }
-    chatWithMenuController.closeMenu();
     el.removeAttribute('data-open');
     setImportantStyle(el, 'display', 'none');
     dockController.setOpen(false);
@@ -435,64 +418,6 @@ export function mountThreadedCommentsPanel(
   };
   let unsubscribeHostEffects: (() => void) | null = null;
 
-  const onShadowClick = (event: Event) => {
-    chatWithMenuController.handleShadowClick(event.target as Element | null);
-  };
-  const onShadowKeydown = (event: Event) => {
-    const keyEvent = event as KeyboardEvent;
-    if (keyEvent.isComposing) return;
-    if (keyEvent.key === 'Escape' && chatWithMenuController.handleShadowEscape(keyEvent)) return;
-    if (keyEvent.key !== 'Escape') return;
-    escapeSignal += 1;
-    runReactUpdate(() => {
-      panelController.setEscapeSignal(escapeSignal);
-    });
-  };
-  const onShadowShortcutSubmitCapture = (event: Event) => {
-    const keyEvent = event as KeyboardEvent;
-    if (keyEvent.isComposing) return;
-    if (keyEvent.key !== 'Enter') return;
-    if (!(keyEvent.metaKey || keyEvent.ctrlKey)) return;
-    if (keyEvent.shiftKey || keyEvent.altKey) return;
-
-    const target = event.target as HTMLElement | null;
-    const textarea = target?.closest(
-      'textarea.webclipper-inpage-comments-panel__composer-textarea,textarea.webclipper-inpage-comments-panel__reply-textarea',
-    ) as HTMLTextAreaElement | null;
-    if (!textarea) return;
-    const text = String(textarea.value || '').trim();
-    if (!text) return;
-
-    try {
-      keyEvent.preventDefault();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      keyEvent.stopImmediatePropagation();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      keyEvent.stopPropagation();
-    } catch (_e) {
-      // ignore
-    }
-
-    if (textarea.classList.contains('webclipper-inpage-comments-panel__composer-textarea')) {
-      runReactUpdate(() => {
-        panelController.requestShortcutSubmit({ kind: 'composer', text });
-      });
-      return;
-    }
-
-    const thread = textarea.closest('.webclipper-inpage-comments-panel__thread') as HTMLElement | null;
-    const rootId = Number(thread?.getAttribute('data-thread-root-id') || 0);
-    if (!Number.isFinite(rootId) || rootId <= 0) return;
-    runReactUpdate(() => {
-      panelController.requestShortcutSubmit({ kind: 'reply', rootId: Math.round(rootId), text });
-    });
-  };
   const onShadowFocusIn = () => {
     asyncReactUpdate(() => {
       panelController.setHasFocusWithinPanel(true);
@@ -510,24 +435,9 @@ export function mountThreadedCommentsPanel(
     }
   };
 
-  const stopShortcutKeyPropagation = (event: Event) => {
-    if (!isEditableTarget(event.target)) return;
-    try {
-      event.stopPropagation();
-    } catch (_e) {
-      // ignore
-    }
-  };
-
   try {
-    shadow.addEventListener('keydown', onShadowShortcutSubmitCapture, true);
-    shadow.addEventListener('click', onShadowClick);
-    shadow.addEventListener('keydown', onShadowKeydown);
     shadow.addEventListener('focusin', onShadowFocusIn);
     shadow.addEventListener('focusout', onShadowFocusOut);
-    shadow.addEventListener('keydown', stopShortcutKeyPropagation);
-    shadow.addEventListener('keypress', stopShortcutKeyPropagation);
-    shadow.addEventListener('keyup', stopShortcutKeyPropagation);
   } catch (_e) {
     // ignore
   }
@@ -546,61 +456,41 @@ export function mountThreadedCommentsPanel(
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
-    unsubscribeHostEffects?.();
-    unsubscribeHostEffects = null;
-    panelController.dispose();
-    if (noticeTimer) clearTimeout(noticeTimer);
-    noticeTimer = null;
-    try {
-      dockController.cleanup();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      cleanupSidebarResize?.();
-    } catch (_e) {
-      // ignore
-    }
-    cleanupSidebarResize = null;
-    try {
-      anchorController.dispose();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      chatWithMenuController.cleanup();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      shadow.removeEventListener('keydown', onShadowShortcutSubmitCapture, true);
-      shadow.removeEventListener('click', onShadowClick);
-      shadow.removeEventListener('keydown', onShadowKeydown);
-      shadow.removeEventListener('focusin', onShadowFocusIn);
-      shadow.removeEventListener('focusout', onShadowFocusOut);
-      shadow.removeEventListener('keydown', stopShortcutKeyPropagation);
-      shadow.removeEventListener('keypress', stopShortcutKeyPropagation);
-      shadow.removeEventListener('keyup', stopShortcutKeyPropagation);
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      const activeEl = shadow.activeElement as HTMLElement | null;
-      activeEl?.blur?.();
-    } catch (_e) {
-      // ignore
-    }
-    runReactUpdate(() => {
+
+    const cleanupSteps: Array<() => void> = [
+      () => {
+        unsubscribeHostEffects?.();
+        unsubscribeHostEffects = null;
+      },
+      () => {
+        shadow.removeEventListener('focusin', onShadowFocusIn);
+        shadow.removeEventListener('focusout', onShadowFocusOut);
+      },
+      () => panelController.dispose(),
+      () => {
+        cleanupSidebarResize?.();
+        cleanupSidebarResize = null;
+      },
+      () => anchorController.dispose(),
+      () => dockController.cleanup(),
+      () => {
+        const activeEl = shadow.activeElement as HTMLElement | null;
+        activeEl?.blur?.();
+      },
+      () => {
+        // Teardown must finish before the host document can disappear. Deferred
+        // updates are appropriate for normal rendering, but not for unmount.
+        syncReactUpdate(() => reactRoot.unmount());
+      },
+      () => el.remove(),
+    ];
+
+    for (const step of cleanupSteps) {
       try {
-        reactRoot.unmount();
-      } catch (_e) {
-        // ignore
+        step();
+      } catch (_error) {
+        // Continue teardown so one failed subsystem cannot leak the rest.
       }
-    });
-    try {
-      el.remove();
-    } catch (_e) {
-      // ignore
     }
   };
 

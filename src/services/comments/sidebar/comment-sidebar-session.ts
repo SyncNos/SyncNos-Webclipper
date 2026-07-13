@@ -153,6 +153,8 @@ export function createCommentSidebarSession(initialPanel?: CommentSidebarPanelAp
     const next: Partial<CommentSidebarHostSnapshot> = {};
     if ('busy' in input) next.busy = input.busy === true;
     if ('comments' in input) next.comments = Array.isArray(input.comments) ? input.comments : [];
+    if ('loadStatus' in input) next.loadStatus = input.loadStatus;
+    if ('loadError' in input) next.loadError = input.loadError || null;
     if (Object.keys(next).length) publish(next);
   }
 

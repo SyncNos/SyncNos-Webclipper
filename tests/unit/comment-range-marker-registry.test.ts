@@ -13,7 +13,10 @@ function fakeRange(document: Document, left: number): Range {
 describe('comment range marker registry', () => {
   test('atomically replaces markers for the same comment', () => {
     const dom = new JSDOM('<body></body>', { url: 'https://example.com/' });
-    const registry = createCommentRangeMarkerRegistry({ document: dom.window.document, window: dom.window as unknown as Window });
+    const registry = createCommentRangeMarkerRegistry({
+      document: dom.window.document,
+      window: dom.window as unknown as Window,
+    });
     registry.replace(1, fakeRange(dom.window.document, 10));
     registry.refresh();
     registry.replace(1, fakeRange(dom.window.document, 30));
@@ -46,19 +49,26 @@ describe('comment range marker registry', () => {
     expect(marker.style.position).toBe('absolute');
     expect(marker.style.pointerEvents).toBe('none');
     expect(marker.style.borderRadius).toBe('var(--webclipper-comment-marker-radius)');
-    expect(marker.style.background).toContain('18%');
-    expect(marker.style.outline).toContain('1px');
+    expect(marker.dataset.tone).toBe('passive');
+    expect(marker.style.background).toContain('14%');
+    expect(marker.style.boxShadow).toContain('34%');
+    expect(marker.style.opacity).toBe('0.82');
 
     registry.setActive(1);
     registry.refresh();
     const active = dom.window.document.querySelector('[data-comment-id="1"]') as HTMLElement;
-    expect(active.style.background).toContain('32%');
-    expect(active.style.outline).toContain('2px');
+    expect(active.dataset.tone).toBe('active');
+    expect(active.style.background).toContain('28%');
+    expect(active.style.boxShadow).toContain('62%');
+    expect(active.style.opacity).toBe('1');
   });
 
   test('switches active/passive state', () => {
     const dom = new JSDOM('<body></body>', { url: 'https://example.com/' });
-    const registry = createCommentRangeMarkerRegistry({ document: dom.window.document, window: dom.window as unknown as Window });
+    const registry = createCommentRangeMarkerRegistry({
+      document: dom.window.document,
+      window: dom.window as unknown as Window,
+    });
     registry.replace(1, fakeRange(dom.window.document, 10));
     registry.replace(2, fakeRange(dom.window.document, 20));
     registry.setActive(2);
@@ -69,7 +79,10 @@ describe('comment range marker registry', () => {
 
   test('dispose removes listeners, entries, and DOM rects', () => {
     const dom = new JSDOM('<body></body>', { url: 'https://example.com/' });
-    const registry = createCommentRangeMarkerRegistry({ document: dom.window.document, window: dom.window as unknown as Window });
+    const registry = createCommentRangeMarkerRegistry({
+      document: dom.window.document,
+      window: dom.window as unknown as Window,
+    });
     registry.replace(1, fakeRange(dom.window.document, 10));
     registry.refresh();
     registry.dispose();

@@ -72,7 +72,7 @@ describe('Threaded comments panel shortcuts', () => {
 
     const onSave = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onSave });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onSave });
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
@@ -82,7 +82,10 @@ describe('Threaded comments panel shortcuts', () => {
       '.webclipper-inpage-comments-panel__composer-textarea',
     ) as HTMLTextAreaElement | null;
     expect(textarea).toBeTruthy();
+    textarea!.focus();
     textarea!.value = 'hello';
+    textarea!.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
 
     textarea!.dispatchEvent(
       new window.KeyboardEvent('keydown', {
@@ -90,7 +93,6 @@ describe('Threaded comments panel shortcuts', () => {
         metaKey: true,
         bubbles: true,
         cancelable: true,
-        composed: true,
       }),
     );
     await flushPromises();
@@ -107,8 +109,10 @@ describe('Threaded comments panel shortcuts', () => {
 
     const onReply = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onReply });
-    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onReply });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root' },
+    ]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
@@ -118,7 +122,10 @@ describe('Threaded comments panel shortcuts', () => {
       '.webclipper-inpage-comments-panel__reply-textarea',
     ) as HTMLTextAreaElement | null;
     expect(textarea).toBeTruthy();
+    textarea!.focus();
     textarea!.value = 'reply';
+    textarea!.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
 
     textarea!.dispatchEvent(
       new window.KeyboardEvent('keydown', {
@@ -126,7 +133,6 @@ describe('Threaded comments panel shortcuts', () => {
         metaKey: true,
         bubbles: true,
         cancelable: true,
-        composed: true,
       }),
     );
     await flushPromises();

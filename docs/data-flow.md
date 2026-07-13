@@ -54,15 +54,17 @@
 
 ### 6. 文章评论 / 注释线程
 
-1. 用户在 article detail 或 inpage comments panel 中打开评论区；shared session 负责 open/close/quote/focus/busy，评论事实仍来自 `article_comments`。
-2. App UI 注入当前 detail 的 `{sourceRoot, scrollRoot}`；Inpage content entrypoint 注入 selection/document source。service 层不直接读取页面 DOM。
-3. 根评论 capture 先校验 selection 的 ownerDocument、root 与排除边界，再由 `captureCommentAnchor()` 写入 V2 locator。reader 继续接受历史 V1；display quote 的截断不会进入 canonical locator。
-4. 定位时 App 使用显式 detail root；Inpage 按 document-relative root path 与 root evidence 枚举受限候选 roots。`resolveCommentAnchor()` 在所有候选上执行 exact 策略，只有一个全局唯一 Range 才成功；缺失、歧义、evidence 不匹配、预算超限和取消都有明确 reason。
-5. `comment-anchor-controller` 用 generation/AbortSignal 丢弃旧结果；成功 Range 交给嵌套滚动控制器，并同步 panel-scoped passive/active markers。panel close、comments 移除或 cleanup 会清空 marker 与监听器。
-6. 新评论、回复、删除与 orphan attach 通过 service-owned DTO 和 comments background handlers 统一落库；reply 写入校验父 root 与 conversation/canonical identity，root 删除递归清理全部后代。
-7. 所有消费者通过唯一 thread graph 归一化 roots/replies。Zip v2 导出写 comment archive schema V2；导入兼容 V1，校验父子图后 roots-first 幂等合并并返回 warnings。
+1. AppShell 或 Inpage bootstrap 持有唯一 sidebar controller。context identity 由 `canonicalUrl + conversationId` 组成，并分类为 same、attach-orphan、url-migrate、conversation-change 或 invalid。
+2. context 切换触发新的 load/migrate generation 与 `AbortSignal`；旧 operation 被取消。加载失败进入 `stale_error`，保留最后成功 comments，而不是清空讨论区。
+3. controller 通过 `comment-sidebar-session.ts` 原子发布 serializable snapshot 与稳定 actions；panel 用 identity-aware lease attach host，旧 lease 和重复 dispose 不影响新 host。
+4. React surface 稳定单次 mount。`discussionReducer` 管理 active root、root/reply drafts、menu/delete confirmation、focus intent 与 submit 状态；context key 改变时确定性 reset。
+5. `normalizeCommentThreadGraph()` 是唯一 roots/replies 归一化入口；UI 同时只挂载一个 active `ReplyComposer`，切换 root 时各自 draft 保留。
+6. selection attachment、optional AI actions、keyboard、notice 与 focus 分别由独立 hook 管理。Cmd/Ctrl+Enter 只由当前 composer 提交；Escape 不经过 panel/store relay。
+7. 根评论 capture 使用注入的 DOM source 写入 V2 locator；reader 兼容历史 V1。定位只接受受限 roots 上全局唯一 exact Range，并同步 panel-scoped passive/active markers。
+8. save/reply/delete 使用 mutation generation；context change/dispose 后的晚到 completion 不再 refresh 旧 identity、清空 attachment 或触发 focus。panel close/cleanup 幂等释放 load、migration、dock、resize、lease、marker 与 React root。
+9. comments background handlers 统一落库；reply 校验同 context root，root 删除递归清理后代。Notion、Obsidian 与 Zip 归档都消费 canonical thread graph。
 
-定位链路明确不使用正文根兜底、环境字段硬拒绝、固定等待重试、比例滚动或父元素高亮；定位失败不会阻断评论列表和写入流程。
+定位链路明确不使用正文根兜底、环境字段硬拒绝、固定等待重试、比例滚动或父元素高亮；定位或 optional action 失败只进入 notice/stale error，不破坏评论事实与 drafts。
 
 ## WebClipper：从本地会话到外部目标
 

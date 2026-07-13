@@ -122,6 +122,8 @@ describe('comment-sidebar-host-state', () => {
       comments: [{ ...item, commentText: 'comment-7', locator: snapshot.comments[0].locator }],
       focusComposerSignal: 3,
       lastOpenSource: 'app',
+      loadStatus: 'idle',
+      loadError: null,
     });
     expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot);
     expect(Object.values(snapshot).some((value) => typeof value === 'function')).toBe(false);
@@ -132,18 +134,23 @@ describe('comment-sidebar-host-state', () => {
     const secondSave = vi.fn(async () => ({ ok: true, createdRootId: 2 }));
     const firstClose = vi.fn();
     const secondClose = vi.fn();
+    const firstRetry = vi.fn();
+    const secondRetry = vi.fn();
     let callbacks: CommentSidebarHostActionCallbacks = {
       onSave: firstSave,
       onClose: firstClose,
+      onRetry: firstRetry,
     };
     const actions = createCommentSidebarHostActions(() => callbacks);
     const stableIdentity = actions;
 
     await actions.save('first');
     actions.close();
-    callbacks = { onSave: secondSave, onClose: secondClose };
+    actions.retry();
+    callbacks = { onSave: secondSave, onClose: secondClose, onRetry: secondRetry };
     await actions.save('second');
     actions.close();
+    actions.retry();
 
     expect(actions).toBe(stableIdentity);
     expect(Object.isFrozen(actions)).toBe(true);
@@ -151,6 +158,8 @@ describe('comment-sidebar-host-state', () => {
     expect(secondSave).toHaveBeenCalledWith('second');
     expect(firstClose).toHaveBeenCalledTimes(1);
     expect(secondClose).toHaveBeenCalledTimes(1);
+    expect(firstRetry).toHaveBeenCalledTimes(1);
+    expect(secondRetry).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -185,6 +194,8 @@ describe('comment-sidebar-session', () => {
       comments: [comment],
       focusComposerSignal: 1,
       lastOpenSource: 'inpage',
+      loadStatus: 'idle',
+      loadError: null,
     });
 
     const lease = session.attachPanel(panel.panel);

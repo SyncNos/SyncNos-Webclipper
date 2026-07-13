@@ -16,26 +16,22 @@ export type ThreadedCommentsPanelStoreController = {
   store: ThreadedCommentsPanelStore;
   actions: CommentSidebarHostActions;
   attachHost: (host: CommentSidebarHost) => CommentSidebarPanelLease;
-  setEscapeSignal: (signal: number) => void;
   setNotice: (input: { message: string; visible: boolean }) => void;
   setHasFocusWithinPanel: (value: boolean) => void;
   setPendingFocusRootId: (rootId: number | null) => void;
-  requestShortcutSubmit: (input: { kind: 'composer' | 'reply'; rootId?: number | null; text: string }) => void;
   dispose: () => void;
 };
 
 type LocalPanelSnapshot = Pick<
   ThreadedCommentsPanelSnapshot,
-  'escapeSignal' | 'noticeMessage' | 'noticeVisible' | 'hasFocusWithinPanel' | 'pendingFocusRootId' | 'shortcutSubmit'
+  'noticeMessage' | 'noticeVisible' | 'hasFocusWithinPanel' | 'pendingFocusRootId'
 >;
 
 const EMPTY_LOCAL_SNAPSHOT: LocalPanelSnapshot = {
-  escapeSignal: 0,
   noticeMessage: '',
   noticeVisible: false,
   hasFocusWithinPanel: false,
   pendingFocusRootId: null,
-  shortcutSubmit: null,
 };
 
 function combineSnapshots(
@@ -60,7 +56,6 @@ export function createThreadedCommentsPanelStore(): ThreadedCommentsPanelStoreCo
   let hostSnapshot = createCommentSidebarHostSnapshot();
   let localSnapshot: LocalPanelSnapshot = { ...EMPTY_LOCAL_SNAPSHOT };
   let snapshot = combineSnapshots(hostSnapshot, localSnapshot);
-  let shortcutSubmitSignal = 0;
   const listeners = new Set<() => void>();
 
   const notify = () => {
@@ -81,6 +76,8 @@ export function createThreadedCommentsPanelStore(): ThreadedCommentsPanelStoreCo
 
   const patchLocal = (next: Partial<LocalPanelSnapshot>) => {
     if (disposed) return;
+    const entries = Object.entries(next) as [keyof LocalPanelSnapshot, LocalPanelSnapshot[keyof LocalPanelSnapshot]][];
+    if (entries.every(([key, value]) => Object.is(localSnapshot[key], value))) return;
     localSnapshot = { ...localSnapshot, ...next };
     rebuild();
   };
@@ -93,6 +90,7 @@ export function createThreadedCommentsPanelStore(): ThreadedCommentsPanelStoreCo
     close: () => readHostActions()?.close(),
     requestComposerSelection: (input) => readHostActions()?.requestComposerSelection(input),
     clearComposerAttachment: () => readHostActions()?.clearComposerAttachment(),
+    retry: () => readHostActions()?.retry(),
   });
 
   const store: ThreadedCommentsPanelStore = Object.freeze({
@@ -144,12 +142,6 @@ export function createThreadedCommentsPanelStore(): ThreadedCommentsPanelStoreCo
     store,
     actions,
     attachHost,
-    setEscapeSignal(signal) {
-      const nextSignal = Number(signal);
-      patchLocal({
-        escapeSignal: Number.isFinite(nextSignal) ? nextSignal : localSnapshot.escapeSignal,
-      });
-    },
     setNotice(input) {
       patchLocal({
         noticeMessage: String(input?.message || ''),
@@ -163,21 +155,6 @@ export function createThreadedCommentsPanelStore(): ThreadedCommentsPanelStoreCo
       const normalized = Number(rootId);
       patchLocal({
         pendingFocusRootId: Number.isFinite(normalized) && normalized > 0 ? Math.round(normalized) : null,
-      });
-    },
-    requestShortcutSubmit(input) {
-      const kind = input?.kind === 'reply' ? 'reply' : 'composer';
-      const text = String(input?.text || '').trim();
-      if (!text) return;
-      shortcutSubmitSignal += 1;
-      const rootId = Number(input?.rootId);
-      patchLocal({
-        shortcutSubmit: {
-          signal: shortcutSubmitSignal,
-          kind,
-          rootId: kind === 'reply' && Number.isFinite(rootId) && rootId > 0 ? Math.round(rootId) : null,
-          text,
-        },
       });
     },
     dispose() {

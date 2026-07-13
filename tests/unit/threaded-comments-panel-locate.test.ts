@@ -124,7 +124,7 @@ describe('Threaded comments panel locate', () => {
       getLocatorSurfaceRoots: () => ({ sourceRoot: article, scrollRoot }),
     });
 
-    getCommentSidebarPanelTestDriver(mounted.api).setComments([
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
       {
         id: 1,
         parentId: null,
@@ -145,7 +145,15 @@ describe('Threaded comments panel locate', () => {
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement;
     const rootComment = panel.shadowRoot!.querySelector('.webclipper-inpage-comments-panel__comment') as HTMLElement;
+    const beforeBodyClick = (resolveCommentAnchor as any).mock.calls.length;
     rootComment.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
+    expect(resolveCommentAnchor).toHaveBeenCalledTimes(beforeBodyClick);
+
+    const locateButton = panel.shadowRoot!.querySelector(
+      '.webclipper-inpage-comments-panel__quote-locate',
+    ) as HTMLButtonElement;
+    locateButton.click();
     await flushReactScheduler();
 
     expect(resolveCommentAnchor).toHaveBeenCalled();
@@ -175,7 +183,7 @@ describe('Threaded comments panel locate', () => {
       getLocatorSurfaceRoots: () => null,
     });
 
-    getCommentSidebarPanelTestDriver(mounted.api).setComments([
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
       {
         id: 1,
         parentId: null,
@@ -188,8 +196,10 @@ describe('Threaded comments panel locate', () => {
     await flushReactScheduler();
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement;
-    const rootComment = panel.shadowRoot!.querySelector('.webclipper-inpage-comments-panel__comment') as HTMLElement;
-    rootComment.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    const locateButton = panel.shadowRoot!.querySelector(
+      '.webclipper-inpage-comments-panel__quote-locate',
+    ) as HTMLButtonElement;
+    locateButton.click();
     await flushReactScheduler();
 
     expect(resolveCommentAnchor).not.toHaveBeenCalled();

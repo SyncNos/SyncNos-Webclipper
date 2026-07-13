@@ -156,20 +156,24 @@ describe('ArticleCommentsSection shared chrome', () => {
     });
 
     await act(async () => {
-      session.updateHost({ comments: [
-        {
-          id: 1,
-          parentId: null,
-          createdAt: Date.now(),
-          commentText: 'Root comment',
-        },
-      ] });
+      session.updateHost({
+        comments: [
+          {
+            id: 1,
+            parentId: null,
+            createdAt: Date.now(),
+            commentText: 'Root comment',
+          },
+        ],
+      });
     });
 
     const host = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(host).toBeTruthy();
     expect(host?.shadowRoot?.querySelector('.webclipper-inpage-comments-panel__collapse')).toBeTruthy();
-    expect(host?.shadowRoot?.querySelector('.webclipper-inpage-comments-panel__comment-chatwith-trigger')).toBeTruthy();
+    expect(
+      host?.shadowRoot?.querySelector('[data-thread-root-id="1"] .webclipper-inpage-comments-panel__overflow-trigger'),
+    ).toBeTruthy();
   });
 
   it('keeps sidebar panel mounted when comment chatwith resolvers update', async () => {
@@ -200,14 +204,16 @@ describe('ArticleCommentsSection shared chrome', () => {
     });
 
     await act(async () => {
-      session.updateHost({ comments: [
-        {
-          id: 1,
-          parentId: null,
-          createdAt: Date.now(),
-          commentText: 'Root comment',
-        },
-      ] });
+      session.updateHost({
+        comments: [
+          {
+            id: 1,
+            parentId: null,
+            createdAt: Date.now(),
+            commentText: 'Root comment',
+          },
+        ],
+      });
     });
 
     const before = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
@@ -230,7 +236,7 @@ describe('ArticleCommentsSection shared chrome', () => {
     expect(after).toBe(before);
 
     const trigger = after?.shadowRoot?.querySelector(
-      '.webclipper-inpage-comments-panel__comment-chatwith-trigger',
+      '[data-thread-root-id="1"] .webclipper-inpage-comments-panel__overflow-trigger',
     ) as HTMLButtonElement | null;
     expect(trigger).toBeTruthy();
 
@@ -244,18 +250,20 @@ describe('ArticleCommentsSection shared chrome', () => {
     });
   });
 
-  it('uses provided locator surface roots in sidebar mode locate flow', async () => {
+  it('uses the latest locator surface roots without remounting the sidebar panel', async () => {
     const session = createCommentSidebarSession();
-    const customRoot = document.createElement('div');
-    customRoot.textContent = 'Root quote';
-    document.body.appendChild(customRoot);
-    const getLocatorSurfaceRoots = vi.fn(() => ({ sourceRoot: customRoot, scrollRoot: customRoot }));
+    const initialRoot = document.createElement('div');
+    const latestRoot = document.createElement('div');
+    latestRoot.textContent = 'Root quote';
+    document.body.append(initialRoot, latestRoot);
+    const initialGetter = vi.fn(() => ({ sourceRoot: initialRoot, scrollRoot: initialRoot }));
+    const latestGetter = vi.fn(() => ({ sourceRoot: latestRoot, scrollRoot: latestRoot }));
 
     await act(async () => {
       root!.render(
         createElement(ArticleCommentsSection, {
           sidebarSession: session,
-          getLocatorSurfaceRoots,
+          getLocatorSurfaceRoots: initialGetter,
         }),
       );
     });
@@ -264,33 +272,47 @@ describe('ArticleCommentsSection shared chrome', () => {
     expect(host).toBeTruthy();
 
     await act(async () => {
-      session.updateHost({ comments: [
-        {
-          id: 1,
-          parentId: null,
-          createdAt: Date.now(),
-          quoteText: 'Root quote',
-          commentText: 'Root comment',
-          locator: {
-            v: 1,
-            env: 'app',
-            quote: { type: 'TextQuoteSelector', exact: 'Root quote' },
-            position: { type: 'TextPositionSelector', start: 0, end: 10 },
-          },
-        },
-      ] });
+      root!.render(
+        createElement(ArticleCommentsSection, {
+          sidebarSession: session,
+          getLocatorSurfaceRoots: latestGetter,
+        }),
+      );
     });
 
-    const body = host?.shadowRoot?.querySelector(
-      '.webclipper-inpage-comments-panel__comment > .webclipper-inpage-comments-panel__text',
-    ) as HTMLElement | null;
-    expect(body).toBeTruthy();
+    expect(document.querySelector('webclipper-threaded-comments-panel')).toBe(host);
+
     await act(async () => {
-      body!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+      session.updateHost({
+        comments: [
+          {
+            id: 1,
+            parentId: null,
+            createdAt: Date.now(),
+            quoteText: 'Root quote',
+            commentText: 'Root comment',
+            locator: {
+              v: 1,
+              env: 'app',
+              quote: { type: 'TextQuoteSelector', exact: 'Root quote' },
+              position: { type: 'TextPositionSelector', start: 0, end: 10 },
+            },
+          },
+        ],
+      });
+    });
+
+    const locateButton = host?.shadowRoot?.querySelector(
+      '[data-thread-root-id="1"] .webclipper-inpage-comments-panel__quote-locate',
+    ) as HTMLButtonElement | null;
+    expect(locateButton).toBeTruthy();
+    await act(async () => {
+      locateButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
       await Promise.resolve();
     });
 
-    expect(getLocatorSurfaceRoots).toHaveBeenCalled();
+    expect(latestGetter).toHaveBeenCalled();
+    expect(initialGetter).not.toHaveBeenCalled();
   });
 });
 

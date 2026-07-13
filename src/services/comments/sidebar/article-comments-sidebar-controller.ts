@@ -1,6 +1,8 @@
 import type {
   CommentSidebarComposerSelectionRequest,
   CommentSidebarHostActionCallbacks,
+  CommentSidebarLoadError,
+  CommentSidebarLoadStatus,
   CommentSidebarSession,
 } from '@services/comments/sidebar/comment-sidebar-contract';
 import { normalizeCommentSidebarQuoteText } from '@services/comments/sidebar/comment-sidebar-session';
@@ -34,12 +36,8 @@ export type ArticleCommentsSidebarControllerComposerSelectionPayload = {
   locator?: unknown;
 };
 
-export type ArticleCommentsSidebarLoadStatus = 'idle' | 'loading' | 'ready' | 'stale_error';
-
-export type ArticleCommentsSidebarLoadError = {
-  code: string;
-  message: string;
-};
+export type ArticleCommentsSidebarLoadStatus = CommentSidebarLoadStatus;
+export type ArticleCommentsSidebarLoadError = CommentSidebarLoadError;
 
 export type ArticleCommentsSidebarLoadSnapshot = {
   status: ArticleCommentsSidebarLoadStatus;
@@ -158,7 +156,7 @@ export function createArticleCommentsSidebarController(input: {
       generation,
       contextKey: getContextKey(),
     };
-    session.updateHost({ busy: status === 'loading' });
+    session.updateHost({ busy: status === 'loading', loadStatus: status, loadError: error });
     for (const listener of loadListeners) {
       try {
         listener();
@@ -407,6 +405,7 @@ export function createArticleCommentsSidebarController(input: {
           applyIfLatest(null);
         }
       },
+      onRetry: () => refresh(),
       onComposerQuoteClearRequest: () => {
         if (disposed) return;
         composerSelectionRequestSeq += 1;
@@ -475,7 +474,7 @@ export function createArticleCommentsSidebarController(input: {
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    session.updateHost({ busy: false, actionCallbacks: {} });
+    session.updateHost({ busy: false, loadStatus: 'idle', loadError: null, actionCallbacks: {} });
     composerSelectionRequestSeq += 1;
     mutationGeneration += 1;
     operationGeneration += 1;

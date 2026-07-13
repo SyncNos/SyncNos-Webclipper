@@ -4,6 +4,13 @@ import type { ArticleCommentLocator } from '@services/comments/domain/models';
 
 export type CommentSidebarItem = ArticleCommentDto;
 
+export type CommentSidebarLoadStatus = 'idle' | 'loading' | 'ready' | 'stale_error';
+
+export type CommentSidebarLoadError = {
+  code: string;
+  message: string;
+};
+
 export type CommentSaveResult = void | boolean | { ok: boolean; createdRootId?: number | null };
 
 export type CommentSidebarComposerSelectionRequest = {
@@ -23,6 +30,8 @@ export type CommentSidebarHostSnapshot = {
   comments: CommentSidebarItem[];
   focusComposerSignal: number;
   lastOpenSource: string | null;
+  loadStatus: CommentSidebarLoadStatus;
+  loadError: CommentSidebarLoadError | null;
 };
 
 export type CommentSidebarHostActionCallbacks = {
@@ -32,6 +41,7 @@ export type CommentSidebarHostActionCallbacks = {
   onClose?: () => void;
   onComposerSelectionRequest?: (input: CommentSidebarComposerSelectionRequest) => void | Promise<void>;
   onComposerQuoteClearRequest?: () => void | Promise<void>;
+  onRetry?: () => void | Promise<void>;
 };
 
 export type CommentSidebarHostActions = {
@@ -41,6 +51,7 @@ export type CommentSidebarHostActions = {
   close: () => void;
   requestComposerSelection: (input: CommentSidebarComposerSelectionRequest) => void | Promise<void>;
   clearComposerAttachment: () => void | Promise<void>;
+  retry: () => void | Promise<void>;
 };
 
 function cloneAttachment(input?: Partial<CommentSidebarComposerAttachment> | null): CommentSidebarComposerAttachment {
@@ -74,6 +85,13 @@ export function createCommentSidebarHostSnapshot(
     focusComposerSignal:
       Number.isSafeInteger(focusComposerSignal) && focusComposerSignal >= 0 ? focusComposerSignal : 0,
     lastOpenSource: source || null,
+    loadStatus: ['idle', 'loading', 'ready', 'stale_error'].includes(String(input.loadStatus))
+      ? (input.loadStatus as CommentSidebarLoadStatus)
+      : 'idle',
+    loadError:
+      input.loadError && typeof input.loadError === 'object'
+        ? { code: String(input.loadError.code || 'unknown'), message: String(input.loadError.message || '') }
+        : null,
   };
 }
 
@@ -89,5 +107,6 @@ export function createCommentSidebarHostActions(
     requestComposerSelection: (input: CommentSidebarComposerSelectionRequest) =>
       read().onComposerSelectionRequest?.(input),
     clearComposerAttachment: () => read().onComposerQuoteClearRequest?.(),
+    retry: () => read().onRetry?.(),
   });
 }

@@ -42,7 +42,9 @@ function ArticleCommentsPanelMount({
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<ThreadedCommentsPanelApi | null>(null);
-  const locatorRootGetterRef = useRef<(() => Element | null) | null>(null);
+  const locatorSurfaceRootsGetterRef = useRef<() => CommentLocatorSurfaceRoots | null>(
+    typeof getLocatorSurfaceRoots === 'function' ? getLocatorSurfaceRoots : () => null,
+  );
   const resolveChatWithActionsRef = useRef<typeof resolveChatWithActions>(
     typeof resolveChatWithActions === 'function' ? resolveChatWithActions : undefined,
   );
@@ -56,8 +58,8 @@ function ArticleCommentsPanelMount({
   const hasCommentChatWith = !!commentChatWith && typeof commentChatWith.resolveActions === 'function';
 
   useEffect(() => {
-    locatorRootGetterRef.current =
-      typeof getLocatorSurfaceRoots === 'function' ? () => getLocatorSurfaceRoots()?.sourceRoot || null : null;
+    locatorSurfaceRootsGetterRef.current =
+      typeof getLocatorSurfaceRoots === 'function' ? getLocatorSurfaceRoots : () => null;
   }, [getLocatorSurfaceRoots]);
 
   useEffect(() => {
@@ -83,12 +85,13 @@ function ArticleCommentsPanelMount({
     const mounted = mountThreadedCommentsPanel(host, {
       overlay: false,
       variant: 'sidebar',
+      surface: fullWidth ? 'app-narrow' : 'app-wide',
       fullWidth,
       showHeader: true,
       showCollapseButton: true,
       surfaceBg: 'var(--bg-card)',
       locatorEnv: 'app',
-      getLocatorSurfaceRoots,
+      getLocatorSurfaceRoots: () => locatorSurfaceRootsGetterRef.current(),
       chatWith: hasSidebarChatWith
         ? {
             resolveActions: async () => {
@@ -127,7 +130,7 @@ function ArticleCommentsPanelMount({
       mounted.cleanup();
       apiRef.current = null;
     };
-  }, [fullWidth, hasCommentChatWith, hasSidebarChatWith, sidebarSession, getLocatorSurfaceRoots]);
+  }, [fullWidth, hasCommentChatWith, hasSidebarChatWith, sidebarSession]);
 
   const sectionClassName = [containerClassName || '', 'tw-flex tw-min-h-0 tw-flex-col'].filter(Boolean).join(' ');
 

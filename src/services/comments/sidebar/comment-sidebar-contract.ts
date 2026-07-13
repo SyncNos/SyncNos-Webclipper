@@ -5,6 +5,8 @@ import type {
   CommentSidebarHostActionCallbacks,
   CommentSidebarHostActions,
   CommentSidebarHostSnapshot,
+  CommentSidebarLoadError,
+  CommentSidebarLoadStatus,
   CommentSidebarItem,
 } from '@services/comments/sidebar/comment-sidebar-state';
 
@@ -15,6 +17,8 @@ export type {
   CommentSidebarHostActionCallbacks,
   CommentSidebarHostActions,
   CommentSidebarHostSnapshot,
+  CommentSidebarLoadError,
+  CommentSidebarLoadStatus,
   CommentSidebarItem,
 } from '@services/comments/sidebar/comment-sidebar-state';
 
@@ -43,6 +47,8 @@ export type CommentSidebarHostUpdate = {
   busy?: boolean;
   comments?: CommentSidebarItem[];
   actionCallbacks?: CommentSidebarHostActionCallbacks;
+  loadStatus?: CommentSidebarLoadStatus;
+  loadError?: CommentSidebarLoadError | null;
 };
 
 export type CommentSidebarSession = CommentSidebarHost & {

@@ -71,13 +71,13 @@ describe('Threaded comments panel focus regression', () => {
     document.body.appendChild(host);
 
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    getCommentSidebarPanelTestDriver(mounted.api).setComments([]);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([]);
 
     let nextId = 1;
-    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({
       onSave: async (text) => {
         const id = nextId++;
-        getCommentSidebarPanelTestDriver(mounted.api).setComments([
+        getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
           {
             id,
             parentId: null,
@@ -125,7 +125,7 @@ describe('Threaded comments panel focus regression', () => {
     document.body.appendChild(host);
 
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    getCommentSidebarPanelTestDriver(mounted.api).setComments([]);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
@@ -137,7 +137,7 @@ describe('Threaded comments panel focus regression', () => {
     expect(composer).toBeTruthy();
     expect(shadow.activeElement).not.toBe(composer);
 
-    getCommentSidebarPanelTestDriver(mounted.api).setQuoteText('Quoted passage');
+    getCommentSidebarPanelTestDriver(mounted.api).updateComposerQuote('Quoted passage');
     await flushReactScheduler();
 
     expect(shadow.activeElement).toBe(composer);

@@ -89,11 +89,23 @@ async function exerciseReplyAndDelete(shadow: ShadowRoot, expectedRootId: number
   replySend!.click();
   await flushTasks();
 
-  const deleteButton = shadow.querySelector(
+  const overflowTrigger = shadow.querySelector(
+    `.webclipper-inpage-comments-panel__thread[data-thread-root-id='${expectedRootId}'] .webclipper-inpage-comments-panel__comment .webclipper-inpage-comments-panel__overflow-trigger`,
+  ) as HTMLButtonElement | null;
+  expect(overflowTrigger).toBeTruthy();
+  overflowTrigger!.click();
+  await flushTasks();
+
+  let deleteButton = shadow.querySelector(
     `button[data-webclipper-comment-delete-id='${expectedRootId}']`,
   ) as HTMLButtonElement | null;
   expect(deleteButton).toBeTruthy();
   deleteButton!.click();
+  await flushTasks();
+  deleteButton = shadow.querySelector(
+    `button[data-webclipper-comment-delete-id='${expectedRootId}']`,
+  ) as HTMLButtonElement | null;
+  expect(deleteButton).toBeTruthy();
   deleteButton!.click();
   await flushTasks();
 }
@@ -170,6 +182,7 @@ describe('comment sidebar session handlers binding', () => {
     const panelLease = session.attachPanel(mounted.api as any);
     session.requestOpen({ focusComposer: true });
 
+    mounted.cleanup();
     mounted.cleanup();
     session.requestClose();
     session.updateHost({ busy: true });

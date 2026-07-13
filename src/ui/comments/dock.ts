@@ -27,9 +27,12 @@ export function createDockController(options: CreateDockControllerOptions): Dock
   const enabled = options.enabled === true;
   const panelEl = options.panelEl;
   let dockRaf: number | null = null;
+  let listening = false;
+  let open = false;
+  let disposed = false;
 
   function ensureDockStyle() {
-    if (!enabled) return;
+    if (!enabled || disposed) return;
     try {
       if (document.getElementById(DOCK_STYLE_ID)) return;
       const style = document.createElement('style');
@@ -60,11 +63,7 @@ export function createDockController(options: CreateDockControllerOptions): Dock
     }
     try {
       const computed = getComputedStyle(panelEl);
-      const width = Number.parseFloat(
-        String(computed.width || '')
-          .replace('px', '')
-          .trim(),
-      );
+      const width = Number.parseFloat(String(computed.width || '').replace('px', '').trim());
       if (Number.isFinite(width) && width > 0) return width;
     } catch (_e) {
       // ignore
@@ -72,15 +71,24 @@ export function createDockController(options: CreateDockControllerOptions): Dock
     return 420;
   }
 
-  const syncWidth = () => {
+  const clearDock = () => {
+    const root = document.documentElement;
+    if (!root) return;
     try {
-      if (!enabled) return;
-      if (panelEl.getAttribute('data-open') !== '1') return;
+      root.removeAttribute(DOCK_ROOT_ATTR);
+      root.style.removeProperty(DOCK_WIDTH_CSS_VAR);
+    } catch (_e) {
+      // ignore
+    }
+  };
+
+  const syncWidth = () => {
+    if (disposed || !enabled || !open) return;
+    try {
       const root = document.documentElement;
       if (!root) return;
       if (!shouldDockViewport()) {
-        root.removeAttribute(DOCK_ROOT_ATTR);
-        root.style.removeProperty(DOCK_WIDTH_CSS_VAR);
+        clearDock();
         return;
       }
       const width = Math.round(readWidthPx());
@@ -91,66 +99,66 @@ export function createDockController(options: CreateDockControllerOptions): Dock
     }
   };
 
-  const onViewportResize = () => {
-    syncWidth();
-  };
+  const onViewportResize = () => syncWidth();
 
-  const setOpen = (open: boolean) => {
-    if (!enabled) return;
-    const root = document.documentElement;
-    if (!root) return;
-
-    if (open) {
-      ensureDockStyle();
-      syncWidth();
-      try {
-        if (dockRaf != null) cancelAnimationFrame(dockRaf);
-        dockRaf = requestAnimationFrame(() => {
-          dockRaf = null;
-          syncWidth();
-        });
-      } catch (_e) {
-        // ignore
-      }
-      try {
-        globalThis.addEventListener('resize', onViewportResize, { passive: true });
-      } catch (_e) {
-        // ignore
-      }
-      return;
-    }
-
+  const cancelDockRaf = () => {
+    if (dockRaf == null) return;
     try {
-      if (dockRaf != null) cancelAnimationFrame(dockRaf);
+      cancelAnimationFrame(dockRaf);
     } catch (_e) {
       // ignore
     }
     dockRaf = null;
+  };
+
+  const removeResizeListener = () => {
+    if (!listening) return;
+    listening = false;
     try {
       globalThis.removeEventListener('resize', onViewportResize);
     } catch (_e) {
       // ignore
     }
-    try {
-      root.removeAttribute(DOCK_ROOT_ATTR);
-    } catch (_e) {
-      // ignore
+  };
+
+  const setOpen = (nextOpen: boolean) => {
+    if (disposed || !enabled) return;
+    open = nextOpen === true;
+    cancelDockRaf();
+    if (!open) {
+      removeResizeListener();
+      clearDock();
+      return;
+    }
+
+    ensureDockStyle();
+    syncWidth();
+    if (!listening) {
+      listening = true;
+      try {
+        globalThis.addEventListener('resize', onViewportResize, { passive: true });
+      } catch (_e) {
+        listening = false;
+      }
     }
     try {
-      root.style.removeProperty(DOCK_WIDTH_CSS_VAR);
+      dockRaf = requestAnimationFrame(() => {
+        dockRaf = null;
+        syncWidth();
+      });
     } catch (_e) {
-      // ignore
+      dockRaf = null;
     }
   };
 
   const cleanup = () => {
-    setOpen(false);
+    if (disposed) return;
+    open = false;
+    cancelDockRaf();
+    removeResizeListener();
+    clearDock();
+    disposed = true;
   };
 
-  return {
-    readWidthPx,
-    syncWidth,
-    setOpen,
-    cleanup,
-  };
+  return { readWidthPx, syncWidth, setOpen, cleanup };
 }

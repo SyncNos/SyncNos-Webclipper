@@ -11,6 +11,9 @@ const {
   listArticleCommentsByConversationIdMock,
   responsiveTierState,
   detailPaneMockState,
+  addArticleCommentMock,
+  deleteArticleCommentByIdMock,
+  mutationState,
 } = vi.hoisted(() => {
   const commentsByUrl = new Map<string, Array<{ id: number; parentId: number | null; commentText: string }>>();
   const listArticleCommentsByCanonicalUrlMock = vi.fn(async (canonicalUrl: string) => {
@@ -19,12 +22,43 @@ const {
   const listArticleCommentsByConversationIdMock = vi.fn(async () => []);
   const responsiveTierState = { value: 'wide' as 'narrow' | 'medium' | 'wide' };
   const detailPaneMockState = { provideLocatorRoot: true };
+  const mutationState = { nextId: 500 };
+  const addArticleCommentMock = vi.fn(async (input: any) => {
+    const id = mutationState.nextId++;
+    const comment = {
+      id,
+      parentId: input.parentId ?? null,
+      conversationId: input.conversationId ?? null,
+      canonicalUrl: String(input.canonicalUrl || ''),
+      quoteText: String(input.quoteText || ''),
+      commentText: String(input.commentText || ''),
+      locator: input.locator ?? null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const list = commentsByUrl.get(comment.canonicalUrl) || [];
+    list.push(comment);
+    commentsByUrl.set(comment.canonicalUrl, list);
+    return comment;
+  });
+  const deleteArticleCommentByIdMock = vi.fn(async (id: number) => {
+    for (const [url, comments] of commentsByUrl) {
+      commentsByUrl.set(
+        url,
+        comments.filter((comment) => Number(comment.id) !== Number(id)),
+      );
+    }
+    return true;
+  });
   return {
     commentsByUrl,
     listArticleCommentsByCanonicalUrlMock,
     listArticleCommentsByConversationIdMock,
     responsiveTierState,
     detailPaneMockState,
+    addArticleCommentMock,
+    deleteArticleCommentByIdMock,
+    mutationState,
   };
 });
 
@@ -120,17 +154,8 @@ vi.mock('../../src/viewmodels/conversations/conversations-context', () => ({
 }));
 
 vi.mock('@services/comments/client/repo', () => ({
-  addArticleComment: vi.fn(async () => ({
-    id: 1,
-    parentId: null,
-    conversationId: 21,
-    canonicalUrl: 'https://example.com/article',
-    quoteText: '',
-    commentText: 'ok',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })),
-  deleteArticleCommentById: vi.fn(async () => true),
+  addArticleComment: addArticleCommentMock,
+  deleteArticleCommentById: deleteArticleCommentByIdMock,
   listArticleCommentsByCanonicalUrl: listArticleCommentsByCanonicalUrlMock,
   listArticleCommentsByConversationId: listArticleCommentsByConversationIdMock,
 }));
@@ -270,6 +295,9 @@ describe('AppShell comments sidebar', () => {
     listArticleCommentsByConversationIdMock.mockClear();
     responsiveTierState.value = 'wide';
     detailPaneMockState.provideLocatorRoot = true;
+    mutationState.nextId = 500;
+    addArticleCommentMock.mockClear();
+    deleteArticleCommentByIdMock.mockClear();
     currentState.selectedConversation = {
       id: 21,
       title: 'Article',
@@ -310,6 +338,7 @@ describe('AppShell comments sidebar', () => {
     );
     const host = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(host).toBeTruthy();
+    expect(host?.getAttribute('data-surface')).toBe('app-wide');
 
     const closeBtn = (await vi.waitFor(() => {
       const btn = (host?.shadowRoot?.querySelector('.webclipper-inpage-comments-panel__collapse') ||
@@ -381,9 +410,7 @@ describe('AppShell comments sidebar', () => {
     await flushCommentsReactWork();
 
     await waitForCommentsUi(() => {
-      const quoteText = shadow
-        ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
-        ?.textContent?.trim();
+      const quoteText = shadow?.querySelector('.webclipper-inpage-comments-panel__quote-text')?.textContent?.trim();
       expect(quoteText).toBe(selectedText);
     });
 
@@ -396,9 +423,7 @@ describe('AppShell comments sidebar', () => {
     });
 
     await waitForCommentsUi(() => {
-      const quoteText = shadow
-        ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
-        ?.textContent?.trim();
+      const quoteText = shadow?.querySelector('.webclipper-inpage-comments-panel__quote-text')?.textContent?.trim();
       expect(quoteText ?? '').toBe('');
     });
 
@@ -408,9 +433,7 @@ describe('AppShell comments sidebar', () => {
     });
 
     await waitForCommentsUi(() => {
-      const quoteText = shadow
-        ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
-        ?.textContent?.trim();
+      const quoteText = shadow?.querySelector('.webclipper-inpage-comments-panel__quote-text')?.textContent?.trim();
       expect(quoteText).toBe(selectedText);
     });
 
@@ -428,7 +451,7 @@ describe('AppShell comments sidebar', () => {
     });
 
     const quoteAfterComposerClick = shadow
-      ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
+      ?.querySelector('.webclipper-inpage-comments-panel__quote-text')
       ?.textContent?.trim();
     expect(quoteAfterComposerClick).toBe(selectedText);
 
@@ -440,7 +463,7 @@ describe('AppShell comments sidebar', () => {
     });
 
     const quoteAfterComposerTyping = shadow
-      ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
+      ?.querySelector('.webclipper-inpage-comments-panel__quote-text')
       ?.textContent?.trim();
     expect(quoteAfterComposerTyping).toBe(selectedText);
 
@@ -458,9 +481,7 @@ describe('AppShell comments sidebar', () => {
       document.dispatchEvent(new window.Event('pointerup'));
     });
 
-    const quoteAfterReply = shadow
-      ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
-      ?.textContent?.trim();
+    const quoteAfterReply = shadow?.querySelector('.webclipper-inpage-comments-panel__quote-text')?.textContent?.trim();
     expect(quoteAfterReply).toBe(selectedText);
 
     act(() => {
@@ -471,9 +492,109 @@ describe('AppShell comments sidebar', () => {
     });
 
     const quoteAfterReplyTyping = shadow
-      ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
+      ?.querySelector('.webclipper-inpage-comments-panel__quote-text')
       ?.textContent?.trim();
     expect(quoteAfterReplyTyping).toBe(selectedText);
+  });
+
+  it('completes root save, thread activation, reply, and confirmed delete in App', async () => {
+    commentsByUrl.set('https://example.com/article', [{ id: 101, parentId: null, commentText: 'Existing root' }]);
+
+    act(() => {
+      root!.render(createElement(AppShell));
+    });
+    const openBtn = document.querySelector('[aria-label="Comment"]') as HTMLButtonElement | null;
+    act(() => {
+      openBtn!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+
+    const host = (await waitForCommentsUi(() => {
+      const panel = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
+      expect(panel?.shadowRoot).toBeTruthy();
+      return panel;
+    })) as HTMLElement;
+    const shadow = host.shadowRoot!;
+    const composer = (await waitForCommentsUi(() => {
+      const textarea = shadow.querySelector(
+        '.webclipper-inpage-comments-panel__composer-textarea',
+      ) as HTMLTextAreaElement | null;
+      expect(textarea).toBeTruthy();
+      return textarea;
+    })) as HTMLTextAreaElement;
+
+    act(() => {
+      composer.value = 'Created root';
+      composer.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    const rootSend = shadow.querySelector(
+      '.webclipper-inpage-comments-panel__reply-composer.is-root .webclipper-inpage-comments-panel__send',
+    ) as HTMLButtonElement | null;
+    expect(rootSend?.disabled).toBe(false);
+    act(() => {
+      rootSend!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await waitForCommentsUi(() => {
+      expect(
+        Array.from(shadow.querySelectorAll('.webclipper-inpage-comments-panel__text')).some(
+          (node) => node.textContent === 'Created root',
+        ),
+      ).toBe(true);
+    });
+    expect(addArticleCommentMock).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: null, commentText: 'Created root' }),
+    );
+
+    const existingThread = shadow.querySelector('[data-thread-root-id="101"]') as HTMLElement | null;
+    expect(existingThread).toBeTruthy();
+    act(() => {
+      existingThread!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    const reply = (await waitForCommentsUi(() => {
+      const textarea = shadow.querySelector(
+        '.webclipper-inpage-comments-panel__reply-textarea',
+      ) as HTMLTextAreaElement | null;
+      expect(textarea).toBeTruthy();
+      return textarea;
+    })) as HTMLTextAreaElement;
+    await waitForCommentsUi(() => {
+      expect(document.activeElement === reply || shadow.activeElement === reply).toBe(true);
+    });
+
+    act(() => {
+      reply.value = 'Created reply';
+      reply.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    const replySend = shadow.querySelector(
+      '[data-reply-composer-root-id="101"] .webclipper-inpage-comments-panel__send',
+    ) as HTMLButtonElement | null;
+    act(() => {
+      replySend!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await waitForCommentsUi(() => {
+      expect(
+        Array.from(shadow.querySelectorAll('.webclipper-inpage-comments-panel__text')).some(
+          (node) => node.textContent === 'Created reply',
+        ),
+      ).toBe(true);
+    });
+    const replyCall = addArticleCommentMock.mock.calls.find(([input]) => input.parentId === 101);
+    expect(replyCall?.[0]).toEqual(expect.objectContaining({ parentId: 101, commentText: 'Created reply' }));
+    const replyId = Number(
+      (commentsByUrl.get('https://example.com/article') || []).find((item) => item.commentText === 'Created reply')?.id,
+    );
+
+    const replyItem = shadow.querySelector(`[data-reply-id="${replyId}"]`) as HTMLElement | null;
+    const overflow = replyItem?.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement | null;
+    act(() => overflow!.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
+    let deleteAction = replyItem?.querySelector('[role="menuitem"]') as HTMLButtonElement | null;
+    expect(deleteAction).toBeTruthy();
+    act(() => deleteAction!.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
+    deleteAction = replyItem?.querySelector('[role="menuitem"]') as HTMLButtonElement | null;
+    act(() => deleteAction!.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
+    await waitForCommentsUi(() => {
+      expect(shadow.querySelector(`[data-reply-id="${replyId}"]`)).toBeFalsy();
+    });
+    expect(deleteArticleCommentByIdMock).toHaveBeenCalledWith(replyId);
   });
 
   it('keeps quote empty when locator root is unavailable in app flow', async () => {
@@ -498,7 +619,7 @@ describe('AppShell comments sidebar', () => {
     expect(shadow).toBeTruthy();
 
     const initialQuoteText = shadow
-      ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
+      ?.querySelector('.webclipper-inpage-comments-panel__quote-text')
       ?.textContent?.trim();
     expect(initialQuoteText ?? '').toBe('');
 
@@ -508,9 +629,7 @@ describe('AppShell comments sidebar', () => {
     });
 
     await vi.waitFor(() => {
-      const quoteText = shadow
-        ?.querySelector('.webclipper-inpage-comments-panel__quote > .webclipper-inpage-comments-panel__text')
-        ?.textContent?.trim();
+      const quoteText = shadow?.querySelector('.webclipper-inpage-comments-panel__quote-text')?.textContent?.trim();
       expect(quoteText ?? '').toBe('');
     });
   });
@@ -540,7 +659,7 @@ describe('AppShell comments sidebar', () => {
     await vi.waitFor(() => {
       const host = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
       const body = host?.shadowRoot?.querySelector(
-        '.webclipper-inpage-comments-panel__comment > .webclipper-inpage-comments-panel__text',
+        '.webclipper-inpage-comments-panel__comment-main > .webclipper-inpage-comments-panel__text',
       );
       expect(body?.textContent).toBe('Comment A');
     });
@@ -561,7 +680,7 @@ describe('AppShell comments sidebar', () => {
     await vi.waitFor(() => {
       const host = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
       const body = host?.shadowRoot?.querySelector(
-        '.webclipper-inpage-comments-panel__comment > .webclipper-inpage-comments-panel__text',
+        '.webclipper-inpage-comments-panel__comment-main > .webclipper-inpage-comments-panel__text',
       );
       expect(body?.textContent).toBe('Comment B');
     });

@@ -7,13 +7,13 @@ function toHostTokensCss(css: string) {
   return css.replaceAll(':root', ':host');
 }
 
-const THREADED_COMMENTS_PANEL_SHADOW_CSS = [
+const COMMENT_SHADOW_STYLE_SOURCES = [
   toHostTokensCss(String(tokensCssRaw || '')),
   String(buttonsCssRaw || ''),
   String(inpageCommentsPanelCssRaw || ''),
-]
-  .filter(Boolean)
-  .join('\n');
+];
+
+const THREADED_COMMENTS_PANEL_SHADOW_CSS = COMMENT_SHADOW_STYLE_SOURCES.filter(Boolean).join('\n');
 
 export function buildThreadedCommentsPanelShadowCss(): string {
   return THREADED_COMMENTS_PANEL_SHADOW_CSS;

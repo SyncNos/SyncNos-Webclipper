@@ -62,8 +62,11 @@ export function createCommentRangeMarkerRegistry(input: {
     element.style.boxSizing = 'border-box';
     element.style.pointerEvents = 'none';
     element.style.borderRadius = `var(${MARKER_RADIUS_VAR})`;
-    element.style.background = `color-mix(in srgb, var(${MARKER_ACCENT_VAR}) ${tone === 'active' ? '32%' : '18%'}, transparent)`;
-    element.style.outline = `${tone === 'active' ? '2px' : '1px'} solid color-mix(in srgb, var(${MARKER_ACCENT_VAR}) 34%, transparent)`;
+    element.dataset.tone = tone;
+    element.style.background = `color-mix(in srgb, var(${MARKER_ACCENT_VAR}) ${tone === 'active' ? '28%' : '14%'}, transparent)`;
+    element.style.boxShadow = `inset 0 0 0 1px color-mix(in srgb, var(${MARKER_ACCENT_VAR}) ${tone === 'active' ? '62%' : '34%'}, transparent)`;
+    element.style.opacity = tone === 'active' ? '1' : '0.82';
+    element.style.transition = 'background-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease';
   };
 
   const renderEntry = (commentId: number, entry: MarkerEntry) => {

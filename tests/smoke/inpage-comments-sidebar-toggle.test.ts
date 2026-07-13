@@ -98,9 +98,11 @@ describe('inpage comments sidebar toggle', () => {
     expect(collapse).toBeTruthy();
 
     act(() => {
-      api.setComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'Root comment' }]);
+      api.replaceComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'Root comment' }]);
     });
-    expect(shadow?.querySelector('.webclipper-inpage-comments-panel__comment-chatwith-trigger')).toBeTruthy();
+    expect(
+      shadow?.querySelector('[data-thread-root-id="1"] .webclipper-inpage-comments-panel__overflow-trigger'),
+    ).toBeTruthy();
 
     await act(async () => {
       api.open({ focusComposer: true });
@@ -121,8 +123,8 @@ describe('inpage comments sidebar toggle', () => {
     const onComposerSelectionRequest = vi.fn();
 
     act(() => {
-      api.setHandlers({ onComposerSelectionRequest } as any);
-      api.setComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'Root comment' }]);
+      api.replaceActionCallbacks({ onComposerSelectionRequest } as any);
+      api.replaceComments([{ id: 1, parentId: null, createdAt: Date.now(), commentText: 'Root comment' }]);
       api.open({ focusComposer: false });
     });
 

@@ -17,10 +17,10 @@ export type CommentSidebarPanelTestDriver = {
   open: (input?: { focusComposer?: boolean }) => void;
   close: () => void;
   isOpen: () => boolean;
-  setBusy: (busy: boolean) => void;
-  setQuoteText: (text: string) => void;
-  setComments: (items: CommentSidebarTestItemInput[]) => void;
-  setHandlers: (callbacks: CommentSidebarHostActionCallbacks) => void;
+  updateBusy: (busy: boolean) => void;
+  updateComposerQuote: (text: string) => void;
+  replaceComments: (items: CommentSidebarTestItemInput[]) => void;
+  replaceActionCallbacks: (callbacks: CommentSidebarHostActionCallbacks) => void;
   dispose: () => void;
 };
 
@@ -86,24 +86,24 @@ export function createCommentSidebarPanelTestDriver(api: CommentSidebarPanelApi)
     isOpen() {
       return session.getSnapshot().open;
     },
-    setBusy(busy) {
+    updateBusy(busy) {
       publish(() => {
         session.updateHost({ busy: busy === true });
       });
     },
-    setQuoteText(text) {
+    updateComposerQuote(text) {
       publish(() => {
         session.setComposerAttachment({ displayQuote: String(text || ''), locator: null });
       });
     },
-    setComments(items) {
+    replaceComments(items) {
       publish(() => {
         session.updateHost({
           comments: Array.isArray(items) ? items.map(toCommentSidebarItem) : [],
         });
       });
     },
-    setHandlers(callbacks) {
+    replaceActionCallbacks(callbacks) {
       publish(() => {
         installCallbacks(callbacks || {});
       });

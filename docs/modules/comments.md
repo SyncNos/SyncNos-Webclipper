@@ -5,21 +5,26 @@
 - 为 WebClipper 的 article 会话提供本地优先的 threaded comments（React 实现）。
 - 允许用户在 article detail 或 inpage comments panel 中添加、回复、删除评论；根评论可保存版本化 `locator`。生产写入使用 V2，历史数据继续读取 V1；Range marker 只在评论面板生命周期内存在，不做跨页面持久高亮。
 - 当前定位是**local-first 注释层**：它是 article 会话的一部分，会在 article 同步时进入 Notion / Obsidian 的评论区段（含根评论数统计），并继续跟随 Zip v2 备份 / 导入保留。
-- **2026-04 完成 React 迁移**：从 ~1,340 行 DOM 操作迁移到 ~950 行 React 组件，删除了 legacy `render.ts`（543 行），引入 `useSyncExternalStore` + panel store 架构。
+- React surface 采用稳定单次 mount：`panel.ts` 负责宿主、dock/resize、marker 与 lease 生命周期；可变讨论状态由 ViewModel reducer 管理，外部 host 以原子 snapshot/actions 契约接入。
 
 ## 关键文件
 
 | 路径 | 作用 | 为什么重要 |
 | --- | --- | --- |
 | `src/ui/comments/panel.ts` | React 桥接入口 | 组装 panel store、dock/resize、exact anchor controller、Range scroll 与 panel-scoped marker registry；DOM surface roots 由 UI/entrypoint 注入 |
-| `src/ui/comments/react/ThreadedCommentsPanel.tsx` | 评论主组件（~810 行） | 完整的 React 组件：composer、threads、replies、删除确认（内联实现，非独立组件）、Chat with AI 菜单（内联实现，非独立组件）、聚焦逻辑、防重入保护、Escape 信号处理 |
-| `src/ui/comments/react/panel-store.ts` | 外部 store（~99 行） | 实现 `getSnapshot/subscribe` 模式，桥接 background handlers 与 React 渲染；提供 `setOpen`、`setBusy`、`setQuoteText`、`setComments`、`setHandlers`、`setFocusComposerSignal`、`setEscapeSignal`、`setNotice`、`setHasFocusWithinPanel`、`setPendingFocusRootId` 等完整 setter |
-| `src/ui/comments/react/focus-rules.ts` | 聚焦规则（~34 行） | 保存后聚焦（返回 `createdRootId` 用于聚焦新评论）、回复后聚焦目标输入框、pending focus 解析 |
+| `src/ui/comments/react/ThreadedCommentsPanel.tsx` | React 编排层 | 组合 root/reply composer、thread/reply 展示、overflow、selection attachment、keyboard、notice 与 focus hooks；不直接拥有 host 数据加载状态 |
+| `src/ui/comments/react/panel-store.ts` | host bridge store | 只合并 identity-aware host snapshot 与 panel-local notice/focus 字段；通过 `attachHost()` lease 原子切换宿主，旧 lease/dispose 幂等失效 |
+| `src/services/comments/sidebar/article-comments-sidebar-controller.ts` | context/load/mutation state machine | 分类 same/attach-orphan/url-migrate/conversation-change；加载与迁移使用 generation + AbortSignal，失败进入 `stale_error` 并保留最后成功 comments |
+| `src/viewmodels/comments/discussion-reducer.ts` / `useDiscussionPanel.ts` | 讨论 UI 状态真源 | 管理单 active root、root/reply drafts、menu/delete confirmation、focus intent 与 submit 状态；context key 变化时确定性 reset |
+| `src/ui/comments/react/RootCommentComposer.tsx` / `ReplyComposer.tsx` | composer 边界 | 根评论 composer 常驻；任一时刻只挂载一个 active reply composer，切换 root 时 draft 保留 |
+| `src/ui/comments/react/CommentThread.tsx` / `CommentReplyList.tsx` / `CommentReplyItem.tsx` | 只读展示边界 | 统一消费 canonical thread graph，不自行重建 parentId 图 |
+| `src/ui/comments/react/CommentOverflowMenu.tsx` | React overflow | panel/root/reply 操作与可选 Chat with AI action 统一由 React 管理，不使用 imperative menu controller |
+| `src/ui/comments/react/focus-rules.ts` / `use-comment-focus-intent.ts` | 聚焦规则与消费器 | 纯规则解析目标，hook 按 action epoch 一次性消费 composer/reply/menu focus intent |
 | `src/services/comments/locator/capture-comment-anchor.ts` | V2 capture 用例 | 从经过边界校验的 Range 生成 canonical quote、position、boundary path、root evidence 与可选 document-relative root path |
 | `src/services/comments/locator/resolve-comment-anchor.ts` | V1/V2 exact resolver | 在受限候选 roots 中执行历史 V1 或 V2 path/position/quote 策略；只有全局唯一 exact Range 才成功 |
 | `src/ui/comments/comment-anchor-controller.ts` | 定位生命周期控制器 | 用 generation + AbortSignal 取消旧解析，协调 passive/active marker，并在 panel 关闭或销毁时清理 |
 | `src/ui/comments/range-scroll-controller.ts` / `range-marker-registry.ts` | Range 几何适配 | 对精确 Range 做嵌套滚动与矩形 marker；不高亮父元素 |
-| `src/ui/comments/chatwith.ts` | 头部 Chat with AI 菜单控制器（~260 行） | 处理 article detail 头部的 Chat with AI 菜单，非评论级 |
+
 | `src/ui/comments/comment-chatwith-config.ts` | 评论级 Chat with AI 配置（~95 行） | 创建评论级 Chat with AI 配置对象 |
 | `src/services/comments/domain/comment-thread-graph.ts` | 唯一评论图归一化 | 统一 roots/replies 排序，并确定性分类 orphan、cycle、duplicate；指标、列表、归档和同步派生不得自行重建父子图 |
 | `src/services/comments/domain/comment-dto.ts` | runtime DTO 真源 | 统一 background/client/App/Inpage 的评论字段与 locator 解析 |
@@ -27,9 +32,9 @@
 | `src/services/comments/data/storage-idb.ts` | 评论存储层（~340 行） | 负责 `article_comments` 的本地读写、查询、附着 orphan 评论、canonical URL 迁移；**不计算** `commentThreadCount`（该逻辑在 `comment-metrics.ts`） |
 | `src/services/comments/background/handlers.ts` | 评论消息路由（~120 行） | 注册 5 个评论消息路由：LIST、ADD、DELETE、ATTACH_ORPHAN、**MIGRATE_CANONICAL_URL**；ADD 操作中 `locator` 仅在根评论时保存 |
 | `src/services/comments/client/repo.ts` | UI 侧客户端仓库（~60 行） | 给 React 组件提供 add / list / delete API |
-| `src/ui/conversations/ArticleCommentsSection.tsx` | article 详情评论区（~200 行） | 支持 sidebar 和 embedded 两种模式的评论区组件 |
+| `src/ui/conversations/ArticleCommentsSection.tsx` | article detail sidebar 接入 | 只接入显式 sidebar surface roots 与共享 runtime，不保留 embedded 双轨 |
 | `src/ui/inpage/inpage-comments-panel-shadow.ts` | inpage comments 面板壳（~250 行） | 让页面内评论面板运行在独立 shadow root 中；新增 `resolveInpageCommentChatWithContext` 和 `createInpageChatWithOpenPort` |
-| `src/services/comments/sidebar/comment-sidebar-session.ts` | 评论侧边栏共享会话（~220 行） | 统一 open / close / quote / focus / busy 语义；onSave 成功后自动清空 quoteText |
+| `src/services/comments/sidebar/comment-sidebar-session.ts` | 原子 host session | 暴露 serializable snapshot、稳定 actions 与 identity-aware panel lease；open/close、attachment、focus 与 host 更新通过单一会话发布 |
 | `src/services/bootstrap/inpage-comments-panel-content-handlers.ts` | inpage comments content bridge（~130 行） | 负责打开 panel、解析选区、首次解析 article 后附着 orphan 评论 |
 | `src/services/integrations/chatwith/chatwith-comment-actions.ts` | 评论级 Chat with AI 载荷（~100 行） | 构建评论+上下文的 Chat with AI payload，支持单平台简化标签 |
 | `src/services/sync/notion/notion-sync-orchestrator.ts` | Notion 同步 | 同步时加载评论并计算 `commentThreadCount`，写入 Notion "Comment Threads" 属性 |
@@ -83,111 +88,84 @@
 - 不保存跨页面、跨刷新或脱离评论面板生命周期的永久 marker。
 - 不使用固定 sleep/retry、按文本位置比例滚动、父元素高亮、环境字段硬拒绝或 first-success root 策略。
 
-## React 架构
+## React 架构（P3）
 
-### 组件结构
+### Context 与 host 状态机
 
-```
-ThreadedCommentsPanel (React Component, ~810 行)
-├── Composer (根评论输入框)
-│   ├── textarea (commentText)
-│   ├── send button (带防重入保护)
-│   └── loading state (actionInFlightRef)
-├── CommentThread (根评论 + 回复列表)
-│   ├── CommentItem
-│   │   ├── 评论文本 / locator 引用
-│   │   ├── 回复按钮 / 删除按钮（二次确认，内联实现）
-│   │   └── Chat with AI 菜单（内联实现，非独立组件）
-│   └── ReplyComposer (回复输入框)
-│       ├── textarea (replyText)
-│       └── send button (自动聚焦+滚动)
-└── [内联删除确认 UI]
-    ├── armedDeleteId 状态控制 CSS 类切换
-    └── confirm / cancel 按钮
+- `AppShell` / Inpage bootstrap 各自只创建一个 sidebar controller；`ArticleCommentsSection` 不再拥有第二份评论 context。
+- context identity 是 `[canonicalUrl, conversationId]`。`comment-context-transition.ts` 将变化分类为 `same`、`attach-orphan`、`url-migrate`、`conversation-change` 或 `invalid`。
+- load/migrate 每次创建新的 generation 与 `AbortSignal`；新 context、refresh 或 dispose 会取消旧操作，旧 completion 不得覆盖新 identity。
+- load snapshot 状态为 `idle | loading | ready | stale_error`。`stale_error` 保留最后成功的 comments，并单独暴露错误，不用空数组伪装失败。
+- save/reply/delete 使用 mutation generation；context 切换和 dispose 后，晚到 mutation completion 不再清空 attachment、刷新旧 context 或写回 session。
 
-注意：删除确认和 Chat with AI 菜单都不是独立组件，而是内联在 ThreadedCommentsPanel 中通过状态控制。
-```
-
-### Panel Store 模式
+### Atomic snapshot/actions 与 lease
 
 ```typescript
-// panel-store.ts 提供外部 store，桥接到 React
-interface CommentsPanelState {
-  open: boolean;
-  busy: boolean;
-  quoteText: string;
-  comments: ArticleComment[];
-  handlers: CommentsHandlers | null;
-  focusComposerSignal: number;
-  escapeSignal: number; // Escape 键信号，用于关闭菜单/确认
-  noticeMessage: string | null; // 提示消息
-  noticeVisible: boolean; // 提示可见性
-  hasFocusWithinPanel: boolean; // 面板内焦点跟踪
-  pendingFocusRootId: string | null;
+interface CommentSidebarHost {
+  getSnapshot(): CommentSidebarHostSnapshot;
+  subscribe(listener: () => void): () => void;
+  actions: CommentSidebarHostActions;
 }
 
-// 使用 useSyncExternalStore 连接
-const snapshot = useSyncExternalStore(panelStore.subscribe, panelStore.getSnapshot);
-
-// panel.ts (~470 行) 还负责：
-// - dock 控制器集成
-// - sidebar resize 处理
-// - shadow DOM 事件桥接（快捷键提交、Escape 处理、focus tracking）
-// - chatWithMenuController 集成
-// - notice 自动消失计时器
+interface CommentSidebarPanelApi {
+  attachHost(host: CommentSidebarHost): { dispose(): void };
+}
 ```
 
-### 防重入保护
+- host snapshot 一次性携带 `open`、`busy`、`composerAttachment`、`comments`、`focusComposerSignal` 与 `lastOpenSource`；React 不通过一组命令式 setter 拼装半成品状态。
+- actions 是稳定对象，内部在调用时读取最新 callbacks，避免 stale closure。
+- `attachHost()` 返回 identity-aware lease；重复 dispose 安全，旧 lease 无权释放后来挂载的 host。
+- panel store 只拥有 notice/focus 等纯 panel-local 字段，并与 host snapshot 合成渲染快照。
 
-```typescript
-// 所有异步操作都通过 runBusyTask 包装
-const runBusyTask = async <T>(task: () => Promise<T>): Promise<T> => {
-  if (actionInFlightRef.current) return; // 防止并发
-  actionInFlightRef.current = true;
-  try {
-    return await task();
-  } finally {
-    actionInFlightRef.current = false;
-  }
-};
+### Discussion reducer 与组件边界
 
-// 删除操作使用 armedDeleteId 模式
-const handleDelete = (commentId: string) => {
-  if (armedDeleteId === commentId) {
-    // 第二次点击，执行删除
-    runBusyTask(() => handlers.deleteComment(commentId));
-    setArmedDeleteId(null);
-  } else {
-    // 第一次点击，进入确认状态
-    setArmedDeleteId(commentId);
-  }
-};
 ```
+ThreadedCommentsPanel (orchestrator)
+├── RootCommentComposer
+│   └── CommentQuotePreview
+├── CommentThread[]
+│   ├── CommentReplyList
+│   │   └── CommentReplyItem[]
+│   └── ReplyComposer (only for activeRootId)
+└── CommentOverflowMenu (panel/root/reply)
+```
+
+- `discussionReducer` 是 drafts、`activeRootId`、open menu、delete confirmation、focus intent 与 submit 状态的唯一可变真源；context key 变化执行 reset。
+- `normalizeCommentThreadGraph()` 是 roots/replies 唯一归一化入口，orphan/cycle/duplicate 的确定性规则不会在 UI 重写。
+- root draft 与各 root 的 reply draft 相互独立；切换 active root 不丢 draft，但同时只挂载一个 `ReplyComposer`。
+- selection attachment、optional actions、keyboard、notice 和 focus 分别由独立 hook 管理；`ThreadedCommentsPanel` 只负责编排。
+- Cmd/Ctrl+Enter 由当前 composer 唯一处理。Escape 由 React keyboard controller 按 menu → delete confirmation → active reply → panel 的顺序处理，不经过 panel/store relay。
+- notice timer 与 focus intent 都在 React 生命周期内消费；action epoch 保证每个 focus intent 只执行一次。
+
+### Stable mount 与 teardown
+
+- `panel.ts` 对每个 panel 只创建一个 React root；host/context 更新通过 external store，不以 remount 代替状态迁移。
+- dock、resize、anchor marker、host lease 和 React root teardown 都是幂等的；任一 cleanup 失败不会阻止其余资源释放。
+- close/reset/dispose 会取消 active load、migration、selection resolution、optional action 与 anchor resolution，并清理 marker/listeners。
 
 ## 运行流程
 
 ### 文章详情页
 
-1. `ArticleCommentsSection.tsx` 根据 `canonicalUrl` 读取评论列表，传递给 `ThreadedCommentsPanel`。
-2. React 组件使用 panel store 管理状态，监听 `UI_EVENT_TYPES.CONVERSATIONS_CHANGED` 刷新。
-3. 新评论和回复通过 `runBusyTask` 写入 IndexedDB，防止并发竞态。
-4. 删除操作使用二次确认模式（`armedDeleteId`），防止误操作。
-5. 发送后自动聚焦并滚动到目标 reply 输入框（`pendingReplyFocusRootIdRef`）。
+1. `AppShell` 持有唯一 sidebar runtime/controller，并把当前 article identity 与显式 `{sourceRoot, scrollRoot}` 交给评论入口。
+2. controller 分类 identity transition；必要时先 attach orphan 或迁移 canonical URL，再以可取消 operation 加载 comments。
+3. session 原子发布 host snapshot；React external store 消费 snapshot/actions，discussion reducer 管理本地交互状态。
+4. 新评论、回复和删除经 controller mutation generation 写入；只有仍属于当前 identity 的 completion 才触发 refresh 与 focus intent。
+5. active root 同步 exact marker 状态；显式引用定位才执行 Range resolve/scroll。
 
 ### Inpage comments panel
 
-1. 用户从页面内入口打开评论面板（例如双击 inpage 保存按钮打开评论侧边栏）。
-2. content entrypoint 注入 selection/document source；UI 从选区推导 capture root，生成 display quote 与 V2 locator，service bootstrap 不直接读取 DOM。
-3. 若 article 还没建立 conversation，系统先捕获/解析 article，再附着 orphan 评论。
-4. 面板的 open / close / quote / focus / busy 状态由 `comment-sidebar-session.ts` 统一调度。
-5. React 组件通过 shadow root 渲染，与页面样式隔离。
+1. content entrypoint 持有页面 DOM、selection、frame 与 URL 读取，并把纯数据/候选 roots 注入 service/controller。
+2. 若 article 尚无 conversation，controller 先 ensure context，再 attach orphan；identity 变化遵循同一 transition state machine。
+3. shadow panel 复用同一 host/session、discussion reducer 和 exact marker 生命周期，不维护 embedded 变体。
+4. SPA context 变化、panel close 或 content teardown 会取消旧 generation 并幂等释放 lease、dock、resize、marker 与 React root。
 
 ### 评论级 Chat with AI
 
-1. 用户点击评论项的 Chat with AI 菜单，选择目标平台。
-2. `chatwith-comment-actions.ts` 构建 payload：该评论 + 所有回复 + 可选 article 上下文。
-3. 内容渲染为 Markdown，按 `maxChars` 截断后复制到剪贴板。
-4. 打开目标 AI 平台网站，用户手动粘贴提交。
+1. panel/root overflow 由 `CommentOverflowMenu` 渲染；可选 AI action 由 `useCommentOptionalActions` 延迟准备。
+2. `chatwith-comment-actions.ts` 构建评论线程与可选 article context payload。
+3. optional action hook 使用 generation 丢弃 unmount/context 切换后的晚到结果，错误通过既有 notice 展示。
+4. payload 按 provider 配置复制并打开目标平台，评论事实与 draft 不受 action 失败影响。
 
 ## 消息契约
 
@@ -204,47 +182,45 @@ const handleDelete = (commentId: string) => {
 - `COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS` 支持按 `canonicalUrl` 或 `conversationId` 读取。
 - `UI_EVENT_TYPES.CONVERSATIONS_CHANGED` 会在新增 / 附着评论后广播，用来刷新 article detail。
 
-## 聚焦规则
+## 聚焦与键盘规则
 
 | 场景 | 行为 | 实现 |
 | --- | --- | --- |
-| 保存根评论后 | 返回 `createdRootId`（如果 onSave 结果中包含），用于聚焦新创建的评论 | `resolveTargetRootIdFromSaveResult` 返回 `createdRootId` 或 null |
-| 回复评论后 | 自动聚焦并滚动到被回复的评论输入框 | `resolveTargetRootIdForReply` 返回目标 rootId |
-| 删除评论后 | 聚焦到相邻评论或输入框 | `resolvePendingFocusTarget` 查找就近的可用目标 |
-| Escape 键 | 关闭删除确认/菜单，保留输入框文本 | `escapeSignal` + `useLayoutEffect` 监听，使用 `lastHandledEscapeSignalRef` 去重 |
-
-**Escape 信号处理**：`ThreadedCommentsPanel` 同时监听 Escape 键关闭删除确认和 Chat with AI 菜单，通过 `lastFocusedComposerSignalRef` 和 `lastHandledEscapeSignalRef` 防止重复处理。
+| 保存根评论后 | 若返回 `createdRootId`，切换 active root 并请求聚焦该 root 的 reply composer | `resolveTargetRootIdFromSaveResult` + reducer focus intent |
+| 回复评论后 | 保留 active root，清空该 root draft，并请求重新聚焦其 reply composer | `resolveTargetRootIdForReply` + `useCommentFocusIntent` |
+| 菜单打开 | 聚焦对应 panel/root/reply trigger 或 menu surface；关闭后回到触发点 | reducer `focus-menu` + trigger refs |
+| Cmd/Ctrl+Enter | 只由当前 composer 提交一次 | `useDiscussionKeyboard` / composer keydown |
+| Escape | 依次关闭 menu、delete confirmation、active reply、panel | `useDiscussionKeyboard`，无 store relay |
+| notice | 可见期结束后只消费一次 expired callback | `useCommentNotice` |
 
 ## 测试与回归
 
-| 文件 | 覆盖点 | 说明 |
-| --- | --- | --- |
-| `tests/storage/article-comments-idb.test.ts` | add / list / delete / replies / orphan attachment | 存储回归入口 |
-| `tests/comments/panel-focus-rules.test.ts` | 聚焦规则解析 | 覆盖保存后聚焦、回复后聚焦、pending focus |
-| `tests/smoke/comments-panel-react.test.ts` | React 组件冒烟 | 验证 mount/unmount、防重入、删除确认 |
+| 范围 | 代表性测试 |
+| --- | --- |
+| context transition / load / migration / stale completion | `tests/unit/comment-context-transition.test.ts`, `tests/unit/article-comments-sidebar-controller*.test.ts` |
+| atomic snapshot/actions/lease | `tests/unit/comment-sidebar-session*.test.ts`, `tests/unit/threaded-comments-panel-store*.test.ts` |
+| discussion reducer / draft / active reply | `tests/unit/discussion-reducer.test.ts`, `tests/unit/threaded-comments-panel-active-reply.test.ts` |
+| selection / keyboard / focus / notice | `tests/unit/threaded-comments-panel-auto-attach-selection.test.ts`, `threaded-comments-panel-shortcuts.test.ts`, `threaded-comments-panel-focus-regression.test.ts` |
+| overflow / optional AI action / delete confirmation | `tests/unit/threaded-comments-panel-comment-chatwith.test.ts`, `threaded-comments-panel-delete-confirm.test.ts` |
+| stable mount / teardown | `tests/unit/comments-panel-resize-lifecycle.test.ts`, `tests/unit/comments-sidebar-responsive.test.ts`, `tests/smoke/inpage-comments-sidebar-toggle.test.ts` |
 
-- 评论线程改动至少要跑 `tests/storage/article-comments-idb.test.ts`。
-- 若涉及 article comments 或 inpage 面板，建议再做一次 article detail + 页面内面板的人工冒烟。
-- 备份 / 导入现在覆盖 `article_comments`；如果你在做恢复链路改动，要验证 `assets/article-comments/index.json` 与 `counts.article_comments` 都能正确往返。
-- **React 迁移后**：legacy DOM 渲染已删除，不要再调用 `threaded-comments-panel.ts` 的旧 render 函数。
+- UI 交互测试通过 `comment-sidebar-panel-driver.ts` 挂载真实 host snapshot/actions，不恢复旧的命令式 panel setter 契约。
+- phase Gate 至少包含目标 comments 测试、`npm run compile`、`npm run build`、分层扫描和旧实现红线扫描。
+- 全量测试应分片、低并发执行；任何 feature 外失败必须保留具体文件与错误证据，不能伪装为通过。
 
 ## 修改热点
 
 | 要改什么 | 先看哪里 | 会影响谁 |
 | --- | --- | --- |
-| 评论数据结构 | `storage-idb.ts`, `schema.ts`, `article-comments-idb.test.ts` | 存储层、备份、同步 |
-| 评论 UI 交互 | `ThreadedCommentsPanel.tsx`, `panel-store.ts`, `focus-rules.ts` | React 组件、聚焦规则 |
-| 删除确认逻辑 | `ThreadedCommentsPanel.tsx` 的 `armedDeleteId` 状态（内联实现） | 删除按钮、Escape 键处理 |
-| 评论级 Chat with AI | `comment-chatwith-config.ts`, `chatwith-comment-actions.ts` | 平台选择、payload 构建 |
-| 头部 Chat with AI 菜单 | `chatwith.ts` | article detail 头部菜单（非评论级） |
-| 防重入保护 | `runBusyTask` + `actionInFlightRef` | 所有异步操作（保存/删除/回复） |
-| 评论图同步到 Notion | `notion-comments-renderer.ts`, `comment-thread-graph.ts` | 根线程数、author、quote、locator/version digest 与评论区块 |
-| 评论图同步到 Obsidian | `obsidian-markdown-writer.ts`, `comment-thread-graph.ts` | frontmatter + Markdown 章节使用同一 roots/replies 排序 |
-| 备份 / 恢复评论线程 | `export.ts`, `import.ts`, `backup-utils.ts` | Zip v2 归档 |
-| article detail UI | `ArticleCommentsSection.tsx`（支持 sidebar/embedded 两种模式） | 评论列表刷新 |
-| 页面内评论面板 | `inpage-comments-panel-shadow.ts`, `comment-sidebar-session.ts` | shadow root、侧边栏状态、评论级 Chat with AI 上下文 |
-| 消息契约 | `message-contracts.ts`, background handlers | UI / background / content 三端（含 MIGRATE_CANONICAL_URL） |
-| panel.ts 桥接层 | `panel.ts`（~470 行） | dock 控制器、resize、shadow DOM 事件、notice 计时器 |
+| context / load / mutation 生命周期 | `article-comments-sidebar-controller.ts`, `comment-context-transition.ts` | App、Inpage、迁移、stale completion |
+| host snapshot/actions/lease | `comment-sidebar-session.ts`, `comment-sidebar-state.ts`, `panel-store.ts` | React bridge、identity 切换、teardown |
+| discussion state | `discussion-reducer.ts`, `useDiscussionPanel.ts` | active root、draft、menu/delete、submit/focus |
+| composer / thread 展示 | `RootCommentComposer.tsx`, `ReplyComposer.tsx`, `CommentThread.tsx`, `CommentReply*.tsx` | 单 active reply、draft 保留、可访问性 |
+| selection / keyboard / notice / focus | 对应 `use-comment-*` 与 `use-discussion-keyboard.ts` | DOM 事件所有权和一次性消费 |
+| overflow / optional AI action | `CommentOverflowMenu.tsx`, `useCommentOptionalActions.ts` | panel/root/reply action 与错误提示 |
+| exact anchor / marker | `comment-anchor-controller.ts`, `range-scroll-controller.ts`, `range-marker-registry.ts` | active/passive marker 与 teardown |
+| article detail UI | `ArticleCommentsSection.tsx`, `AppShell.tsx` | 显式 surface roots、唯一 context owner |
+| Inpage shell | `inpage-comments-panel-shadow.ts`, bootstrap content handlers | shadow root、SPA context、selection source |
 
 ## P1 数据契约硬性规则
 

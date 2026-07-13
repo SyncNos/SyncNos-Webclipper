@@ -1,0 +1,8 @@
+SyncNos Webclipper source snapshot
+Created: 2026-07-12
+Git commit: 7ee6832d47e7ee7e5f723417871fd0d33de236b3
+Short commit: 7ee6832
+Branch: master
+Working tree status: clean
+Plan state: P1 complete; P2-T1 marked in_progress in .github/features/comments-discussion-redesign/todo.toml
+Excluded: .git, node_modules, .wxt, .output, coverage, dist, build, logs
