@@ -136,7 +136,10 @@ export async function addArticleComment(input: AddArticleCommentInput): Promise<
     const parent = await reqToPromise<any>(stores.article_comments.get(parentId));
     if (!parent) throw new ArticleCommentInvariantError('parent_not_found');
     if (normalizeParentId(parent.parentId) != null) throw new ArticleCommentInvariantError('parent_not_root');
-    if (normalizeCanonicalUrl(parent.canonicalUrl) !== canonicalUrl || normalizeConversationId(parent.conversationId) !== conversationId) {
+    if (
+      normalizeCanonicalUrl(parent.canonicalUrl) !== canonicalUrl ||
+      normalizeConversationId(parent.conversationId) !== conversationId
+    ) {
       throw new ArticleCommentInvariantError('parent_context_mismatch');
     }
   }

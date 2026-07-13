@@ -36,7 +36,12 @@ describe('article-comment-locator', () => {
     const range = document.createRange();
     range.setStart(root.firstChild as Text, 6);
     range.setEnd(root.firstChild as Text, 11);
-    const locator = captureCommentAnchor({ root, range, surfaceHint: 'inpage', documentRoot: document.documentElement });
+    const locator = captureCommentAnchor({
+      root,
+      range,
+      surfaceHint: 'inpage',
+      documentRoot: document.documentElement,
+    });
     expect(locator).toMatchObject({ v: 2, surfaceHint: 'inpage', quote: { exact: 'world' } });
     expect(locator?.documentRelativeRootPath).toBeTruthy();
   });
@@ -84,11 +89,24 @@ describe('article-comment-locator parser', () => {
       rootEvidence: { textModelVersion: 'dom-text-v2', textLength: 1, textHash: 'x' },
     };
     expect(parseArticleCommentLocator(base).reason).toBe('invalid_quote');
-    expect(parseArticleCommentLocator({ ...base, quote: { type: 'TextQuoteSelector', exact: 'x' }, boundaryPath: { start: { path: Array(129).fill(0), offset: 0 }, end: { path: [0], offset: 1 } } }).reason).toBe('invalid_boundary_path');
+    expect(
+      parseArticleCommentLocator({
+        ...base,
+        quote: { type: 'TextQuoteSelector', exact: 'x' },
+        boundaryPath: { start: { path: Array(129).fill(0), offset: 0 }, end: { path: [0], offset: 1 } },
+      }).reason,
+    ).toBe('invalid_boundary_path');
   });
 
   it('rejects unsupported or malformed locator versions', () => {
     expect(parseArticleCommentLocator({ v: 3 }).reason).toBe('unsupported_version');
-    expect(parseArticleCommentLocator({ v: 1, env: 'app', quote: { type: 'TextQuoteSelector', exact: '' }, position: { type: 'TextPositionSelector', start: 0, end: 1 } }).reason).toBe('invalid_quote');
+    expect(
+      parseArticleCommentLocator({
+        v: 1,
+        env: 'app',
+        quote: { type: 'TextQuoteSelector', exact: '' },
+        position: { type: 'TextPositionSelector', start: 0, end: 1 },
+      }).reason,
+    ).toBe('invalid_quote');
   });
 });

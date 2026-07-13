@@ -18,10 +18,12 @@ export type ArticleCommentsSidebarRuntime = {
   subscribeSidebarClose: (listener: () => void) => () => void;
 };
 
-export function useArticleCommentsSidebarRuntime(input: {
-  onClose?: () => void;
-  resolveComposerSelection?: () => { selectionText?: string | null; locator?: unknown } | null | undefined;
-} = {}): ArticleCommentsSidebarRuntime {
+export function useArticleCommentsSidebarRuntime(
+  input: {
+    onClose?: () => void;
+    resolveComposerSelection?: () => { selectionText?: string | null; locator?: unknown } | null | undefined;
+  } = {},
+): ArticleCommentsSidebarRuntime {
   const onCloseRef = useRef<(() => void) | undefined>(input.onClose);
   onCloseRef.current = input.onClose;
   const closeListenersRef = useRef<Set<() => void>>(new Set());

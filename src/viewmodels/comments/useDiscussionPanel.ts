@@ -3,12 +3,8 @@ import type {
   CommentSidebarHostActions,
   CommentSidebarHostSnapshot,
 } from '@services/comments/sidebar/comment-sidebar-contract';
-import { useCallback, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import {
-  createDiscussionState,
-  discussionReducer,
-  type DiscussionMenuTarget,
-} from './discussion-reducer';
+import { useCallback, useLayoutEffect, useReducer, useRef, useState } from 'react';
+import { createDiscussionState, discussionReducer, type DiscussionMenuTarget } from './discussion-reducer';
 
 type UseDiscussionPanelInput = {
   snapshot: CommentSidebarHostSnapshot;
@@ -20,7 +16,7 @@ function buildContextKey(snapshot: CommentSidebarHostSnapshot): string {
 }
 
 export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInput) {
-  const contextKey = useMemo(() => buildContextKey(snapshot), [snapshot.comments, snapshot.lastOpenSource]);
+  const contextKey = buildContextKey(snapshot);
   const [state, dispatch] = useReducer(discussionReducer, contextKey, createDiscussionState);
   const [localBusyCount, setLocalBusyCount] = useState(0);
   const mountedRef = useRef(true);
@@ -38,7 +34,7 @@ export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInpu
     };
   }, []);
 
-  const runBusyTask = useCallback(async <T,>(task: () => Promise<T>): Promise<T | undefined> => {
+  const runBusyTask = useCallback(async <T>(task: () => Promise<T>): Promise<T | undefined> => {
     if (!mountedRef.current || actionInFlightRef.current) return undefined;
     actionInFlightRef.current = true;
     setLocalBusyCount((count) => count + 1);
@@ -62,7 +58,11 @@ export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInpu
         return result;
       } catch (error) {
         if (mountedRef.current) {
-          dispatch({ type: 'submit-error', kind: 'root', error: error instanceof Error ? error.message : String(error) });
+          dispatch({
+            type: 'submit-error',
+            kind: 'root',
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
         throw error;
       } finally {
@@ -99,7 +99,6 @@ export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInpu
     },
     [actions],
   );
-
 
   const deleteComment = useCallback(
     async (id: number): Promise<void> => {

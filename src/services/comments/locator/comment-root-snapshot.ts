@@ -19,9 +19,10 @@ export function captureCommentRootSnapshot(
 ): ArticleCommentRootEvidence | null {
   const index = createCommentDomTextIndex(root);
   const requestedBudget = Number(options?.maxTextLength ?? COMMENT_ROOT_SNAPSHOT_DEFAULT_MAX_TEXT_LENGTH);
-  const maxTextLength = Number.isSafeInteger(requestedBudget) && requestedBudget >= 0
-    ? requestedBudget
-    : COMMENT_ROOT_SNAPSHOT_DEFAULT_MAX_TEXT_LENGTH;
+  const maxTextLength =
+    Number.isSafeInteger(requestedBudget) && requestedBudget >= 0
+      ? requestedBudget
+      : COMMENT_ROOT_SNAPSHOT_DEFAULT_MAX_TEXT_LENGTH;
   if (index.text.length > maxTextLength) return null;
 
   const allowed = options?.dataAttributes || SAFE_DATA_ATTRIBUTES;

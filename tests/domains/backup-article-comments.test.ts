@@ -50,25 +50,44 @@ describe('backup article comments', () => {
 
   it('strictly validates V2 locator and field budgets', () => {
     expect(validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [root()] }).ok).toBe(true);
-    expect(validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [root({ locator: { v: 99 } })] }).ok).toBe(false);
-    expect(validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [root({ commentText: 'x'.repeat(200_001) })] }).ok).toBe(false);
+    expect(
+      validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [root({ locator: { v: 99 } })] }).ok,
+    ).toBe(false);
+    expect(
+      validateArticleCommentArchiveDocument({
+        schemaVersion: 2,
+        comments: [root({ commentText: 'x'.repeat(200_001) })],
+      }).ok,
+    ).toBe(false);
   });
 
   it('rejects duplicate, cyclic, nested-parent and cross-context graphs', () => {
     expect(validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [root(), root()] }).ok).toBe(false);
-    expect(validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [
-      root({ parentCommentId: 2 }), root({ commentId: 2, parentCommentId: 1 }),
-    ] }).ok).toBe(false);
-    expect(validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [
-      root(), root({ commentId: 2, parentCommentId: 1 }), root({ commentId: 3, parentCommentId: 2 }),
-    ] }).ok).toBe(false);
-    expect(validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [
-      root(), root({ commentId: 2, parentCommentId: 1, canonicalUrl: 'https://example.com/b' }),
-    ] }).ok).toBe(false);
+    expect(
+      validateArticleCommentArchiveDocument({
+        schemaVersion: 2,
+        comments: [root({ parentCommentId: 2 }), root({ commentId: 2, parentCommentId: 1 })],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateArticleCommentArchiveDocument({
+        schemaVersion: 2,
+        comments: [root(), root({ commentId: 2, parentCommentId: 1 }), root({ commentId: 3, parentCommentId: 2 })],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateArticleCommentArchiveDocument({
+        schemaVersion: 2,
+        comments: [root(), root({ commentId: 2, parentCommentId: 1, canonicalUrl: 'https://example.com/b' })],
+      }).ok,
+    ).toBe(false);
   });
 
   it('accepts orphan rows with an auditable warning for historical compatibility', () => {
-    const result = validateArticleCommentArchiveDocument({ schemaVersion: 2, comments: [root({ parentCommentId: 999 })] });
+    const result = validateArticleCommentArchiveDocument({
+      schemaVersion: 2,
+      comments: [root({ parentCommentId: 999 })],
+    });
     expect(result.ok).toBe(true);
     expect(result.warnings).toEqual([{ code: 'orphan_parent', commentId: 1 }]);
   });
@@ -80,14 +99,52 @@ describe('backup article comments', () => {
       quote: { type: 'TextQuoteSelector' as const, exact: 'q' },
       position: { type: 'TextPositionSelector' as const, start: 1, end: 2 },
     };
-    const serialized = serializeArticleCommentArchive([
-      { id: 2, parentId: 1, conversationId: 10, canonicalUrl: 'https://example.com/a', authorName: 'B', quoteText: '', commentText: 'reply', locator: null, createdAt: 2, updatedAt: 2 },
-      { id: 1, parentId: null, conversationId: 10, canonicalUrl: 'https://example.com/a', authorName: 'A', quoteText: 'q', commentText: 'root', locator, createdAt: 1, updatedAt: 1 },
-      { id: 3, parentId: 999, conversationId: 10, canonicalUrl: 'https://example.com/a', authorName: null, quoteText: '', commentText: 'orphan', locator: null, createdAt: 3, updatedAt: 3 },
-    ], new Map([[10, 'web||a']]));
+    const serialized = serializeArticleCommentArchive(
+      [
+        {
+          id: 2,
+          parentId: 1,
+          conversationId: 10,
+          canonicalUrl: 'https://example.com/a',
+          authorName: 'B',
+          quoteText: '',
+          commentText: 'reply',
+          locator: null,
+          createdAt: 2,
+          updatedAt: 2,
+        },
+        {
+          id: 1,
+          parentId: null,
+          conversationId: 10,
+          canonicalUrl: 'https://example.com/a',
+          authorName: 'A',
+          quoteText: 'q',
+          commentText: 'root',
+          locator,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          id: 3,
+          parentId: 999,
+          conversationId: 10,
+          canonicalUrl: 'https://example.com/a',
+          authorName: null,
+          quoteText: '',
+          commentText: 'orphan',
+          locator: null,
+          createdAt: 3,
+          updatedAt: 3,
+        },
+      ],
+      new Map([[10, 'web||a']]),
+    );
     expect(serialized.document.schemaVersion).toBe(2);
     expect(serialized.document.comments.map((item) => [item.commentId, item.parentCommentId])).toEqual([
-      [3, null], [1, null], [2, 1],
+      [3, null],
+      [1, null],
+      [2, 1],
     ]);
     expect(serialized.document.comments[1]?.authorName).toBe('A');
     expect(serialized.document.comments[1]?.locator).toEqual(locator);
@@ -105,7 +162,9 @@ describe('backup article comments', () => {
       ],
     });
     expect(prepared.items.map((item) => [item.commentId, item.parentCommentId])).toEqual([
-      [3, null], [1, null], [2, 1],
+      [3, null],
+      [1, null],
+      [2, 1],
     ]);
     expect(prepared.items.every((item) => Boolean(item.fingerprint))).toBe(true);
     expect(prepared.warnings).toContainEqual({ code: 'orphan_parent', commentId: 3 });
@@ -126,9 +185,11 @@ describe('backup article comments', () => {
       },
     };
     expect(validateBackupManifest(manifest).ok).toBe(true);
-    expect(validateBackupManifest({
-      ...manifest,
-      assets: { ...manifest.assets, articleCommentsIndexPath: '../oops.json' },
-    }).ok).toBe(false);
+    expect(
+      validateBackupManifest({
+        ...manifest,
+        assets: { ...manifest.assets, articleCommentsIndexPath: '../oops.json' },
+      }).ok,
+    ).toBe(false);
   });
 });

@@ -61,7 +61,10 @@ describe('resolveCommentAnchor', () => {
       quote: { type: 'TextQuoteSelector' as const, exact: 'exact' },
       position: { type: 'TextPositionSelector' as const, start: 0, end: 5 },
     };
-    expect(resolveCommentAnchor({ locator, roots: [element('exact'), element('exact')] })).toEqual({ ok: false, reason: 'ambiguous_root' });
+    expect(resolveCommentAnchor({ locator, roots: [element('exact'), element('exact')] })).toEqual({
+      ok: false,
+      reason: 'ambiguous_root',
+    });
   });
 
   test('enforces root/text budgets and cancellation', () => {
@@ -71,11 +74,22 @@ describe('resolveCommentAnchor', () => {
       quote: { type: 'TextQuoteSelector' as const, exact: 'x' },
       position: { type: 'TextPositionSelector' as const, start: 0, end: 1 },
     };
-    expect(resolveCommentAnchor({ locator, roots: [element('x'), element('x')], maxRoots: 1 })).toEqual({ ok: false, reason: 'budget_exceeded' });
-    expect(resolveCommentAnchor({ locator, roots: [element('long')], maxTotalTextLength: 1 })).toEqual({ ok: false, reason: 'budget_exceeded' });
+    expect(resolveCommentAnchor({ locator, roots: [element('x'), element('x')], maxRoots: 1 })).toEqual({
+      ok: false,
+      reason: 'budget_exceeded',
+    });
+    expect(resolveCommentAnchor({ locator, roots: [element('long')], maxTotalTextLength: 1 })).toEqual({
+      ok: false,
+      reason: 'budget_exceeded',
+    });
     const controller = new AbortController();
     controller.abort();
-    expect(resolveCommentAnchor({ locator, roots: [element('x')], signal: controller.signal })).toEqual({ ok: false, reason: 'aborted' });
-    expect(resolveCommentAnchor({ locator, roots: [element('x')], generation: 2, isGenerationCurrent: () => false })).toEqual({ ok: false, reason: 'aborted' });
+    expect(resolveCommentAnchor({ locator, roots: [element('x')], signal: controller.signal })).toEqual({
+      ok: false,
+      reason: 'aborted',
+    });
+    expect(
+      resolveCommentAnchor({ locator, roots: [element('x')], generation: 2, isGenerationCurrent: () => false }),
+    ).toEqual({ ok: false, reason: 'aborted' });
   });
 });

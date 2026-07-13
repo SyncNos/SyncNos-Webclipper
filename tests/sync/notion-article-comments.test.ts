@@ -171,8 +171,30 @@ describe('notion article comments blocks', () => {
   it('counts root threads even when a root has no quote', async () => {
     const renderer = await loadNotionCommentsRenderer();
     const result = renderer.buildNotionCommentsBlocks([
-      { id: 1, parentId: null, conversationId: 10, canonicalUrl: 'https://example.com', authorName: 'A', quoteText: '', commentText: 'Root', locator: null, createdAt: 1, updatedAt: 1 },
-      { id: 2, parentId: 1, conversationId: 10, canonicalUrl: 'https://example.com', authorName: 'B', quoteText: '', commentText: 'Reply', locator: null, createdAt: 2, updatedAt: 2 },
+      {
+        id: 1,
+        parentId: null,
+        conversationId: 10,
+        canonicalUrl: 'https://example.com',
+        authorName: 'A',
+        quoteText: '',
+        commentText: 'Root',
+        locator: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 2,
+        parentId: 1,
+        conversationId: 10,
+        canonicalUrl: 'https://example.com',
+        authorName: 'B',
+        quoteText: '',
+        commentText: 'Reply',
+        locator: null,
+        createdAt: 2,
+        updatedAt: 2,
+      },
     ]);
     expect(result.threads).toBe(1);
     expect(result.items).toBe(2);
@@ -180,10 +202,32 @@ describe('notion article comments blocks', () => {
 
   it('changes digest when author or locator schema changes', async () => {
     const renderer = await loadNotionCommentsRenderer();
-    const base = { id: 1, parentId: null, conversationId: 10, canonicalUrl: 'https://example.com', authorName: 'A', quoteText: 'q', commentText: 'c', locator: null, createdAt: 1, updatedAt: 1 };
+    const base = {
+      id: 1,
+      parentId: null,
+      conversationId: 10,
+      canonicalUrl: 'https://example.com',
+      authorName: 'A',
+      quoteText: 'q',
+      commentText: 'c',
+      locator: null,
+      createdAt: 1,
+      updatedAt: 1,
+    };
     const authorDigest = renderer.computeNotionCommentsDigest([base]);
     expect(renderer.computeNotionCommentsDigest([{ ...base, authorName: 'B' }])).not.toBe(authorDigest);
-    expect(renderer.computeNotionCommentsDigest([{ ...base, locator: { v: 1, env: 'app', quote: { type: 'TextQuoteSelector', exact: 'q' }, position: { type: 'TextPositionSelector', start: 0, end: 1 } } }])).not.toBe(authorDigest);
+    expect(
+      renderer.computeNotionCommentsDigest([
+        {
+          ...base,
+          locator: {
+            v: 1,
+            env: 'app',
+            quote: { type: 'TextQuoteSelector', exact: 'q' },
+            position: { type: 'TextPositionSelector', start: 0, end: 1 },
+          },
+        },
+      ]),
+    ).not.toBe(authorDigest);
   });
-
 });

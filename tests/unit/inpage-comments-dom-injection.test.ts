@@ -32,14 +32,16 @@ describe('inpage comments DOM injection', () => {
 
     await controller.open({ tabId: 7, focusComposer: true });
 
-    expect(open).toHaveBeenCalledWith(expect.objectContaining({
-      focusComposer: true,
-      source: 'inpage',
-      ensureContextInput: expect.objectContaining({
-        tabId: 7,
-        canonicalUrlFallback: 'https://example.com/article?utm_source=x',
+    expect(open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        focusComposer: true,
+        source: 'inpage',
+        ensureContextInput: expect.objectContaining({
+          tabId: 7,
+          canonicalUrlFallback: 'https://example.com/article?utm_source=x',
+        }),
       }),
-    }));
+    );
   });
 
   it('does not open from a child frame', async () => {

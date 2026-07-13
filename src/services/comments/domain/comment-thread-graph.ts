@@ -90,9 +90,7 @@ export function normalizeCommentThreadGraph<T extends ArticleCommentDto>(
       if (cycleStart != null) {
         const component = path.slice(cycleStart);
         for (const id of component) cycleIds.add(id);
-        rootId = component
-          .map((id) => byId.get(id)!)
-          .sort(timeAsc)[0]?.id ?? parentId;
+        rootId = component.map((id) => byId.get(id)!).sort(timeAsc)[0]?.id ?? parentId;
         break;
       }
 

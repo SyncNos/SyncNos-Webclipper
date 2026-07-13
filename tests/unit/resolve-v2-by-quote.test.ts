@@ -34,12 +34,21 @@ describe('resolveV2ByQuoteContext', () => {
 
   test('rejects globally ambiguous exact matches', () => {
     const element = root('exact and exact');
-    expect(resolveV2ByQuoteContext({ root: element, locator: locator(element, 'exact') })).toEqual({ ok: false, reason: 'ambiguous_quote' });
+    expect(resolveV2ByQuoteContext({ root: element, locator: locator(element, 'exact') })).toEqual({
+      ok: false,
+      reason: 'ambiguous_quote',
+    });
   });
 
   test('reports not found and budget exceeded separately', () => {
     const element = root('short text');
-    expect(resolveV2ByQuoteContext({ root: element, locator: locator(element, 'missing') })).toEqual({ ok: false, reason: 'quote_not_found' });
-    expect(resolveV2ByQuoteContext({ root: element, locator: locator(element, 'text'), maxTextLength: 3 })).toEqual({ ok: false, reason: 'budget_exceeded' });
+    expect(resolveV2ByQuoteContext({ root: element, locator: locator(element, 'missing') })).toEqual({
+      ok: false,
+      reason: 'quote_not_found',
+    });
+    expect(resolveV2ByQuoteContext({ root: element, locator: locator(element, 'text'), maxTextLength: 3 })).toEqual({
+      ok: false,
+      reason: 'budget_exceeded',
+    });
   });
 });

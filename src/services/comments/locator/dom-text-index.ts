@@ -78,7 +78,9 @@ export function createCommentDomTextIndex(root: Element): CommentDomTextIndex {
         return inside.length ? inside[inside.length - 1]!.end : null;
       }
       const child = element.childNodes[offset];
-      const first = segments.find((segment) => child === segment.node || (child.nodeType === 1 && (child as Element).contains(segment.node)));
+      const first = segments.find(
+        (segment) => child === segment.node || (child.nodeType === 1 && (child as Element).contains(segment.node)),
+      );
       return first?.start ?? null;
     }
     return null;
@@ -91,11 +93,17 @@ export function createCommentDomTextIndex(root: Element): CommentDomTextIndex {
       const last = segments[segments.length - 1]!;
       return last.kind === 'text'
         ? { node: last.node, offset: last.text.length }
-        : { node: last.node.parentNode || root, offset: Array.prototype.indexOf.call((last.node.parentNode || root).childNodes, last.node) + 1 };
+        : {
+            node: last.node.parentNode || root,
+            offset: Array.prototype.indexOf.call((last.node.parentNode || root).childNodes, last.node) + 1,
+          };
     }
-    const segment = segments.find((item) => normalized >= item.start && (normalized < item.end || (affinity === 'end' && normalized === item.end)));
+    const segment = segments.find(
+      (item) => normalized >= item.start && (normalized < item.end || (affinity === 'end' && normalized === item.end)),
+    );
     if (!segment) return null;
-    if (segment.kind === 'text') return { node: segment.node, offset: Math.max(0, Math.min(segment.text.length, normalized - segment.start)) };
+    if (segment.kind === 'text')
+      return { node: segment.node, offset: Math.max(0, Math.min(segment.text.length, normalized - segment.start)) };
     const parent = segment.node.parentNode || root;
     const index = Array.prototype.indexOf.call(parent.childNodes, segment.node);
     return { node: parent, offset: normalized <= segment.start ? index : index + 1 };

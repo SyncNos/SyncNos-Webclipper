@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeCommentThreadGraph } from '@services/comments/domain/comment-thread-graph';
 
-const item = (id: number, parentId: number | null, createdAt = id) => ({ id, parentId, conversationId: 1, canonicalUrl: 'https://example.com', authorName: null, quoteText: '', commentText: String(id), locator: null, createdAt, updatedAt: createdAt });
+const item = (id: number, parentId: number | null, createdAt = id) => ({
+  id,
+  parentId,
+  conversationId: 1,
+  canonicalUrl: 'https://example.com',
+  authorName: null,
+  quoteText: '',
+  commentText: String(id),
+  locator: null,
+  createdAt,
+  updatedAt: createdAt,
+});
 
 describe('comment thread graph', () => {
   it('sorts roots descending and replies ascending', () => {

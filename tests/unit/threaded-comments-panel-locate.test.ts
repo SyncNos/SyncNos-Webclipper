@@ -155,6 +155,7 @@ describe('Threaded comments panel locate', () => {
     ) as HTMLButtonElement;
     locateButton.click();
     await flushReactScheduler();
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
 
     expect(resolveCommentAnchor).toHaveBeenCalled();
     expect((scrollRoot as any).scrollTo).toHaveBeenCalledWith({ top: 70, behavior: 'smooth' });
@@ -162,7 +163,7 @@ describe('Threaded comments panel locate', () => {
 
     const beforeReplyClick = (resolveCommentAnchor as any).mock.calls.length;
     const replyBody = panel.shadowRoot!.querySelector(
-      '.webclipper-inpage-comments-panel__reply > .webclipper-inpage-comments-panel__text',
+      '.webclipper-inpage-comments-panel__reply-main > .webclipper-inpage-comments-panel__text',
     ) as HTMLElement;
     replyBody.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
     await flushReactScheduler();

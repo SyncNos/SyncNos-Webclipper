@@ -18,7 +18,9 @@ export function resolveV2ByPathOrPosition(input: {
   lengthTolerance?: number;
 }): ResolveV2PathResult | null {
   const { root, locator } = input;
-  if (compareCommentRootEvidence(root, locator.rootEvidence, { lengthTolerance: input.lengthTolerance }) !== 'matched') {
+  if (
+    compareCommentRootEvidence(root, locator.rootEvidence, { lengthTolerance: input.lengthTolerance }) !== 'matched'
+  ) {
     return null;
   }
 
@@ -27,6 +29,7 @@ export function resolveV2ByPathOrPosition(input: {
 
   const index = createCommentDomTextIndex(root);
   const byPosition = index.offsetsToRange(locator.position.start, locator.position.end);
-  if (byPosition && exactRange(root, byPosition, locator.quote.exact)) return { range: byPosition, strategy: 'position' };
+  if (byPosition && exactRange(root, byPosition, locator.quote.exact))
+    return { range: byPosition, strategy: 'position' };
   return null;
 }

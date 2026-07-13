@@ -707,7 +707,10 @@ describe('article-comments-sidebar-controller', () => {
     const savePromise = panel.getState().handlers.onSave('obsolete save');
     controller.setContext({ canonicalUrl: 'https://example.com/b', conversationId: 2 });
     await vi.waitFor(() => {
-      expect(controller.getLoadSnapshot()).toMatchObject({ status: 'ready', contextKey: expect.stringContaining('/b') });
+      expect(controller.getLoadSnapshot()).toMatchObject({
+        status: 'ready',
+        contextKey: expect.stringContaining('/b'),
+      });
     });
 
     addRoot.resolve({ id: 88 });

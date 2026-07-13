@@ -19,19 +19,25 @@ describe('app comment selection source', () => {
   });
 
   test('rejects missing, collapsed, outside, and excluded selections', () => {
-    const document = new JSDOM('<main><article>inside</article><aside>outside</aside><section id="panel">panel</section></main>').window.document;
+    const document = new JSDOM(
+      '<main><article>inside</article><aside>outside</aside><section id="panel">panel</section></main>',
+    ).window.document;
     const sourceRoot = document.querySelector('article')!;
     const outside = document.querySelector('aside')!.firstChild!;
     const panel = document.querySelector('#panel')!;
-    const make = (range: Range | null) => createAppCommentSelectionSource({
-      getSurfaceRoots: () => ({ sourceRoot, scrollRoot: document.querySelector('main')! }),
-      getSelection: () => range ? ({ rangeCount: 1, getRangeAt: () => range } as unknown as Selection) : null,
-      getExcludedRoots: () => [panel],
-    })();
+    const make = (range: Range | null) =>
+      createAppCommentSelectionSource({
+        getSurfaceRoots: () => ({ sourceRoot, scrollRoot: document.querySelector('main')! }),
+        getSelection: () => (range ? ({ rangeCount: 1, getRangeAt: () => range } as unknown as Selection) : null),
+        getExcludedRoots: () => [panel],
+      })();
     expect(make(null)).toEqual({ selectionText: '', locator: null });
-    const collapsed = document.createRange(); collapsed.setStart(sourceRoot.firstChild!, 1); collapsed.collapse(true);
+    const collapsed = document.createRange();
+    collapsed.setStart(sourceRoot.firstChild!, 1);
+    collapsed.collapse(true);
     expect(make(collapsed)).toEqual({ selectionText: '', locator: null });
-    const external = document.createRange(); external.selectNodeContents(outside);
+    const external = document.createRange();
+    external.selectNodeContents(outside);
     expect(make(external)).toEqual({ selectionText: '', locator: null });
   });
 });

@@ -36,10 +36,13 @@ describe('comment anchor controller', () => {
         return { ok: true as const, range: {} as Range, root: {} as Element, rootIndex: 0 };
       },
     });
-    await controller.sync([
-      { commentId: 1, locator },
-      { commentId: 2, locator: { ...locator, position: { ...locator.position, start: 2, end: 3 } } },
-    ], 2);
+    await controller.sync(
+      [
+        { commentId: 1, locator },
+        { commentId: 2, locator: { ...locator, position: { ...locator.position, start: 2, end: 3 } } },
+      ],
+      2,
+    );
     expect(order).toEqual([2, 0]);
     expect(markers.calls).toContain('replace:2:active');
     expect(markers.calls).toContain('replace:1:passive');
@@ -110,9 +113,10 @@ describe('comment anchor controller', () => {
     const controller = createCommentAnchorController({
       getRoots: () => [{} as Element],
       registry: markers.value,
-      resolve: () => new Promise((resolve) => {
-        release = () => resolve({ ok: true, range: {} as Range, root: {} as Element, rootIndex: 0 });
-      }),
+      resolve: () =>
+        new Promise((resolve) => {
+          release = () => resolve({ ok: true, range: {} as Range, root: {} as Element, rootIndex: 0 });
+        }),
     });
     const pending = controller.sync([{ commentId: 1, locator }]);
     controller.reset();

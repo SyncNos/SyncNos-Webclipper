@@ -135,11 +135,13 @@ export function buildNotionCommentsBlocks(comments: ArticleCommentDto[]): {
       const metaLine = formatCommentMetaLine({ authorName: comment.authorName, createdAt: comment.createdAt });
       if (text) {
         items += 1;
-        threadBlocks.push(commentItemBlock({
-          authorName: comment.authorName,
-          commentText: text,
-          createdAt: comment.createdAt,
-        }));
+        threadBlocks.push(
+          commentItemBlock({
+            authorName: comment.authorName,
+            commentText: text,
+            createdAt: comment.createdAt,
+          }),
+        );
       } else if (metaLine) {
         threadBlocks.push(bulletedItemBlock(metaLine));
       }
@@ -176,9 +178,11 @@ export function computeNotionCommentsDigest(comments: ArticleCommentDto[]): stri
     locatorVersion: comment.locator?.v ?? null,
     locator: comment.locator ?? null,
   }));
-  return fnv1a32(JSON.stringify({
-    v: NOTION_COMMENTS_DIGEST_VERSION,
-    graph: { orphanIds: graph.orphanIds, cycleIds: graph.cycleIds, duplicateIds: graph.duplicateIds },
-    items: normalized,
-  }));
+  return fnv1a32(
+    JSON.stringify({
+      v: NOTION_COMMENTS_DIGEST_VERSION,
+      graph: { orphanIds: graph.orphanIds, cycleIds: graph.cycleIds, duplicateIds: graph.duplicateIds },
+      items: normalized,
+    }),
+  );
 }

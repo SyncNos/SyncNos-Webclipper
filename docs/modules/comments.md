@@ -6,6 +6,11 @@
 - 允许用户在 article detail 或 inpage comments panel 中添加、回复、删除评论；根评论可保存版本化 `locator`。生产写入使用 V2，历史数据继续读取 V1；Range marker 只在评论面板生命周期内存在，不做跨页面持久高亮。
 - 当前定位是**local-first 注释层**：它是 article 会话的一部分，会在 article 同步时进入 Notion / Obsidian 的评论区段（含根评论数统计），并继续跟随 Zip v2 备份 / 导入保留。
 - React surface 采用稳定单次 mount：`panel.ts` 负责宿主、dock/resize、marker 与 lease 生命周期；可变讨论状态由 ViewModel reducer 管理，外部 host 以原子 snapshot/actions 契约接入。
+- 视觉主形态是紧凑单列 sidebar：根评论与回复连续展示，任一时刻只展开一个 reply composer；`loading | error | empty | ready | stale_error` 五态在 App 宽屏、App 窄屏和 Inpage 共用同一组件树。
+
+![Comments discussion sidebar](../assets/comments-discussion.png)
+
+> 图片是使用当前 comments tokens、层级与 marker 语义生成的确定性验收图；交互验收以自动化测试和 Chrome / Edge 手工清单为准。
 
 ## 关键文件
 
@@ -25,18 +30,18 @@
 | `src/ui/comments/comment-anchor-controller.ts` | 定位生命周期控制器 | 用 generation + AbortSignal 取消旧解析，协调 passive/active marker，并在 panel 关闭或销毁时清理 |
 | `src/ui/comments/range-scroll-controller.ts` / `range-marker-registry.ts` | Range 几何适配 | 对精确 Range 做嵌套滚动与矩形 marker；不高亮父元素 |
 
-| `src/ui/comments/comment-chatwith-config.ts` | 评论级 Chat with AI 配置（~95 行） | 创建评论级 Chat with AI 配置对象 |
+| `src/ui/comments/comment-chatwith-config.ts` | 评论级 Chat with AI 配置 | 创建评论级 Chat with AI 配置对象 |
 | `src/services/comments/domain/comment-thread-graph.ts` | 唯一评论图归一化 | 统一 roots/replies 排序，并确定性分类 orphan、cycle、duplicate；指标、列表、归档和同步派生不得自行重建父子图 |
 | `src/services/comments/domain/comment-dto.ts` | runtime DTO 真源 | 统一 background/client/App/Inpage 的评论字段与 locator 解析 |
 | `src/services/comments/domain/comment-archive.ts` | Zip 评论归档契约 | 兼容读取 V1，严格校验/写出 V2，提供 roots-first 幂等导入序列与 warnings |
-| `src/services/comments/data/storage-idb.ts` | 评论存储层（~340 行） | 负责 `article_comments` 的本地读写、查询、附着 orphan 评论、canonical URL 迁移；**不计算** `commentThreadCount`（该逻辑在 `comment-metrics.ts`） |
-| `src/services/comments/background/handlers.ts` | 评论消息路由（~120 行） | 注册 5 个评论消息路由：LIST、ADD、DELETE、ATTACH_ORPHAN、**MIGRATE_CANONICAL_URL**；ADD 操作中 `locator` 仅在根评论时保存 |
-| `src/services/comments/client/repo.ts` | UI 侧客户端仓库（~60 行） | 给 React 组件提供 add / list / delete API |
+| `src/services/comments/data/storage-idb.ts` | 评论存储层 | 负责 `article_comments` 的本地读写、查询、附着 orphan 评论、canonical URL 迁移；**不计算** `commentThreadCount`（该逻辑在 `comment-metrics.ts`） |
+| `src/services/comments/background/handlers.ts` | 评论消息路由 | 注册 5 个评论消息路由：LIST、ADD、DELETE、ATTACH_ORPHAN、**MIGRATE_CANONICAL_URL**；ADD 操作中 `locator` 仅在根评论时保存 |
+| `src/services/comments/client/repo.ts` | UI 侧客户端仓库 | 给 React 组件提供 add / list / delete API |
 | `src/ui/conversations/ArticleCommentsSection.tsx` | article detail sidebar 接入 | 只接入显式 sidebar surface roots 与共享 runtime，不保留 embedded 双轨 |
-| `src/ui/inpage/inpage-comments-panel-shadow.ts` | inpage comments 面板壳（~250 行） | 让页面内评论面板运行在独立 shadow root 中；新增 `resolveInpageCommentChatWithContext` 和 `createInpageChatWithOpenPort` |
+| `src/ui/inpage/inpage-comments-panel-shadow.ts` | inpage comments 面板壳 | 让页面内评论面板运行在独立 shadow root 中；新增 `resolveInpageCommentChatWithContext` 和 `createInpageChatWithOpenPort` |
 | `src/services/comments/sidebar/comment-sidebar-session.ts` | 原子 host session | 暴露 serializable snapshot、稳定 actions 与 identity-aware panel lease；open/close、attachment、focus 与 host 更新通过单一会话发布 |
-| `src/services/bootstrap/inpage-comments-panel-content-handlers.ts` | inpage comments content bridge（~130 行） | 负责打开 panel、解析选区、首次解析 article 后附着 orphan 评论 |
-| `src/services/integrations/chatwith/chatwith-comment-actions.ts` | 评论级 Chat with AI 载荷（~100 行） | 构建评论+上下文的 Chat with AI payload，支持单平台简化标签 |
+| `src/services/bootstrap/inpage-comments-panel-content-handlers.ts` | inpage comments content bridge | 负责打开 panel、解析选区、首次解析 article 后附着 orphan 评论 |
+| `src/services/integrations/chatwith/chatwith-comment-actions.ts` | 评论级 Chat with AI 载荷 | 构建评论+上下文的 Chat with AI payload，支持单平台简化标签 |
 | `src/services/sync/notion/notion-sync-orchestrator.ts` | Notion 同步 | 同步时加载评论并计算 `commentThreadCount`，写入 Notion "Comment Threads" 属性 |
 | `src/services/sync/obsidian/obsidian-markdown-writer.ts` | Obsidian 写入 | frontmatter 写入 `comments_root_count`，Markdown 包含 `## Comments` 章节 |
 | `src/platform/messaging/message-contracts.ts` | 消息契约 | 定义 5 个 `COMMENTS_MESSAGE_TYPES`：LIST、ADD、DELETE、ATTACH_ORPHAN、**MIGRATE_CANONICAL_URL** |
@@ -87,6 +92,17 @@
 - 不实现 Notion 参考截图中页面正文旁的悬浮评论卡片。
 - 不保存跨页面、跨刷新或脱离评论面板生命周期的永久 marker。
 - 不使用固定 sleep/retry、按文本位置比例滚动、父元素高亮、环境字段硬拒绝或 first-success root 策略。
+
+## Sidebar 视觉、surface 与已知限制（P4）
+
+- 右侧 sidebar 是当前主形态；页面正文旁悬浮评论卡片不在本 feature 范围。
+- thread 使用连续单列布局、弱 active 背景、细 reply connector、quote 左侧强调线与 hover/focus/active overflow；不复制无业务语义的通知、过滤、附件或 mention 控件。
+- 根 composer 常驻；任一时刻只挂载一个 active reply composer。root/reply draft、菜单、删除确认、focus intent 与 busy/error 状态由 reducer/controller 契约维护。
+- App 宽屏使用固定 sidebar，App 窄屏使用 full-width route，Inpage 在桌面 dock、窄屏压缩为 overlay；三者共享状态和组件树。
+- selection 在 `selectionchange` 后由 pointer/key commit 触发自动附加；reply 输入框与 panel 内选区不会覆盖 root quote，也不再提供旧的“附加选区”按钮。
+- marker 只在 panel 生命周期内存在：passive 表示可恢复位置，active 与当前 thread/显式定位同步；overlay 不拦截点击，也不修改宿主 DOM。
+- 顶层 document 不跨 iframe 捕获选区；document 查询与 document-relative path 不穿透页面 closed shadow root。open shadow 内容也不保证进入当前 root-candidate 集合。限制显示为 unavailable/missing root，不伪装支持。
+- 详细 App / Inpage 手工清单与自动化证据见 `docs/qa/comments-discussion/`。
 
 ## React 架构（P3）
 
@@ -156,9 +172,11 @@ ThreadedCommentsPanel (orchestrator)
 ### Inpage comments panel
 
 1. content entrypoint 持有页面 DOM、selection、frame 与 URL 读取，并把纯数据/候选 roots 注入 service/controller。
-2. 若 article 尚无 conversation，controller 先 ensure context，再 attach orphan；identity 变化遵循同一 transition state machine。
-3. shadow panel 复用同一 host/session、discussion reducer 和 exact marker 生命周期，不维护 embedded 变体。
-4. SPA context 变化、panel close 或 content teardown 会取消旧 generation 并幂等释放 lease、dock、resize、marker 与 React root。
+2. 仅 top frame 打开 panel；iframe 内选区属于另一个 document，不由顶层 panel 跨 frame 捕获。
+3. 若 article 尚无 conversation，controller 先 ensure context，再 attach orphan；SPA URL 在每次 open 时重新读取，identity 变化遵循同一 transition state machine。
+4. shadow panel 复用同一 host/session、discussion reducer 和 exact marker 生命周期，不维护第二套 surface 组件树。
+5. 页面 root 候选按 document-relative path、root evidence 与有限候选恢复；正文结构变化、歧义或 shadow-root 不可见时明确失败，不使用 `body` fallback、固定 sleep 或近似滚动。
+6. panel close、context 变化或 content teardown 会取消旧 generation，并幂等清理 dock、resize、marker、listeners 与 lease。
 
 ### 评论级 Chat with AI
 
@@ -203,6 +221,8 @@ ThreadedCommentsPanel (orchestrator)
 | selection / keyboard / focus / notice | `tests/unit/threaded-comments-panel-auto-attach-selection.test.ts`, `threaded-comments-panel-shortcuts.test.ts`, `threaded-comments-panel-focus-regression.test.ts` |
 | overflow / optional AI action / delete confirmation | `tests/unit/threaded-comments-panel-comment-chatwith.test.ts`, `threaded-comments-panel-delete-confirm.test.ts` |
 | stable mount / teardown | `tests/unit/comments-panel-resize-lifecycle.test.ts`, `tests/unit/comments-sidebar-responsive.test.ts`, `tests/smoke/inpage-comments-sidebar-toggle.test.ts` |
+| sidebar states / responsive layout / accessibility | `tests/unit/threaded-comments-panel-responsive-layout.test.ts`, `tests/unit/comments-accessibility.test.ts`, `tests/unit/threaded-comments-panel-shortcuts.test.ts` |
+| App / Inpage acceptance | `tests/smoke/app-shell-comments-sidebar.test.ts`, `tests/smoke/conversations-scene-narrow-comments-flow.test.ts`, `tests/smoke/inpage-comments-sidebar-toggle.test.ts` |
 
 - UI 交互测试通过 `comment-sidebar-panel-driver.ts` 挂载真实 host snapshot/actions，不恢复旧的命令式 panel setter 契约。
 - phase Gate 至少包含目标 comments 测试、`npm run compile`、`npm run build`、分层扫描和旧实现红线扫描。

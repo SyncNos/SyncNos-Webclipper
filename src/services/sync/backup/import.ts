@@ -171,7 +171,6 @@ function normalizeListDerivedKeys(record: AnyRecord): AnyRecord {
   };
 }
 
-
 export async function importBackupLegacyJsonMerge(
   doc: unknown,
   onProgress?: (p: ImportProgress) => void,
@@ -511,7 +510,9 @@ export async function importBackupZipV2Merge(
   }
 
   const stats = makeStats();
-  stats.commentWarnings.push(...preparedArticleComments.warnings.map((warning) => `${warning.code}:${warning.commentId ?? ''}`));
+  stats.commentWarnings.push(
+    ...preparedArticleComments.warnings.map((warning) => `${warning.code}:${warning.commentId ?? ''}`),
+  );
   const progress: ImportProgress = {
     done: 0,
     total:
@@ -619,7 +620,8 @@ export async function importBackupZipV2Merge(
       const id = Number(row.id);
       const baseKey = existingBaseKeyById.get(id) ?? '';
       const parentId = Number(row.parentId);
-      const parentBaseKey = Number.isSafeInteger(parentId) && parentId > 0 ? existingBaseKeyById.get(parentId) ?? '' : '';
+      const parentBaseKey =
+        Number.isSafeInteger(parentId) && parentId > 0 ? (existingBaseKeyById.get(parentId) ?? '') : '';
       const fingerprint = buildArticleCommentArchiveFingerprint(baseKey, parentBaseKey);
       if (!existingByFingerprint.has(fingerprint)) existingByFingerprint.set(fingerprint, row);
     }
@@ -628,10 +630,11 @@ export async function importBackupZipV2Merge(
     const now = Date.now();
     let tick = 0;
     for (const item of articleCommentItems) {
-      const parentId = item.parentCommentId == null ? null : incomingIdToLocalId.get(item.parentCommentId) ?? null;
-      const mappedConversationId = item.uniqueKey && uniqueToLocalId.has(item.uniqueKey)
-        ? uniqueToLocalId.get(item.uniqueKey)!
-        : localConversationIdByCanonicalUrl.get(item.canonicalUrl) ?? null;
+      const parentId = item.parentCommentId == null ? null : (incomingIdToLocalId.get(item.parentCommentId) ?? null);
+      const mappedConversationId =
+        item.uniqueKey && uniqueToLocalId.has(item.uniqueKey)
+          ? uniqueToLocalId.get(item.uniqueKey)!
+          : (localConversationIdByCanonicalUrl.get(item.canonicalUrl) ?? null);
       const existing = existingByFingerprint.get(item.fingerprint) ?? null;
 
       if (existing?.id) {
@@ -642,9 +645,12 @@ export async function importBackupZipV2Merge(
         const next = {
           ...existing,
           parentId: existing.parentId == null && parentId != null ? parentId : existing.parentId,
-          conversationId: existing.conversationId == null && mappedConversationId != null ? mappedConversationId : existing.conversationId,
+          conversationId:
+            existing.conversationId == null && mappedConversationId != null
+              ? mappedConversationId
+              : existing.conversationId,
           canonicalUrl: item.canonicalUrl,
-          authorName: incomingUpdatedAt >= existingUpdatedAt ? item.authorName ?? '' : existing.authorName,
+          authorName: incomingUpdatedAt >= existingUpdatedAt ? (item.authorName ?? '') : existing.authorName,
           quoteText: incomingUpdatedAt >= existingUpdatedAt ? item.quoteText : String(existing.quoteText || ''),
           commentText: incomingUpdatedAt >= existingUpdatedAt ? item.commentText : String(existing.commentText || ''),
           locator: incomingUpdatedAt >= existingUpdatedAt ? item.locator : existing.locator,

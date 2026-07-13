@@ -119,7 +119,7 @@ describe('Threaded comments panel delete confirmation', () => {
     expect(deleteButton(shadow).textContent).toBe('deleteButton');
 
     const commentBody = shadow.querySelector(
-      '.webclipper-inpage-comments-panel__comment > .webclipper-inpage-comments-panel__text',
+      '.webclipper-inpage-comments-panel__comment-main > .webclipper-inpage-comments-panel__text',
     ) as HTMLElement;
     commentBody.click();
     await flushReactScheduler();

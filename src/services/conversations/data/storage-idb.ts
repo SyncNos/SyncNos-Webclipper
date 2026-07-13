@@ -882,11 +882,17 @@ async function readConversationListPageItems(input: {
     const canonicalUrl = normalizeArticleUrl((item as any).url);
     const comments: any[] = [];
     if (globalThis.IDBKeyRange?.bound && Number.isSafeInteger(conversationId) && conversationId > 0) {
-      const byConversationRange = globalThis.IDBKeyRange.bound([conversationId, -Infinity] as any, [conversationId, Infinity] as any);
+      const byConversationRange = globalThis.IDBKeyRange.bound(
+        [conversationId, -Infinity] as any,
+        [conversationId, Infinity] as any,
+      );
       comments.push(...((await reqToPromise<any[]>(byConversation.getAll(byConversationRange) as any)) || []));
     }
     if (globalThis.IDBKeyRange?.bound && canonicalUrl) {
-      const byUrlRange = globalThis.IDBKeyRange.bound([canonicalUrl, -Infinity] as any, [canonicalUrl, Infinity] as any);
+      const byUrlRange = globalThis.IDBKeyRange.bound(
+        [canonicalUrl, -Infinity] as any,
+        [canonicalUrl, Infinity] as any,
+      );
       const urlRows = (await reqToPromise<any[]>(byCanonicalUrl.getAll(byUrlRange) as any)) || [];
       comments.push(...urlRows.filter((row) => row?.conversationId == null));
     }

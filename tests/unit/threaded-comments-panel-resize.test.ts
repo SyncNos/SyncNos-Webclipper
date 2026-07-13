@@ -20,7 +20,6 @@ describe('clampSidebarWidthPxForViewport', () => {
   });
 });
 
-
 describe('installSidebarResize lifecycle', () => {
   afterEach(() => {
     delete (globalThis as any).window;

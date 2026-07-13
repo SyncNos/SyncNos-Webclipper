@@ -1,4 +1,7 @@
-import type { ArticleCommentAnchorResolveReason, ArticleCommentLocator } from '@services/comments/domain/comment-locator';
+import type {
+  ArticleCommentAnchorResolveReason,
+  ArticleCommentLocator,
+} from '@services/comments/domain/comment-locator';
 import { compareCommentRootEvidence } from '@services/comments/locator/comment-root-evidence';
 import { createCommentDomTextIndex } from '@services/comments/locator/dom-text-index';
 import { resolveV1CommentAnchor } from '@services/comments/locator/resolve-v1-comment-anchor';

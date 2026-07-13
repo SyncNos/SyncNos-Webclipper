@@ -34,68 +34,66 @@ function focusNode(node: HTMLTextAreaElement | HTMLButtonElement | null | undefi
 }
 
 export function useCommentFocusIntent(input: UseCommentFocusIntentInput) {
+  const {
+    open,
+    busy,
+    focusComposerSignal,
+    quoteText,
+    focusIntent,
+    dispatch,
+    composerRef,
+    replyRefs,
+    pendingFocusRootId,
+    rootIds,
+    focusScopeKey,
+    setPendingFocusRootId,
+  } = input;
   const lastComposerSignalRef = useRef(0);
   const lastQuoteRef = useRef('');
   const menuTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   useLayoutEffect(() => {
-    const signal = Number(input.focusComposerSignal || 0);
-    if (!input.open || input.busy || !Number.isFinite(signal) || signal <= lastComposerSignalRef.current) return;
-    if (focusNode(input.composerRef.current)) lastComposerSignalRef.current = signal;
-  }, [input.busy, input.composerRef, input.focusComposerSignal, input.open]);
+    const signal = Number(focusComposerSignal || 0);
+    if (!open || busy || !Number.isFinite(signal) || signal <= lastComposerSignalRef.current) return;
+    if (focusNode(composerRef.current)) lastComposerSignalRef.current = signal;
+  }, [busy, composerRef, focusComposerSignal, open]);
 
   useLayoutEffect(() => {
-    if (!input.open) {
+    if (!open) {
       lastQuoteRef.current = '';
       return;
     }
-    const quote = String(input.quoteText || '').trim();
+    const quote = String(quoteText || '').trim();
     if (!quote) {
       lastQuoteRef.current = '';
       return;
     }
-    if (input.busy || quote === lastQuoteRef.current) return;
-    if (focusNode(input.composerRef.current)) lastQuoteRef.current = quote;
-  }, [input.busy, input.composerRef, input.open, input.quoteText]);
+    if (busy || quote === lastQuoteRef.current) return;
+    if (focusNode(composerRef.current)) lastQuoteRef.current = quote;
+  }, [busy, composerRef, open, quoteText]);
 
   useLayoutEffect(() => {
-    if (!input.open || input.busy || !input.focusIntent) return;
-    const intent = input.focusIntent;
+    if (!open || busy || !focusIntent) return;
+    const intent = focusIntent;
     let focused = false;
-    if (intent.kind === 'root') focused = focusNode(input.composerRef.current);
-    if (intent.kind === 'reply') focused = focusNode(input.replyRefs.current[intent.rootId]);
+    if (intent.kind === 'root') focused = focusNode(composerRef.current);
+    if (intent.kind === 'reply') focused = focusNode(replyRefs.current[intent.rootId]);
     if (intent.kind === 'menu') focused = focusNode(menuTriggerRefs.current[String(intent.target)]);
-    if (focused) input.dispatch({ type: 'consume-focus', epoch: intent.epoch });
-  }, [
-    input.busy,
-    input.composerRef,
-    input.dispatch,
-    input.focusIntent,
-    input.focusScopeKey,
-    input.open,
-    input.replyRefs,
-  ]);
+    if (focused) dispatch({ type: 'consume-focus', epoch: intent.epoch });
+  }, [busy, composerRef, dispatch, focusIntent, focusScopeKey, open, replyRefs]);
 
   useLayoutEffect(() => {
-    if (!input.open || input.busy) return;
+    if (!open || busy) return;
     const rootId = resolvePendingFocusTarget({
-      pendingFocusRootId: input.pendingFocusRootId,
+      pendingFocusRootId: pendingFocusRootId,
       fallbackPendingFocusRootId: null,
       hasFocusWithinPanel: true,
-      existingRootIds: input.rootIds,
+      existingRootIds: rootIds,
     });
     if (rootId == null) return;
-    if (!focusNode(input.replyRefs.current[rootId])) return;
-    input.setPendingFocusRootId?.(null);
-  }, [
-    input.busy,
-    input.focusScopeKey,
-    input.open,
-    input.pendingFocusRootId,
-    input.replyRefs,
-    input.rootIds,
-    input.setPendingFocusRootId,
-  ]);
+    if (!focusNode(replyRefs.current[rootId])) return;
+    setPendingFocusRootId?.(null);
+  }, [busy, focusScopeKey, open, pendingFocusRootId, replyRefs, rootIds, setPendingFocusRootId]);
 
   const registerMenuTrigger = (target: MenuTarget): RefCallback<HTMLButtonElement> => {
     const key = String(target);

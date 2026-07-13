@@ -10,7 +10,9 @@ function root(html: string): Element {
 
 describe('captureCommentRootSnapshot', () => {
   test('captures stable non-sensitive evidence only', () => {
-    const value = captureCommentRootSnapshot(root('<article role="main" data-testid="story" data-secret="token"><b>Hello</b><br>world</article>'));
+    const value = captureCommentRootSnapshot(
+      root('<article role="main" data-testid="story" data-secret="token"><b>Hello</b><br>world</article>'),
+    );
     expect(value).toEqual({
       textModelVersion: 'dom-text-v2',
       textLength: 11,

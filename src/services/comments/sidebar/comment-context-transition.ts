@@ -1,22 +1,20 @@
 import { normalizePositiveInt } from '@services/shared/numbers';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 
-export type CommentContextIdentityInput = {
-  canonicalUrl?: string | null;
-  conversationId?: number | null;
-} | null | undefined;
+export type CommentContextIdentityInput =
+  | {
+      canonicalUrl?: string | null;
+      conversationId?: number | null;
+    }
+  | null
+  | undefined;
 
 export type CommentContextIdentity = {
   canonicalUrl: string;
   conversationId: number | null;
 };
 
-export type CommentContextTransitionKind =
-  | 'same'
-  | 'attach-orphan'
-  | 'url-migrate'
-  | 'conversation-change'
-  | 'invalid';
+export type CommentContextTransitionKind = 'same' | 'attach-orphan' | 'url-migrate' | 'conversation-change' | 'invalid';
 
 export type CommentContextTransition = {
   kind: CommentContextTransitionKind;
@@ -52,11 +50,7 @@ export function classifyCommentContextTransition(
   if (previous.canonicalUrl === next.canonicalUrl && previous.conversationId === next.conversationId) {
     return { kind: 'same', previous, next };
   }
-  if (
-    previous.canonicalUrl === next.canonicalUrl &&
-    previous.conversationId == null &&
-    next.conversationId != null
-  ) {
+  if (previous.canonicalUrl === next.canonicalUrl && previous.conversationId == null && next.conversationId != null) {
     return { kind: 'attach-orphan', previous, next };
   }
   if (

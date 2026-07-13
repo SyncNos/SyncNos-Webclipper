@@ -95,7 +95,9 @@ export function ConversationDetailPane({
       messagesRootRef.current = node;
       setOutlineScrollRoot(findRouteScrollRoot(node));
       try {
-        onCommentsLocatorRootsChange?.(node ? { sourceRoot: node, scrollRoot: findRouteScrollRoot(node) || node } : null);
+        onCommentsLocatorRootsChange?.(
+          node ? { sourceRoot: node, scrollRoot: findRouteScrollRoot(node) || node } : null,
+        );
       } catch (_e) {
         // ignore
       }

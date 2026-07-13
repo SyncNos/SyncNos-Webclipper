@@ -35,7 +35,13 @@ export type ArticleCommentsArchiveDocument = {
 };
 
 export type CommentArchiveSerializationWarning = {
-  code: 'invalid_row' | 'invalid_locator' | 'duplicate_id' | 'orphan_promoted' | 'cycle_normalized' | 'cross_context_promoted';
+  code:
+    | 'invalid_row'
+    | 'invalid_locator'
+    | 'duplicate_id'
+    | 'orphan_promoted'
+    | 'cycle_normalized'
+    | 'cross_context_promoted';
   commentId?: number;
 };
 
@@ -45,11 +51,7 @@ export type ArticleCommentArchiveSerialization = {
 };
 
 export type CommentArchiveWarning = {
-  code:
-    | 'v1_missing_author'
-    | 'v1_missing_locator'
-    | 'orphan_parent'
-    | 'duplicate_comment_id';
+  code: 'v1_missing_author' | 'v1_missing_locator' | 'orphan_parent' | 'duplicate_comment_id';
   commentId?: number;
 };
 
@@ -82,14 +84,16 @@ function fail(error: string, warnings: CommentArchiveWarning[]): ArticleCommentA
 
 export function validateArticleCommentArchiveDocument(value: unknown): ArticleCommentArchiveValidation {
   const warnings: CommentArchiveWarning[] = [];
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return fail('Article comments index is not an object', warnings);
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return fail('Article comments index is not an object', warnings);
   const input = value as Record<string, unknown>;
   const schemaVersion = Number(input.schemaVersion);
   if (schemaVersion !== ARTICLE_COMMENT_ARCHIVE_SCHEMA_V1 && schemaVersion !== ARTICLE_COMMENT_ARCHIVE_SCHEMA_V2) {
     return fail('Unsupported article comments schemaVersion', warnings);
   }
   if (!Array.isArray(input.comments)) return fail('Missing article comments list', warnings);
-  if (input.comments.length > COMMENT_ARCHIVE_BUDGET.items) return fail('Article comments list exceeds budget', warnings);
+  if (input.comments.length > COMMENT_ARCHIVE_BUDGET.items)
+    return fail('Article comments list exceeds budget', warnings);
 
   const comments: ArticleCommentArchiveItem[] = [];
   const byId = new Map<number, ArticleCommentArchiveItem>();
@@ -196,7 +200,6 @@ export function validateArticleCommentArchiveDocument(value: unknown): ArticleCo
   };
 }
 
-
 function archiveItemFromDto(
   dto: ArticleCommentDto,
   parentCommentId: number | null,
@@ -205,7 +208,7 @@ function archiveItemFromDto(
   return {
     commentId: dto.id,
     parentCommentId,
-    uniqueKey: dto.conversationId == null ? '' : uniqueKeyByConversationId.get(dto.conversationId) ?? '',
+    uniqueKey: dto.conversationId == null ? '' : (uniqueKeyByConversationId.get(dto.conversationId) ?? ''),
     canonicalUrl: dto.canonicalUrl,
     authorName: dto.authorName ?? null,
     quoteText: dto.quoteText,
@@ -272,7 +275,9 @@ export type PreparedArticleCommentArchiveImport = {
   warnings: CommentArchiveWarning[];
 };
 
-export function buildArticleCommentArchiveBaseKey(input: Pick<ArticleCommentArchiveItem, 'canonicalUrl' | 'createdAt' | 'quoteText' | 'commentText'>): string {
+export function buildArticleCommentArchiveBaseKey(
+  input: Pick<ArticleCommentArchiveItem, 'canonicalUrl' | 'createdAt' | 'quoteText' | 'commentText'>,
+): string {
   return [input.canonicalUrl.trim(), String(input.createdAt), input.quoteText, input.commentText].join('||');
 }
 
@@ -289,7 +294,7 @@ export function prepareArticleCommentArchiveImport(value: unknown): PreparedArti
   const repliesByRoot = new Map<number, ArticleCommentArchiveItem[]>();
 
   for (const item of validation.document.comments) {
-    const parent = item.parentCommentId == null ? null : byId.get(item.parentCommentId) ?? null;
+    const parent = item.parentCommentId == null ? null : (byId.get(item.parentCommentId) ?? null);
     if (!parent) {
       roots.push({ ...item, parentCommentId: null });
       continue;
@@ -303,7 +308,12 @@ export function prepareArticleCommentArchiveImport(value: unknown): PreparedArti
   const items: PreparedArticleCommentArchiveItem[] = [];
   for (const root of roots) {
     const baseKey = buildArticleCommentArchiveBaseKey(root);
-    items.push({ ...root, baseKey, parentBaseKey: '', fingerprint: buildArticleCommentArchiveFingerprint(baseKey, '') });
+    items.push({
+      ...root,
+      baseKey,
+      parentBaseKey: '',
+      fingerprint: buildArticleCommentArchiveFingerprint(baseKey, ''),
+    });
     const replies = (repliesByRoot.get(root.commentId) ?? []).sort(
       (a, b) => a.createdAt - b.createdAt || a.commentId - b.commentId,
     );

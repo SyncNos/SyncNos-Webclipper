@@ -18,10 +18,18 @@ describe('comment root evidence', () => {
   test('rejects hash, tag, role, and data evidence mismatches', () => {
     const original = root('<article role="main" data-testid="story">Hello</article>');
     const evidence = captureCommentRootSnapshot(original)!;
-    expect(compareCommentRootEvidence(root('<article role="main" data-testid="story">Other</article>'), evidence)).toBe('mismatch');
-    expect(compareCommentRootEvidence(root('<section role="main" data-testid="story">Hello</section>'), evidence)).toBe('mismatch');
-    expect(compareCommentRootEvidence(root('<article role="note" data-testid="story">Hello</article>'), evidence)).toBe('mismatch');
-    expect(compareCommentRootEvidence(root('<article role="main" data-testid="other">Hello</article>'), evidence)).toBe('mismatch');
+    expect(compareCommentRootEvidence(root('<article role="main" data-testid="story">Other</article>'), evidence)).toBe(
+      'mismatch',
+    );
+    expect(compareCommentRootEvidence(root('<section role="main" data-testid="story">Hello</section>'), evidence)).toBe(
+      'mismatch',
+    );
+    expect(compareCommentRootEvidence(root('<article role="note" data-testid="story">Hello</article>'), evidence)).toBe(
+      'mismatch',
+    );
+    expect(compareCommentRootEvidence(root('<article role="main" data-testid="other">Hello</article>'), evidence)).toBe(
+      'mismatch',
+    );
   });
 
   test('supports explicit length tolerance but never ignores hash mismatch', () => {

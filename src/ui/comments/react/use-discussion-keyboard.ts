@@ -9,11 +9,7 @@ export function isDiscussionSubmitShortcut(event: {
   isComposing?: boolean;
 }): boolean {
   return (
-    !event.isComposing &&
-    event.key === 'Enter' &&
-    (event.metaKey || event.ctrlKey) &&
-    !event.shiftKey &&
-    !event.altKey
+    !event.isComposing && event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
   );
 }
 

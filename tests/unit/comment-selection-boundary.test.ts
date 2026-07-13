@@ -10,7 +10,9 @@ function node(doc: Document, parent?: FakeNode, tree?: Node): FakeNode {
     ownerDocument: doc,
     parent,
     tree,
-    getRootNode() { return this.tree || doc; },
+    getRootNode() {
+      return this.tree || doc;
+    },
   } as unknown as FakeNode;
 }
 
@@ -18,8 +20,12 @@ function element(doc: Document, members: Node[], tree?: Node): Element {
   return {
     nodeType: 1,
     ownerDocument: doc,
-    contains(candidate: Node) { return candidate === this || members.includes(candidate); },
-    getRootNode() { return tree || doc; },
+    contains(candidate: Node) {
+      return candidate === this || members.includes(candidate);
+    },
+    getRootNode() {
+      return tree || doc;
+    },
   } as unknown as Element;
 }
 
@@ -46,7 +52,10 @@ describe('validateCommentSelectionBoundary', () => {
   ])('rejects rangeCount=%s', (rangeCount, reason) => {
     const doc = {} as Document;
     const root = element(doc, []);
-    expect(validateCommentSelectionBoundary({ selection: selection({}, rangeCount), root })).toEqual({ ok: false, reason });
+    expect(validateCommentSelectionBoundary({ selection: selection({}, rangeCount), root })).toEqual({
+      ok: false,
+      reason,
+    });
   });
 
   test('rejects collapsed, cross-document, cross-tree, outside, and excluded boundaries', () => {
@@ -61,10 +70,36 @@ describe('validateCommentSelectionBoundary', () => {
     const root = element(doc, [inside, crossDoc, crossTree], tree);
     const excluded = element(doc, [inside], tree);
 
-    expect(validateCommentSelectionBoundary({ selection: selection({ startContainer: inside, endContainer: inside, collapsed: true }), root })).toEqual({ ok: false, reason: 'collapsed' });
-    expect(validateCommentSelectionBoundary({ selection: selection({ startContainer: inside, endContainer: crossDoc, collapsed: false }), root })).toEqual({ ok: false, reason: 'owner_document_mismatch' });
-    expect(validateCommentSelectionBoundary({ selection: selection({ startContainer: inside, endContainer: crossTree, collapsed: false }), root })).toEqual({ ok: false, reason: 'dom_tree_mismatch' });
-    expect(validateCommentSelectionBoundary({ selection: selection({ startContainer: inside, endContainer: outside, collapsed: false }), root })).toEqual({ ok: false, reason: 'outside_root' });
-    expect(validateCommentSelectionBoundary({ selection: selection({ startContainer: inside, endContainer: inside, collapsed: false }), root, excludedRoots: [excluded] })).toEqual({ ok: false, reason: 'excluded_root' });
+    expect(
+      validateCommentSelectionBoundary({
+        selection: selection({ startContainer: inside, endContainer: inside, collapsed: true }),
+        root,
+      }),
+    ).toEqual({ ok: false, reason: 'collapsed' });
+    expect(
+      validateCommentSelectionBoundary({
+        selection: selection({ startContainer: inside, endContainer: crossDoc, collapsed: false }),
+        root,
+      }),
+    ).toEqual({ ok: false, reason: 'owner_document_mismatch' });
+    expect(
+      validateCommentSelectionBoundary({
+        selection: selection({ startContainer: inside, endContainer: crossTree, collapsed: false }),
+        root,
+      }),
+    ).toEqual({ ok: false, reason: 'dom_tree_mismatch' });
+    expect(
+      validateCommentSelectionBoundary({
+        selection: selection({ startContainer: inside, endContainer: outside, collapsed: false }),
+        root,
+      }),
+    ).toEqual({ ok: false, reason: 'outside_root' });
+    expect(
+      validateCommentSelectionBoundary({
+        selection: selection({ startContainer: inside, endContainer: inside, collapsed: false }),
+        root,
+        excludedRoots: [excluded],
+      }),
+    ).toEqual({ ok: false, reason: 'excluded_root' });
   });
 });

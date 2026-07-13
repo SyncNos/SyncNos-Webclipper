@@ -13,7 +13,7 @@ export function createAppCommentSelectionSource(input: {
   getSelection?: () => Selection | null;
   getExcludedRoots?: () => readonly Element[];
 }) {
-  return () : AppCommentSelectionPayload => {
+  return (): AppCommentSelectionPayload => {
     const roots = input.getSurfaceRoots();
     if (!roots) return { selectionText: '', locator: null };
     const selection = input.getSelection ? input.getSelection() : roots.sourceRoot.ownerDocument.getSelection();

@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { JSDOM } from 'jsdom';
 
-import { getInpageCommentsPanelApi } from '../../src/ui/inpage/inpage-comments-panel-shadow';
+import {
+  createInpageCommentsDomSource,
+  getInpageCommentsPanelApi,
+} from '../../src/ui/inpage/inpage-comments-panel-shadow';
 import { createCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
@@ -28,6 +31,23 @@ function setupDom() {
     configurable: true,
     value: true,
   });
+  Object.defineProperty(globalThis, 'innerWidth', { configurable: true, writable: true, value: 1280 });
+  Object.defineProperty(globalThis, 'addEventListener', {
+    configurable: true,
+    value: dom.window.addEventListener.bind(dom.window),
+  });
+  Object.defineProperty(globalThis, 'removeEventListener', {
+    configurable: true,
+    value: dom.window.removeEventListener.bind(dom.window),
+  });
+  Object.defineProperty(globalThis, 'requestAnimationFrame', {
+    configurable: true,
+    value: dom.window.requestAnimationFrame.bind(dom.window),
+  });
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', {
+    configurable: true,
+    value: dom.window.cancelAnimationFrame.bind(dom.window),
+  });
 
   (dom.window.HTMLElement.prototype as any).attachEvent ||= () => {};
   (dom.window.HTMLElement.prototype as any).detachEvent ||= () => {};
@@ -42,6 +62,11 @@ function cleanupDom() {
   delete (globalThis as any).getSelection;
   delete (globalThis as any).getComputedStyle;
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+  delete (globalThis as any).innerWidth;
+  delete (globalThis as any).addEventListener;
+  delete (globalThis as any).removeEventListener;
+  delete (globalThis as any).requestAnimationFrame;
+  delete (globalThis as any).cancelAnimationFrame;
 }
 
 async function flushReactScheduler() {
@@ -193,5 +218,90 @@ describe('inpage comments sidebar toggle', () => {
 
     selectionSpy.mockRestore();
     api.dispose();
+  });
+
+  it('reuses one panel across SPA routes and keeps dock cleanup responsive to viewport changes', async () => {
+    const api = createCommentSidebarPanelTestDriver(getInpageCommentsPanelApi());
+    const domSource = createInpageCommentsDomSource({ window, document });
+
+    await act(async () => {
+      api.open({ focusComposer: false });
+      await flushReactScheduler();
+    });
+
+    const firstHost = document.getElementById('webclipper-inpage-comments-panel') as HTMLElement | null;
+    expect(firstHost).toBeTruthy();
+    expect(document.documentElement.getAttribute('data-webclipper-comments-dock')).toBe('1');
+    expect(domSource.readPageUrl()).toBe('https://example.com/');
+
+    window.history.pushState({}, '', '/article/next?view=discussion');
+    await act(async () => {
+      api.open({ focusComposer: false });
+      await flushReactScheduler();
+    });
+
+    expect(domSource.readPageUrl()).toBe('https://example.com/article/next?view=discussion');
+    expect(document.getElementById('webclipper-inpage-comments-panel')).toBe(firstHost);
+    expect(document.querySelectorAll('#webclipper-inpage-comments-panel')).toHaveLength(1);
+
+    (globalThis as any).innerWidth = 640;
+    await act(async () => {
+      window.dispatchEvent(new window.Event('resize'));
+      await flushReactScheduler();
+    });
+    expect(document.documentElement.hasAttribute('data-webclipper-comments-dock')).toBe(false);
+
+    (globalThis as any).innerWidth = 1280;
+    await act(async () => {
+      window.dispatchEvent(new window.Event('resize'));
+      await flushReactScheduler();
+    });
+    expect(document.documentElement.getAttribute('data-webclipper-comments-dock')).toBe('1');
+
+    const collapse = firstHost?.shadowRoot?.querySelector(
+      '.webclipper-inpage-comments-panel__collapse',
+    ) as HTMLButtonElement | null;
+    act(() => collapse?.click());
+    expect(document.documentElement.hasAttribute('data-webclipper-comments-dock')).toBe(false);
+
+    await act(async () => {
+      api.open({ focusComposer: false });
+      await flushReactScheduler();
+    });
+    expect(document.documentElement.getAttribute('data-webclipper-comments-dock')).toBe('1');
+
+    api.dispose();
+  });
+
+  it('captures a multi-line page range with a V2 locator and rejects iframe execution', () => {
+    document.body.innerHTML = '<main><article id="story">Line one\nLine two</article></main>';
+    const story = document.getElementById('story')!;
+    const text = story.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, text.textContent?.length || 0);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const topFrameSource = createInpageCommentsDomSource({ window, document });
+    const captured = topFrameSource.resolveComposerSelection();
+    expect(topFrameSource.isTopFrame()).toBe(true);
+    expect(captured.selectionText).toBe('Line one\nLine two');
+    expect(captured.locator).toMatchObject({
+      v: 2,
+      textModelVersion: 'dom-text-v2',
+      surfaceHint: 'inpage',
+      quote: { exact: 'Line one\nLine two' },
+    });
+
+    const frameWindow = {
+      self: {},
+      top: {},
+      location: { href: 'https://example.com/frame' },
+    } as unknown as Window;
+    const frameSource = createInpageCommentsDomSource({ window: frameWindow, document });
+    expect(frameSource.isTopFrame()).toBe(false);
+    expect(frameSource.readPageUrl()).toBe('https://example.com/frame');
   });
 });

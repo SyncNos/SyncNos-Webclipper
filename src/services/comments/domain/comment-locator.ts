@@ -86,12 +86,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-export const COMMENT_LOCATOR_BUDGET = Object.freeze({ exact: 20000, context: 512, pathSegments: 128, attributes: 12, attributeLength: 256 });
+export const COMMENT_LOCATOR_BUDGET = Object.freeze({
+  exact: 20000,
+  context: 512,
+  pathSegments: 128,
+  attributes: 12,
+  attributeLength: 256,
+});
 
 function parseQuote(value: unknown): ArticleCommentTextQuoteSelector | null {
-  if (!isRecord(value) || value.type !== 'TextQuoteSelector' || typeof value.exact !== 'string' || !value.exact || value.exact.length > COMMENT_LOCATOR_BUDGET.exact) return null;
-  if (value.prefix != null && (typeof value.prefix !== 'string' || value.prefix.length > COMMENT_LOCATOR_BUDGET.context)) return null;
-  if (value.suffix != null && (typeof value.suffix !== 'string' || value.suffix.length > COMMENT_LOCATOR_BUDGET.context)) return null;
+  if (
+    !isRecord(value) ||
+    value.type !== 'TextQuoteSelector' ||
+    typeof value.exact !== 'string' ||
+    !value.exact ||
+    value.exact.length > COMMENT_LOCATOR_BUDGET.exact
+  )
+    return null;
+  if (
+    value.prefix != null &&
+    (typeof value.prefix !== 'string' || value.prefix.length > COMMENT_LOCATOR_BUDGET.context)
+  )
+    return null;
+  if (
+    value.suffix != null &&
+    (typeof value.suffix !== 'string' || value.suffix.length > COMMENT_LOCATOR_BUDGET.context)
+  )
+    return null;
   return {
     type: 'TextQuoteSelector',
     exact: value.exact,
@@ -132,10 +153,19 @@ function parseBoundaryPath(value: unknown): ArticleCommentBoundaryPath | null {
 function parseRootEvidence(value: unknown): ArticleCommentRootEvidence | null {
   if (!isRecord(value) || value.textModelVersion !== 'dom-text-v2') return null;
   const textLength = Number(value.textLength);
-  if (!Number.isSafeInteger(textLength) || textLength < 0 || typeof value.textHash !== 'string' || !value.textHash) return null;
+  if (!Number.isSafeInteger(textLength) || textLength < 0 || typeof value.textHash !== 'string' || !value.textHash)
+    return null;
   const attrEntries = isRecord(value.dataAttributes) ? Object.entries(value.dataAttributes) : [];
   if (attrEntries.length > COMMENT_LOCATOR_BUDGET.attributes) return null;
-  if (attrEntries.some(([key, item]) => key.length > COMMENT_LOCATOR_BUDGET.attributeLength || typeof item !== 'string' || item.length > COMMENT_LOCATOR_BUDGET.attributeLength)) return null;
+  if (
+    attrEntries.some(
+      ([key, item]) =>
+        key.length > COMMENT_LOCATOR_BUDGET.attributeLength ||
+        typeof item !== 'string' ||
+        item.length > COMMENT_LOCATOR_BUDGET.attributeLength,
+    )
+  )
+    return null;
   const attrs = attrEntries.length ? Object.fromEntries(attrEntries) : undefined;
   return {
     textModelVersion: 'dom-text-v2',

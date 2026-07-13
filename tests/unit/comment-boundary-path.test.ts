@@ -36,15 +36,39 @@ describe('comment boundary paths', () => {
     const { main, article } = fixture();
     const expected = { textModelVersion: 'dom-text-v2', textLength: 11, textHash: 'hash' } as const;
     let validated: Element | null = null;
-    const reject = (candidate: Element) => { validated = candidate; return false; };
-    expect(restoreCommentRootFromDocumentPath({ documentRoot: main, path: [0], expectedEvidence: expected, validateEvidence: reject })).toBeNull();
+    const reject = (candidate: Element) => {
+      validated = candidate;
+      return false;
+    };
+    expect(
+      restoreCommentRootFromDocumentPath({
+        documentRoot: main,
+        path: [0],
+        expectedEvidence: expected,
+        validateEvidence: reject,
+      }),
+    ).toBeNull();
     expect(validated).toBe(article);
-    expect(restoreCommentRootFromDocumentPath({ documentRoot: main, path: [0], expectedEvidence: expected, validateEvidence: () => true })).toBe(article);
+    expect(
+      restoreCommentRootFromDocumentPath({
+        documentRoot: main,
+        path: [0],
+        expectedEvidence: expected,
+        validateEvidence: () => true,
+      }),
+    ).toBe(article);
   });
 
   test('rejects invalid and over-budget paths', () => {
     const { main } = fixture();
-    expect(restoreCommentRootFromDocumentPath({ documentRoot: main, path: [99], expectedEvidence: { textModelVersion: 'dom-text-v2', textLength: 0, textHash: 'x' }, validateEvidence: () => true })).toBeNull();
+    expect(
+      restoreCommentRootFromDocumentPath({
+        documentRoot: main,
+        path: [99],
+        expectedEvidence: { textModelVersion: 'dom-text-v2', textLength: 0, textHash: 'x' },
+        validateEvidence: () => true,
+      }),
+    ).toBeNull();
     expect(encodeCommentNodePath(main, {} as Node)).toBeNull();
   });
 });

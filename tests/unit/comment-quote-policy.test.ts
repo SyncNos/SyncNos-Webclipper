@@ -9,7 +9,9 @@ import {
 describe('comment quote policy', () => {
   test('canonical quote keeps full text, line breaks, and zero-width characters', () => {
     const input = `alpha\r\nbeta\u200d${'x'.repeat(COMMENT_DISPLAY_QUOTE_GRAPHEME_LIMIT + 20)}`;
-    expect(toCanonicalCommentQuote(input)).toBe(`alpha\nbeta\u200d${'x'.repeat(COMMENT_DISPLAY_QUOTE_GRAPHEME_LIMIT + 20)}`);
+    expect(toCanonicalCommentQuote(input)).toBe(
+      `alpha\nbeta\u200d${'x'.repeat(COMMENT_DISPLAY_QUOTE_GRAPHEME_LIMIT + 20)}`,
+    );
   });
 
   test('display quote truncates by grapheme without changing canonical quote', () => {

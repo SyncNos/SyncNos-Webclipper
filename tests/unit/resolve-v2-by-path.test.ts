@@ -32,7 +32,14 @@ describe('resolveV2ByPathOrPosition', () => {
 
   test('rejects evidence or exact mismatches without block fallback', () => {
     const { root, locator } = fixture();
-    expect(resolveV2ByPathOrPosition({ root, locator: { ...locator, rootEvidence: { ...locator.rootEvidence, textHash: 'wrong' } } })).toBeNull();
-    expect(resolveV2ByPathOrPosition({ root, locator: { ...locator, quote: { ...locator.quote, exact: 'World' } } })).toBeNull();
+    expect(
+      resolveV2ByPathOrPosition({
+        root,
+        locator: { ...locator, rootEvidence: { ...locator.rootEvidence, textHash: 'wrong' } },
+      }),
+    ).toBeNull();
+    expect(
+      resolveV2ByPathOrPosition({ root, locator: { ...locator, quote: { ...locator.quote, exact: 'World' } } }),
+    ).toBeNull();
   });
 });

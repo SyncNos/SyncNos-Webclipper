@@ -26,9 +26,7 @@ export function captureCommentAnchor(input: {
 
   const prefix = index.text.slice(Math.max(0, offsets.start - CONTEXT_LENGTH), offsets.start);
   const suffix = index.text.slice(offsets.end, offsets.end + CONTEXT_LENGTH);
-  const documentRelativeRootPath = input.documentRoot
-    ? encodeCommentNodePath(input.documentRoot, root)
-    : null;
+  const documentRelativeRootPath = input.documentRoot ? encodeCommentNodePath(input.documentRoot, root) : null;
 
   return {
     v: 2,

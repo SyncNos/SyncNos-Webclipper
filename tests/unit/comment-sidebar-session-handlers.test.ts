@@ -58,18 +58,20 @@ async function flushReactScheduler() {
 
 function seedOneRootComment(session: ReturnType<typeof createCommentSidebarSession>) {
   session.updateHost({
-    comments: [{
-      id: 1,
-      parentId: null,
-      conversationId: 21,
-      canonicalUrl: 'https://example.com/article',
-      authorName: 'You',
-      createdAt: 1,
-      updatedAt: 1,
-      quoteText: 'Quote',
-      commentText: 'Root',
-      locator: null,
-    }],
+    comments: [
+      {
+        id: 1,
+        parentId: null,
+        conversationId: 21,
+        canonicalUrl: 'https://example.com/article',
+        authorName: 'You',
+        createdAt: 1,
+        updatedAt: 1,
+        quoteText: 'Quote',
+        commentText: 'Root',
+        locator: null,
+      },
+    ],
   });
 }
 
