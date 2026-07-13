@@ -6,7 +6,7 @@ import { useNarrowListDetailCommentsRoute } from '@ui/shared/hooks/useNarrowList
 import type { ArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
 
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
-import type { ThreadedCommentsPanelChatWithAction, ThreadedCommentsPanelCommentChatWithConfig } from '@ui/comments';
+import type { CommentLocatorSurfaceRoots, ThreadedCommentsPanelChatWithAction, ThreadedCommentsPanelCommentChatWithConfig } from '@ui/comments';
 import { ConversationDetailPane } from '@ui/conversations/ConversationDetailPane';
 import { ConversationListPane } from '@ui/conversations/ConversationListPane';
 import { ArticleCommentsSection } from '@ui/conversations/ArticleCommentsSection';
@@ -33,6 +33,8 @@ export type ConversationsSceneProps = {
   onOpenSettingsSection?: (section: string) => void;
   onOpenCommentsExternally?: () => void;
   commentsSidebarRuntime?: ArticleCommentsSidebarRuntime;
+  getCommentsLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
+  onCommentsLocatorSurfaceRootsChange?: (roots: CommentLocatorSurfaceRoots | null) => void;
   narrowCommentsOpenSource?: 'popup' | 'app';
   resolveCommentsSidebarChatWithActions?: () => Promise<ThreadedCommentsPanelChatWithAction[]>;
   resolveCommentsSidebarSingleChatWithLabel?: () => Promise<string | null>;
@@ -51,6 +53,8 @@ export function ConversationsScene({
   onOpenSettingsSection,
   onOpenCommentsExternally,
   commentsSidebarRuntime,
+  getCommentsLocatorSurfaceRoots,
+  onCommentsLocatorSurfaceRootsChange,
   narrowCommentsOpenSource = 'popup',
   resolveCommentsSidebarChatWithActions,
   resolveCommentsSidebarSingleChatWithLabel,
@@ -172,8 +176,8 @@ export function ConversationsScene({
                   }
                 : undefined
             }
-            onCommentsLocatorRootChange={(root) => {
-              commentsSidebarRuntime?.setLocatorRoot(root);
+            onCommentsLocatorRootsChange={(roots) => {
+              onCommentsLocatorSurfaceRootsChange?.(roots);
             }}
           />
         </div>
@@ -186,7 +190,7 @@ export function ConversationsScene({
           <ArticleCommentsSection
             sidebarSession={commentsSidebarRuntime.sidebarSession}
             containerClassName="tw-h-full tw-min-h-0"
-            getLocatorRoot={commentsSidebarRuntime.getLocatorRoot}
+            getLocatorSurfaceRoots={() => getCommentsLocatorSurfaceRoots?.() || null}
             resolveChatWithActions={resolveCommentsSidebarChatWithActions}
             resolveChatWithSingleActionLabel={resolveCommentsSidebarSingleChatWithLabel}
             commentChatWith={commentsSidebarCommentChatWith}

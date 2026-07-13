@@ -1,4 +1,4 @@
-import type { CommentSaveResult, ThreadedCommentItem, ThreadedCommentsPanelCommentChatWithConfig } from '../types';
+import type { CommentSaveResult, ThreadedCommentItem, ThreadedCommentsPanelCommentChatWithConfig, CommentLocatorSurfaceRoots } from '../types';
 
 export type ThreadedCommentsPanelComposerSelectionRequest = {
   trigger: 'button' | 'auto';
@@ -34,7 +34,7 @@ export type ThreadedCommentsPanelSnapshot = {
 };
 
 export type ThreadedCommentsPanelProps = {
-  variant: 'embedded' | 'sidebar';
+  variant: 'sidebar';
   fullWidth?: boolean;
   surfaceBg?: string;
   showHeader: boolean;
@@ -46,6 +46,7 @@ export type ThreadedCommentsPanelProps = {
   onHeaderChatWithRootChange?: (el: HTMLDivElement | null) => void;
   setPendingFocusRootId?: (rootId: number | null) => void;
   locateThreadRoot?: (rootId: number) => Promise<boolean>;
+  getLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
   onLocateFailed?: () => void;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
   showNotice?: (message: string) => void;

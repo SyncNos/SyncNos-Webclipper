@@ -42,8 +42,6 @@ const getSessionSnapshot = vi.fn(() => ({
   hasHandlers: true,
   lastOpenSource: null,
 }));
-const setLocatorRoot = vi.fn();
-const getLocatorRoot = vi.fn(() => null);
 
 vi.mock('../../src/ui/conversations/pending-open', () => ({
   consumePendingOpenConversation: () => consumePendingOpenConversation(),
@@ -203,9 +201,6 @@ describe('ConversationsScene narrow comments flow', () => {
       hasHandlers: true,
       lastOpenSource: null,
     });
-    setLocatorRoot.mockReset();
-    getLocatorRoot.mockReset();
-    getLocatorRoot.mockReturnValue(null);
     currentSidebarCloseListener = null;
     root = ReactDOM.createRoot(document.getElementById('root')!);
   });
@@ -232,8 +227,6 @@ describe('ConversationsScene narrow comments flow', () => {
         setContext,
       } as any,
       sidebarSnapshot: {} as any,
-      setLocatorRoot,
-      getLocatorRoot,
       subscribeSidebarClose,
     };
 
@@ -328,8 +321,6 @@ describe('ConversationsScene narrow comments flow', () => {
         setContext,
       } as any,
       sidebarSnapshot: {} as any,
-      setLocatorRoot,
-      getLocatorRoot,
       subscribeSidebarClose,
     };
 

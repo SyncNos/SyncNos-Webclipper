@@ -16,7 +16,7 @@ type ThreadedCommentsPanelHandlers = Parameters<ThreadedCommentsPanelApi['setHan
 type ThreadedCommentsPanelReactBridgeProps = {
   store: ThreadedCommentsPanelStore;
   handlersRef: { current: ThreadedCommentsPanelHandlers };
-  variant: 'embedded' | 'sidebar';
+  variant: 'sidebar';
   fullWidth: boolean;
   surfaceBg?: string;
   showHeader: boolean;
@@ -84,10 +84,10 @@ function isEditableTarget(target: unknown): boolean {
 }
 
 function pickLocatorRoot(options: MountOptions): Element | null {
-  const getter = options.getLocatorRoot;
+  const getter = options.getLocatorSurfaceRoots;
   if (typeof getter !== 'function') return null;
   try {
-    return getter() || null;
+    return getter()?.sourceRoot || null;
   } catch (_e) {
     return null;
   }
@@ -99,7 +99,7 @@ export function mountThreadedCommentsPanel(
 ): { el: HTMLElement; api: ThreadedCommentsPanelApi; cleanup: () => void } {
   const el = document.createElement('webclipper-threaded-comments-panel') as HTMLElement;
   const isOverlay = options.overlay === true;
-  const variant = options.variant === 'sidebar' ? 'sidebar' : 'embedded';
+  const variant = 'sidebar' as const;
   const isFullWidth = options.fullWidth === true;
   const showHeader = options.showHeader !== false;
   const showCollapseButton = options.showCollapseButton ?? options.overlay === true;

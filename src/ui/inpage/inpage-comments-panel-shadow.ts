@@ -6,6 +6,9 @@ import {
   type ThreadedCommentsPanelCommentChatWithContext,
 } from '@ui/comments';
 import type { CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
+import { createInpageCommentRootSource } from '@ui/comments/inpage-comment-root-source';
+import { toDisplayCommentQuote } from '@services/comments/locator/comment-quote-policy';
+import type { InpageCommentsDomSource } from '@services/bootstrap/inpage-comments-panel-content-handlers';
 import type { Conversation, ConversationDetail } from '@services/conversations/domain/models';
 import {
   CORE_MESSAGE_TYPES,
@@ -233,7 +236,11 @@ function ensurePanel(): { el: HTMLElement; api: CommentSidebarPanelApi } {
     showHeader: true,
     showCollapseButton: true,
     locatorEnv: 'inpage',
-    getLocatorRoot: () => document.body || document.documentElement,
+    getLocatorSurfaceRoots: () =>
+      createInpageCommentRootSource({
+        document,
+        getPanelRoot: () => singleton?.el || null,
+      }).capture(document.getSelection()),
     chatWith: {
       resolveActions: resolveInpageChatWithActions,
       resolveSingleActionLabel: resolveSingleEnabledChatWithActionLabel,
@@ -279,6 +286,45 @@ const apiRef: InpageCommentsPanelApi = {
     ensurePanel().api.setHandlers(handlers as any);
   },
 };
+
+
+export function createInpageCommentsDomSource(input: {
+  window: Window;
+  document: Document;
+  getPanelRoot?: () => Element | null;
+}): InpageCommentsDomSource {
+  const rootSource = createInpageCommentRootSource({
+    document: input.document,
+    getPanelRoot: input.getPanelRoot,
+  });
+
+  return {
+    resolveComposerSelection() {
+      try {
+        const selection = input.document.getSelection();
+        const roots = rootSource.capture(selection);
+        if (!selection || selection.rangeCount !== 1 || !roots) return { selectionText: '', locator: null };
+        const range = selection.getRangeAt(0);
+        const selectionText = toDisplayCommentQuote(range.toString());
+        if (!selectionText) return { selectionText: '', locator: null };
+        const locator = rootSource.captureAnchor(selection);
+        return { selectionText, locator };
+      } catch (_error) {
+        return { selectionText: '', locator: null };
+      }
+    },
+    isTopFrame() {
+      try {
+        return input.window.top === input.window.self;
+      } catch (_error) {
+        return false;
+      }
+    },
+    readPageUrl() {
+      return String(input.window.location?.href || '');
+    },
+  };
+}
 
 export function getInpageCommentsPanelApi(runtime?: RuntimeClient | null): InpageCommentsPanelApi {
   if (runtime && typeof runtime.send === 'function') {

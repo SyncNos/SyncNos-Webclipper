@@ -127,11 +127,11 @@ vi.mock('../../src/ui/conversations/ConversationDetailPane', () => ({
   ConversationDetailPane: ({
     onTriggerCommentsSidebar,
     commentsSidebarOpen,
-    onCommentsLocatorRootChange,
+    onCommentsLocatorRootsChange,
   }: {
     onTriggerCommentsSidebar?: (input: any) => void;
     commentsSidebarOpen?: boolean;
-    onCommentsLocatorRootChange?: (root: Element | null) => void;
+    onCommentsLocatorRootsChange?: (roots: { sourceRoot: Element; scrollRoot: Element } | null) => void;
   }) =>
     createElement(
       'div',
@@ -152,10 +152,10 @@ vi.mock('../../src/ui/conversations/ConversationDetailPane', () => ({
         {
           ref: (el: HTMLDivElement | null) => {
             if (!detailPaneMockState.provideLocatorRoot) {
-              onCommentsLocatorRootChange?.(null);
+              onCommentsLocatorRootsChange?.(null);
               return;
             }
-            onCommentsLocatorRootChange?.(el);
+            onCommentsLocatorRootsChange?.({ sourceRoot: el, scrollRoot: el });
           },
           'data-mock-locator-root': '1',
         },

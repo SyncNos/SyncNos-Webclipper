@@ -545,3 +545,23 @@
   color: var(--panel-text-muted);
   text-align: center;
 }
+
+.webclipper-comment-range-markers {
+  position: absolute;
+  inset: 0;
+  z-index: 2147483600;
+  pointer-events: none;
+}
+
+.webclipper-comment-range-marker {
+  position: absolute;
+  border-radius: var(--radius-inline);
+  pointer-events: none;
+  background: color-mix(in srgb, var(--panel-accent) 18%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--panel-accent) 34%, transparent);
+}
+
+.webclipper-comment-range-marker.is-active {
+  background: color-mix(in srgb, var(--panel-accent) 32%, transparent);
+  outline-width: 2px;
+}

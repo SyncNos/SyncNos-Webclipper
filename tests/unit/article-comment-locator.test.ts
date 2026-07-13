@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { JSDOM } from 'jsdom';
-
 import {
-  buildArticleCommentLocatorFromRange,
+  captureCommentAnchor,
+  parseArticleCommentLocator,
   restoreRangeFromArticleCommentLocator,
 } from '../../src/services/comments/locator';
 
@@ -11,7 +11,6 @@ function setupDom() {
     url: 'https://example.com/',
     pretendToBeVisual: true,
   });
-
   Object.defineProperty(globalThis, 'window', { configurable: true, value: dom.window });
   Object.defineProperty(globalThis, 'document', { configurable: true, value: dom.window.document });
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
@@ -19,78 +18,44 @@ function setupDom() {
   Object.defineProperty(globalThis, 'Node', { configurable: true, value: dom.window.Node });
   Object.defineProperty(globalThis, 'NodeFilter', { configurable: true, value: dom.window.NodeFilter });
 }
-
 function cleanupDom() {
   delete (globalThis as any).window;
   delete (globalThis as any).document;
   delete (globalThis as any).navigator;
   delete (globalThis as any).HTMLElement;
   delete (globalThis as any).Node;
-  // Keep the minimal NodeFilter polyfill from setup-nodefilter.ts.
 }
 
 describe('article-comment-locator', () => {
-  beforeEach(() => setupDom());
-  afterEach(() => cleanupDom());
+  beforeEach(setupDom);
+  afterEach(cleanupDom);
 
-  it('builds locator from Range', () => {
-    document.body.innerHTML = '<div id="root">Hello world</div>';
+  it('captures production locators as V2', () => {
+    document.body.innerHTML = '<main><div id="root">Hello world</div></main>';
     const root = document.getElementById('root') as HTMLElement;
-    const textNode = root.firstChild as Text;
-
     const range = document.createRange();
-    range.setStart(textNode, 6);
-    range.setEnd(textNode, 11);
-
-    const locator = buildArticleCommentLocatorFromRange({
-      env: 'inpage',
-      root,
-      range,
-    });
-
-    expect(locator?.v).toBe(1);
-    expect(locator?.env).toBe('inpage');
-    expect(locator?.quote?.exact).toBe('world');
-    expect(typeof (locator as any)?.position?.start).toBe('number');
-    expect(typeof (locator as any)?.position?.end).toBe('number');
-    expect(Number((locator as any).position.end)).toBeGreaterThan(Number((locator as any).position.start));
-
-    const restored = locator ? restoreRangeFromArticleCommentLocator({ root, locator }) : null;
-    expect(restored?.toString()).toBe('world');
+    range.setStart(root.firstChild as Text, 6);
+    range.setEnd(root.firstChild as Text, 11);
+    const locator = captureCommentAnchor({ root, range, surfaceHint: 'inpage', documentRoot: document.documentElement });
+    expect(locator).toMatchObject({ v: 2, surfaceHint: 'inpage', quote: { exact: 'world' } });
+    expect(locator?.documentRelativeRootPath).toBeTruthy();
   });
 
-  it('restores range when exact differs only by whitespace', () => {
+  it('keeps frozen V1 read compatibility without a V1 writer', () => {
     document.body.innerHTML = '<div id="root">Hello world</div>';
     const root = document.getElementById('root') as HTMLElement;
-
-    const baseLocator = buildArticleCommentLocatorFromRange({
-      env: 'app',
+    const restored = restoreRangeFromArticleCommentLocator({
       root,
-      range: (() => {
-        const textNode = root.firstChild as Text;
-        const range = document.createRange();
-        range.setStart(textNode, 0);
-        range.setEnd(textNode, 11);
-        return range;
-      })(),
-    });
-
-    expect(baseLocator).toBeTruthy();
-
-    const locator = {
-      ...(baseLocator as any),
-      quote: {
-        ...(baseLocator as any).quote,
-        exact: 'Hello\nworld',
+      locator: {
+        v: 1,
+        env: 'app',
+        quote: { type: 'TextQuoteSelector', exact: 'Hello world' },
+        position: { type: 'TextPositionSelector', start: 0, end: 11 },
       },
-    };
-
-    const restored = restoreRangeFromArticleCommentLocator({ root, locator });
+    });
     expect(restored?.toString()).toBe('Hello world');
   });
 });
-
-import { parseArticleCommentLocator } from '../../src/services/comments/locator';
 
 describe('article-comment-locator parser', () => {
   it('parses a valid V2 locator without losing evidence', () => {
@@ -107,7 +72,6 @@ describe('article-comment-locator parser', () => {
     expect(parsed.ok).toBe(true);
     expect(parsed.value).toMatchObject({ v: 2, surfaceHint: 'app', rootEvidence: { textHash: 'abc' } });
   });
-
 
   it('rejects locator fields that exceed parser budgets', () => {
     const base = {

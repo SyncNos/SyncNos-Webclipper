@@ -59,18 +59,23 @@ export type ThreadedCommentsPanelCommentChatWithConfig = {
     | Promise<ThreadedCommentsPanelCommentChatWithContext>;
 };
 
+export type CommentLocatorSurfaceRoots = {
+  sourceRoot: Element;
+  scrollRoot: Element;
+};
+
 export type MountOptions = {
   overlay?: boolean;
   initiallyOpen?: boolean;
   showHeader?: boolean;
   showCollapseButton?: boolean;
-  variant?: 'embedded' | 'sidebar';
+  variant?: 'sidebar';
   fullWidth?: boolean;
   surfaceBg?: string;
   headerDivider?: boolean;
   dockPage?: boolean;
   locatorEnv?: 'inpage' | 'app' | null;
-  getLocatorRoot?: () => Element | null;
+  getLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
   chatWith?: ThreadedCommentsPanelChatWithConfig | null;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
   deferReactUpdates?: boolean;

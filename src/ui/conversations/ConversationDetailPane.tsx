@@ -15,6 +15,7 @@ import { tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { countWordsFromMessages } from '@services/shared/word-count';
 import { conversationKinds } from '@services/protocols/conversation-kinds';
+import type { CommentLocatorSurfaceRoots } from '@ui/comments';
 
 function findRouteScrollRoot(messagesRoot: Element | null): Element | null {
   if (!messagesRoot || typeof messagesRoot.closest !== 'function') return null;
@@ -35,7 +36,7 @@ export type ConversationDetailPaneProps = {
   onBack?: () => void;
   onExpandSidebar?: () => void;
   onTriggerCommentsSidebar?: () => void;
-  onCommentsLocatorRootChange?: (root: Element | null) => void;
+  onCommentsLocatorRootsChange?: (roots: CommentLocatorSurfaceRoots | null) => void;
   commentsSidebarOpen?: boolean;
 };
 
@@ -43,7 +44,7 @@ export function ConversationDetailPane({
   onBack,
   onExpandSidebar,
   onTriggerCommentsSidebar,
-  onCommentsLocatorRootChange,
+  onCommentsLocatorRootsChange,
   commentsSidebarOpen = false,
 }: ConversationDetailPaneProps) {
   const {
@@ -94,12 +95,12 @@ export function ConversationDetailPane({
       messagesRootRef.current = node;
       setOutlineScrollRoot(findRouteScrollRoot(node));
       try {
-        onCommentsLocatorRootChange?.(node);
+        onCommentsLocatorRootsChange?.(node ? { sourceRoot: node, scrollRoot: findRouteScrollRoot(node) || node } : null);
       } catch (_e) {
         // ignore
       }
     },
-    [onCommentsLocatorRootChange],
+    [onCommentsLocatorRootsChange],
   );
   const setUserMessageEl = useCallback((messageId: number, node: HTMLDivElement | null) => {
     const map = userMessageElByIdRef.current;

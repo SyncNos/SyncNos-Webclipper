@@ -150,29 +150,20 @@ export function extractUserSelectionText(options?: SelectionTextExtractOptions):
 }
 
 export function isSelectionLikelyWithinRoot(selection: Selection | null | undefined, root: Element | null): boolean {
-  if (!selection || !root) return false;
-  const anchorNode = selection.anchorNode as Node | null;
-  const focusNode = selection.focusNode as Node | null;
-
+  if (!selection || !root || Number(selection.rangeCount || 0) !== 1) return false;
   try {
-    if (anchorNode && root.contains(anchorNode)) return true;
-    if (focusNode && root.contains(focusNode)) return true;
-  } catch (_e) {
-    // ignore and fallback
-  }
-
-  const range = safeGetComposedRangeFromSelection(selection) || safeGetRangeFromSelection(selection);
-  if (!range) return false;
-
-  try {
-    const container = range.commonAncestorContainer as Node | null;
-    if (!container) return false;
-    if (root.contains(container)) return true;
-    const parent = (container as any).parentNode as Node | null;
-    if (parent && root.contains(parent)) return true;
+    const range = selection.getRangeAt(0);
+    if (!range || range.collapsed) return false;
+    const start = range.startContainer;
+    const end = range.endContainer;
+    if (!start || !end) return false;
+    const ownerDocument = root.ownerDocument;
+    if (start.ownerDocument !== ownerDocument || end.ownerDocument !== ownerDocument) return false;
+    const rootTree = root.getRootNode?.() || ownerDocument;
+    if ((start.getRootNode?.() || start.ownerDocument) !== rootTree) return false;
+    if ((end.getRootNode?.() || end.ownerDocument) !== rootTree) return false;
+    return (start === root || root.contains(start)) && (end === root || root.contains(end));
   } catch (_e) {
     return false;
   }
-
-  return false;
 }
