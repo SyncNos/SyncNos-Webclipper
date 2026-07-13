@@ -1,25 +1,10 @@
-import type { CommentSaveResult, ThreadedCommentItem, ThreadedCommentsPanelCommentChatWithConfig, CommentLocatorSurfaceRoots } from '../types';
+import type {
+  CommentSidebarHostActions,
+  CommentSidebarHostSnapshot,
+} from '@services/comments/sidebar/comment-sidebar-contract';
+import type { CommentLocatorSurfaceRoots, ThreadedCommentsPanelCommentChatWithConfig } from '../types';
 
-export type ThreadedCommentsPanelComposerSelectionRequest = {
-  trigger: 'button' | 'auto';
-};
-
-export type ThreadedCommentsPanelHandlers = {
-  onSave?: (text: string) => CommentSaveResult | Promise<CommentSaveResult>;
-  onReply?: (parentId: number, text: string) => void | Promise<void>;
-  onDelete?: (id: number) => void | Promise<void>;
-  onClose?: () => void;
-  onComposerSelectionRequest?: (input: ThreadedCommentsPanelComposerSelectionRequest) => void | Promise<void>;
-  onComposerQuoteClearRequest?: () => void | Promise<void>;
-};
-
-export type ThreadedCommentsPanelSnapshot = {
-  open: boolean;
-  busy: boolean;
-  quoteText: string;
-  comments: ThreadedCommentItem[];
-  handlers: ThreadedCommentsPanelHandlers;
-  focusComposerSignal: number;
+export type ThreadedCommentsPanelSnapshot = CommentSidebarHostSnapshot & {
   escapeSignal: number;
   noticeMessage: string;
   noticeVisible: boolean;
@@ -33,6 +18,8 @@ export type ThreadedCommentsPanelSnapshot = {
   } | null;
 };
 
+export type ThreadLocateResult = { ok: true } | { ok: false; reason: string };
+
 export type ThreadedCommentsPanelProps = {
   variant: 'sidebar';
   fullWidth?: boolean;
@@ -41,13 +28,13 @@ export type ThreadedCommentsPanelProps = {
   showCollapseButton: boolean;
   showHeaderChatWith: boolean;
   snapshot: ThreadedCommentsPanelSnapshot;
-  readHandlers?: () => ThreadedCommentsPanelHandlers;
+  actions: CommentSidebarHostActions;
   onRequestClose: () => void;
   onHeaderChatWithRootChange?: (el: HTMLDivElement | null) => void;
   setPendingFocusRootId?: (rootId: number | null) => void;
-  locateThreadRoot?: (rootId: number) => Promise<boolean>;
+  locateThreadRoot?: (rootId: number) => Promise<ThreadLocateResult>;
   getLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
-  onLocateFailed?: () => void;
+  onLocateFailed?: (reason: string) => void;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
   showNotice?: (message: string) => void;
 };

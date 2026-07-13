@@ -3,6 +3,7 @@ import { act } from 'react';
 import { JSDOM } from 'jsdom';
 
 import { getInpageCommentsPanelApi } from '../../src/ui/inpage/inpage-comments-panel-shadow';
+import { createCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -77,7 +78,7 @@ describe('inpage comments sidebar toggle', () => {
   });
 
   it('renders as a docked sidebar with a collapse button; repeat open keeps it open', async () => {
-    const api = getInpageCommentsPanelApi();
+    const api = createCommentSidebarPanelTestDriver(getInpageCommentsPanelApi());
 
     await act(async () => {
       api.open({ focusComposer: true });
@@ -112,10 +113,11 @@ describe('inpage comments sidebar toggle', () => {
       collapse?.click();
     });
     expect(api.isOpen()).toBe(false);
+    api.dispose();
   });
 
   it('triggers composer selection request on pointerup commit (not selectionchange only)', async () => {
-    const api = getInpageCommentsPanelApi();
+    const api = createCommentSidebarPanelTestDriver(getInpageCommentsPanelApi());
     const onComposerSelectionRequest = vi.fn();
 
     act(() => {
@@ -188,5 +190,6 @@ describe('inpage comments sidebar toggle', () => {
     expect(onComposerSelectionRequest).toHaveBeenCalledTimes(1);
 
     selectionSpy.mockRestore();
+    api.dispose();
   });
 });

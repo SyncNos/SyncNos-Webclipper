@@ -179,6 +179,23 @@ export default function AppShell() {
         }
       },
     });
+    const commentsSidebarDisposeEpochRef = useRef(0);
+    useEffect(() => {
+      commentsSidebarDisposeEpochRef.current += 1;
+      return () => {
+        const disposeEpoch = ++commentsSidebarDisposeEpochRef.current;
+        const dispose = () => {
+          if (commentsSidebarDisposeEpochRef.current !== disposeEpoch) return;
+          commentsSidebarController.dispose();
+          commentsSidebarSession.dispose();
+        };
+        if (typeof globalThis.queueMicrotask === 'function') {
+          globalThis.queueMicrotask(dispose);
+        } else {
+          void Promise.resolve().then(dispose);
+        }
+      };
+    }, [commentsSidebarController, commentsSidebarSession]);
     const pendingExternalLocRef = useRef<string | null>(null);
     const setCommentsLocatorSurfaceRoots = useCallback((roots: CommentLocatorSurfaceRoots | null) => {
       commentsLocatorSurfaceRootsRef.current = roots;
@@ -198,6 +215,17 @@ export default function AppShell() {
     const selectedConversationView = conversationKinds.pick(selectedConversation as any)?.view ?? null;
     const commentsSidebarEnabled = Boolean(selectedConversationView?.commentsSidebar);
     const canonicalUrl = canonicalizeArticleUrl((selectedConversation as any)?.url);
+    const selectedConversationId = Number((selectedConversation as any)?.id || 0) || null;
+    const commentsSidebarContext = useMemo(
+      () =>
+        commentsSidebarEnabled && canonicalUrl
+          ? {
+              canonicalUrl,
+              conversationId: selectedConversationId,
+            }
+          : null,
+      [canonicalUrl, commentsSidebarEnabled, selectedConversationId],
+    );
     const canToggleCommentsSidebar = !isNarrow && commentsSidebarEnabled && Boolean(canonicalUrl);
     const commentsSidebarCollapsed = isMedium ? mediumCommentsSidebarCollapsed : wideCommentsSidebarCollapsed;
     const canAutoOpenCommentsSidebarInWide = isWide && canToggleCommentsSidebar;
@@ -263,7 +291,7 @@ export default function AppShell() {
       canToggleCommentsSidebar &&
       !showSettingsSheet &&
       !commentsSidebarCollapsed &&
-      (isMedium || commentsSidebarSnapshot.openRequested || commentsSidebarSnapshot.isOpen);
+      (isMedium || commentsSidebarSnapshot.open);
 
     const commentsSidebarCommentChatWithRuntimeRef = useRef<{
       showCommentsSidebar: boolean;
@@ -399,11 +427,8 @@ export default function AppShell() {
     }, [commentsSidebarSession, setMediumCommentsCollapsed, tier]);
 
     useEffect(() => {
-      if (commentsSidebarEnabled && canonicalUrl) {
-        commentsSidebarController.setContext({
-          canonicalUrl,
-          conversationId: Number((selectedConversation as any)?.id || 0) || null,
-        });
+      if (commentsSidebarContext) {
+        commentsSidebarController.setContext(commentsSidebarContext);
         return;
       }
 
@@ -414,22 +439,21 @@ export default function AppShell() {
       } finally {
         suppressCommentsSidebarCollapseRef.current = false;
       }
-      commentsSidebarSession.setQuoteText('');
-    }, [canonicalUrl, commentsSidebarController, commentsSidebarEnabled, commentsSidebarSession, selectedConversation]);
+      commentsSidebarSession.clearComposerAttachment();
+    }, [commentsSidebarContext, commentsSidebarController, commentsSidebarSession]);
 
     useEffect(() => {
       if (showSettingsSheet) return;
       if (!canAutoOpenCommentsSidebarInWide) return;
       if (commentsSidebarCollapsed) return;
-      if (commentsSidebarSnapshot.openRequested || commentsSidebarSnapshot.isOpen) return;
+      if (commentsSidebarSnapshot.open) return;
       void commentsSidebarController.open({ source: 'app-default', focusComposer: false, ensureContext: false });
     }, [
       canAutoOpenCommentsSidebarInWide,
       commentsSidebarCollapsed,
       commentsSidebarController,
       commentsSidebarSession,
-      commentsSidebarSnapshot.isOpen,
-      commentsSidebarSnapshot.openRequested,
+      commentsSidebarSnapshot.open,
       showSettingsSheet,
     ]);
 

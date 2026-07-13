@@ -6,7 +6,11 @@ import { useNarrowListDetailCommentsRoute } from '@ui/shared/hooks/useNarrowList
 import type { ArticleCommentsSidebarRuntime } from '@viewmodels/comments/useArticleCommentsSidebarRuntime';
 
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
-import type { CommentLocatorSurfaceRoots, ThreadedCommentsPanelChatWithAction, ThreadedCommentsPanelCommentChatWithConfig } from '@ui/comments';
+import type {
+  CommentLocatorSurfaceRoots,
+  ThreadedCommentsPanelChatWithAction,
+  ThreadedCommentsPanelCommentChatWithConfig,
+} from '@ui/comments';
 import { ConversationDetailPane } from '@ui/conversations/ConversationDetailPane';
 import { ConversationListPane } from '@ui/conversations/ConversationListPane';
 import { ArticleCommentsSection } from '@ui/conversations/ArticleCommentsSection';
@@ -86,22 +90,6 @@ export function ConversationsScene({
     (typeof onOpenCommentsExternally === 'function' || Boolean(commentsSidebarRuntime)) &&
     commentsSidebarEnabled &&
     Boolean(selectedConversationCanonicalUrl);
-
-  useEffect(() => {
-    if (!commentsSidebarRuntime) return;
-    const controller = commentsSidebarRuntime.sidebarController;
-    if (!controller || typeof controller.setContext !== 'function') return;
-
-    if (commentsSidebarEnabled && selectedConversationCanonicalUrl) {
-      controller.setContext({
-        canonicalUrl: selectedConversationCanonicalUrl,
-        conversationId: Number((selectedConversation as any)?.id || 0) || null,
-      });
-      return;
-    }
-
-    controller.setContext(null);
-  }, [commentsSidebarEnabled, commentsSidebarRuntime, selectedConversation, selectedConversationCanonicalUrl]);
 
   useEffect(() => {
     if (!isNarrow) return;

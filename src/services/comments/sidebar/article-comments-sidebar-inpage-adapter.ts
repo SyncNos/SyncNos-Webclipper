@@ -1,6 +1,12 @@
 import { ARTICLE_MESSAGE_TYPES, COMMENTS_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 import { parseArticleCommentDtos } from '@services/comments/domain/comment-dto';
+import {
+  ArticleCommentsSidebarAdapterError,
+  filterArticleCommentsForListIdentity,
+  mergeArticleCommentsByIdentity,
+  normalizeArticleCommentsSidebarListInput,
+} from '@services/comments/sidebar/article-comments-sidebar-adapter';
 
 import type { ArticleCommentsSidebarAdapter } from '@services/comments/sidebar/article-comments-sidebar-adapter';
 
@@ -27,14 +33,48 @@ export function createArticleCommentsSidebarInpageAdapter(
 ): ArticleCommentsSidebarAdapter {
   const rt = runtime;
 
+  const listFromRuntime = async (payload: { canonicalUrl?: string; conversationId?: number }) => {
+    if (!rt?.send) {
+      throw new ArticleCommentsSidebarAdapterError(
+        'runtime_unavailable',
+        'runtime is unavailable for article comments',
+      );
+    }
+    let res: any;
+    try {
+      res = await rt.send(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, payload);
+    } catch (error) {
+      throw new ArticleCommentsSidebarAdapterError('request_failed', 'failed to list article comments', {
+        cause: error,
+      });
+    }
+    if (!res || typeof res.ok !== 'boolean') {
+      throw new ArticleCommentsSidebarAdapterError('invalid_response', 'invalid article comments runtime response');
+    }
+    if (!res.ok) {
+      throw new ArticleCommentsSidebarAdapterError(
+        'request_failed',
+        String(res?.error?.message || 'failed to list article comments'),
+      );
+    }
+    if (!Array.isArray(res.data)) {
+      throw new ArticleCommentsSidebarAdapterError('invalid_response', 'invalid article comments payload');
+    }
+    return parseArticleCommentDtos(res.data);
+  };
+
   return {
-    async list({ canonicalUrl }) {
-      const normalized = canonicalizeArticleUrl(canonicalUrl);
-      if (!normalized) return [];
-      if (!rt?.send) return [];
-      const res = await rt.send(COMMENTS_MESSAGE_TYPES.LIST_ARTICLE_COMMENTS, { canonicalUrl: normalized });
-      if (!res?.ok) return [];
-      return parseArticleCommentDtos(res?.data);
+    async list(input) {
+      const query = normalizeArticleCommentsSidebarListInput(input);
+      const byConversation = query.conversationId
+        ? await listFromRuntime({ conversationId: query.conversationId })
+        : [];
+      const shouldReadUrl =
+        !!query.canonicalUrl && (!query.conversationId || query.fallbackPolicy === 'include-orphan-url');
+      const byCanonicalUrl = shouldReadUrl
+        ? filterArticleCommentsForListIdentity(await listFromRuntime({ canonicalUrl: query.canonicalUrl }), query)
+        : [];
+      return mergeArticleCommentsByIdentity(byConversation, byCanonicalUrl);
     },
     async ensureContext(input) {
       const ensureArticle = input?.ensureArticle !== false;

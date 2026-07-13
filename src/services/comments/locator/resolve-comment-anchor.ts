@@ -20,10 +20,14 @@ export function resolveCommentAnchor(input: {
 }): ResolveCommentAnchorResult {
   const maxRoots = Math.max(1, Math.floor(Number(input.maxRoots ?? 8) || 1));
   const maxTotalTextLength = Math.max(0, Math.floor(Number(input.maxTotalTextLength ?? 400_000) || 0));
+  if (!input.roots.length) return { ok: false, reason: 'missing_root' };
   if (input.roots.length > maxRoots) return { ok: false, reason: 'budget_exceeded' };
 
   const candidates: Array<{ range: Range; root: Element; rootIndex: number; signature: string }> = [];
   let scanned = 0;
+  let matchedV2Root = false;
+  let sawV2RootMismatch = false;
+  let sawAmbiguousQuote = false;
   for (let rootIndex = 0; rootIndex < input.roots.length; rootIndex += 1) {
     if (input.signal?.aborted) return { ok: false, reason: 'aborted' };
     if (input.generation != null && input.isGenerationCurrent && !input.isGenerationCurrent(input.generation)) {
@@ -38,11 +42,19 @@ export function resolveCommentAnchor(input: {
     if (input.locator.v === 1) {
       const range = resolveV1CommentAnchor({ root, locator: input.locator });
       if (range) ranges.push(range);
-    } else if (compareCommentRootEvidence(root, input.locator.rootEvidence) === 'matched') {
+    } else {
+      const evidence = compareCommentRootEvidence(root, input.locator.rootEvidence);
+      if (evidence !== 'matched') {
+        sawV2RootMismatch = true;
+        continue;
+      }
+      matchedV2Root = true;
       const path = resolveV2ByPathOrPosition({ root, locator: input.locator });
       if (path) ranges.push(path.range);
       const quote = resolveV2ByQuoteContext({ root, locator: input.locator });
       if (quote.ok) ranges.push(quote.range);
+      else if (quote.reason === 'budget_exceeded') return { ok: false, reason: 'budget_exceeded' };
+      else if (quote.reason === 'ambiguous_quote') sawAmbiguousQuote = true;
     }
 
     for (const range of ranges) {
@@ -55,7 +67,13 @@ export function resolveCommentAnchor(input: {
     }
   }
 
-  if (!candidates.length) return { ok: false, reason: 'quote_not_found' };
+  if (!candidates.length) {
+    if (sawAmbiguousQuote) return { ok: false, reason: 'ambiguous_quote' };
+    if (input.locator.v === 2 && !matchedV2Root && sawV2RootMismatch) {
+      return { ok: false, reason: 'root_mismatch' };
+    }
+    return { ok: false, reason: 'quote_not_found' };
+  }
   if (candidates.length !== 1) return { ok: false, reason: 'ambiguous_root' };
   const [candidate] = candidates;
   return { ok: true, range: candidate.range, root: candidate.root, rootIndex: candidate.rootIndex };

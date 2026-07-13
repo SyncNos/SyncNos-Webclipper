@@ -23,6 +23,39 @@ describe('comment range marker registry', () => {
     expect((markers[0] as HTMLElement).style.left).toBe('30px');
   });
 
+  test('owns document-level geometry and visual styles outside the panel shadow root', () => {
+    const dom = new JSDOM('<body><aside id="panel"></aside></body>', { url: 'https://example.com/' });
+    const styleSource = dom.window.document.querySelector('#panel')!;
+    (styleSource as HTMLElement).style.setProperty('--panel-accent', 'rgb(1 2 3)');
+    (styleSource as HTMLElement).style.setProperty('--radius-inline', '6px');
+    const registry = createCommentRangeMarkerRegistry({
+      document: dom.window.document,
+      window: dom.window as unknown as Window,
+      styleSource,
+    });
+
+    registry.replace(1, fakeRange(dom.window.document, 10));
+    registry.refresh();
+
+    const layer = dom.window.document.querySelector('.webclipper-comment-range-markers') as HTMLElement;
+    const marker = dom.window.document.querySelector('[data-comment-id="1"]') as HTMLElement;
+    expect(layer.style.position).toBe('absolute');
+    expect(layer.style.pointerEvents).toBe('none');
+    expect(layer.style.getPropertyValue('--webclipper-comment-marker-accent')).toBe('rgb(1 2 3)');
+    expect(layer.style.getPropertyValue('--webclipper-comment-marker-radius')).toBe('6px');
+    expect(marker.style.position).toBe('absolute');
+    expect(marker.style.pointerEvents).toBe('none');
+    expect(marker.style.borderRadius).toBe('var(--webclipper-comment-marker-radius)');
+    expect(marker.style.background).toContain('18%');
+    expect(marker.style.outline).toContain('1px');
+
+    registry.setActive(1);
+    registry.refresh();
+    const active = dom.window.document.querySelector('[data-comment-id="1"]') as HTMLElement;
+    expect(active.style.background).toContain('32%');
+    expect(active.style.outline).toContain('2px');
+  });
+
   test('switches active/passive state', () => {
     const dom = new JSDOM('<body></body>', { url: 'https://example.com/' });
     const registry = createCommentRangeMarkerRegistry({ document: dom.window.document, window: dom.window as unknown as Window });

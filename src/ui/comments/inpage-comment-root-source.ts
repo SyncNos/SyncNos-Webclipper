@@ -1,4 +1,4 @@
-import type { ArticleCommentLocatorV2 } from '@services/comments/domain/comment-locator';
+import type { ArticleCommentLocator } from '@services/comments/domain/comment-locator';
 import { restoreCommentRootFromDocumentPath } from '@services/comments/locator/comment-boundary-path';
 import { isCommentRootEvidenceMatch } from '@services/comments/locator/comment-root-evidence';
 import { captureCommentAnchor } from '@services/comments/locator/capture-comment-anchor';
@@ -45,8 +45,18 @@ export function createInpageCommentRootSource(input: {
   const capture = (selection: Selection | null | undefined): CommentLocatorSurfaceRoots | null => {
     if (!selection || selection.rangeCount !== 1) return null;
     let range: Range;
-    try { range = selection.getRangeAt(0); } catch (_error) { return null; }
-    if (!range || range.collapsed || range.startContainer.ownerDocument !== doc || range.endContainer.ownerDocument !== doc) return null;
+    try {
+      range = selection.getRangeAt(0);
+    } catch (_error) {
+      return null;
+    }
+    if (
+      !range ||
+      range.collapsed ||
+      range.startContainer.ownerDocument !== doc ||
+      range.endContainer.ownerDocument !== doc
+    )
+      return null;
     const root = commonElement(range.startContainer, range.endContainer);
     if (!root || root === doc.body || root === doc.documentElement) return null;
     const panel = input.getPanelRoot?.();
@@ -69,25 +79,29 @@ export function createInpageCommentRootSource(input: {
     }
   };
 
-  const locate = (locator: ArticleCommentLocatorV2): Element[] => {
+  const locate = (locator: ArticleCommentLocator): Element[] => {
     const results: Element[] = [];
     const add = (candidate: Element | null) => {
       if (!candidate || candidate === doc.body || candidate === doc.documentElement) return;
       if (results.includes(candidate)) return;
-      if (!isCommentRootEvidenceMatch(candidate, locator.rootEvidence)) return;
+      if (locator.v === 2 && !isCommentRootEvidenceMatch(candidate, locator.rootEvidence)) return;
       results.push(candidate);
     };
 
-    if (locator.documentRelativeRootPath) {
-      add(restoreCommentRootFromDocumentPath({
-        documentRoot: doc.documentElement,
-        path: locator.documentRelativeRootPath,
-        expectedEvidence: locator.rootEvidence,
-        validateEvidence: isCommentRootEvidenceMatch,
-      }));
+    if (locator.v === 2 && locator.documentRelativeRootPath) {
+      add(
+        restoreCommentRootFromDocumentPath({
+          documentRoot: doc.documentElement,
+          path: locator.documentRelativeRootPath,
+          expectedEvidence: locator.rootEvidence,
+          validateEvidence: isCommentRootEvidenceMatch,
+        }),
+      );
     }
 
-    const candidates = doc.querySelectorAll('article, main, [role="main"], [data-testid], [data-message-id], [data-node-id]');
+    const candidates = doc.querySelectorAll(
+      'article, main, [role="main"], [data-testid], [data-message-id], [data-node-id]',
+    );
     for (const candidate of Array.from(candidates)) {
       if (results.length >= maxCandidates) break;
       add(candidate);

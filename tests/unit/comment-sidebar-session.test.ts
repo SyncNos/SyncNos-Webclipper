@@ -5,50 +5,154 @@ import {
   normalizeCommentSidebarQuoteText,
 } from '@services/comments/sidebar/comment-sidebar-session';
 import type {
-  CommentSidebarHandlers,
+  CommentSidebarHost,
+  CommentSidebarHostActionCallbacks,
+  CommentSidebarHostSnapshot,
   CommentSidebarItem,
   CommentSidebarPanelApi,
 } from '@services/comments/sidebar/comment-sidebar-contract';
+import {
+  createCommentSidebarHostActions,
+  createCommentSidebarHostSnapshot,
+} from '@services/comments/sidebar/comment-sidebar-state';
+
+function createComment(id = 1): CommentSidebarItem {
+  return {
+    id,
+    parentId: null,
+    conversationId: 21,
+    canonicalUrl: 'https://example.com/article',
+    authorName: 'You',
+    quoteText: 'quote',
+    commentText: `comment-${id}`,
+    locator: null,
+    createdAt: 100 + id,
+    updatedAt: 100 + id,
+  };
+}
 
 function createPanelMock() {
-  let open = false;
+  let activeHost: CommentSidebarHost | null = null;
+  let activeSnapshot: CommentSidebarHostSnapshot | null = null;
+  let unsubscribe: (() => void) | null = null;
+  let leaseId = 0;
   const calls = {
-    open: [] as Array<{ focusComposer?: boolean }>,
-    close: 0,
-    busy: [] as boolean[],
-    quoteText: [] as string[],
-    comments: [] as CommentSidebarItem[][],
-    handlers: [] as CommentSidebarHandlers[],
+    attach: 0,
+    dispose: 0,
+    snapshots: [] as CommentSidebarHostSnapshot[],
+  };
+
+  const capture = (host: CommentSidebarHost) => {
+    activeSnapshot = host.getSnapshot();
+    calls.snapshots.push(activeSnapshot);
   };
 
   const panel: CommentSidebarPanelApi = {
-    open(input) {
-      open = true;
-      calls.open.push({ ...(input || {}) });
-    },
-    close() {
-      open = false;
-      calls.close += 1;
-    },
-    isOpen() {
-      return open;
-    },
-    setBusy(busy) {
-      calls.busy.push(!!busy);
-    },
-    setQuoteText(text) {
-      calls.quoteText.push(String(text));
-    },
-    setComments(items) {
-      calls.comments.push(items.map((item) => ({ ...item })));
-    },
-    setHandlers(handlers) {
-      calls.handlers.push(handlers);
+    attachHost(host) {
+      calls.attach += 1;
+      unsubscribe?.();
+      activeHost = host;
+      const id = ++leaseId;
+      capture(host);
+      unsubscribe = host.subscribe(() => capture(host));
+      let released = false;
+      return Object.freeze({
+        dispose() {
+          if (released) return;
+          released = true;
+          calls.dispose += 1;
+          if (id !== leaseId) return;
+          unsubscribe?.();
+          unsubscribe = null;
+          activeHost = null;
+          activeSnapshot = null;
+        },
+      });
     },
   };
 
-  return { panel, calls };
+  return {
+    panel,
+    calls,
+    getHost: () => activeHost,
+    getSnapshot: () => activeSnapshot,
+  };
 }
+
+describe('comment-sidebar-host-state', () => {
+  it('creates a serializable snapshot from domain DTO items without retaining mutable input', () => {
+    const locator = {
+      v: 1 as const,
+      env: 'app' as const,
+      quote: { type: 'TextQuoteSelector' as const, exact: 'quoted text' },
+      position: { type: 'TextPositionSelector' as const, start: 2, end: 13 },
+    };
+    const item = { ...createComment(7), locator };
+    const input = {
+      open: true,
+      busy: true,
+      composerAttachment: {
+        displayQuote: 'first\r\nsecond',
+        locator,
+        selectionRevision: 4,
+      },
+      comments: [item],
+      focusComposerSignal: 3,
+      lastOpenSource: ' app ',
+    };
+
+    const snapshot = createCommentSidebarHostSnapshot(input);
+    input.composerAttachment.displayQuote = 'mutated';
+    input.comments[0].commentText = 'mutated';
+    locator.quote.exact = 'mutated';
+
+    expect(snapshot).toEqual({
+      open: true,
+      busy: true,
+      composerAttachment: {
+        displayQuote: 'first\nsecond',
+        locator: {
+          v: 1,
+          env: 'app',
+          quote: { type: 'TextQuoteSelector', exact: 'quoted text' },
+          position: { type: 'TextPositionSelector', start: 2, end: 13 },
+        },
+        selectionRevision: 4,
+      },
+      comments: [{ ...item, commentText: 'comment-7', locator: snapshot.comments[0].locator }],
+      focusComposerSignal: 3,
+      lastOpenSource: 'app',
+    });
+    expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot);
+    expect(Object.values(snapshot).some((value) => typeof value === 'function')).toBe(false);
+  });
+
+  it('keeps one stable action object while reading the latest callbacks', async () => {
+    const firstSave = vi.fn(async () => ({ ok: true, createdRootId: 1 }));
+    const secondSave = vi.fn(async () => ({ ok: true, createdRootId: 2 }));
+    const firstClose = vi.fn();
+    const secondClose = vi.fn();
+    let callbacks: CommentSidebarHostActionCallbacks = {
+      onSave: firstSave,
+      onClose: firstClose,
+    };
+    const actions = createCommentSidebarHostActions(() => callbacks);
+    const stableIdentity = actions;
+
+    await actions.save('first');
+    actions.close();
+    callbacks = { onSave: secondSave, onClose: secondClose };
+    await actions.save('second');
+    actions.close();
+
+    expect(actions).toBe(stableIdentity);
+    expect(Object.isFrozen(actions)).toBe(true);
+    expect(firstSave).toHaveBeenCalledWith('first');
+    expect(secondSave).toHaveBeenCalledWith('second');
+    expect(firstClose).toHaveBeenCalledTimes(1);
+    expect(secondClose).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('comment-sidebar-session', () => {
   it('normalizes quote text without destroying line breaks', () => {
@@ -56,165 +160,181 @@ describe('comment-sidebar-session', () => {
     expect(normalizeCommentSidebarQuoteText('hello\r\nworld')).toBe('hello\nworld');
   });
 
-  it('replays queued open and syncs attached panel state', () => {
+  it('publishes one atomic snapshot before and after a panel attaches', () => {
     const session = createCommentSidebarSession();
-    const { panel, calls } = createPanelMock();
+    const panel = createPanelMock();
     const onClose = vi.fn();
-    const comment: CommentSidebarItem = {
-      id: 1,
-      parentId: null,
-      authorName: 'You',
-      createdAt: 123,
-      quoteText: 'quote',
-      commentText: 'hello',
-    };
+    const comment = createComment();
 
-    session.setQuoteText(' first\r\nsecond ');
-    session.setComments([comment]);
-    session.setHandlers({ onClose });
-    session.setBusy(true);
+    const attachment = session.setComposerAttachment({
+      displayQuote: ' first\r\nsecond ',
+      locator: {
+        v: 1,
+        env: 'inpage',
+        quote: { type: 'TextQuoteSelector', exact: 'first\nsecond' },
+        position: { type: 'TextPositionSelector', start: 0, end: 12 },
+      },
+    });
+    session.updateHost({ busy: true, comments: [comment], actionCallbacks: { onClose } });
     session.requestOpen({ focusComposer: true, source: 'inpage' });
 
-    expect(session.getSnapshot()).toMatchObject({
-      attached: false,
+    expect(session.getSnapshot()).toEqual({
+      open: true,
       busy: true,
-      openRequested: true,
-      focusRequested: true,
-      focusComposerSignal: 1,
-      quoteText: ' first\nsecond ',
-      commentCount: 1,
-      hasHandlers: true,
-      lastOpenSource: 'inpage',
-    });
-
-    session.attachPanel(panel);
-
-    expect(calls.quoteText).toEqual([' first\nsecond ']);
-    expect(calls.comments).toHaveLength(1);
-    expect(calls.comments[0]).toEqual([comment]);
-    expect(calls.handlers[0]).toEqual({ onClose });
-    expect(calls.busy).toEqual([true]);
-    expect(calls.open).toEqual([]);
-    expect(session.getSnapshot()).toMatchObject({
-      attached: true,
-      isOpen: false,
-      busy: true,
-      openRequested: true,
-      focusRequested: true,
+      composerAttachment: attachment,
+      comments: [comment],
       focusComposerSignal: 1,
       lastOpenSource: 'inpage',
     });
 
-    session.setBusy(false);
+    const lease = session.attachPanel(panel.panel);
+    expect(panel.calls.attach).toBe(1);
+    expect(panel.getSnapshot()).toEqual(session.getSnapshot());
+    expect(panel.getHost()?.actions).toBe(session.actions);
 
-    expect(calls.busy).toEqual([true, false]);
-    expect(calls.open).toEqual([{ focusComposer: true }]);
-    expect(session.getSnapshot()).toMatchObject({
-      attached: true,
-      isOpen: true,
-      busy: false,
-      openRequested: false,
-      focusRequested: false,
-      focusComposerSignal: 1,
-      lastOpenSource: 'inpage',
+    panel.getHost()?.actions.close();
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    session.updateHost({ busy: false, comments: [createComment(2)] });
+    expect(panel.getSnapshot()).toEqual(session.getSnapshot());
+    expect(panel.getSnapshot()).toMatchObject({ busy: false, comments: [{ id: 2 }] });
+
+    lease.dispose();
+    expect(panel.calls.dispose).toBe(1);
+    expect(panel.getHost()).toBeNull();
+  });
+
+  it('sets and clears quote + locator atomically with a guarded selection revision', () => {
+    const session = createCommentSidebarSession();
+    const first = session.setComposerAttachment({
+      displayQuote: 'first quote',
+      locator: {
+        v: 1,
+        env: 'app',
+        quote: { type: 'TextQuoteSelector', exact: 'first quote' },
+        position: { type: 'TextPositionSelector', start: 3, end: 14 },
+      },
+    });
+    const second = session.setComposerAttachment({
+      displayQuote: 'second quote',
+      locator: null,
+    });
+
+    expect(first.selectionRevision).toBe(1);
+    expect(second.selectionRevision).toBe(2);
+    expect(session.clearComposerAttachment(first.selectionRevision)).toBe(false);
+    expect(session.getSnapshot().composerAttachment).toEqual(second);
+
+    expect(session.clearComposerAttachment(second.selectionRevision)).toBe(true);
+    expect(session.getSnapshot().composerAttachment).toEqual({
+      displayQuote: '',
+      locator: null,
+      selectionRevision: 3,
     });
   });
 
-  it('cancels queued open before close and does not reopen after busy clears', () => {
+  it('uses open as direct host state and keeps the focus signal monotonic', () => {
     const session = createCommentSidebarSession();
-    const { panel, calls } = createPanelMock();
-    session.attachPanel(panel);
-
-    session.setBusy(true);
+    session.updateHost({ busy: true });
     session.requestOpen({ focusComposer: true, source: 'app' });
+
+    expect(session.getSnapshot()).toMatchObject({
+      open: true,
+      busy: true,
+      focusComposerSignal: 1,
+      lastOpenSource: 'app',
+    });
+
     session.requestClose();
-
-    expect(calls.close).toBe(1);
+    session.updateHost({ busy: false });
     expect(session.getSnapshot()).toMatchObject({
-      attached: true,
-      isOpen: false,
-      busy: true,
-      openRequested: false,
-      focusRequested: false,
-      focusComposerSignal: 1,
-      lastOpenSource: null,
-    });
-
-    session.setBusy(false);
-
-    expect(calls.open).toEqual([]);
-    expect(calls.busy).toEqual([false, true, false]);
-    expect(session.getSnapshot()).toMatchObject({
-      attached: true,
-      isOpen: false,
+      open: false,
       busy: false,
-      openRequested: false,
-      focusRequested: false,
       focusComposerSignal: 1,
       lastOpenSource: null,
     });
   });
 
-  it('replays a pending open when a panel attaches later', () => {
+  it('keeps a newer panel attached when an older session lease disposes', () => {
     const session = createCommentSidebarSession();
-    const { panel, calls } = createPanelMock();
+    const first = createPanelMock();
+    const second = createPanelMock();
+    const firstLease = session.attachPanel(first.panel);
+    const secondLease = session.attachPanel(second.panel);
 
-    session.setBusy(true);
-    session.requestOpen({ focusComposer: true, source: 'app' });
-    session.detachPanel();
+    expect(first.calls.dispose).toBe(1);
+    expect(second.getSnapshot()).toEqual(session.getSnapshot());
 
-    expect(session.getSnapshot()).toMatchObject({
-      attached: false,
-      busy: true,
-      openRequested: true,
-      focusRequested: true,
-      focusComposerSignal: 1,
-      lastOpenSource: 'app',
-    });
+    firstLease.dispose();
+    session.requestOpen({ focusComposer: true, source: 'replacement' });
+    expect(second.getSnapshot()).toMatchObject({ open: true, focusComposerSignal: 1 });
+    expect(second.calls.dispose).toBe(0);
 
-    session.attachPanel(panel);
-    expect(calls.open).toEqual([]);
-
-    session.setBusy(false);
-
-    expect(calls.open).toEqual([{ focusComposer: true }]);
-    expect(session.getSnapshot()).toMatchObject({
-      attached: true,
-      isOpen: true,
-      busy: false,
-      openRequested: false,
-      focusRequested: false,
-      focusComposerSignal: 1,
-      lastOpenSource: 'app',
-    });
+    secondLease.dispose();
+    expect(second.calls.dispose).toBe(1);
   });
 
-  it('forwards composer selection + quote clear requests and does not clear quote implicitly on save', async () => {
-    const { panel, calls } = createPanelMock();
-    const session = createCommentSidebarSession(panel);
+  it('updates callbacks without changing the stable actions identity', async () => {
+    const session = createCommentSidebarSession();
+    const actions = session.actions;
+    const firstSave = vi.fn(async () => ({ ok: true, createdRootId: 1 }));
+    const secondSave = vi.fn(async () => ({ ok: true, createdRootId: 2 }));
 
+    session.updateHost({ actionCallbacks: { onSave: firstSave } });
+    await actions.save('first');
+    session.updateHost({ actionCallbacks: { onSave: secondSave } });
+    await actions.save('second');
+
+    expect(session.actions).toBe(actions);
+    expect(firstSave).toHaveBeenCalledWith('first');
+    expect(secondSave).toHaveBeenCalledWith('second');
+  });
+
+  it('disposes the panel, subscribers, and every captured action', async () => {
+    const session = createCommentSidebarSession();
+    const panel = createPanelMock();
+    const onSave = vi.fn(async () => ({ ok: true }));
+    const listener = vi.fn();
+    session.updateHost({ actionCallbacks: { onSave } });
+    const lease = session.attachPanel(panel.panel);
+    const actions = session.actions;
+    session.subscribe(listener);
+
+    session.updateHost({ busy: true });
+    expect(listener).toHaveBeenCalledTimes(1);
+    session.dispose();
+    await actions.save('after dispose');
+    session.updateHost({ busy: false });
+    session.requestOpen({ focusComposer: true });
+    lease.dispose();
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(session.getSnapshot()).toEqual(createCommentSidebarHostSnapshot());
+    expect(panel.calls.dispose).toBe(1);
+  });
+
+  it('forwards selection and clear actions without clearing the attachment on save', async () => {
+    const session = createCommentSidebarSession();
     const onComposerSelectionRequest = vi.fn(async () => {});
     const onComposerQuoteClearRequest = vi.fn(async () => {
-      session.setQuoteText('');
+      session.clearComposerAttachment();
     });
     const onSave = vi.fn(async () => ({ ok: true }));
 
-    session.setQuoteText('quoted text');
-    session.setHandlers({ onSave, onComposerSelectionRequest, onComposerQuoteClearRequest });
+    session.setComposerAttachment({ displayQuote: 'quoted text', locator: null });
+    session.updateHost({
+      actionCallbacks: { onSave, onComposerSelectionRequest, onComposerQuoteClearRequest },
+    });
 
-    const latestHandlers = calls.handlers[calls.handlers.length - 1];
-    expect(typeof latestHandlers.onComposerSelectionRequest).toBe('function');
-    expect(typeof latestHandlers.onSave).toBe('function');
-    expect(typeof latestHandlers.onComposerQuoteClearRequest).toBe('function');
-
-    await latestHandlers.onComposerSelectionRequest?.({ trigger: 'button' } as any);
+    await session.actions.requestComposerSelection({ trigger: 'button' });
     expect(onComposerSelectionRequest).toHaveBeenCalledWith({ trigger: 'button' });
 
-    await latestHandlers.onSave?.('hello');
-    expect(session.getSnapshot().quoteText).toBe('quoted text');
+    await session.actions.save('hello');
+    expect(session.getSnapshot().composerAttachment.displayQuote).toBe('quoted text');
 
-    await latestHandlers.onComposerQuoteClearRequest?.();
+    await session.actions.clearComposerAttachment();
     expect(onComposerQuoteClearRequest).toHaveBeenCalledTimes(1);
-    expect(session.getSnapshot().quoteText).toBe('');
+    expect(session.getSnapshot().composerAttachment.displayQuote).toBe('');
   });
 });

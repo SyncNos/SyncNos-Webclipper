@@ -57,17 +57,20 @@ async function flushReactScheduler() {
 }
 
 function seedOneRootComment(session: ReturnType<typeof createCommentSidebarSession>) {
-  session.setComments([
-    {
+  session.updateHost({
+    comments: [{
       id: 1,
       parentId: null,
+      conversationId: 21,
+      canonicalUrl: 'https://example.com/article',
       authorName: 'You',
       createdAt: 1,
+      updatedAt: 1,
       quoteText: 'Quote',
       commentText: 'Root',
       locator: null,
-    },
-  ]);
+    }],
+  });
 }
 
 async function exerciseReplyAndDelete(shadow: ShadowRoot, expectedRootId: number) {
@@ -109,13 +112,15 @@ describe('comment sidebar session handlers binding', () => {
     const session = createCommentSidebarSession();
     const onReply = vi.fn(async () => {});
     const onDelete = vi.fn(async () => {});
-    session.setHandlers({ onReply, onDelete });
+    session.updateHost({ actionCallbacks: { onReply, onDelete } });
     seedOneRootComment(session);
+    session.requestOpen();
 
     const host = document.createElement('div');
     document.body.appendChild(host);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    session.attachPanel(mounted.api as any);
+    const panelLease = session.attachPanel(mounted.api as any);
+    await flushReactScheduler();
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel?.shadowRoot).toBeTruthy();
@@ -125,21 +130,24 @@ describe('comment sidebar session handlers binding', () => {
     expect(onReply).toHaveBeenCalledWith(1, 'hello reply');
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onDelete).toHaveBeenCalledWith(1);
+    panelLease.dispose();
     mounted.cleanup();
   });
 
   it('rebinds reply/delete handlers when handlers are set after comments already rendered', async () => {
     const session = createCommentSidebarSession();
     seedOneRootComment(session);
+    session.requestOpen();
 
     const host = document.createElement('div');
     document.body.appendChild(host);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    session.attachPanel(mounted.api as any);
+    const panelLease = session.attachPanel(mounted.api as any);
 
     const onReply = vi.fn(async () => {});
     const onDelete = vi.fn(async () => {});
-    session.setHandlers({ onReply, onDelete });
+    session.updateHost({ actionCallbacks: { onReply, onDelete } });
+    await flushReactScheduler();
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel?.shadowRoot).toBeTruthy();
@@ -149,6 +157,26 @@ describe('comment sidebar session handlers binding', () => {
     expect(onReply).toHaveBeenCalledWith(1, 'hello reply');
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onDelete).toHaveBeenCalledWith(1);
+    panelLease.dispose();
     mounted.cleanup();
+  });
+
+  it('detaches the mounted panel bridge during cleanup', async () => {
+    const session = createCommentSidebarSession();
+
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    const panelLease = session.attachPanel(mounted.api as any);
+    session.requestOpen({ focusComposer: true });
+
+    mounted.cleanup();
+    session.requestClose();
+    session.updateHost({ busy: true });
+    await flushTasks();
+
+    expect(host.querySelector('webclipper-threaded-comments-panel')).toBeNull();
+    panelLease.dispose();
+    session.dispose();
   });
 });

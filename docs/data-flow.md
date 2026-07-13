@@ -54,11 +54,15 @@
 
 ### 6. 文章评论 / 注释线程
 
-1. 用户在 article detail 或 inpage comments panel 中打开评论区。
-2. `ArticleCommentsSection.tsx` 先按 canonical URL 读取 `article_comments`，并把结果交给 threaded panel。
-3. 新评论、回复、删除与 orphan attach 都通过 service-owned DTO 和 comments background handlers 统一落库；reply 写入校验父 root 与 conversation/canonical identity，root 删除递归清理全部后代。
-4. 面板的 open / close / quote / focus / busy 由 shared session 统一调度；locator 读取兼容 V1/V2，但 P1 期间生产 writer 仍保持 V1。
-5. 所有消费者先通过唯一 thread graph 归一化 roots/replies。Zip v2 导出写 comment archive schema V2；导入兼容 V1，校验父子图后 roots-first 幂等合并，并返回 warnings。
+1. 用户在 article detail 或 inpage comments panel 中打开评论区；shared session 负责 open/close/quote/focus/busy，评论事实仍来自 `article_comments`。
+2. App UI 注入当前 detail 的 `{sourceRoot, scrollRoot}`；Inpage content entrypoint 注入 selection/document source。service 层不直接读取页面 DOM。
+3. 根评论 capture 先校验 selection 的 ownerDocument、root 与排除边界，再由 `captureCommentAnchor()` 写入 V2 locator。reader 继续接受历史 V1；display quote 的截断不会进入 canonical locator。
+4. 定位时 App 使用显式 detail root；Inpage 按 document-relative root path 与 root evidence 枚举受限候选 roots。`resolveCommentAnchor()` 在所有候选上执行 exact 策略，只有一个全局唯一 Range 才成功；缺失、歧义、evidence 不匹配、预算超限和取消都有明确 reason。
+5. `comment-anchor-controller` 用 generation/AbortSignal 丢弃旧结果；成功 Range 交给嵌套滚动控制器，并同步 panel-scoped passive/active markers。panel close、comments 移除或 cleanup 会清空 marker 与监听器。
+6. 新评论、回复、删除与 orphan attach 通过 service-owned DTO 和 comments background handlers 统一落库；reply 写入校验父 root 与 conversation/canonical identity，root 删除递归清理全部后代。
+7. 所有消费者通过唯一 thread graph 归一化 roots/replies。Zip v2 导出写 comment archive schema V2；导入兼容 V1，校验父子图后 roots-first 幂等合并并返回 warnings。
+
+定位链路明确不使用正文根兜底、环境字段硬拒绝、固定等待重试、比例滚动或父元素高亮；定位失败不会阻断评论列表和写入流程。
 
 ## WebClipper：从本地会话到外部目标
 

@@ -45,6 +45,65 @@ describe('comment anchor controller', () => {
     expect(markers.calls).toContain('replace:1:passive');
   });
 
+  test('keeps passive marker sync running while an explicit locate gets priority', async () => {
+    const markers = registry();
+    let releasePassive: (() => void) | null = null;
+    let passiveSignal: AbortSignal | null = null;
+    const controller = createCommentAnchorController({
+      getRoots: () => [{} as Element],
+      registry: markers.value,
+      resolve: ({ locator: current, signal }) => {
+        if (current.position.start === 0 && !releasePassive) {
+          passiveSignal = signal;
+          return new Promise((resolve) => {
+            releasePassive = () => resolve({ ok: true, range: {} as Range, root: {} as Element, rootIndex: 0 });
+          });
+        }
+        return { ok: true as const, range: {} as Range, root: {} as Element, rootIndex: 0 };
+      },
+    });
+    const second = { ...locator, position: { ...locator.position, start: 2, end: 3 } };
+    const syncing = controller.sync([
+      { commentId: 1, locator },
+      { commentId: 2, locator: second },
+    ]);
+
+    const located = await controller.locate({ commentId: 2, locator: second });
+    expect(located.ok).toBe(true);
+    expect(passiveSignal?.aborted).toBe(false);
+    releasePassive?.();
+    await syncing;
+
+    expect(markers.calls).toContain('replace:1:passive');
+    expect(markers.calls.filter((call) => call === 'replace:2:active').length).toBeGreaterThan(0);
+  });
+
+  test('drops an older locate completion without aborting the marker generation', async () => {
+    const markers = registry();
+    let releaseFirst: (() => void) | null = null;
+    const controller = createCommentAnchorController({
+      getRoots: () => [{} as Element],
+      registry: markers.value,
+      resolve: ({ locator: current }) => {
+        if (current.position.start === 0) {
+          return new Promise((resolve) => {
+            releaseFirst = () => resolve({ ok: true, range: {} as Range, root: {} as Element, rootIndex: 0 });
+          });
+        }
+        return { ok: true as const, range: {} as Range, root: {} as Element, rootIndex: 0 };
+      },
+    });
+    const second = { ...locator, position: { ...locator.position, start: 2, end: 3 } };
+    const firstLocate = controller.locate({ commentId: 1, locator });
+    const secondLocate = await controller.locate({ commentId: 2, locator: second });
+    releaseFirst?.();
+
+    expect(secondLocate.ok).toBe(true);
+    await expect(firstLocate).resolves.toEqual({ ok: false, reason: 'aborted' });
+    expect(markers.calls.some((call) => call.startsWith('replace:1'))).toBe(false);
+    expect(markers.calls).toContain('replace:2:active');
+  });
+
   test('drops stale completion after a new generation starts', async () => {
     const markers = registry();
     let release: (() => void) | null = null;

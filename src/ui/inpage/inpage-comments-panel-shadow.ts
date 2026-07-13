@@ -1,11 +1,13 @@
 import {
   createThreadedCommentChatWithConfig,
   mountThreadedCommentsPanel,
-  type ThreadedCommentItem,
   type ThreadedCommentsPanelChatWithAction,
   type ThreadedCommentsPanelCommentChatWithContext,
 } from '@ui/comments';
-import type { CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
+import type {
+  CommentSidebarItem,
+  CommentSidebarPanelApi,
+} from '@services/comments/sidebar/comment-sidebar-contract';
 import { createInpageCommentRootSource } from '@ui/comments/inpage-comment-root-source';
 import { toDisplayCommentQuote } from '@services/comments/locator/comment-quote-policy';
 import type { InpageCommentsDomSource } from '@services/bootstrap/inpage-comments-panel-content-handlers';
@@ -24,14 +26,8 @@ import {
 } from '@services/integrations/chatwith/chatwith-comments-header-actions';
 import { defaultDetailHeaderActionPort, type DetailHeaderAction } from '@services/integrations/detail-header-actions';
 
-export type InpageCommentItem = ThreadedCommentItem;
-export type InpageCommentsPanelOpenInput = {
-  focusComposer?: boolean;
-};
-
-export type InpageCommentsPanelApi = Omit<CommentSidebarPanelApi, 'open'> & {
-  open: (input?: InpageCommentsPanelOpenInput) => void;
-};
+export type InpageCommentItem = CommentSidebarItem;
+export type InpageCommentsPanelApi = CommentSidebarPanelApi;
 
 const PANEL_ID = 'webclipper-inpage-comments-panel';
 
@@ -227,6 +223,10 @@ function ensurePanel(): { el: HTMLElement; api: CommentSidebarPanelApi } {
   }
 
   const host = document.documentElement;
+  const rootSource = createInpageCommentRootSource({
+    document,
+    getPanelRoot: () => singleton?.el || null,
+  });
   const { el, api } = mountThreadedCommentsPanel(host, {
     overlay: true,
     dockPage: true,
@@ -236,11 +236,8 @@ function ensurePanel(): { el: HTMLElement; api: CommentSidebarPanelApi } {
     showHeader: true,
     showCollapseButton: true,
     locatorEnv: 'inpage',
-    getLocatorSurfaceRoots: () =>
-      createInpageCommentRootSource({
-        document,
-        getPanelRoot: () => singleton?.el || null,
-      }).capture(document.getSelection()),
+    getLocatorSurfaceRoots: () => rootSource.capture(document.getSelection()),
+    getLocatorRoots: (locator) => rootSource.locate(locator),
     chatWith: {
       resolveActions: resolveInpageChatWithActions,
       resolveSingleActionLabel: resolveSingleEnabledChatWithActionLabel,
@@ -259,34 +256,11 @@ function ensurePanel(): { el: HTMLElement; api: CommentSidebarPanelApi } {
 }
 
 const apiRef: InpageCommentsPanelApi = {
-  open(input) {
-    const { api } = ensurePanel();
-    debugInpagePanel('open', { focusComposer: input?.focusComposer === true });
-    api.open({ focusComposer: input?.focusComposer === true });
-  },
-  close() {
-    if (!singleton) return;
-    debugInpagePanel('close', {});
-    singleton.api.close();
-  },
-  isOpen() {
-    if (!singleton) return false;
-    return singleton.api.isOpen();
-  },
-  setBusy(busy) {
-    ensurePanel().api.setBusy(busy);
-  },
-  setQuoteText(text) {
-    ensurePanel().api.setQuoteText(text);
-  },
-  setComments(items) {
-    ensurePanel().api.setComments(items);
-  },
-  setHandlers(handlers) {
-    ensurePanel().api.setHandlers(handlers as any);
+  attachHost(host) {
+    debugInpagePanel('attach_host', {});
+    return ensurePanel().api.attachHost(host);
   },
 };
-
 
 export function createInpageCommentsDomSource(input: {
   window: Window;

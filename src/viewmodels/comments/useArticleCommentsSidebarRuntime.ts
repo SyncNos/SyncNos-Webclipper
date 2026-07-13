@@ -6,15 +6,15 @@ import {
   type ArticleCommentsSidebarController,
 } from '@services/comments/sidebar/article-comments-sidebar-controller';
 import type {
+  CommentSidebarHostSnapshot,
   CommentSidebarSession,
-  CommentSidebarSessionSnapshot,
 } from '@services/comments/sidebar/comment-sidebar-contract';
 import { createCommentSidebarSession } from '@services/comments/sidebar/comment-sidebar-session';
 
 export type ArticleCommentsSidebarRuntime = {
   sidebarSession: CommentSidebarSession;
   sidebarController: ArticleCommentsSidebarController;
-  sidebarSnapshot: CommentSidebarSessionSnapshot;
+  sidebarSnapshot: CommentSidebarHostSnapshot;
   subscribeSidebarClose: (listener: () => void) => () => void;
 };
 

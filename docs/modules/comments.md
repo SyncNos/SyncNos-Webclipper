@@ -3,7 +3,7 @@
 ## 职责
 
 - 为 WebClipper 的 article 会话提供本地优先的 threaded comments（React 实现）。
-- 允许用户在 article detail 或 inpage comments panel 中添加、回复、删除评论；评论记录可选保存 `locator`（TextQuote/TextPosition selectors）用于恢复选区与上下文，但**不维护持久高亮回显**。
+- 允许用户在 article detail 或 inpage comments panel 中添加、回复、删除评论；根评论可保存版本化 `locator`。生产写入使用 V2，历史数据继续读取 V1；Range marker 只在评论面板生命周期内存在，不做跨页面持久高亮。
 - 当前定位是**local-first 注释层**：它是 article 会话的一部分，会在 article 同步时进入 Notion / Obsidian 的评论区段（含根评论数统计），并继续跟随 Zip v2 备份 / 导入保留。
 - **2026-04 完成 React 迁移**：从 ~1,340 行 DOM 操作迁移到 ~950 行 React 组件，删除了 legacy `render.ts`（543 行），引入 `useSyncExternalStore` + panel store 架构。
 
@@ -11,10 +11,14 @@
 
 | 路径 | 作用 | 为什么重要 |
 | --- | --- | --- |
-| `src/ui/comments/panel.ts` | React 桥接入口（~470 行） | 从 ~803 行缩减到 ~470 行，包含 `mountThreadedCommentsPanel` 工厂、dock 控制器集成、sidebar resize 处理、shadow DOM 事件桥接（快捷键提交、Escape 处理、focus tracking）、chatWithMenuController 集成、notice 自动消失计时器 |
+| `src/ui/comments/panel.ts` | React 桥接入口 | 组装 panel store、dock/resize、exact anchor controller、Range scroll 与 panel-scoped marker registry；DOM surface roots 由 UI/entrypoint 注入 |
 | `src/ui/comments/react/ThreadedCommentsPanel.tsx` | 评论主组件（~810 行） | 完整的 React 组件：composer、threads、replies、删除确认（内联实现，非独立组件）、Chat with AI 菜单（内联实现，非独立组件）、聚焦逻辑、防重入保护、Escape 信号处理 |
 | `src/ui/comments/react/panel-store.ts` | 外部 store（~99 行） | 实现 `getSnapshot/subscribe` 模式，桥接 background handlers 与 React 渲染；提供 `setOpen`、`setBusy`、`setQuoteText`、`setComments`、`setHandlers`、`setFocusComposerSignal`、`setEscapeSignal`、`setNotice`、`setHasFocusWithinPanel`、`setPendingFocusRootId` 等完整 setter |
 | `src/ui/comments/react/focus-rules.ts` | 聚焦规则（~34 行） | 保存后聚焦（返回 `createdRootId` 用于聚焦新评论）、回复后聚焦目标输入框、pending focus 解析 |
+| `src/services/comments/locator/capture-comment-anchor.ts` | V2 capture 用例 | 从经过边界校验的 Range 生成 canonical quote、position、boundary path、root evidence 与可选 document-relative root path |
+| `src/services/comments/locator/resolve-comment-anchor.ts` | V1/V2 exact resolver | 在受限候选 roots 中执行历史 V1 或 V2 path/position/quote 策略；只有全局唯一 exact Range 才成功 |
+| `src/ui/comments/comment-anchor-controller.ts` | 定位生命周期控制器 | 用 generation + AbortSignal 取消旧解析，协调 passive/active marker，并在 panel 关闭或销毁时清理 |
+| `src/ui/comments/range-scroll-controller.ts` / `range-marker-registry.ts` | Range 几何适配 | 对精确 Range 做嵌套滚动与矩形 marker；不高亮父元素 |
 | `src/ui/comments/chatwith.ts` | 头部 Chat with AI 菜单控制器（~260 行） | 处理 article detail 头部的 Chat with AI 菜单，非评论级 |
 | `src/ui/comments/comment-chatwith-config.ts` | 评论级 Chat with AI 配置（~95 行） | 创建评论级 Chat with AI 配置对象 |
 | `src/services/comments/domain/comment-thread-graph.ts` | 唯一评论图归一化 | 统一 roots/replies 排序，并确定性分类 orphan、cycle、duplicate；指标、列表、归档和同步派生不得自行重建父子图 |
@@ -49,6 +53,35 @@
 - **Notion 同步**：conversation 对象携带 `commentThreadCount`，写入 Notion "Comment Threads" 属性（数字类型）。
 - **Obsidian 写入**：frontmatter 包含 `comments_root_count`，Markdown 包含 `## Comments` 章节。
 - Zip 评论索引读取兼容 schema V1（可缺少 `authorName`/`locator` 并产生 warning）；当前导出写 schema V2，保留 author 与 V1/V2 locator。导入先校验完整父子图，再按 root → reply 顺序幂等合并。缺少索引的旧备份仍不会恢复评论。
+
+
+## 精确锚点与 marker 契约（P2）
+
+### 读写版本
+
+- **生产 writer 只写 V2**：App 由 `createAppCommentSelectionSource()` 注入 `{sourceRoot, scrollRoot}`，Inpage 由 content entrypoint 注入 selection/document source；两者都调用 `captureCommentAnchor()`。
+- **reader 兼容 V1/V2**：V1 仅保留历史 exact quote/position 语义；V1 的 `env` 是历史字段，不作为运行时硬拒绝条件。V2 使用 `dom-text-v2`、boundary path、position、quote/context、root evidence 与可选 document-relative root path。
+- UI 展示 quote 可以截断；locator 中的 canonical exact/context 不得使用展示层截断值。
+
+### Surface roots 与 exact-only 解析
+
+- UI/entrypoint 是 DOM owner。service 只接收注入的 Range、selection 或候选 roots，不读取 `document`、`body` 或 panel DOM。
+- App 只使用当前 detail surface 的显式 `{sourceRoot, scrollRoot}`。Inpage capture 从当前 selection 推导最小稳定 root；locate 在没有 selection 时按 document-relative path/root evidence 枚举最多 8 个受限候选 root。
+- `resolveCommentAnchor()` 在全部候选 root 上收集结果；只有一个全局唯一 exact Range 时返回成功。不存在、root evidence 不匹配、quote 歧义、跨 root 歧义或预算超限都返回明确 reason，不做模糊文本、块级元素或正文根回退。
+- 默认预算为最多 8 个 roots、累计 400,000 个 DOM text-model 字符；generation 或 AbortSignal 变化会中止旧解析。
+
+### 滚动、markers 与 teardown
+
+- 显式定位通过 `comment-anchor-controller` → `resolveCommentAnchor()` → `scrollExactCommentRange()`。滚动只基于精确 Range，并按内到外的嵌套滚动容器应用最小垂直位移；尊重 reduced-motion。
+- 面板打开且 snapshot 中存在可定位 root comment 时建立 passive markers；显式定位/激活后对应 marker 切换为 active。marker 使用 Range client rects，不给父元素添加 outline、背景或属性。
+- comments 更新会移除已不存在的 marker；panel close/reset、root generation 变化和 cleanup/dispose 都会取消旧解析并清空 marker layer/listeners。
+- 失败 reason 映射到既有 notice；`aborted` 属于被新 generation 取代，不显示错误。
+
+### 明确非目标
+
+- 不实现 Notion 参考截图中页面正文旁的悬浮评论卡片。
+- 不保存跨页面、跨刷新或脱离评论面板生命周期的永久 marker。
+- 不使用固定 sleep/retry、按文本位置比例滚动、父元素高亮、环境字段硬拒绝或 first-success root 策略。
 
 ## React 架构
 
@@ -144,7 +177,7 @@ const handleDelete = (commentId: string) => {
 ### Inpage comments panel
 
 1. 用户从页面内入口打开评论面板（例如双击 inpage 保存按钮打开评论侧边栏）。
-2. `inpage-comments-panel-content-handlers.ts` 先解析选区 / `quoteText`，并生成可选 `locator`。
+2. content entrypoint 注入 selection/document source；UI 从选区推导 capture root，生成 display quote 与 V2 locator，service bootstrap 不直接读取 DOM。
 3. 若 article 还没建立 conversation，系统先捕获/解析 article，再附着 orphan 评论。
 4. 面板的 open / close / quote / focus / busy 状态由 `comment-sidebar-session.ts` 统一调度。
 5. React 组件通过 shadow root 渲染，与页面样式隔离。
@@ -219,4 +252,4 @@ const handleDelete = (commentId: string) => {
 - 删除 root 时递归删除全部后代；新 reply 必须指向同上下文 root。
 - canonical URL migration 必须携带 `conversationId`，只迁移该 conversation 与明确 orphan，不得改写同 URL 下其他 conversation。
 - 新归档导出只写规范图；导入错误必须显式失败或记录 warning，禁止 silent cycle skip。
-- P1 只建立 V1/V2 读写兼容基础，不启用 V2 生产 writer。
+- 生产 writer 只写 V2；reader 继续兼容历史 V1。定位必须返回全局唯一 exact Range，失败时保留评论数据并只显示 notice。

@@ -1,13 +1,18 @@
 import type {
-  CommentSidebarHandlers,
   CommentSidebarComposerSelectionRequest,
+  CommentSidebarHostActionCallbacks,
   CommentSidebarSession,
 } from '@services/comments/sidebar/comment-sidebar-contract';
 import { normalizeCommentSidebarQuoteText } from '@services/comments/sidebar/comment-sidebar-session';
-import type { ArticleCommentLocator } from '@services/comments/domain/models';
 import { normalizeArticleCommentLocator } from '@services/comments/domain/comment-locator';
 import { normalizePositiveInt } from '@services/shared/numbers';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import {
+  buildCommentContextIdentityKey,
+  classifyCommentContextTransition,
+  normalizeCommentContextIdentity,
+  type CommentContextTransition,
+} from '@services/comments/sidebar/comment-context-transition';
 
 import type {
   ArticleCommentsSidebarAdapter,
@@ -29,12 +34,41 @@ export type ArticleCommentsSidebarControllerComposerSelectionPayload = {
   locator?: unknown;
 };
 
+export type ArticleCommentsSidebarLoadStatus = 'idle' | 'loading' | 'ready' | 'stale_error';
+
+export type ArticleCommentsSidebarLoadError = {
+  code: string;
+  message: string;
+};
+
+export type ArticleCommentsSidebarLoadSnapshot = {
+  status: ArticleCommentsSidebarLoadStatus;
+  error: ArticleCommentsSidebarLoadError | null;
+  generation: number;
+  contextKey: string;
+};
+
 export type ArticleCommentsSidebarController = {
   open: (input?: ArticleCommentsSidebarControllerOpenInput) => Promise<void>;
   refresh: () => Promise<void>;
   getContext: () => ArticleCommentsSidebarContext | null;
   setContext: (context: ArticleCommentsSidebarContext | null) => void;
+  getLoadSnapshot: () => ArticleCommentsSidebarLoadSnapshot;
+  subscribeLoadState: (listener: () => void) => () => void;
+  dispose: () => void;
 };
+
+type ControllerOperation = {
+  generation: number;
+  abortController: AbortController;
+};
+
+class ControllerOperationAbortedError extends Error {
+  constructor() {
+    super('article comments controller operation aborted');
+    this.name = 'ControllerOperationAbortedError';
+  }
+}
 
 function safeString(value: unknown): string {
   return String(value ?? '').trim();
@@ -44,19 +78,37 @@ function normalizeConversationId(value: unknown): number | null {
   return normalizePositiveInt(value);
 }
 
-function normalizeContext(next: ArticleCommentsSidebarContext): ArticleCommentsSidebarContext {
+function normalizeContext(
+  next: ArticleCommentsSidebarContext | null | undefined,
+): ArticleCommentsSidebarContext | null {
+  return normalizeCommentContextIdentity(next);
+}
+
+function toLoadError(error: unknown): ArticleCommentsSidebarLoadError {
+  const value = error as { code?: unknown; message?: unknown } | null;
   return {
-    canonicalUrl: canonicalizeArticleUrl(next.canonicalUrl),
-    conversationId: normalizeConversationId(next.conversationId),
+    code: safeString(value?.code) || 'unknown',
+    message: safeString(value?.message) || 'failed to load article comments',
   };
 }
 
-function buildContextKey(context: ArticleCommentsSidebarContext | null): string {
-  if (!context) return '';
-  const canonicalUrl = canonicalizeArticleUrl(context.canonicalUrl);
-  if (!canonicalUrl) return '';
-  const conversationId = normalizeConversationId(context.conversationId);
-  return `${canonicalUrl}#${conversationId ?? ''}`;
+function waitForOperation<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new ControllerOperationAbortedError());
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener('abort', onAbort);
+      callback();
+    };
+    const onAbort = () => finish(() => reject(new ControllerOperationAbortedError()));
+    signal.addEventListener('abort', onAbort, { once: true });
+    task.then(
+      (value) => finish(() => resolve(value)),
+      (error) => finish(() => reject(error)),
+    );
+  });
 }
 
 export function createArticleCommentsSidebarController(input: {
@@ -77,63 +129,190 @@ export function createArticleCommentsSidebarController(input: {
 
   let activeContext: ArticleCommentsSidebarContext | null = null;
   let lastEnsureContextInput: ArticleCommentsSidebarEnsureContextInput | undefined;
-  let pendingRootLocator: ArticleCommentLocator | null = null;
-  let refreshRunId = 0;
   let composerSelectionRequestSeq = 0;
-
-  const applyComposerSelection = (payload?: ArticleCommentsSidebarControllerComposerSelectionPayload | null) => {
-    const quoteText = normalizeCommentSidebarQuoteText(payload?.selectionText);
-    if (!quoteText) return;
-    session.setQuoteText(quoteText);
-    pendingRootLocator = normalizeArticleCommentLocator(payload?.locator);
-  };
-
-  const ensureContext = async (
-    ensure: boolean,
-    ensureInput?: ArticleCommentsSidebarEnsureContextInput,
-  ): Promise<ArticleCommentsSidebarContext | null> => {
-    if (ensureInput) lastEnsureContextInput = ensureInput;
-    if (!ensure || typeof adapter.ensureContext !== 'function') return activeContext;
-    const resolved = await adapter.ensureContext(lastEnsureContextInput);
-    activeContext = normalizeContext(resolved);
-    return activeContext;
+  let operationGeneration = 0;
+  let mutationGeneration = 0;
+  let activeOperation: ControllerOperation | null = null;
+  let disposed = false;
+  const loadListeners = new Set<() => void>();
+  let loadSnapshot: ArticleCommentsSidebarLoadSnapshot = {
+    status: 'idle',
+    error: null,
+    generation: 0,
+    contextKey: '',
   };
 
   const getCanonicalUrl = () => canonicalizeArticleUrl(activeContext?.canonicalUrl);
-  const getContextKey = () => buildContextKey(activeContext);
+  const getContextKey = () => buildCommentContextIdentityKey(activeContext);
 
-  const refresh = async (options?: { manageBusy?: boolean }) => {
-    const manageBusy = options?.manageBusy !== false;
-    const runId = ++refreshRunId;
-    const contextKeyAtStart = getContextKey();
-    const canonicalUrl = getCanonicalUrl();
-    if (!canonicalUrl) {
-      session.setComments([]);
-      return;
-    }
-    if (manageBusy) session.setBusy(true);
-    try {
-      const items = await adapter.list({ canonicalUrl });
-      if (runId !== refreshRunId || contextKeyAtStart !== getContextKey()) return;
-      session.setComments(Array.isArray(items) ? items : []);
-    } catch (_e) {
-      if (runId !== refreshRunId || contextKeyAtStart !== getContextKey()) return;
-      session.setComments([]);
-    } finally {
-      if (manageBusy && runId === refreshRunId) session.setBusy(false);
+  const publishLoadState = (
+    status: ArticleCommentsSidebarLoadStatus,
+    operation: ControllerOperation | null,
+    error: ArticleCommentsSidebarLoadError | null = null,
+  ) => {
+    if (disposed) return;
+    const generation = operation?.generation ?? operationGeneration;
+    loadSnapshot = {
+      status,
+      error,
+      generation,
+      contextKey: getContextKey(),
+    };
+    session.updateHost({ busy: status === 'loading' });
+    for (const listener of loadListeners) {
+      try {
+        listener();
+      } catch (_error) {
+        // A failed observer must not interrupt the controller state machine.
+      }
     }
   };
 
-  const ensureContextForAction = async () => {
+  const abortActiveOperation = () => {
+    activeOperation?.abortController.abort();
+    activeOperation = null;
+  };
+
+  const beginOperation = (): ControllerOperation => {
+    abortActiveOperation();
+    const operation = {
+      generation: ++operationGeneration,
+      abortController: new AbortController(),
+    };
+    activeOperation = operation;
+    publishLoadState('loading', operation);
+    return operation;
+  };
+
+  const isCurrentOperation = (operation: ControllerOperation) =>
+    !disposed &&
+    activeOperation === operation &&
+    operation.generation === operationGeneration &&
+    !operation.abortController.signal.aborted;
+
+  const finishOperation = (
+    operation: ControllerOperation,
+    status: Exclude<ArticleCommentsSidebarLoadStatus, 'loading'>,
+    error: ArticleCommentsSidebarLoadError | null = null,
+  ) => {
+    if (!isCurrentOperation(operation)) return;
+    activeOperation = null;
+    publishLoadState(status, operation, error);
+  };
+
+  const applyComposerSelection = (payload?: ArticleCommentsSidebarControllerComposerSelectionPayload | null) => {
+    if (disposed) return;
+    const quoteText = normalizeCommentSidebarQuoteText(payload?.selectionText);
+    if (!quoteText) return;
+    session.setComposerAttachment({
+      displayQuote: quoteText,
+      locator: normalizeArticleCommentLocator(payload?.locator),
+    });
+  };
+
+  const assignContext = (
+    next: ArticleCommentsSidebarContext | null | undefined,
+    options?: { clearComposer?: boolean; invalidateMutations?: boolean },
+  ): CommentContextTransition => {
+    const transition = classifyCommentContextTransition(activeContext, next);
+    if (transition.kind === 'same') return transition;
+
+    if (options?.invalidateMutations !== false) mutationGeneration += 1;
+    activeContext = transition.next;
+    if (options?.clearComposer !== false) {
+      session.clearComposerAttachment();
+    }
+
+    if (transition.kind === 'conversation-change' || transition.kind === 'invalid') {
+      session.updateHost({ comments: [] });
+    }
+    return transition;
+  };
+
+  const loadComments = async (operation: ControllerOperation) => {
+    const context = normalizeContext(activeContext);
+    if (!context) {
+      finishOperation(operation, 'idle');
+      return;
+    }
+
+    try {
+      const items = await waitForOperation(
+        adapter.list({
+          canonicalUrl: context.canonicalUrl,
+          conversationId: context.conversationId,
+          fallbackPolicy: 'include-orphan-url',
+          signal: operation.abortController.signal,
+        }),
+        operation.abortController.signal,
+      );
+      if (!isCurrentOperation(operation)) return;
+      session.updateHost({ comments: Array.isArray(items) ? items : [] });
+      finishOperation(operation, 'ready');
+    } catch (error) {
+      if (error instanceof ControllerOperationAbortedError || !isCurrentOperation(operation)) return;
+      finishOperation(operation, 'stale_error', toLoadError(error));
+    }
+  };
+
+  const migrateThenLoad = async (operation: ControllerOperation, transition: CommentContextTransition) => {
+    if (
+      transition.kind === 'url-migrate' &&
+      transition.previous &&
+      transition.next &&
+      typeof adapter.migrateCanonicalUrl === 'function'
+    ) {
+      try {
+        await waitForOperation(
+          Promise.resolve(
+            adapter.migrateCanonicalUrl({
+              fromCanonicalUrl: transition.previous.canonicalUrl,
+              toCanonicalUrl: transition.next.canonicalUrl,
+              conversationId: transition.next.conversationId,
+              signal: operation.abortController.signal,
+            }),
+          ),
+          operation.abortController.signal,
+        );
+      } catch (error) {
+        if (error instanceof ControllerOperationAbortedError || !isCurrentOperation(operation)) return;
+        finishOperation(operation, 'stale_error', toLoadError(error));
+        return;
+      }
+    }
+    await loadComments(operation);
+  };
+
+  const refresh = async () => {
+    if (disposed) return;
+    if (!normalizeContext(activeContext)) {
+      abortActiveOperation();
+      publishLoadState('idle', null);
+      return;
+    }
+    const operation = beginOperation();
+    await loadComments(operation);
+  };
+
+  const isMutationCurrent = (generation: number) => !disposed && generation === mutationGeneration;
+
+  const ensureContextForAction = async (generation: number) => {
+    if (!isMutationCurrent(generation)) return null;
     const canonicalUrl = getCanonicalUrl();
     if (canonicalUrl) return activeContext;
-    await ensureContext(true);
+    if (typeof adapter.ensureContext !== 'function') return activeContext;
+    const resolved = await adapter.ensureContext(lastEnsureContextInput);
+    if (!isMutationCurrent(generation)) return null;
+    assignContext(resolved, { clearComposer: false, invalidateMutations: false });
     return activeContext;
   };
 
   const installHandlers = () => {
-    const handlers: CommentSidebarHandlers = {
+    const actionCallbacks: CommentSidebarHostActionCallbacks = {
       onClose: () => {
+        if (disposed) return;
+        if (!session.getSnapshot().open) return;
+        session.requestClose();
         try {
           onClose?.();
         } catch (_e) {
@@ -141,35 +320,44 @@ export function createArticleCommentsSidebarController(input: {
         }
       },
       onSave: async (text) => {
+        const generation = mutationGeneration;
+        if (!isMutationCurrent(generation)) return false;
         const value = safeString(text);
         if (!value) return false;
 
-        const ctx = await ensureContextForAction();
+        const ctx = await ensureContextForAction(generation);
+        if (!isMutationCurrent(generation)) return false;
         const canonicalUrl = canonicalizeArticleUrl(ctx?.canonicalUrl);
         if (!canonicalUrl) throw new Error('missing canonicalUrl for article comment save');
 
-        const quoteText = normalizeCommentSidebarQuoteText(session.getSnapshot().quoteText);
+        const attachment = session.getSnapshot().composerAttachment;
+        const quoteText = normalizeCommentSidebarQuoteText(attachment.displayQuote);
+        const selectionRevision = attachment.selectionRevision;
         const created = await adapter.addRoot({
           canonicalUrl,
           conversationId: normalizeConversationId(ctx?.conversationId),
           quoteText,
           commentText: value,
-          locator: quoteText && pendingRootLocator ? pendingRootLocator : null,
+          locator: quoteText ? normalizeArticleCommentLocator(attachment.locator) : null,
         });
+        if (!isMutationCurrent(generation)) return false;
         composerSelectionRequestSeq += 1;
-        session.setQuoteText('');
-        pendingRootLocator = null;
+        session.clearComposerAttachment(selectionRevision);
         await refresh();
+        if (!isMutationCurrent(generation)) return false;
         const createdRootId = Number(created?.id);
         return { ok: true, createdRootId: Number.isFinite(createdRootId) && createdRootId > 0 ? createdRootId : null };
       },
       onReply: async (parentId, text) => {
+        const generation = mutationGeneration;
+        if (!isMutationCurrent(generation)) return;
         const value = safeString(text);
         if (!value) return;
         const id = Number(parentId);
         if (!Number.isFinite(id) || id <= 0) return;
 
-        const ctx = await ensureContextForAction();
+        const ctx = await ensureContextForAction(generation);
+        if (!isMutationCurrent(generation)) return;
         const canonicalUrl = canonicalizeArticleUrl(ctx?.canonicalUrl);
         if (!canonicalUrl) throw new Error('missing canonicalUrl for article comment reply');
 
@@ -179,22 +367,27 @@ export function createArticleCommentsSidebarController(input: {
           parentId: id,
           commentText: value,
         });
+        if (!isMutationCurrent(generation)) return;
         await refresh();
       },
       onDelete: async (id) => {
+        const generation = mutationGeneration;
+        if (!isMutationCurrent(generation)) return;
         const commentId = Number(id);
         if (!Number.isFinite(commentId) || commentId <= 0) return;
         await adapter.delete({ id: commentId });
+        if (!isMutationCurrent(generation)) return;
         await refresh();
       },
       onComposerSelectionRequest: async (request) => {
+        if (disposed) return;
         const resolveComposerSelection = input.resolveComposerSelection;
         if (typeof resolveComposerSelection !== 'function') return;
         const requestSeq = ++composerSelectionRequestSeq;
         const applyIfLatest = (
           payload: ArticleCommentsSidebarControllerComposerSelectionPayload | null | undefined,
         ) => {
-          if (requestSeq !== composerSelectionRequestSeq) return;
+          if (disposed || requestSeq !== composerSelectionRequestSeq) return;
           applyComposerSelection(payload);
         };
         try {
@@ -215,18 +408,20 @@ export function createArticleCommentsSidebarController(input: {
         }
       },
       onComposerQuoteClearRequest: () => {
+        if (disposed) return;
         composerSelectionRequestSeq += 1;
-        session.setQuoteText('');
-        pendingRootLocator = null;
+        session.clearComposerAttachment();
       },
     };
 
-    session.setHandlers(handlers);
+    session.updateHost({ actionCallbacks });
   };
 
   installHandlers();
 
   const open = async (openInput?: ArticleCommentsSidebarControllerOpenInput) => {
+    if (disposed) return;
+    mutationGeneration += 1;
     const selectionText = openInput?.selectionText;
     if (selectionText != null) {
       applyComposerSelection({ selectionText, locator: openInput?.locator });
@@ -234,70 +429,74 @@ export function createArticleCommentsSidebarController(input: {
     session.requestOpen({ focusComposer: openInput?.focusComposer === true, source: openInput?.source });
 
     const shouldEnsureContext = openInput?.ensureContext !== false;
-    session.setBusy(true);
+    if (!shouldEnsureContext || typeof adapter.ensureContext !== 'function') {
+      await refresh();
+      return;
+    }
+
+    if (openInput?.ensureContextInput) lastEnsureContextInput = openInput.ensureContextInput;
+    const operation = beginOperation();
     try {
-      await ensureContext(shouldEnsureContext, openInput?.ensureContextInput);
-      await refresh({ manageBusy: false });
-    } finally {
-      session.setBusy(false);
+      const resolved = await waitForOperation(
+        adapter.ensureContext(lastEnsureContextInput),
+        operation.abortController.signal,
+      );
+      if (!isCurrentOperation(operation)) return;
+      const transition = assignContext(resolved, { clearComposer: false });
+      if (transition.kind === 'invalid') {
+        finishOperation(operation, 'idle');
+        return;
+      }
+      publishLoadState('loading', operation);
+      await migrateThenLoad(operation, transition);
+    } catch (error) {
+      if (error instanceof ControllerOperationAbortedError || !isCurrentOperation(operation)) return;
+      finishOperation(operation, 'stale_error', toLoadError(error));
     }
   };
 
   const getContext = () => (activeContext ? { ...activeContext } : null);
 
   const setContext = (next: ArticleCommentsSidebarContext | null) => {
-    const normalized = next ? normalizeContext(next) : null;
-    if (buildContextKey(activeContext) === buildContextKey(normalized)) return;
+    if (disposed) return;
+    const transition = assignContext(next);
+    if (transition.kind === 'same') return;
 
-    const previousCanonicalUrl = canonicalizeArticleUrl(activeContext?.canonicalUrl);
-    const previousConversationId = normalizeConversationId(activeContext?.conversationId);
-    const nextCanonicalUrl = canonicalizeArticleUrl(normalized?.canonicalUrl);
-    const nextConversationId = normalizeConversationId(normalized?.conversationId);
-
-    if (
-      previousCanonicalUrl &&
-      nextCanonicalUrl &&
-      previousCanonicalUrl !== nextCanonicalUrl &&
-      previousConversationId &&
-      nextConversationId &&
-      previousConversationId === nextConversationId &&
-      typeof adapter.migrateCanonicalUrl === 'function'
-    ) {
-      void adapter
-        .migrateCanonicalUrl({
-          fromCanonicalUrl: previousCanonicalUrl,
-          toCanonicalUrl: nextCanonicalUrl,
-          conversationId: nextConversationId,
-        })
-        .catch((error) => {
-          console.warn('[CommentsSidebar] canonical migration failed', {
-            fromCanonicalUrl: previousCanonicalUrl,
-            toCanonicalUrl: nextCanonicalUrl,
-            conversationId: nextConversationId,
-            error: error instanceof Error ? error.message : String(error || ''),
-          });
-        });
-    }
-
-    activeContext = normalized;
-    pendingRootLocator = null;
-    session.setQuoteText('');
-    refreshRunId += 1;
-
-    const canonicalUrl = getCanonicalUrl();
-    if (!canonicalUrl) {
-      session.setBusy(false);
-      session.setComments([]);
+    if (transition.kind === 'invalid') {
+      abortActiveOperation();
+      publishLoadState('idle', null);
       return;
     }
 
-    void refresh();
+    const operation = beginOperation();
+    void migrateThenLoad(operation, transition);
+  };
+
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    session.updateHost({ busy: false, actionCallbacks: {} });
+    composerSelectionRequestSeq += 1;
+    mutationGeneration += 1;
+    operationGeneration += 1;
+    abortActiveOperation();
+    loadListeners.clear();
   };
 
   return {
     open,
-    refresh: () => refresh(),
+    refresh,
     getContext,
     setContext,
+    getLoadSnapshot: () => loadSnapshot,
+    subscribeLoadState: (listener) => {
+      if (disposed) return () => {};
+      if (typeof listener !== 'function') return () => {};
+      loadListeners.add(listener);
+      return () => {
+        loadListeners.delete(listener);
+      };
+    },
+    dispose,
   };
 }

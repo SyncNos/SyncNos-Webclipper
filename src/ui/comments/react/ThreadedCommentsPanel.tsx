@@ -95,7 +95,7 @@ export function ThreadedCommentsPanel({
   showCollapseButton,
   showHeaderChatWith,
   snapshot,
-  readHandlers,
+  actions,
   onRequestClose,
   onHeaderChatWithRootChange,
   setPendingFocusRootId,
@@ -254,34 +254,23 @@ export function ThreadedCommentsPanel({
           debugCommentsSelection('auto_skip_empty_signature', {});
           return;
         }
-        const latestHandlers = readHandlers?.() || snapshot.handlers;
-        const handler = latestHandlers.onComposerSelectionRequest;
-        if (typeof handler !== 'function') {
-          pendingAutoSelectionRequestRef.current = true;
-          pendingAutoSelectionSignatureRef.current = normalizedSignature;
-          debugCommentsSelection('auto_defer_no_handler', {});
-          return;
-        }
         if (normalizedSignature === lastAutoSelectionSignatureRef.current) {
           debugCommentsSelection('auto_dedupe_signature', {});
           return;
         }
         lastAutoSelectionSignatureRef.current = normalizedSignature;
         debugCommentsSelection('auto_request', {});
-        void Promise.resolve(handler({ trigger })).catch(() => {
+        void Promise.resolve(actions.requestComposerSelection({ trigger })).catch(() => {
           // ignore
         });
         return;
       }
-      const latestHandlers = readHandlers?.() || snapshot.handlers;
-      const handler = latestHandlers.onComposerSelectionRequest;
-      if (typeof handler !== 'function') return;
       debugCommentsSelection('button_request', {});
-      void Promise.resolve(handler({ trigger })).catch(() => {
+      void Promise.resolve(actions.requestComposerSelection({ trigger })).catch(() => {
         // ignore
       });
     },
-    [readHandlers, snapshot.handlers],
+    [actions],
   );
 
   const updateArmedDeleteId = useCallback(
@@ -298,11 +287,8 @@ export function ThreadedCommentsPanel({
     async (rawText?: string | null) => {
       const text = String(rawText ?? composerTextareaRef.current?.value ?? composerTextRef.current ?? '').trim();
       if (!text || busy || actionInFlightRef.current) return;
-      const latestHandlers = readHandlers?.() || snapshot.handlers;
-      const onSave = latestHandlers.onSave;
-      if (typeof onSave !== 'function') return;
       await runBusyTask(async () => {
-        const result = await onSave(text);
+        const result = await actions.save(text);
         if (unmountedRef.current) return;
         const createdRootId = resolveTargetRootIdFromSaveResult(result);
         if (createdRootId != null) {
@@ -321,7 +307,7 @@ export function ThreadedCommentsPanel({
         }
       });
     },
-    [busy, readHandlers, runBusyTask, setPendingFocusRootId, snapshot.handlers],
+    [actions, busy, runBusyTask, setPendingFocusRootId],
   );
 
   useLayoutEffect(() => {
@@ -342,7 +328,7 @@ export function ThreadedCommentsPanel({
       lastFocusedComposerQuoteTextRef.current = '';
       return;
     }
-    const quoteText = String(snapshot.quoteText || '').trim();
+    const quoteText = String(snapshot.composerAttachment.displayQuote || '').trim();
     if (!quoteText) {
       lastFocusedComposerQuoteTextRef.current = '';
       return;
@@ -351,7 +337,7 @@ export function ThreadedCommentsPanel({
     if (lastFocusedComposerQuoteTextRef.current === quoteText) return;
     focusComposer();
     lastFocusedComposerQuoteTextRef.current = quoteText;
-  }, [busy, snapshot.open, snapshot.quoteText]);
+  }, [busy, snapshot.open, snapshot.composerAttachment.displayQuote]);
 
   useLayoutEffect(() => {
     if (!snapshot.open) {
@@ -489,13 +475,11 @@ export function ThreadedCommentsPanel({
   useLayoutEffect(() => {
     if (!snapshot.open) return;
     if (!pendingAutoSelectionRequestRef.current) return;
-    const latestHandlers = readHandlers?.() || snapshot.handlers;
-    if (typeof latestHandlers.onComposerSelectionRequest !== 'function') return;
     pendingAutoSelectionRequestRef.current = false;
     const signature = pendingAutoSelectionSignatureRef.current;
     pendingAutoSelectionSignatureRef.current = 'empty';
     requestComposerSelection('auto', signature);
-  }, [readHandlers, requestComposerSelection, snapshot.handlers, snapshot.open]);
+  }, [requestComposerSelection, snapshot.open]);
 
   useLayoutEffect(() => {
     const signal = Number(snapshot.escapeSignal || 0);
@@ -538,15 +522,12 @@ export function ThreadedCommentsPanel({
 
   const submitReply = useCallback(
     async (rootId: number, rawText?: string | null) => {
-      const latestHandlers = readHandlers?.() || snapshot.handlers;
-      const onReply = latestHandlers.onReply;
-      if (typeof onReply !== 'function') return;
       const text = String(
         rawText ?? replyTextareaRefs.current[rootId]?.value ?? replyTextsRef.current[rootId] ?? '',
       ).trim();
       if (!text || busy || actionInFlightRef.current) return;
       await runBusyTask(async () => {
-        await onReply(rootId, text);
+        await actions.reply(rootId, text);
         if (unmountedRef.current) return;
         replyTextsRef.current = { ...replyTextsRef.current, [rootId]: '' };
         setReplyText(rootId, '');
@@ -565,7 +546,7 @@ export function ThreadedCommentsPanel({
         setPendingFocusRootId?.(targetRootId);
       });
     },
-    [busy, readHandlers, runBusyTask, setPendingFocusRootId, setReplyText, snapshot.handlers],
+    [actions, busy, runBusyTask, setPendingFocusRootId, setReplyText],
   );
 
   useLayoutEffect(() => {
@@ -602,8 +583,8 @@ export function ThreadedCommentsPanel({
   const runLocate = async (rootId: number) => {
     if (busy || variant !== 'sidebar') return;
     if (typeof locateThreadRoot !== 'function') return;
-    const ok = await locateThreadRoot(rootId);
-    if (!ok) onLocateFailed?.();
+    const result = await locateThreadRoot(rootId);
+    if (!result.ok && result.reason !== 'aborted') onLocateFailed?.(result.reason);
   };
 
   useLayoutEffect(() => {
@@ -622,11 +603,6 @@ export function ThreadedCommentsPanel({
       target.focus();
       const value = String(target.value || '');
       target.setSelectionRange(value.length, value.length);
-    } catch (_error) {
-      // ignore
-    }
-    try {
-      target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     } catch (_error) {
       // ignore
     }
@@ -660,11 +636,8 @@ export function ThreadedCommentsPanel({
       return;
     }
     updateArmedDeleteId(null);
-    const latestHandlers = readHandlers?.() || snapshot.handlers;
-    const onDelete = latestHandlers.onDelete;
-    if (typeof onDelete !== 'function') return;
     await runBusyTask(async () => {
-      await onDelete(id);
+      await actions.delete(id);
     });
   };
 
@@ -841,9 +814,9 @@ export function ThreadedCommentsPanel({
         >
           {snapshot.noticeMessage}
         </div>
-        {String(snapshot.quoteText || '').trim() ? (
+        {String(snapshot.composerAttachment.displayQuote || '').trim() ? (
           <div className="webclipper-inpage-comments-panel__quote">
-            <div className="webclipper-inpage-comments-panel__text">{snapshot.quoteText}</div>
+            <div className="webclipper-inpage-comments-panel__text">{snapshot.composerAttachment.displayQuote}</div>
             <button
               type="button"
               className={['webclipper-inpage-comments-panel__quote-clear', buttonIconCircleGhostClassName()].join(' ')}
@@ -853,10 +826,7 @@ export function ThreadedCommentsPanel({
                 pendingAutoSelectionRequestRef.current = false;
                 pendingAutoSelectionSignatureRef.current = 'empty';
                 autoSelectionDirtyRef.current = false;
-                const latestHandlers = readHandlers?.() || snapshot.handlers;
-                const handler = latestHandlers.onComposerQuoteClearRequest;
-                if (typeof handler !== 'function') return;
-                void Promise.resolve(handler()).catch(() => {
+                void Promise.resolve(actions.clearComposerAttachment()).catch(() => {
                   // ignore
                 });
               }}

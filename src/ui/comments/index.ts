@@ -4,10 +4,10 @@ export type { CreateThreadedCommentChatWithConfigInput } from './comment-chatwit
 export type {
   MountOptions,
   CommentLocatorSurfaceRoots,
-  ThreadedCommentItem,
   ThreadedCommentsPanelApi,
   ThreadedCommentsPanelChatWithAction,
   ThreadedCommentsPanelChatWithConfig,
   ThreadedCommentsPanelCommentChatWithConfig,
   ThreadedCommentsPanelCommentChatWithContext,
 } from './types';
+export type { CommentSidebarItem } from '@services/comments/sidebar/comment-sidebar-contract';

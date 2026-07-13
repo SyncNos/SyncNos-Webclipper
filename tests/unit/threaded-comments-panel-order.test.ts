@@ -6,6 +6,7 @@ vi.mock('../../src/ui/i18n', () => ({
 }));
 
 import { mountThreadedCommentsPanel } from '@ui/comments';
+import { getCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -62,7 +63,7 @@ describe('Threaded comments panel ordering', () => {
     document.body.appendChild(host);
 
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setComments([
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([
       { id: 1, parentId: null, createdAt: 1000, authorName: 'You', quoteText: '', commentText: 'root-old' },
       { id: 2, parentId: null, createdAt: 2000, authorName: 'You', quoteText: '', commentText: 'root-new' },
       { id: 3, parentId: 2, createdAt: 1500, authorName: 'You', quoteText: '', commentText: 'reply-old' },

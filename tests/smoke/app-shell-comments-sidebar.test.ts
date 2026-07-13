@@ -5,17 +5,28 @@ import { JSDOM } from 'jsdom';
 import type { ReactNode } from 'react';
 import { cleanupCommentsReactRoot, flushCommentsReactWork, waitForCommentsUi } from '../helpers/comments-test-harness';
 
-const { commentsByUrl, listArticleCommentsByCanonicalUrlMock, responsiveTierState, detailPaneMockState } = vi.hoisted(
-  () => {
-    const commentsByUrl = new Map<string, Array<{ id: number; parentId: number | null; commentText: string }>>();
-    const listArticleCommentsByCanonicalUrlMock = vi.fn(async (canonicalUrl: string) => {
-      return commentsByUrl.get(String(canonicalUrl || '')) || [];
-    });
-    const responsiveTierState = { value: 'wide' as 'narrow' | 'medium' | 'wide' };
-    const detailPaneMockState = { provideLocatorRoot: true };
-    return { commentsByUrl, listArticleCommentsByCanonicalUrlMock, responsiveTierState, detailPaneMockState };
-  },
-);
+const {
+  commentsByUrl,
+  listArticleCommentsByCanonicalUrlMock,
+  listArticleCommentsByConversationIdMock,
+  responsiveTierState,
+  detailPaneMockState,
+} = vi.hoisted(() => {
+  const commentsByUrl = new Map<string, Array<{ id: number; parentId: number | null; commentText: string }>>();
+  const listArticleCommentsByCanonicalUrlMock = vi.fn(async (canonicalUrl: string) => {
+    return commentsByUrl.get(String(canonicalUrl || '')) || [];
+  });
+  const listArticleCommentsByConversationIdMock = vi.fn(async () => []);
+  const responsiveTierState = { value: 'wide' as 'narrow' | 'medium' | 'wide' };
+  const detailPaneMockState = { provideLocatorRoot: true };
+  return {
+    commentsByUrl,
+    listArticleCommentsByCanonicalUrlMock,
+    listArticleCommentsByConversationIdMock,
+    responsiveTierState,
+    detailPaneMockState,
+  };
+});
 
 const COMMENTS_SIDEBAR_COLLAPSED_KEY = 'webclipper_app_comments_sidebar_collapsed';
 
@@ -121,6 +132,7 @@ vi.mock('@services/comments/client/repo', () => ({
   })),
   deleteArticleCommentById: vi.fn(async () => true),
   listArticleCommentsByCanonicalUrl: listArticleCommentsByCanonicalUrlMock,
+  listArticleCommentsByConversationId: listArticleCommentsByConversationIdMock,
 }));
 
 vi.mock('../../src/ui/conversations/ConversationDetailPane', () => ({
@@ -241,8 +253,12 @@ function mockSelectionInElement(el: HTMLElement, needle: string): (() => void) |
     addRange: () => {},
   } as any;
 
-  const spy = vi.spyOn(globalThis, 'getSelection').mockImplementation(() => selectionMock as Selection);
-  return () => spy.mockRestore();
+  const globalSelectionSpy = vi.spyOn(globalThis, 'getSelection').mockImplementation(() => selectionMock as Selection);
+  const documentSelectionSpy = vi.spyOn(document, 'getSelection').mockImplementation(() => selectionMock as Selection);
+  return () => {
+    documentSelectionSpy.mockRestore();
+    globalSelectionSpy.mockRestore();
+  };
 }
 
 describe('AppShell comments sidebar', () => {
@@ -251,6 +267,7 @@ describe('AppShell comments sidebar', () => {
   beforeEach(() => {
     commentsByUrl.clear();
     listArticleCommentsByCanonicalUrlMock.mockClear();
+    listArticleCommentsByConversationIdMock.mockClear();
     responsiveTierState.value = 'wide';
     detailPaneMockState.provideLocatorRoot = true;
     currentState.selectedConversation = {
@@ -551,6 +568,8 @@ describe('AppShell comments sidebar', () => {
 
     expect(listArticleCommentsByCanonicalUrlMock).toHaveBeenCalledWith('https://example.com/a');
     expect(listArticleCommentsByCanonicalUrlMock).toHaveBeenCalledWith('https://example.com/b');
+    expect(listArticleCommentsByConversationIdMock).toHaveBeenCalledWith(21);
+    expect(listArticleCommentsByConversationIdMock).toHaveBeenCalledWith(22);
   });
 
   it('keeps medium tier comments sidebar closed by default', () => {

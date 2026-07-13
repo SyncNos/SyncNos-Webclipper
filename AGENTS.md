@@ -56,7 +56,6 @@
 
 ## 贡献约定
 
-- 所有 shell 命令一律以 `rtk` 前缀执行（- Rust Token Killer）。
 - 默认不查看、不编辑 i18n 字段（除非明确要求）。
 - Commit message 用 Conventional Commits（如 `refactor:`/`feat:`/`fix:`），一次改动尽量做到可编译、可回滚。
 - 重构优先拆成可独立验证的小步：每步至少跑 `npm run compile`。

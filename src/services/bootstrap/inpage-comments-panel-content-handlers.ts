@@ -18,6 +18,7 @@ export type InpageCommentsDomSource = {
 
 export type InpageCommentsPanelController = {
   open: (input?: { tabId?: number | null; focusComposer?: boolean; ensureArticle?: boolean }) => Promise<void>;
+  dispose: () => void;
 };
 
 export type InpageCommentsPanelDeps = {
@@ -39,8 +40,10 @@ export function createInpageCommentsPanelController(
   });
 
   let lastTabId: number | null = null;
+  let disposed = false;
 
   async function open(input?: { tabId?: number | null; focusComposer?: boolean; ensureArticle?: boolean }) {
+    if (disposed) return;
     // Only handle on top frame to avoid duplicate panels.
     if (!deps.domSource.isTopFrame()) return;
 
@@ -59,7 +62,14 @@ export function createInpageCommentsPanelController(
     });
   }
 
-  return { open };
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    controller.dispose();
+    sidebarSession.dispose();
+  };
+
+  return { open, dispose };
 }
 
 export function registerInpageCommentsPanelContentHandlers(
@@ -67,8 +77,10 @@ export function registerInpageCommentsPanelContentHandlers(
   deps: InpageCommentsPanelDeps,
 ) {
   const onMessage = (globalThis as any).chrome?.runtime?.onMessage ?? (globalThis as any).browser?.runtime?.onMessage;
-  if (!onMessage?.addListener)
-    return { controller: createInpageCommentsPanelController(runtime, deps), cleanup: () => {} };
+  if (!onMessage?.addListener) {
+    const controller = createInpageCommentsPanelController(runtime, deps);
+    return { controller, cleanup: () => controller.dispose() };
+  }
 
   const controller = createInpageCommentsPanelController(runtime, deps);
 
@@ -97,6 +109,7 @@ export function registerInpageCommentsPanelContentHandlers(
     } catch (_e) {
       // ignore
     }
+    controller.dispose();
   };
 
   return { controller, cleanup };

@@ -2,19 +2,39 @@ import {
   addArticleComment,
   deleteArticleCommentById,
   listArticleCommentsByCanonicalUrl,
+  listArticleCommentsByConversationId,
   migrateArticleCommentsCanonicalUrl,
 } from '@services/comments/client/repo';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import {
+  ArticleCommentsSidebarAdapterError,
+  filterArticleCommentsForListIdentity,
+  mergeArticleCommentsByIdentity,
+  normalizeArticleCommentsSidebarListInput,
+} from '@services/comments/sidebar/article-comments-sidebar-adapter';
 
 import type { ArticleCommentsSidebarAdapter } from '@services/comments/sidebar/article-comments-sidebar-adapter';
 
 export function createArticleCommentsSidebarAppAdapter(): ArticleCommentsSidebarAdapter {
   return {
-    async list({ canonicalUrl }) {
-      const normalized = canonicalizeArticleUrl(canonicalUrl);
-      if (!normalized) return [];
-      const items = await listArticleCommentsByCanonicalUrl(normalized);
-      return items;
+    async list(input) {
+      const query = normalizeArticleCommentsSidebarListInput(input);
+      try {
+        const byConversation = query.conversationId
+          ? await listArticleCommentsByConversationId(query.conversationId)
+          : [];
+        const shouldReadUrl =
+          !!query.canonicalUrl && (!query.conversationId || query.fallbackPolicy === 'include-orphan-url');
+        const byCanonicalUrl = shouldReadUrl
+          ? filterArticleCommentsForListIdentity(await listArticleCommentsByCanonicalUrl(query.canonicalUrl), query)
+          : [];
+        return mergeArticleCommentsByIdentity(byConversation, byCanonicalUrl);
+      } catch (error) {
+        if (error instanceof ArticleCommentsSidebarAdapterError) throw error;
+        throw new ArticleCommentsSidebarAdapterError('request_failed', 'failed to list article comments', {
+          cause: error,
+        });
+      }
     },
     async addRoot({ canonicalUrl, conversationId, quoteText, commentText, locator }) {
       const normalized = canonicalizeArticleUrl(canonicalUrl);

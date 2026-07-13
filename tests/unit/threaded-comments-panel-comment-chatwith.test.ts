@@ -13,6 +13,7 @@ vi.mock('../../src/ui/i18n', () => ({
 }));
 
 import { mountThreadedCommentsPanel } from '@ui/comments';
+import { getCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -82,7 +83,7 @@ describe('Threaded comments panel comment chatwith', () => {
       },
     });
 
-    mounted.api.setComments([
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([
       { id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' },
       { id: 2, parentId: 1, createdAt: 1100, commentText: 'reply comment' },
     ]);
@@ -114,7 +115,7 @@ describe('Threaded comments panel comment chatwith', () => {
       },
     });
 
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: '   ' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: '   ' }]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     const shadow = panel?.shadowRoot;
@@ -148,7 +149,7 @@ describe('Threaded comments panel comment chatwith', () => {
       },
     });
 
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     const shadow = panel?.shadowRoot;
@@ -183,7 +184,7 @@ describe('Threaded comments panel comment chatwith', () => {
       },
     });
 
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     const shadow = panel?.shadowRoot;
@@ -220,8 +221,8 @@ describe('Threaded comments panel comment chatwith', () => {
       },
     });
 
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
-    mounted.api.setBusy(true);
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).setBusy(true);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     const shadow = panel?.shadowRoot;

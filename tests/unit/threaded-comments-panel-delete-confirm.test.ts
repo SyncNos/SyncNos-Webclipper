@@ -6,6 +6,7 @@ vi.mock('../../src/ui/i18n', () => ({
 }));
 
 import { mountThreadedCommentsPanel } from '@ui/comments';
+import { getCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -71,8 +72,8 @@ describe('Threaded comments panel delete confirmation', () => {
 
     const onDelete = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setHandlers({ onDelete });
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onDelete });
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
@@ -107,8 +108,8 @@ describe('Threaded comments panel delete confirmation', () => {
 
     const onDelete = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setHandlers({ onDelete });
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onDelete });
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
@@ -148,8 +149,8 @@ describe('Threaded comments panel delete confirmation', () => {
 
     const onDelete = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setHandlers({ onDelete });
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).setHandlers({ onDelete });
+    getCommentSidebarPanelTestDriver(mounted.api).setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();

@@ -26,8 +26,8 @@ const subscribeSidebarClose = vi.fn((listener: () => void) => {
   };
 });
 let currentSidebarCloseListener: (() => void) | null = null;
-const attachPanel = vi.fn();
-const detachPanel = vi.fn();
+const panelLeaseDispose = vi.fn();
+const attachPanel = vi.fn(() => ({ dispose: panelLeaseDispose }));
 const sessionSubscribe = vi.fn(() => () => {});
 const setContext = vi.fn();
 const getSessionSnapshot = vi.fn(() => ({
@@ -183,8 +183,9 @@ describe('ConversationsScene narrow comments flow', () => {
     consumePendingOpenConversation.mockReturnValue(null);
     sidebarOpen.mockReset();
     subscribeSidebarClose.mockClear();
+    panelLeaseDispose.mockReset();
     attachPanel.mockReset();
-    detachPanel.mockReset();
+    attachPanel.mockImplementation(() => ({ dispose: panelLeaseDispose }));
     sessionSubscribe.mockReset();
     sessionSubscribe.mockImplementation(() => () => {});
     setContext.mockReset();
@@ -218,7 +219,6 @@ describe('ConversationsScene narrow comments flow', () => {
     const commentsSidebarRuntime = {
       sidebarSession: {
         attachPanel,
-        detachPanel,
         subscribe: sessionSubscribe,
         getSnapshot: getSessionSnapshot,
       } as any,
@@ -239,10 +239,7 @@ describe('ConversationsScene narrow comments flow', () => {
       );
     });
 
-    expect(setContext).toHaveBeenCalledWith({
-      canonicalUrl: 'https://example.com/article/11',
-      conversationId: 11,
-    });
+    expect(setContext).not.toHaveBeenCalled();
     expect(document.querySelector('[data-conversation-id="11"]')).toBeTruthy();
 
     const row = document.querySelector('[data-conversation-id="11"]') as HTMLElement | null;
@@ -312,7 +309,6 @@ describe('ConversationsScene narrow comments flow', () => {
     const commentsSidebarRuntime = {
       sidebarSession: {
         attachPanel,
-        detachPanel,
         subscribe: sessionSubscribe,
         getSnapshot: getSessionSnapshot,
       } as any,
@@ -333,10 +329,7 @@ describe('ConversationsScene narrow comments flow', () => {
       );
     });
 
-    expect(setContext).toHaveBeenCalledWith({
-      canonicalUrl: 'https://example.com/article/11',
-      conversationId: 11,
-    });
+    expect(setContext).not.toHaveBeenCalled();
     expect(openConversationExternalBySourceKey).toHaveBeenCalledWith('chatgpt', 'conv-99');
     expect(document.querySelector('[aria-label="Conversation detail"]')).toBeTruthy();
 

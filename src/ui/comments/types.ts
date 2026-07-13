@@ -1,35 +1,7 @@
-export type ThreadedCommentItem = {
-  id: number;
-  parentId: number | null;
-  authorName?: string | null;
-  createdAt?: number | null;
-  quoteText?: string | null;
-  commentText: string;
-  locator?: unknown | null;
-};
+import type { ArticleCommentLocator } from '@services/comments/domain/comment-locator';
+import type { CommentSidebarItem, CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
 
-export type CommentSaveResult = void | boolean | { ok: boolean; createdRootId?: number | null };
-
-export type ThreadedCommentsPanelComposerSelectionRequest = {
-  trigger: 'button' | 'auto';
-};
-
-export type ThreadedCommentsPanelApi = {
-  open: (input?: { focusComposer?: boolean }) => void;
-  close: () => void;
-  isOpen: () => boolean;
-  setBusy: (busy: boolean) => void;
-  setQuoteText: (text: string) => void;
-  setComments: (items: ThreadedCommentItem[]) => void;
-  setHandlers: (handlers: {
-    onSave?: (text: string) => CommentSaveResult | Promise<CommentSaveResult>;
-    onReply?: (parentId: number, text: string) => void | Promise<void>;
-    onDelete?: (id: number) => void | Promise<void>;
-    onClose?: () => void;
-    onComposerSelectionRequest?: (input: ThreadedCommentsPanelComposerSelectionRequest) => void | Promise<void>;
-    onComposerQuoteClearRequest?: () => void | Promise<void>;
-  }) => void;
-};
+export type ThreadedCommentsPanelApi = CommentSidebarPanelApi;
 
 export type ThreadedCommentsPanelChatWithAction = {
   id: string;
@@ -50,9 +22,9 @@ export type ThreadedCommentsPanelCommentChatWithContext = {
 
 export type ThreadedCommentsPanelCommentChatWithConfig = {
   resolveActions: (
-    rootComment: ThreadedCommentItem,
+    rootComment: CommentSidebarItem,
     context: ThreadedCommentsPanelCommentChatWithContext,
-    replies?: ThreadedCommentItem[] | null,
+    replies?: CommentSidebarItem[] | null,
   ) => Promise<ThreadedCommentsPanelChatWithAction[]>;
   resolveContext?: () =>
     | ThreadedCommentsPanelCommentChatWithContext
@@ -76,6 +48,7 @@ export type MountOptions = {
   dockPage?: boolean;
   locatorEnv?: 'inpage' | 'app' | null;
   getLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
+  getLocatorRoots?: (locator: ArticleCommentLocator) => readonly Element[];
   chatWith?: ThreadedCommentsPanelChatWithConfig | null;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
   deferReactUpdates?: boolean;

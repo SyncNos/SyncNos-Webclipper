@@ -5,7 +5,7 @@ import type { CommentRangeMarkerRegistry } from '@ui/comments/range-marker-regis
 export type CommentAnchorItem = { commentId: number; locator: ArticleCommentLocator | null | undefined };
 
 export function createCommentAnchorController(input: {
-  getRoots: () => readonly Element[];
+  getRoots: (locator: ArticleCommentLocator) => readonly Element[];
   resolve: (request: {
     locator: ArticleCommentLocator;
     roots: readonly Element[];
@@ -17,50 +17,103 @@ export function createCommentAnchorController(input: {
 }) {
   let generation = 0;
   let abortController: AbortController | null = null;
+  let locateAbortController: AbortController | null = null;
+  let locateRequestId = 0;
   let activeCommentId: number | null = null;
   let disposed = false;
+  const trackedCommentIds = new Set<number>();
 
   const nextGeneration = () => {
     generation += 1;
     abortController?.abort();
+    locateAbortController?.abort();
+    locateAbortController = null;
+    locateRequestId += 1;
     abortController = new AbortController();
     return { generation, signal: abortController.signal };
   };
 
-  const clear = () => {
-    nextGeneration();
-    input.registry.dispose();
+  const currentGeneration = () => {
+    if (!abortController || abortController.signal.aborted) return nextGeneration();
+    return { generation, signal: abortController.signal };
+  };
+
+  const removeTrackedMarkers = () => {
+    for (const commentId of trackedCommentIds) input.registry.remove(commentId);
+    trackedCommentIds.clear();
   };
 
   const sync = async (items: readonly CommentAnchorItem[], nextActiveId?: number | null) => {
     if (disposed) return;
     if (nextActiveId !== undefined) activeCommentId = nextActiveId;
     const run = nextGeneration();
-    const roots = input.getRoots();
     const limited = items
       .filter((item) => !!item.locator)
       .sort((left, right) => Number(right.commentId === activeCommentId) - Number(left.commentId === activeCommentId))
       .slice(0, Math.max(1, Math.floor(Number(input.maxItems ?? 100) || 1)));
+    const nextIds = new Set(limited.map((item) => item.commentId));
+
+    for (const commentId of trackedCommentIds) {
+      if (nextIds.has(commentId)) continue;
+      input.registry.remove(commentId);
+      trackedCommentIds.delete(commentId);
+    }
 
     for (const item of limited) {
       if (run.signal.aborted || run.generation !== generation || disposed) return;
-      const result = await input.resolve({ locator: item.locator!, roots, signal: run.signal, generation: run.generation });
+      const locator = item.locator!;
+      const result = await input.resolve({
+        locator,
+        roots: input.getRoots(locator),
+        signal: run.signal,
+        generation: run.generation,
+      });
       if (run.signal.aborted || run.generation !== generation || disposed) return;
-      if (result.ok) input.registry.replace(item.commentId, result.range, item.commentId === activeCommentId ? 'active' : 'passive');
-      else input.registry.remove(item.commentId);
+      if (result.ok) {
+        input.registry.replace(item.commentId, result.range, item.commentId === activeCommentId ? 'active' : 'passive');
+        trackedCommentIds.add(item.commentId);
+      } else {
+        input.registry.remove(item.commentId);
+        trackedCommentIds.delete(item.commentId);
+      }
     }
     input.registry.setActive(activeCommentId);
   };
 
-  const locate = async (item: CommentAnchorItem): Promise<Range | null> => {
-    if (disposed || !item.locator) return null;
+  const locate = async (item: CommentAnchorItem): Promise<ResolveCommentAnchorResult> => {
+    if (disposed) return { ok: false, reason: 'aborted' };
+    if (!item.locator) return { ok: false, reason: 'missing_locator' };
     activeCommentId = item.commentId;
-    const run = nextGeneration();
-    const result = await input.resolve({ locator: item.locator, roots: input.getRoots(), signal: run.signal, generation: run.generation });
-    if (run.signal.aborted || run.generation !== generation || disposed || !result.ok) return null;
+    const run = currentGeneration();
+    locateAbortController?.abort();
+    locateAbortController = new AbortController();
+    const locateSignal = locateAbortController.signal;
+    const requestId = ++locateRequestId;
+    const result = await input.resolve({
+      locator: item.locator,
+      roots: input.getRoots(item.locator),
+      signal: locateSignal,
+      generation: run.generation,
+    });
+    if (
+      locateSignal.aborted ||
+      run.signal.aborted ||
+      run.generation !== generation ||
+      requestId !== locateRequestId ||
+      activeCommentId !== item.commentId ||
+      disposed
+    ) {
+      return { ok: false, reason: 'aborted' };
+    }
+    if (!result.ok) {
+      input.registry.remove(item.commentId);
+      trackedCommentIds.delete(item.commentId);
+      return result;
+    }
     input.registry.replace(item.commentId, result.range, 'active');
+    trackedCommentIds.add(item.commentId);
     input.registry.setActive(item.commentId);
-    return result.range;
+    return result;
   };
 
   return {
@@ -73,12 +126,15 @@ export function createCommentAnchorController(input: {
     reset() {
       nextGeneration();
       activeCommentId = null;
+      removeTrackedMarkers();
       input.registry.setActive(null);
     },
     dispose() {
       if (disposed) return;
       disposed = true;
-      clear();
+      nextGeneration();
+      removeTrackedMarkers();
+      input.registry.dispose();
     },
     getGeneration: () => generation,
   };

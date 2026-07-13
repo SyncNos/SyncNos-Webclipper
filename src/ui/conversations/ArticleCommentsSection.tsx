@@ -20,11 +20,7 @@ export type ArticleCommentsSectionProps = {
 };
 
 export function ArticleCommentsSection(props: ArticleCommentsSectionProps) {
-  return (
-    <ArticleCommentsPanelMount
-      {...props}
-    />
-  );
+  return <ArticleCommentsPanelMount {...props} />;
 }
 
 function ArticleCommentsPanelMount({
@@ -60,7 +56,8 @@ function ArticleCommentsPanelMount({
   const hasCommentChatWith = !!commentChatWith && typeof commentChatWith.resolveActions === 'function';
 
   useEffect(() => {
-    locatorRootGetterRef.current = typeof getLocatorSurfaceRoots === 'function' ? () => getLocatorSurfaceRoots()?.sourceRoot || null : null;
+    locatorRootGetterRef.current =
+      typeof getLocatorSurfaceRoots === 'function' ? () => getLocatorSurfaceRoots()?.sourceRoot || null : null;
   }, [getLocatorSurfaceRoots]);
 
   useEffect(() => {
@@ -123,10 +120,10 @@ function ArticleCommentsPanelMount({
       deferReactUpdates: true,
     });
     apiRef.current = mounted.api;
-    sidebarSession.attachPanel(mounted.api as any);
+    const panelLease = sidebarSession.attachPanel(mounted.api as any);
 
     return () => {
-      sidebarSession.detachPanel();
+      panelLease.dispose();
       mounted.cleanup();
       apiRef.current = null;
     };

@@ -26,6 +26,34 @@ describe('resolveCommentAnchor', () => {
     }
   });
 
+  test('preserves missing root, root mismatch, and ambiguous quote reasons', () => {
+    const source = element('exact and exact');
+    const range = source.ownerDocument.createRange();
+    range.setStart(source.firstChild!, 0);
+    range.setEnd(source.firstChild!, 5);
+    const locator = captureCommentAnchor({ root: source, range, surfaceHint: 'app' })!;
+
+    expect(resolveCommentAnchor({ locator, roots: [] })).toEqual({ ok: false, reason: 'missing_root' });
+    expect(resolveCommentAnchor({ locator, roots: [element('unrelated')] })).toEqual({
+      ok: false,
+      reason: 'root_mismatch',
+    });
+
+    const ambiguousLocator = {
+      ...locator,
+      quote: { type: 'TextQuoteSelector' as const, exact: 'exact' },
+      position: { type: 'TextPositionSelector' as const, start: 99, end: 104 },
+      boundaryPath: {
+        start: { path: [99], offset: 0 },
+        end: { path: [99], offset: 5 },
+      },
+    };
+    expect(resolveCommentAnchor({ locator: ambiguousLocator, roots: [source] })).toEqual({
+      ok: false,
+      reason: 'ambiguous_quote',
+    });
+  });
+
   test('rejects a V1 locator that resolves in more than one root', () => {
     const locator = {
       v: 1 as const,
