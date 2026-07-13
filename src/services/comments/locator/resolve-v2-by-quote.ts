@@ -1,5 +1,5 @@
 import type { ArticleCommentLocatorV2 } from '@services/comments/domain/comment-locator';
-import { createCommentDomTextIndex } from '@services/comments/locator/dom-text-index';
+import { createCommentDomTextIndex, type CommentDomTextIndex } from '@services/comments/locator/dom-text-index';
 
 export type ResolveV2QuoteResult =
   | { ok: true; range: Range; start: number; end: number }
@@ -10,8 +10,9 @@ export function resolveV2ByQuoteContext(input: {
   locator: ArticleCommentLocatorV2;
   maxMatches?: number;
   maxTextLength?: number;
+  index?: CommentDomTextIndex;
 }): ResolveV2QuoteResult {
-  const index = createCommentDomTextIndex(input.root);
+  const index = input.index?.root === input.root ? input.index : createCommentDomTextIndex(input.root);
   const maxTextLength = Math.max(0, Math.floor(Number(input.maxTextLength ?? 200_000) || 0));
   if (index.text.length > maxTextLength) return { ok: false, reason: 'budget_exceeded' };
 

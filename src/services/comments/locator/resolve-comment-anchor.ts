@@ -3,10 +3,12 @@ import type {
   ArticleCommentLocator,
 } from '@services/comments/domain/comment-locator';
 import { compareCommentRootEvidence } from '@services/comments/locator/comment-root-evidence';
-import { createCommentDomTextIndex } from '@services/comments/locator/dom-text-index';
+import { createCommentDomTextIndex, type CommentDomTextIndex } from '@services/comments/locator/dom-text-index';
 import { resolveV1CommentAnchor } from '@services/comments/locator/resolve-v1-comment-anchor';
 import { resolveV2ByPathOrPosition } from '@services/comments/locator/resolve-v2-by-path';
 import { resolveV2ByQuoteContext } from '@services/comments/locator/resolve-v2-by-quote';
+
+export type CommentAnchorResolutionBudget = { remainingTextLength: number };
 
 export type ResolveCommentAnchorResult =
   | { ok: true; range: Range; root: Element; rootIndex: number }
@@ -20,6 +22,8 @@ export function resolveCommentAnchor(input: {
   isGenerationCurrent?: (generation: number) => boolean;
   maxRoots?: number;
   maxTotalTextLength?: number;
+  budget?: CommentAnchorResolutionBudget;
+  createIndex?: (root: Element) => CommentDomTextIndex;
 }): ResolveCommentAnchorResult {
   const maxRoots = Math.max(1, Math.floor(Number(input.maxRoots ?? 8) || 1));
   const maxTotalTextLength = Math.max(0, Math.floor(Number(input.maxTotalTextLength ?? 400_000) || 0));
@@ -37,24 +41,33 @@ export function resolveCommentAnchor(input: {
       return { ok: false, reason: 'aborted' };
     }
     const root = input.roots[rootIndex]!;
-    const index = createCommentDomTextIndex(root);
+    const index = (input.createIndex ?? createCommentDomTextIndex)(root);
     scanned += index.text.length;
     if (scanned > maxTotalTextLength) return { ok: false, reason: 'budget_exceeded' };
+    if (input.budget) {
+      if (index.text.length > input.budget.remainingTextLength) return { ok: false, reason: 'budget_exceeded' };
+      input.budget.remainingTextLength -= index.text.length;
+    }
 
     const ranges: Range[] = [];
     if (input.locator.v === 1) {
       const range = resolveV1CommentAnchor({ root, locator: input.locator });
       if (range) ranges.push(range);
     } else {
-      const evidence = compareCommentRootEvidence(root, input.locator.rootEvidence);
+      const evidence = compareCommentRootEvidence(root, input.locator.rootEvidence, { index });
       if (evidence !== 'matched') {
         sawV2RootMismatch = true;
         continue;
       }
       matchedV2Root = true;
-      const path = resolveV2ByPathOrPosition({ root, locator: input.locator });
+      const path = resolveV2ByPathOrPosition({
+        root,
+        locator: input.locator,
+        index,
+        evidenceAlreadyMatched: true,
+      });
       if (path) ranges.push(path.range);
-      const quote = resolveV2ByQuoteContext({ root, locator: input.locator });
+      const quote = resolveV2ByQuoteContext({ root, locator: input.locator, index });
       if (quote.ok) ranges.push(quote.range);
       else if (quote.reason === 'budget_exceeded') return { ok: false, reason: 'budget_exceeded' };
       else if (quote.reason === 'ambiguous_quote') sawAmbiguousQuote = true;

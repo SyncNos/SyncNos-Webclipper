@@ -150,6 +150,9 @@ describe('Threaded comments panel locate', () => {
     await flushReactScheduler();
     expect(resolveCommentAnchor).toHaveBeenCalledTimes(beforeBodyClick);
 
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    expect(document.querySelector('[data-comment-id="1"]')?.className).toContain('is-active');
+
     const locateButton = panel.shadowRoot!.querySelector(
       '.webclipper-inpage-comments-panel__quote-locate',
     ) as HTMLButtonElement;

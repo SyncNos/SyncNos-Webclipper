@@ -107,6 +107,31 @@ describe('comment anchor controller', () => {
     expect(markers.calls).toContain('replace:2:active');
   });
 
+  test('shares one aggregate text budget across passive marker resolutions', async () => {
+    const markers = registry();
+    const seenBudgets: number[] = [];
+    const controller = createCommentAnchorController({
+      getRoots: () => [{} as Element],
+      registry: markers.value,
+      maxTotalTextLength: 3,
+      resolve: ({ budget }) => {
+        seenBudgets.push(budget.remainingTextLength);
+        if (budget.remainingTextLength < 2) return { ok: false as const, reason: 'budget_exceeded' as const };
+        budget.remainingTextLength -= 2;
+        return { ok: true as const, range: {} as Range, root: {} as Element, rootIndex: 0 };
+      },
+    });
+
+    await controller.sync([
+      { commentId: 1, locator },
+      { commentId: 2, locator },
+    ]);
+
+    expect(seenBudgets).toEqual([3, 1]);
+    expect(markers.calls).toContain('replace:1:passive');
+    expect(markers.calls).not.toContain('replace:2:passive');
+  });
+
   test('drops stale completion after a new generation starts', async () => {
     const markers = registry();
     let release: (() => void) | null = null;

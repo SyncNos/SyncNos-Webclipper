@@ -29,6 +29,7 @@ export type ThreadedCommentsPanelProps = {
   onRequestClose: () => void;
   setPendingFocusRootId?: (rootId: number | null) => void;
   locateThreadRoot?: (rootId: number) => Promise<ThreadLocateResult>;
+  onActiveRootChange?: (rootId: number | null) => void;
   getLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
   onLocateFailed?: (reason: string) => void;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;

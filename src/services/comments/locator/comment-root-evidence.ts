@@ -1,15 +1,16 @@
 import type { ArticleCommentRootEvidence } from '@services/comments/domain/comment-locator';
 import { captureCommentRootSnapshot } from '@services/comments/locator/comment-root-snapshot';
+import type { CommentDomTextIndex } from '@services/comments/locator/dom-text-index';
 
 export type CommentRootEvidenceMatch = 'matched' | 'mismatch' | 'insufficient';
 
 export function compareCommentRootEvidence(
   root: Element,
   expected: ArticleCommentRootEvidence | null | undefined,
-  options?: { lengthTolerance?: number },
+  options?: { lengthTolerance?: number; index?: CommentDomTextIndex },
 ): CommentRootEvidenceMatch {
   if (!expected || expected.textModelVersion !== 'dom-text-v2' || !expected.textHash) return 'insufficient';
-  const actual = captureCommentRootSnapshot(root);
+  const actual = captureCommentRootSnapshot(root, { index: options?.index });
   if (!actual) return 'insufficient';
   const tolerance = Math.max(0, Math.floor(Number(options?.lengthTolerance ?? 0) || 0));
   if (Math.abs(actual.textLength - expected.textLength) > tolerance) return 'mismatch';

@@ -21,8 +21,10 @@ export type CommentDomTextIndex = {
 
 function isHiddenElement(element: Element): boolean {
   if (element.hasAttribute('hidden') || element.getAttribute('aria-hidden') === 'true') return true;
-  const style = (element as HTMLElement).style;
-  return style?.display === 'none' || style?.visibility === 'hidden';
+  const inlineStyle = (element as HTMLElement).style;
+  if (inlineStyle?.display === 'none' || inlineStyle?.visibility === 'hidden') return true;
+  const computedStyle = element.ownerDocument.defaultView?.getComputedStyle?.(element);
+  return computedStyle?.display === 'none' || computedStyle?.visibility === 'hidden';
 }
 
 function collectSegments(root: Element): TextSegment[] {

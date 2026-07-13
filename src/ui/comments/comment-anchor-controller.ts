@@ -1,5 +1,8 @@
 import type { ArticleCommentLocator } from '@services/comments/domain/comment-locator';
-import type { ResolveCommentAnchorResult } from '@services/comments/locator/resolve-comment-anchor';
+import type {
+  CommentAnchorResolutionBudget,
+  ResolveCommentAnchorResult,
+} from '@services/comments/locator/resolve-comment-anchor';
 import type { CommentRangeMarkerRegistry } from '@ui/comments/range-marker-registry';
 
 export type CommentAnchorItem = { commentId: number; locator: ArticleCommentLocator | null | undefined };
@@ -11,9 +14,11 @@ export function createCommentAnchorController(input: {
     roots: readonly Element[];
     signal: AbortSignal;
     generation: number;
+    budget: CommentAnchorResolutionBudget;
   }) => Promise<ResolveCommentAnchorResult> | ResolveCommentAnchorResult;
   registry: CommentRangeMarkerRegistry;
   maxItems?: number;
+  maxTotalTextLength?: number;
 }) {
   let generation = 0;
   let abortController: AbortController | null = null;
@@ -47,6 +52,9 @@ export function createCommentAnchorController(input: {
     if (disposed) return;
     if (nextActiveId !== undefined) activeCommentId = nextActiveId;
     const run = nextGeneration();
+    const budget = {
+      remainingTextLength: Math.max(0, Math.floor(Number(input.maxTotalTextLength ?? 400_000) || 0)),
+    };
     const limited = items
       .filter((item) => !!item.locator)
       .sort((left, right) => Number(right.commentId === activeCommentId) - Number(left.commentId === activeCommentId))
@@ -67,6 +75,7 @@ export function createCommentAnchorController(input: {
         roots: input.getRoots(locator),
         signal: run.signal,
         generation: run.generation,
+        budget,
       });
       if (run.signal.aborted || run.generation !== generation || disposed) return;
       if (result.ok) {
@@ -89,11 +98,15 @@ export function createCommentAnchorController(input: {
     locateAbortController = new AbortController();
     const locateSignal = locateAbortController.signal;
     const requestId = ++locateRequestId;
+    const budget = {
+      remainingTextLength: Math.max(0, Math.floor(Number(input.maxTotalTextLength ?? 400_000) || 0)),
+    };
     const result = await input.resolve({
       locator: item.locator,
       roots: input.getRoots(item.locator),
       signal: locateSignal,
       generation: run.generation,
+      budget,
     });
     if (
       locateSignal.aborted ||

@@ -19,6 +19,12 @@ function positiveInt(value: unknown): number | null {
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
+function parseOptionalPositiveInt(value: unknown): { ok: true; value: number | null } | { ok: false } {
+  if (value == null) return { ok: true, value: null };
+  const parsed = positiveInt(value);
+  return parsed == null ? { ok: false } : { ok: true, value: parsed };
+}
+
 export function parseArticleCommentDto(value: unknown): ArticleCommentDto | null {
   if (!value || typeof value !== 'object') return null;
   const row = value as Record<string, unknown>;
@@ -61,10 +67,13 @@ export function parseArticleCommentAddRequest(value: unknown): ArticleCommentAdd
   const canonicalUrl = canonicalizeArticleUrl(row.canonicalUrl);
   const commentText = String(row.commentText ?? '').trim();
   if (!canonicalUrl || !commentText) return null;
-  const parentId = positiveInt(row.parentId);
+  const parent = parseOptionalPositiveInt(row.parentId);
+  const conversation = parseOptionalPositiveInt(row.conversationId);
+  if (!parent.ok || !conversation.ok) return null;
+  const parentId = parent.value;
   return {
     canonicalUrl,
-    conversationId: positiveInt(row.conversationId),
+    conversationId: conversation.value,
     parentId,
     quoteText: parentId ? '' : String(row.quoteText ?? ''),
     commentText,

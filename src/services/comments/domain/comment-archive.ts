@@ -276,9 +276,15 @@ export type PreparedArticleCommentArchiveImport = {
 };
 
 export function buildArticleCommentArchiveBaseKey(
-  input: Pick<ArticleCommentArchiveItem, 'canonicalUrl' | 'createdAt' | 'quoteText' | 'commentText'>,
+  input: Pick<ArticleCommentArchiveItem, 'uniqueKey' | 'canonicalUrl' | 'createdAt' | 'quoteText' | 'commentText'>,
 ): string {
-  return [input.canonicalUrl.trim(), String(input.createdAt), input.quoteText, input.commentText].join('||');
+  return [
+    input.uniqueKey.trim(),
+    input.canonicalUrl.trim(),
+    String(input.createdAt),
+    input.quoteText,
+    input.commentText,
+  ].join('||');
 }
 
 export function buildArticleCommentArchiveFingerprint(baseKey: string, parentBaseKey: string): string {

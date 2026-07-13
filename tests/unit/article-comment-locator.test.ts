@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { JSDOM } from 'jsdom';
-import {
-  captureCommentAnchor,
-  parseArticleCommentLocator,
-  restoreRangeFromArticleCommentLocator,
-} from '../../src/services/comments/locator';
+import { parseArticleCommentLocator } from '../../src/services/comments/domain/comment-locator';
+import { captureCommentAnchor } from '../../src/services/comments/locator/capture-comment-anchor';
+import { resolveV1CommentAnchor } from '../../src/services/comments/locator/resolve-v1-comment-anchor';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -49,7 +47,7 @@ describe('article-comment-locator', () => {
   it('keeps frozen V1 read compatibility without a V1 writer', () => {
     document.body.innerHTML = '<div id="root">Hello world</div>';
     const root = document.getElementById('root') as HTMLElement;
-    const restored = restoreRangeFromArticleCommentLocator({
+    const restored = resolveV1CommentAnchor({
       root,
       locator: {
         v: 1,
@@ -76,6 +74,18 @@ describe('article-comment-locator parser', () => {
     });
     expect(parsed.ok).toBe(true);
     expect(parsed.value).toMatchObject({ v: 2, surfaceHint: 'app', rootEvidence: { textHash: 'abc' } });
+  });
+
+  it('round-trips V2 element-boundary locators with an empty node path', () => {
+    const document = new JSDOM('<article id="root"><span>one</span><span>two</span></article>').window.document;
+    const root = document.getElementById('root')!;
+    const range = document.createRange();
+    range.setStart(root, 0);
+    range.setEnd(root, 1);
+    const locator = captureCommentAnchor({ root, range, surfaceHint: 'app' });
+    expect(locator?.boundaryPath.start.path).toEqual([]);
+    expect(locator?.boundaryPath.end.path).toEqual([]);
+    expect(parseArticleCommentLocator(locator)).toMatchObject({ ok: true, value: { v: 2 } });
   });
 
   it('rejects locator fields that exceed parser budgets', () => {

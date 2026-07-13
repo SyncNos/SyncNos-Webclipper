@@ -45,4 +45,17 @@ describe('inpage comment root source', () => {
     const candidates = createInpageCommentRootSource({ document, maxCandidates: 1 }).locate(locator);
     expect(candidates).toEqual([root]);
   });
+
+  test('bounds evidence checks even when later candidates would match', () => {
+    const document = new JSDOM(
+      `<main>${Array.from({ length: 12 }, (_, index) => `<article data-testid="candidate-${index}">text-${index}</article>`).join('')}</main>`,
+      { url: 'https://example.com/' },
+    ).window.document;
+    const root = document.querySelector('[data-testid="candidate-11"]')!;
+    const range = document.createRange();
+    range.selectNodeContents(root.firstChild!);
+    const locator = captureCommentAnchor({ root, range, surfaceHint: 'inpage' })!;
+
+    expect(createInpageCommentRootSource({ document, maxCandidates: 4 }).locate(locator)).toEqual([]);
+  });
 });

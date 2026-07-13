@@ -89,6 +89,10 @@ describe('article comments storage-idb', () => {
     expect(after.map((c) => c.id)).toEqual([c2.id]);
   });
 
+  it('returns false when deleting a missing comment id', async () => {
+    expect(await deleteArticleCommentById(999_999)).toBe(false);
+  });
+
   it('round-trips author metadata and V1/V2 locators without field loss', async () => {
     const v2 = {
       v: 2 as const,

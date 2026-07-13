@@ -1,5 +1,5 @@
 import type { ArticleCommentRootEvidence } from '@services/comments/domain/comment-locator';
-import { createCommentDomTextIndex } from '@services/comments/locator/dom-text-index';
+import { createCommentDomTextIndex, type CommentDomTextIndex } from '@services/comments/locator/dom-text-index';
 
 export const COMMENT_ROOT_SNAPSHOT_DEFAULT_MAX_TEXT_LENGTH = 200_000;
 const SAFE_DATA_ATTRIBUTES = ['data-testid', 'data-id', 'data-message-id', 'data-node-id'] as const;
@@ -15,9 +15,9 @@ function stableHash(value: string): string {
 
 export function captureCommentRootSnapshot(
   root: Element,
-  options?: { maxTextLength?: number; dataAttributes?: readonly string[] },
+  options?: { maxTextLength?: number; dataAttributes?: readonly string[]; index?: CommentDomTextIndex },
 ): ArticleCommentRootEvidence | null {
-  const index = createCommentDomTextIndex(root);
+  const index = options?.index?.root === root ? options.index : createCommentDomTextIndex(root);
   const requestedBudget = Number(options?.maxTextLength ?? COMMENT_ROOT_SNAPSHOT_DEFAULT_MAX_TEXT_LENGTH);
   const maxTextLength =
     Number.isSafeInteger(requestedBudget) && requestedBudget >= 0

@@ -134,7 +134,7 @@ export function createArticleCommentsSidebarInpageAdapter(
     async delete({ id }) {
       if (!rt?.send) throw new Error('missing runtime for deleting article comment');
       const res = await rt.send(COMMENTS_MESSAGE_TYPES.DELETE_ARTICLE_COMMENT, { id });
-      if (!res?.ok) throw new Error('failed to delete article comment');
+      if (!res?.ok || res?.data?.ok !== true) throw new Error('failed to delete article comment');
     },
     async migrateCanonicalUrl({ fromCanonicalUrl, toCanonicalUrl, conversationId }) {
       const from = canonicalizeArticleUrl(fromCanonicalUrl);

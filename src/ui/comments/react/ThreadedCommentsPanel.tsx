@@ -30,6 +30,7 @@ export function ThreadedCommentsPanel({
   onRequestClose,
   setPendingFocusRootId,
   locateThreadRoot,
+  onActiveRootChange,
   onLocateFailed,
   commentChatWith,
   showNotice,
@@ -231,6 +232,10 @@ export function ThreadedCommentsPanel({
   };
 
   const effectiveActiveRootId = discussion.state.activeRootId ?? (roots.length === 1 ? Number(roots[0]?.id) : null);
+
+  useLayoutEffect(() => {
+    onActiveRootChange?.(effectiveActiveRootId);
+  }, [effectiveActiveRootId, onActiveRootChange]);
 
   const focusController = useCommentFocusIntent({
     open: snapshot.open,

@@ -41,6 +41,7 @@ export function createInpageCommentRootSource(input: {
 }) {
   const doc = input.document;
   const maxCandidates = Math.max(1, Math.floor(Number(input.maxCandidates ?? 8) || 1));
+  const maxCandidateTextLength = 200_000;
 
   const capture = (selection: Selection | null | undefined): CommentLocatorSurfaceRoots | null => {
     if (!selection || selection.rangeCount !== 1) return null;
@@ -102,8 +103,14 @@ export function createInpageCommentRootSource(input: {
     const candidates = doc.querySelectorAll(
       'article, main, [role="main"], [data-testid], [data-message-id], [data-node-id]',
     );
-    for (const candidate of Array.from(candidates)) {
-      if (results.length >= maxCandidates) break;
+    let checkedCandidates = 0;
+    let checkedTextLength = 0;
+    for (let index = 0; index < candidates.length && checkedCandidates < maxCandidates; index += 1) {
+      const candidate = candidates.item(index);
+      const textLength = String(candidate.textContent ?? '').length;
+      if (checkedTextLength + textLength > maxCandidateTextLength) break;
+      checkedCandidates += 1;
+      checkedTextLength += textLength;
       add(candidate);
     }
     return results.slice(0, maxCandidates);

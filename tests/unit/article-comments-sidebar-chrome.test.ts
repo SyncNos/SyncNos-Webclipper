@@ -250,9 +250,10 @@ describe('ArticleCommentsSection shared chrome', () => {
     });
   });
 
-  it('uses the latest locator surface roots without remounting the sidebar panel', async () => {
+  it('re-resolves markers against the latest locator surface roots without remounting the sidebar panel', async () => {
     const session = createCommentSidebarSession();
     const initialRoot = document.createElement('div');
+    initialRoot.textContent = 'Root quote';
     const latestRoot = document.createElement('div');
     latestRoot.textContent = 'Root quote';
     document.body.append(initialRoot, latestRoot);
@@ -272,17 +273,7 @@ describe('ArticleCommentsSection shared chrome', () => {
     expect(host).toBeTruthy();
 
     await act(async () => {
-      root!.render(
-        createElement(ArticleCommentsSection, {
-          sidebarSession: session,
-          getLocatorSurfaceRoots: latestGetter,
-        }),
-      );
-    });
-
-    expect(document.querySelector('webclipper-threaded-comments-panel')).toBe(host);
-
-    await act(async () => {
+      session.requestOpen();
       session.updateHost({
         comments: [
           {
@@ -302,16 +293,20 @@ describe('ArticleCommentsSection shared chrome', () => {
       });
     });
 
-    const locateButton = host?.shadowRoot?.querySelector(
-      '[data-thread-root-id="1"] .webclipper-inpage-comments-panel__quote-locate',
-    ) as HTMLButtonElement | null;
-    expect(locateButton).toBeTruthy();
+    await vi.waitFor(() => expect(initialGetter).toHaveBeenCalled());
+    initialGetter.mockClear();
+
     await act(async () => {
-      locateButton!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-      await Promise.resolve();
+      root!.render(
+        createElement(ArticleCommentsSection, {
+          sidebarSession: session,
+          getLocatorSurfaceRoots: latestGetter,
+        }),
+      );
     });
 
-    expect(latestGetter).toHaveBeenCalled();
+    expect(document.querySelector('webclipper-threaded-comments-panel')).toBe(host);
+    await vi.waitFor(() => expect(latestGetter).toHaveBeenCalled());
     expect(initialGetter).not.toHaveBeenCalled();
   });
 });
@@ -388,6 +383,14 @@ describe('article comments sidebar adapters', () => {
       canonicalUrl: 'https://example.com/article',
     });
     expect(result.map((item) => item.id)).toEqual([1, 2]);
+  });
+
+  it('treats a successful runtime envelope with data.ok=false as a failed delete', async () => {
+    const adapter = createArticleCommentsSidebarInpageAdapter({
+      send: vi.fn(async () => ({ ok: true, data: { ok: false } })),
+    });
+
+    await expect(adapter.delete({ id: 42 })).rejects.toThrow('failed to delete article comment');
   });
 
   it('throws typed errors instead of treating runtime failures as empty comments', async () => {

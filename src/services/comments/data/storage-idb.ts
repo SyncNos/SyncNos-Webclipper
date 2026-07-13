@@ -249,6 +249,11 @@ export async function deleteArticleCommentById(id: number): Promise<boolean> {
   const db = await openDb();
   const { t, stores } = tx(db, ['article_comments'], 'readwrite');
   const rows = (await reqToPromise<any[]>(stores.article_comments.getAll() as any)) || [];
+  const targetExists = rows.some((row) => Number(row?.id) === commentId);
+  if (!targetExists) {
+    t.abort();
+    return false;
+  }
   const descendants = new Set<number>([commentId]);
   let changed = true;
   while (changed) {

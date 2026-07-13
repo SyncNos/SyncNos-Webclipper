@@ -60,6 +60,7 @@ function ArticleCommentsPanelMount({
   useEffect(() => {
     locatorSurfaceRootsGetterRef.current =
       typeof getLocatorSurfaceRoots === 'function' ? getLocatorSurfaceRoots : () => null;
+    apiRef.current?.refreshLocatorRoots();
   }, [getLocatorSurfaceRoots]);
 
   useEffect(() => {

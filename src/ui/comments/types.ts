@@ -1,7 +1,9 @@
 import type { ArticleCommentLocator } from '@services/comments/domain/comment-locator';
 import type { CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
 
-export type ThreadedCommentsPanelApi = CommentSidebarPanelApi;
+export type ThreadedCommentsPanelApi = CommentSidebarPanelApi & {
+  refreshLocatorRoots: () => void;
+};
 
 import type {
   CommentOptionalAction,

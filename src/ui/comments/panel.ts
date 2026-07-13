@@ -30,6 +30,7 @@ type ThreadedCommentsPanelReactBridgeProps = {
   commentChatWith: MountOptions['commentChatWith'];
   onRequestClose: () => void;
   locateThreadRoot?: (rootId: number) => Promise<ThreadLocateResult>;
+  onActiveRootChange?: (rootId: number | null) => void;
   onLocateFailed?: (reason: string) => void;
   showNotice: (message: string) => void;
   onNoticeExpired: () => void;
@@ -49,6 +50,7 @@ function ThreadedCommentsPanelReactBridge(props: ThreadedCommentsPanelReactBridg
     onRequestClose: props.onRequestClose,
     setPendingFocusRootId: props.setPendingFocusRootId,
     locateThreadRoot: props.locateThreadRoot,
+    onActiveRootChange: props.onActiveRootChange,
     onLocateFailed: props.onLocateFailed,
     commentChatWith: props.commentChatWith || null,
     showNotice: props.showNotice,
@@ -280,7 +282,7 @@ export function mountThreadedCommentsPanel(
   const anchorController = createCommentAnchorController({
     getRoots: (locator) => readLocatorRoots(options, locator),
     registry: markerRegistry,
-    resolve: ({ locator, roots, signal, generation }) => {
+    resolve: ({ locator, roots, signal, generation, budget }) => {
       if (!roots.length) return { ok: false, reason: 'missing_root' };
       return resolveCommentAnchor({
         locator,
@@ -288,6 +290,7 @@ export function mountThreadedCommentsPanel(
         signal,
         generation,
         isGenerationCurrent: (candidate) => candidate === anchorController.getGeneration(),
+        budget,
       });
     },
   });
@@ -377,6 +380,7 @@ export function mountThreadedCommentsPanel(
           }
           return { ok: true };
         },
+        onActiveRootChange: (rootId) => anchorController.setActive(rootId),
         onLocateFailed: (reason) => showNotice(locateFailureNotice(reason)),
         showNotice,
         onNoticeExpired: expireNotice,
@@ -446,6 +450,12 @@ export function mountThreadedCommentsPanel(
     attachHost(host) {
       if (disposed) return Object.freeze({ dispose() {} });
       return panelController.attachHost(host);
+    },
+    refreshLocatorRoots() {
+      if (disposed) return;
+      anchorController.reset();
+      appliedMarkerKey = '';
+      void syncAnchorMarkers();
     },
   };
 

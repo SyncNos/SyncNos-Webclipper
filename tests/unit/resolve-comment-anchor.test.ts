@@ -2,6 +2,7 @@ import { JSDOM } from 'jsdom';
 import { describe, expect, test } from 'vitest';
 
 import { captureCommentAnchor } from '../../src/services/comments/locator/capture-comment-anchor';
+import { createCommentDomTextIndex } from '../../src/services/comments/locator/dom-text-index';
 import { resolveCommentAnchor } from '../../src/services/comments/locator/resolve-comment-anchor';
 
 function element(text: string): Element {
@@ -65,6 +66,27 @@ describe('resolveCommentAnchor', () => {
       ok: false,
       reason: 'ambiguous_root',
     });
+  });
+
+  test('builds one DOM text index per V2 root and reuses it across strategies', () => {
+    const source = element('before exact after');
+    const range = source.ownerDocument.createRange();
+    range.setStart(source.firstChild!, 7);
+    range.setEnd(source.firstChild!, 12);
+    const locator = captureCommentAnchor({ root: source, range, surfaceHint: 'app' })!;
+    let calls = 0;
+
+    expect(
+      resolveCommentAnchor({
+        locator,
+        roots: [source],
+        createIndex(root) {
+          calls += 1;
+          return createCommentDomTextIndex(root);
+        },
+      }).ok,
+    ).toBe(true);
+    expect(calls).toBe(1);
   });
 
   test('enforces root/text budgets and cancellation', () => {

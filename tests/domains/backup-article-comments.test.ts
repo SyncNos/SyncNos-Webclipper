@@ -170,6 +170,16 @@ describe('backup article comments', () => {
     expect(prepared.warnings).toContainEqual({ code: 'orphan_parent', commentId: 3 });
   });
 
+  it('keeps archive fingerprints distinct across conversations sharing the same URL and text', () => {
+    const prepared = prepareArticleCommentArchiveImport({
+      schemaVersion: 2,
+      comments: [root({ commentId: 1, uniqueKey: 'web||a' }), root({ commentId: 2, uniqueKey: 'web||b' })],
+    });
+
+    expect(prepared.items).toHaveLength(2);
+    expect(prepared.items[0]?.fingerprint).not.toBe(prepared.items[1]?.fingerprint);
+  });
+
   it('accepts manifests with articleCommentsIndexPath', () => {
     const manifest = {
       backupSchemaVersion: BACKUP_ZIP_SCHEMA_VERSION,

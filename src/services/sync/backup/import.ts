@@ -578,13 +578,21 @@ export async function importBackupZipV2Merge(
   // 1.25) Restore article comments (validated graph, roots before replies, idempotent merge).
   if (articleCommentItems.length) {
     const canonicalUrls = new Set(articleCommentItems.map((item) => item.canonicalUrl));
-    const localConversationIdByCanonicalUrl = new Map<string, number>();
+    const localConversationIdByCanonicalUrl = new Map<string, number | null>();
+    const uniqueKeyByLocalConversationId = new Map<number, string>(
+      Array.from(uniqueToLocalId, ([uniqueKey, localId]) => [localId, uniqueKey]),
+    );
     for (const convo of incomingConversations) {
       const uk = uniqueConversationKey(convo);
       const localId = uk ? uniqueToLocalId.get(uk) : null;
       if (!localId) continue;
       const url = normalizeHttpUrl(convo && (convo as any).url);
-      if (url && !localConversationIdByCanonicalUrl.has(url)) localConversationIdByCanonicalUrl.set(url, localId);
+      if (!url) continue;
+      if (!localConversationIdByCanonicalUrl.has(url)) {
+        localConversationIdByCanonicalUrl.set(url, localId);
+      } else if (localConversationIdByCanonicalUrl.get(url) !== localId) {
+        localConversationIdByCanonicalUrl.set(url, null);
+      }
     }
 
     const { t, stores: s } = tx(db, ['article_comments'], 'readwrite');
@@ -607,6 +615,7 @@ export async function importBackupZipV2Merge(
         const commentText = safeString(row?.commentText);
         if (!Number.isSafeInteger(id) || id <= 0 || !url || !commentText) continue;
         const baseKey = buildArticleCommentArchiveBaseKey({
+          uniqueKey: uniqueKeyByLocalConversationId.get(Number(row?.conversationId)) ?? '',
           canonicalUrl: url,
           createdAt: Number(row?.createdAt) || 0,
           quoteText: String(row?.quoteText || ''),

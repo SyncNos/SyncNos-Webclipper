@@ -130,7 +130,7 @@ function parsePosition(value: unknown): ArticleCommentTextPositionSelector | nul
 }
 
 function parsePathArray(value: unknown): number[] | null {
-  if (!Array.isArray(value) || !value.length || value.length > COMMENT_LOCATOR_BUDGET.pathSegments) return null;
+  if (!Array.isArray(value) || value.length > COMMENT_LOCATOR_BUDGET.pathSegments) return null;
   const path = value.map(Number);
   return path.every((part) => Number.isSafeInteger(part) && part >= 0) ? path : null;
 }
