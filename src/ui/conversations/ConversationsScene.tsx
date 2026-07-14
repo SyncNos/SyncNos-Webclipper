@@ -38,6 +38,7 @@ export type ConversationsSceneProps = {
   onOpenCommentsExternally?: () => void;
   commentsSidebarRuntime?: ArticleCommentsSidebarRuntime;
   getCommentsLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
+  subscribeCommentsLocatorSurfaceRoots?: (listener: () => void) => () => void;
   onCommentsLocatorSurfaceRootsChange?: (roots: CommentLocatorSurfaceRoots | null) => void;
   narrowCommentsOpenSource?: 'popup' | 'app';
   resolveCommentsSidebarChatWithActions?: () => Promise<ThreadedCommentsPanelChatWithAction[]>;
@@ -58,6 +59,7 @@ export function ConversationsScene({
   onOpenCommentsExternally,
   commentsSidebarRuntime,
   getCommentsLocatorSurfaceRoots,
+  subscribeCommentsLocatorSurfaceRoots,
   onCommentsLocatorSurfaceRootsChange,
   narrowCommentsOpenSource = 'popup',
   resolveCommentsSidebarChatWithActions,
@@ -179,6 +181,7 @@ export function ConversationsScene({
             sidebarSession={commentsSidebarRuntime.sidebarSession}
             containerClassName="tw-h-full tw-min-h-0"
             getLocatorSurfaceRoots={() => getCommentsLocatorSurfaceRoots?.() || null}
+            subscribeLocatorSurfaceRoots={subscribeCommentsLocatorSurfaceRoots}
             resolveChatWithActions={resolveCommentsSidebarChatWithActions}
             resolveChatWithSingleActionLabel={resolveCommentsSidebarSingleChatWithLabel}
             commentChatWith={commentsSidebarCommentChatWith}

@@ -13,6 +13,7 @@ export type ArticleCommentsSectionProps = {
   sidebarSession: CommentSidebarSession;
   containerClassName?: string;
   getLocatorSurfaceRoots: () => CommentLocatorSurfaceRoots | null;
+  subscribeLocatorSurfaceRoots?: (listener: () => void) => () => void;
   resolveChatWithActions?: () => Promise<ThreadedCommentsPanelChatWithAction[]>;
   resolveChatWithSingleActionLabel?: () => Promise<string | null>;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
@@ -27,6 +28,7 @@ function ArticleCommentsPanelMount({
   sidebarSession,
   containerClassName,
   getLocatorSurfaceRoots,
+  subscribeLocatorSurfaceRoots,
   resolveChatWithActions,
   resolveChatWithSingleActionLabel,
   commentChatWith,
@@ -35,6 +37,7 @@ function ArticleCommentsPanelMount({
   sidebarSession: CommentSidebarSession;
   containerClassName?: string;
   getLocatorSurfaceRoots: () => CommentLocatorSurfaceRoots | null;
+  subscribeLocatorSurfaceRoots?: (listener: () => void) => () => void;
   resolveChatWithActions?: () => Promise<ThreadedCommentsPanelChatWithAction[]>;
   resolveChatWithSingleActionLabel?: () => Promise<string | null>;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
@@ -62,6 +65,11 @@ function ArticleCommentsPanelMount({
       typeof getLocatorSurfaceRoots === 'function' ? getLocatorSurfaceRoots : () => null;
     apiRef.current?.refreshLocatorRoots();
   }, [getLocatorSurfaceRoots]);
+
+  useEffect(() => {
+    if (typeof subscribeLocatorSurfaceRoots !== 'function') return;
+    return subscribeLocatorSurfaceRoots(() => apiRef.current?.refreshLocatorRoots());
+  }, [subscribeLocatorSurfaceRoots]);
 
   useEffect(() => {
     resolveChatWithActionsRef.current =

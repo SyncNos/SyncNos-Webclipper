@@ -278,21 +278,27 @@ describe('ArticleCommentsSection shared chrome', () => {
     errorSpy.mockRestore();
   });
 
-  it('re-resolves markers against the latest locator surface roots without remounting the sidebar panel', async () => {
+  it('re-resolves markers after a stable locator getter publishes new root identity', async () => {
     const session = createCommentSidebarSession();
     const initialRoot = document.createElement('div');
     initialRoot.textContent = 'Root quote';
     const latestRoot = document.createElement('div');
     latestRoot.textContent = 'Root quote';
     document.body.append(initialRoot, latestRoot);
-    const initialGetter = vi.fn(() => ({ sourceRoot: initialRoot, scrollRoot: initialRoot }));
-    const latestGetter = vi.fn(() => ({ sourceRoot: latestRoot, scrollRoot: latestRoot }));
+    let currentRoots = { sourceRoot: initialRoot, scrollRoot: initialRoot };
+    const stableGetter = vi.fn(() => currentRoots);
+    const listeners = new Set<() => void>();
+    const subscribeLocatorSurfaceRoots = vi.fn((listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    });
 
     await act(async () => {
       root!.render(
         createElement(ArticleCommentsSection, {
           sidebarSession: session,
-          getLocatorSurfaceRoots: initialGetter,
+          getLocatorSurfaceRoots: stableGetter,
+          subscribeLocatorSurfaceRoots,
         }),
       );
     });
@@ -321,21 +327,17 @@ describe('ArticleCommentsSection shared chrome', () => {
       });
     });
 
-    await vi.waitFor(() => expect(initialGetter).toHaveBeenCalled());
-    initialGetter.mockClear();
+    await vi.waitFor(() => expect(stableGetter).toHaveBeenCalled());
+    stableGetter.mockClear();
+    currentRoots = { sourceRoot: latestRoot, scrollRoot: latestRoot };
 
     await act(async () => {
-      root!.render(
-        createElement(ArticleCommentsSection, {
-          sidebarSession: session,
-          getLocatorSurfaceRoots: latestGetter,
-        }),
-      );
+      for (const listener of listeners) listener();
     });
 
     expect(document.querySelector('webclipper-threaded-comments-panel')).toBe(host);
-    await vi.waitFor(() => expect(latestGetter).toHaveBeenCalled());
-    expect(initialGetter).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(stableGetter).toHaveBeenCalled());
+    expect(subscribeLocatorSurfaceRoots).toHaveBeenCalledTimes(1);
   });
 });
 

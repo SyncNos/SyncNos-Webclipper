@@ -157,6 +157,7 @@ export default function AppShell() {
     const previousTierRef = useRef<typeof tier | null>(null);
     const suppressCommentsSidebarCollapseRef = useRef(false);
     const commentsLocatorSurfaceRootsRef = useRef<CommentLocatorSurfaceRoots | null>(null);
+    const commentsLocatorSurfaceRootsListenersRef = useRef(new Set<() => void>());
     const resolveAppComposerSelection = useMemo(
       () => createAppCommentSelectionSource({ getSurfaceRoots: () => commentsLocatorSurfaceRootsRef.current }),
       [],
@@ -200,8 +201,13 @@ export default function AppShell() {
     const setCommentsLocatorSurfaceRoots = useCallback((roots: CommentLocatorSurfaceRoots | null) => {
       commentsLocatorSurfaceRootsRef.current = roots;
       if (roots && pendingExternalLocRef.current) pendingExternalLocRef.current = null;
+      for (const listener of commentsLocatorSurfaceRootsListenersRef.current) listener();
     }, []);
     const getCommentsLocatorSurfaceRoots = useCallback(() => commentsLocatorSurfaceRootsRef.current, []);
+    const subscribeCommentsLocatorSurfaceRoots = useCallback((listener: () => void) => {
+      commentsLocatorSurfaceRootsListenersRef.current.add(listener);
+      return () => commentsLocatorSurfaceRootsListenersRef.current.delete(listener);
+    }, []);
     const runtimeClientRef = useRef<ReturnType<typeof createRuntimeClient> | null>(null);
     if (!runtimeClientRef.current) {
       runtimeClientRef.current = createRuntimeClient();
@@ -656,6 +662,7 @@ export default function AppShell() {
                           subscribeSidebarClose,
                         }}
                         getCommentsLocatorSurfaceRoots={getCommentsLocatorSurfaceRoots}
+                        subscribeCommentsLocatorSurfaceRoots={subscribeCommentsLocatorSurfaceRoots}
                         onCommentsLocatorSurfaceRootsChange={setCommentsLocatorSurfaceRoots}
                         narrowCommentsOpenSource="app"
                         resolveCommentsSidebarChatWithActions={resolveCommentsSidebarChatWithActions}
@@ -749,6 +756,7 @@ export default function AppShell() {
                     sidebarSession={commentsSidebarSession}
                     containerClassName="tw-h-full tw-min-h-0"
                     getLocatorSurfaceRoots={getCommentsLocatorSurfaceRoots}
+                    subscribeLocatorSurfaceRoots={subscribeCommentsLocatorSurfaceRoots}
                     resolveChatWithActions={resolveCommentsSidebarChatWithActions}
                     resolveChatWithSingleActionLabel={resolveCommentsSidebarSingleChatWithLabel}
                     commentChatWith={commentsSidebarCommentChatWithConfig}
