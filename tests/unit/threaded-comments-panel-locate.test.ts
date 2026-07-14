@@ -36,6 +36,9 @@ function setupDom() {
     configurable: true,
     value: dom.window.getComputedStyle.bind(dom.window),
   });
+
+  (dom.window.HTMLElement.prototype as any).attachEvent ||= () => {};
+  (dom.window.HTMLElement.prototype as any).detachEvent ||= () => {};
 }
 
 function cleanupDom() {
