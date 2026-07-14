@@ -1,107 +1,62 @@
 # 架构
 
-## 系统上下文
+## 运行时
 
-SyncNos 仓库由三层共同构成：**WebClipper 运行时**、**本地事实与同步层**（IndexedDB / `chrome.storage.local` / Notion / Obsidian）、以及 **交付层**（GitHub Release / CWS / AMO / Safari Xcode）。理解架构时最重要的不是“有哪些目录”，而是“哪个运行时拥有哪类状态，以及哪些契约负责在运行时之间传递数据”。
+| 运行时 | 入口 | 职责 |
+| --- | --- | --- |
+| background service worker | `src/entrypoints/background.ts` | 消息路由、IndexedDB、OAuth、同步 job、右键菜单和安装事件 |
+| content script | `src/entrypoints/content.ts` | collector 装配、页面观察、inpage UI、手动/自动抓取 |
+| MAIN-world 字幕脚本 | `src/entrypoints/video-transcript-*.content.ts` | 拦截页面已加载的字幕响应并桥接到 content script |
+| popup | `src/entrypoints/popup/` | 当前页抓取、会话列表、轻量设置与同步入口 |
+| app | `src/entrypoints/app/` | 完整会话详情、阅读器、评论、设置与 Insight |
 
-| 外部边界 | 主要交互方 | 真实职责 | 关键文件 |
-| --- | --- | --- | --- |
-| 用户 | popup、扩展内部 app、网页内 inpage UI | 选择来源、保存会话、选择 Parent Page、触发同步或导出 | `src/ui/` |
-| Notion | WebClipper | 作为统一云端知识落点 | `notion-sync-orchestrator.ts` |
-| Feishu（DocX） | WebClipper | 作为云端 DocX 落点（Convert API + 图片绑定） | `feishu-sync-orchestrator.ts`, `docx/convert-api.ts`, `docx/image-block-binder.ts` |
-| 浏览器页面 | WebClipper content script | 提供 AI 对话 DOM 与网页正文 | `content.ts`, `collectors/`, `article-fetch.ts` |
-| 本地来源 / 本地状态 | WebClipper storage | 承担来源读取、会话缓存、游标、映射 | `storage-idb.ts`, `schema.ts` |
-| GitHub Actions / 商店 API | 发布脚本、workflow | 生成 release assets 并发布商店版本；Safari 通过 `xcrun safari-web-extension-converter` 生成 Xcode 项目 | `.github/workflows/`, `.github/scripts/webclipper/` |
+运行时之间只通过平台 messaging、持久化数据或显式注入的接口协作，service 不直接读取 UI DOM。
 
-## 运行时单元
+## 代码分层
 
-| 运行时单元 | 主要路径 | 核心职责 | 修改时最容易影响谁 |
-| --- | --- | --- | --- |
-| background | `src/entrypoints/background.ts` | 注册 handlers / router / sync orchestrators，清理孤儿 sync job | 所有扩展后台能力 |
-| content | `src/entrypoints/content.ts` | 注册 collectors、inpage UI、video transcript handlers、增量观察器、手动保存逻辑 | 采集稳定性、页面按钮体验 |
-| popup / app | `src/entrypoints/popup/`, `src/entrypoints/app/` | 呈现会话列表、设置页、同步 / 导出入口 | 用户操作流、设置写入和状态展示 |
-| 发布层 | `.github/workflows/`, `.github/scripts/webclipper/` | release page、渠道构建、AMO/CWS 发布、Safari Xcode 项目生成 | 版本一致性与最终产物 |
-
-## WebClipper 内部边界
-
-| 子系统 | 主目录 | 核心职责 | 代表实现 |
-| --- | --- | --- | --- |
-| collectors | `src/collectors/` | 站点识别、DOM 抽取、消息标准化 | `register-all.ts`, 各站点 collector |
-| conversations | `src/services/conversations/` | IndexedDB CRUD、本地事实源、UI 读取面 | `data/storage-idb.ts`, background handlers |
-| comments | `src/services/comments/` + `src/ui/comments/` | article 讨论线程；service-owned DTO/graph/archive，以及 V2-write/V1+V2-read 的 exact anchor pipeline、显式 surface roots、panel-scoped Range markers | `domain/comment-dto.ts`, `domain/comment-thread-graph.ts`, `locator/capture-comment-anchor.ts`, `locator/resolve-comment-anchor.ts`, `comment-anchor-controller.ts`, `ThreadedCommentsPanel.tsx` |
-| video | `src/entrypoints/video-transcript-*.content.ts`, `src/collectors/video/`, `src/services/bootstrap/video-transcript-*`, `src/ui/settings/sections/VideosSection.tsx` | 视频字幕拦截、解析、格式化与 `video` 会话写入 | `video-transcript-interceptor.content.ts`, `video-transcript-capture.ts`, `video-transcript-parse.ts` |
-| sync | `src/services/sync/` | Notion / Obsidian / Feishu / 备份的编排层；评论派生与 Zip 归档统一消费 comment thread graph | `notion-sync-orchestrator.ts`, `obsidian-sync-orchestrator.ts`, `feishu/feishu-sync-orchestrator.ts`, `backup/*`, `comment-metrics.ts` |
-| ui | `src/ui/` | ConversationsScene（listShell 注入）、SettingsScene（顶部标签/侧边栏导航）、popup/app 壳层，以及主题 token（`prefers-color-scheme`）、窄屏 list/detail/comments 路由和会话级动作解析；InpageSection 负责阅读风格与 anti-hotlink 设置，VideosSection 负责视频字幕入口 | `ConversationsScene.tsx`, `SettingsScene.tsx`, `SettingsTopTabsNav.tsx`, `CapturedListPaneShell.tsx`, `settings/sections/InpageSection.tsx`, `settings/sections/VideosSection.tsx`, `settings/sections/AntiHotlinkDomainsEditor.tsx`, `styles/tokens.css`, `pending-open.ts` |
-| messaging | `src/platform/messaging/` | 消息 type、router、UI 事件与 tab relay | `message-contracts.ts`, `background-router.ts`, `ui-background-handlers.ts` |
-
-- `content.ts` 把 content runtime 组装成"collectors registry + controller + inpage button/tip + runtime observer + incremental updater + notionAiModelPicker"的组合体。
-- `content.ts` 还会注册 `video-transcript-capture-content-handlers`；视频字幕采集通过独立 content message 进入本地会话写入链路，不复用 article fetch。
-- `background.ts` 则把 conversation handlers、article fetch、Notion / Obsidian settings handlers、sync handlers、UI handlers 一次性挂到 router 上，并在实例切换时终止其他 background 实例遗留的 sync job；`onInstalled` 只在首次安装时打开 About，更新不自动弹设置。
-- `SettingsScene.tsx + SettingsTopTabsNav.tsx + src/viewmodels/settings/useSettingsSceneController.ts` 共同承担 WebClipper 的"设置组合根"职责：窄屏使用顶部标签导航，宽屏使用侧边栏导航；支持关闭按钮返回；blur 自动保存部分设置项（如 Inpage Display Mode、Chat with AI 平台/模板/maxChars）；Inpage 分区承载 `markdown_reading_profile_v1` 与 `anti_hotlink_rules_v1`；仅在进入 `aboutyou` 分区时懒加载本地统计。
-- `ConversationsScene.tsx + pending-open.ts` 共同承担窄屏下的 list/detail/comments 三路由：通过 `listShell` 属性接收来自 PopupShell/AppShell 的自定义列表头部（`CapturedListPaneShell`），实现 popup/app 共享列表架构。
-- `conversations-context.tsx + DetailHeaderActionBar.tsx + DetailNavigationHeader.tsx` 共同承担会话详情动作分发：统一使用 `open / tools` 两类槽位，主详情页与窄屏 header 规则一致。
-- `src/services/conversations/background/handlers.ts + image-backfill-job.ts` 把"图片缓存"拆成两条链：实时采集时按 `ai_chat_cache_images_enabled` / `web_article_cache_images_enabled` 做内联；历史会话通过 `BACKFILL_CONVERSATION_IMAGES` 手动回填并广播刷新事件。
-- comments sidebar 由 `article-comments-sidebar-controller.ts` 驱动 identity transition state machine；load/migrate 使用 generation + AbortSignal，mutation 使用独立 generation，`stale_error` 保留最后成功快照。`comment-sidebar-session.ts + panel-store.ts` 以 atomic snapshot/actions 与 identity-aware lease 接入稳定 React mount。
-- `src/services/comments/domain/comment-thread-graph.ts` 是 roots/replies 的唯一归一化真源；metrics、conversation list、Notion、Obsidian 与 backup 不再各自遍历 `parentId`。
-- `comment-dto.ts` 统一 runtime 边界；`comment-archive.ts` 兼容 V1、写出 V2，并把完整图校验与幂等导入顺序下沉到 domain。
-- comments DOM 边界由 UI/entrypoint 持有：App 注入 detail `{sourceRoot, scrollRoot}`，Inpage 注入 selection/document source；services 不读取 UI 或页面全局。
-- `capture-comment-anchor.ts` 是唯一生产 writer（V2）；`resolve-comment-anchor.ts` 兼容历史 V1/V2，并在受限 roots 上只接受全局唯一 exact Range。root evidence、预算、generation 与 AbortSignal 共同限制解析成本和 stale completion。
-- `comment-anchor-controller.ts + range-scroll-controller.ts + range-marker-registry.ts` 管理定位后的几何生命周期：嵌套最小滚动、passive/active Range marker、close/reset/dispose teardown；不使用正文根回退、固定重试、父元素高亮或跨页面永久 marker。
-- `discussion-reducer.ts + useDiscussionPanel.ts` 是 comments 本地交互状态真源；`ThreadedCommentsPanel.tsx` 只编排拆分后的 composer/thread/reply/overflow 组件与 selection、keyboard、notice、focus hooks。任一时刻只挂载一个 active reply composer，draft 按 root 保留。
-- comments panel 只创建一个 React root；dock、resize、host lease、anchor marker 和 optional action 都遵守幂等 cleanup，context change/dispose 后的晚到 completion 被丢弃。
-- canonical URL migration 必须带 conversation identity，只迁移目标 conversation 与 orphan，避免同 URL 多 conversation 互相污染。
-- `ConversationListPane.tsx` 通过 `onOpenInsightsSection` 把列表底部统计组件连接到 popup/app 路由壳层：popup 打开 `'/settings?section=aboutyou'`，app 在 HashRouter 内导航同一参数。
-- `SelectMenu.tsx + MenuPopover.tsx` 共同定义 WebClipper 下拉面板的高度边界：当 `adaptiveMaxHeight` 启用时，会通过 `findNearestClippingRect()` 查找最邻近 overflow 裁剪容器并动态计算 `panelMaxHeight`，从而让底部 `source/site` 筛选菜单在受限容器里减少无谓滚动条与裁切。
-
-## 关键契约
-
-| 契约 | 位置 | 谁依赖它 | 含义 |
-| --- | --- | --- | --- |
-| `message-contracts.ts` | `src/platform/messaging/message-contracts.ts` | content / background / popup / app | 把扩展功能拆成 CORE / NOTION / OBSIDIAN / FEISHU / ARTICLE / CHATGPT / CURRENT_PAGE / ITEM_MENTION / COMMENTS / UI 等消息组（另有 `CONTENT_MESSAGE_TYPES` 用于 background -> content script 指令，不经 router） |
-| `COMMENTS_MESSAGE_TYPES` | `src/platform/messaging/message-contracts.ts` | comments UI / background / content | 定义 article 评论线程的 add / list / delete / attach-orphan 消息 |
-| 评论 exact anchor 契约 | `src/services/comments/locator/` + `src/ui/comments/comment-anchor-controller.ts` | App/Inpage comments UI | 生产只写 V2，读取 V1/V2；候选 roots 受限且必须得到全局唯一 exact Range，marker 只在 panel 生命周期内存在 |
-| `ITEM_MENTION_MESSAGE_TYPES` | `src/platform/messaging/message-contracts.ts` | `$ mention` content controller、background handlers | 定义 `$ mention` 候选搜索与插入文本构建的消息契约 |
-| `CONTENT_MESSAGE_TYPES.OPEN_INPAGE_COMMENTS_PANEL` | `src/platform/messaging/message-contracts.ts` | UI background handlers、content handlers | background 发送到 content script 的“打开 inpage comments panel”指令（不经过 background router） |
-| `CONTENT_MESSAGE_TYPES.CAPTURE_VIDEO_TRANSCRIPT` | `src/platform/messaging/message-contracts.ts` | video transcript content handlers、background bootstrap、VideosSection | 触发视频字幕采集与本地会话写入的 background -> content 指令，不复用 article fetch |
-| `CORE_MESSAGE_TYPES.BACKFILL_CONVERSATION_IMAGES` | `src/platform/messaging/message-contracts.ts` | `src/viewmodels/conversations/conversations-context.tsx`, background handlers | 提供会话详情“缓存图片”工具动作的前后端消息契约 |
-| `conversation-kinds.ts` | `src/services/protocols/conversation-kinds.ts` | Notion / Obsidian orchestrator | 决定 chat/article 的 DB、folder 与重建规则 |
-| `chatwith-settings.ts` | `src/services/integrations/chatwith/chatwith-settings.ts` | detail header、SettingsScene controller、backup tests | 统一 `Chat with AI` 的模板、平台列表、字符截断与存储键 |
-| `detail-header-action-types.ts` | `src/services/integrations/detail-header-action-types.ts` | `ConversationDetailPane`, `DetailNavigationHeader`, `DetailHeaderActionBar` | 统一定义详情动作槽位（`open / tools`）与触发接口（Chat with AI 也复用 `tools`） |
-| `tokens.css` | `src/ui/styles/tokens.css` | popup/app/inpage UI | 统一设计 token，并用 `prefers-color-scheme` 做亮暗切换 |
-| `SelectMenu` 自适应高度约束 | `src/ui/shared/SelectMenu.tsx` | `ConversationListPane` 等下拉触发点 | `adaptiveMaxHeight` 会结合 `side` 与最邻近可裁剪容器动态计算 `panelMaxHeight` |
-| Zip v2 备份契约 | `src/services/sync/backup/export.ts`, `src/services/sync/backup/import.ts`, `src/services/sync/backup/backup-utils.ts` | 备份与恢复流程 | 约束 manifest、CSV、分源 JSON、storage-local.json 的结构 |
-
-## 图表
-
-```mermaid
-flowchart TB
-  subgraph Ext[WebClipper]
-    B1[content.ts] --> B2[Collectors / Inpage]
-    B2 --> B3[IndexedDB]
-    B4[popup / app] --> B5[background.ts router]
-    B3 --> B5
-    B5 --> N[Notion]
-    B5 --> F[Feishu DocX]
-    B5 --> O[Obsidian / Markdown / Zip]
-  end
-
-  R[GitHub Actions] --> G[Release / CWS / AMO / Safari Xcode]
+```text
+src/entrypoints  装配运行时
+src/ui           React / DOM surface
+src/viewmodels   UI 状态编排
+src/services     用例、协议、同步和领域逻辑
+src/platform     browser/runtime/storage/idb/messaging 适配
+src/collectors   站点 DOM 与字幕解析
 ```
 
-## 可靠性与恢复路径
+主要依赖方向：
 
-| 场景 | 当前机制 | 架构意义 |
+```text
+ui -> viewmodels -> services -> platform/domain/shared
+entrypoints -> ui/viewmodels/services/platform
+```
+
+边界真源在根 `AGENTS.md`；UI 视觉约束在 `src/ui/AGENTS.md`。
+
+## 主要子系统
+
+| 子系统 | 主要路径 | 状态所有者 |
 | --- | --- | --- |
-| 扩展 background 实例切换 | `abortRunningJobIfFromOtherInstance()` | 防止旧实例残留 job 误导 UI 状态 |
-| 聊天图片内联失败 | `src/services/conversations/background/handlers.ts` 中捕获并继续 | 避免图片下载失败阻塞主采集链路，保证“先落本地会话” |
-| Obsidian PATCH 失败 | orchestrator 回退到 full rebuild | 确保“能修复目标文件”优先于“必须增量追加” |
-| Notion 数据库被删 | Notion orchestrator 可清空缓存的 DB id 后重建一次 | 降低“缓存指向已删除数据库”造成的永久失败 |
-| 登录态读取副作用 | `SiteLoginsStore` 延迟加载 | 避免启动时触发不必要的读取与权限行为 |
+| conversation 采集与读取 | `src/collectors/`, `src/services/conversations/` | IndexedDB `conversations` / `messages` |
+| article 抓取 | `src/collectors/web/` | conversation + `article_body` message |
+| 评论 | `src/services/comments/`, `src/ui/comments/` | `article_comments` + sidebar session/reducer |
+| 阅读器 | `src/services/protocols/reader-prefs.ts`, `src/services/reader/`, `src/ui/reader/`, `src/viewmodels/reader/` | `reader_prefs_v1` + React narration state |
+| 视频字幕 | `src/collectors/video/`, `src/services/bootstrap/video-transcript-*` | video conversation + `video_transcript` |
+| 同步与备份 | `src/services/sync/` | 本地 mapping/cursor/job stores |
+| 设置 | `src/ui/settings/`, `src/viewmodels/settings/` | `chrome.storage.local` 与少量 UI-only localStorage |
+
+## 平台和工具链
+
+- WXT + Manifest V3 构建 Chrome、Edge、Firefox、Safari 目标。
+- React 19 负责 popup/app UI；Vitest + jsdom/fake-indexeddb 负责测试。
+- `package.json` 是命令和依赖版本真源，`wxt.config.ts` 是 manifest version、权限和 host permissions 真源。
+- `.github/workflows/` 与 `.github/scripts/webclipper/` 负责 CI、商店发布和 release assets。
+- CI 验证使用 `npm run gate:ci`；包含 production build 的完整验证使用 `npm run gate`。
+
+不要在文档中复制依赖版本表。需要升级或安全审计时直接查看 `package.json`、`package-lock.json` 和 `npm audit` 输出。
 
 ## 修改热点
 
-- **扩展采集热点**：`content.ts`、`src/services/bootstrap/content-controller.ts`、`collectors/`、`article-fetch.ts`。
-- **视频字幕采集热点**：`video-transcript-interceptor.content.ts`、`video-transcript-bridge.content.ts`、`src/services/bootstrap/video-transcript-capture.ts`、`src/services/bootstrap/video-transcript-capture-content-handlers.ts`、`src/collectors/video/`、`src/services/url-cleaning/video-url.ts`、`src/ui/settings/sections/VideosSection.tsx`。
-- **扩展同步热点**：`storage-idb.ts`、`schema.ts`、`notion-sync-orchestrator.ts`、`obsidian-sync-orchestrator.ts`、`feishu/feishu-sync-orchestrator.ts`、`feishu/docx/convert-api.ts`、`feishu/docx/image-block-binder.ts`、`conversation-kinds.ts`。
-- **扩展设置 / 会话 UI 热点**：`SettingsScene.tsx`、`src/viewmodels/settings/useSettingsSceneController.ts`、`tokens.css`、`ConversationListPane.tsx`、`ConversationsScene.tsx`、`pending-open.ts`、`src/viewmodels/conversations/conversations-context.tsx`、`DetailHeaderActionBar.tsx`、`DetailNavigationHeader.tsx`、`src/services/integrations/detail-header-actions.ts`、`src/services/integrations/detail-header-action-types.ts`。
-- **发布热点**：`wxt.config.ts`、`package.json`、`.github/workflows/webclipper-*.yml`、`.github/scripts/webclipper/*.mjs`。
+- 新站点：先扩展 `src/collectors/ai-chat-sites.ts` 与对应 collector，再补手动/自动采集测试。
+- 新设置：协议与归一化下沉到 service，ViewModel 负责读写编排，UI 只渲染。
+- 新消息：先改 `src/platform/messaging/message-contracts.ts`，再注册 handler 和客户端调用。
+- 新同步目标：复用 conversation kind、job store、mapping/cursor 和错误反馈契约，不在 UI 中直连外部 API。
