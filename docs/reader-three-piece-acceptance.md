@@ -91,7 +91,7 @@ reader-style views (article / video script), never on AI chat.
   `__syncnosReaderNarration` snapshot stays privacy-safe and schema-bounded. ✅
 - `tests/smoke/app-detail-header-actions.test.ts`: directly asserts the plugin
   detail pane shows the reader toolbar for article/video and hides it for chat. ✅
-- `rtk npm run gate:ci`: passed locally during P4 audit
+- `npm run gate:ci`: passed locally during P4 audit
   (`lint` + `format:check` + `compile` + `test`). ✅
 - 🟡 `build:firefox` and a full Firefox profile smoke test still run on Chii's
   machine.
