@@ -1,3 +1,0 @@
-Checkpoint: independent re-audit, P1-P3 resolved, P4 RA-P4-F01 open
-Source: restored from SyncNos-checkpoint-re-audit-p1-p3-resolved.zip
-Status: 69/69 plan tasks completed; independent audit P1-P3 Go/Resolved; P4 No-Go/Open pending real Chrome and Edge installed-browser acceptance evidence.
