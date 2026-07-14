@@ -176,7 +176,11 @@ export function ThreadedCommentsPanel({
       return;
     }
     updateArmedDeleteId(null);
-    await discussion.deleteComment(id);
+    try {
+      await discussion.deleteComment(id);
+    } catch (error) {
+      showNotice?.(error instanceof Error ? error.message : 'Failed to delete comment.');
+    }
   };
 
   useLayoutEffect(() => {

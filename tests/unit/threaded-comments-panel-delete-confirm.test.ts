@@ -105,6 +105,32 @@ describe('Threaded comments panel delete confirmation', () => {
     mounted.cleanup();
   });
 
+  it('shows a notice and keeps the comment when deletion fails', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const onDelete = vi.fn().mockRejectedValue(new Error('Delete failed.'));
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onDelete });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root' },
+    ]);
+    const shadow = panelShadow(host);
+    await openRootMenu(shadow);
+
+    deleteButton(shadow).click();
+    await flushReactScheduler();
+    deleteButton(shadow).click();
+    await flushReactScheduler();
+
+    expect(onDelete).toHaveBeenCalledWith(1);
+    expect(shadow.querySelector('[data-thread-root-id="1"]')).toBeTruthy();
+    expect((shadow.querySelector('.webclipper-inpage-comments-panel__notice') as HTMLElement).textContent).toContain(
+      'Delete failed.',
+    );
+
+    mounted.cleanup();
+  });
+
   it('cancels pending confirmation on outside click and Escape', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
