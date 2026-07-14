@@ -250,6 +250,34 @@ describe('ArticleCommentsSection shared chrome', () => {
     });
   });
 
+  it('defers the nested React root cleanup until the parent commit finishes', async () => {
+    const session = createCommentSidebarSession();
+    const sourceRoot = document.createElement('article');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await act(async () => {
+      root!.render(
+        createElement(ArticleCommentsSection, {
+          sidebarSession: session,
+          getLocatorSurfaceRoots: () => ({ sourceRoot, scrollRoot: sourceRoot }),
+        }),
+      );
+    });
+
+    await act(async () => {
+      root!.render(createElement('div'));
+      await Promise.resolve();
+    });
+    await Promise.resolve();
+
+    expect(
+      errorSpy.mock.calls.some((args) =>
+        args.some((value) => String(value).includes('synchronously unmount a root while React was already rendering')),
+      ),
+    ).toBe(false);
+    errorSpy.mockRestore();
+  });
+
   it('re-resolves markers against the latest locator surface roots without remounting the sidebar panel', async () => {
     const session = createCommentSidebarSession();
     const initialRoot = document.createElement('div');

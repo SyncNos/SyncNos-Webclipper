@@ -492,11 +492,16 @@ export function mountThreadedCommentsPanel(
         activeEl?.blur?.();
       },
       () => {
-        // Teardown must finish before the host document can disappear. Deferred
-        // updates are appropriate for normal rendering, but not for unmount.
-        syncReactUpdate(() => reactRoot.unmount());
+        asyncReactUpdate(() => {
+          try {
+            if (reactRootHost.ownerDocument.defaultView) reactRoot.unmount();
+          } catch (_error) {
+            // The owning document may already be gone during test/browser teardown.
+          } finally {
+            el.remove();
+          }
+        });
       },
-      () => el.remove(),
     ];
 
     for (const step of cleanupSteps) {
