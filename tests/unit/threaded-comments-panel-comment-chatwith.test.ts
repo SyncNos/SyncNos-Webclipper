@@ -164,7 +164,7 @@ describe('Threaded comments panel optional comment actions', () => {
     mounted.cleanup();
   });
 
-  it('opens a multi-action menu and closes it with Escape', async () => {
+  it('opens and closes a multi-action menu from its trigger', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const mounted = mountThreadedCommentsPanel(host, {
@@ -188,9 +188,7 @@ describe('Threaded comments panel optional comment actions', () => {
     expect(menu.textContent).toContain('Chat with ChatGPT');
     expect(menu.textContent).toContain('Chat with Claude');
 
-    (shadow.querySelector('.webclipper-inpage-comments-panel__surface') as HTMLElement).dispatchEvent(
-      new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
-    );
+    rootOverflow(shadow).click();
     await flushReactScheduler();
     expect(menu.hidden).toBe(true);
 
