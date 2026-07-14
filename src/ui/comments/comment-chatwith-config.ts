@@ -1,10 +1,7 @@
 import { resolveChatWithCommentActions } from '@services/integrations/chatwith/chatwith-comment-actions';
 import type { ChatWithOpenPlatformPort } from '@services/integrations/chatwith/chatwith-open-port';
-import type {
-  ThreadedCommentItem,
-  ThreadedCommentsPanelCommentChatWithConfig,
-  ThreadedCommentsPanelCommentChatWithContext,
-} from './types';
+import type { CommentSidebarItem } from '@services/comments/sidebar/comment-sidebar-contract';
+import type { ThreadedCommentsPanelCommentChatWithConfig, ThreadedCommentsPanelCommentChatWithContext } from './types';
 
 type ResolveBooleanLike = () => boolean | Promise<boolean>;
 type ResolveOpenPortLike = () =>
@@ -34,7 +31,7 @@ function normalizeContext(input: unknown): ThreadedCommentsPanelCommentChatWithC
   };
 }
 
-function buildThreadText(rootComment: ThreadedCommentItem, replies?: ThreadedCommentItem[] | null): string {
+function buildThreadText(rootComment: CommentSidebarItem, replies?: CommentSidebarItem[] | null): string {
   const rootText = safeText(rootComment?.commentText);
   if (!rootText) return '';
 

@@ -8,6 +8,7 @@ import {
   listArticleCommentsByConversationId,
   migrateArticleCommentsCanonicalUrl,
 } from '@services/comments/data/storage';
+import { ArticleCommentInvariantError } from '@services/comments/data/storage-idb';
 import { storageGet } from '@services/shared/storage';
 import {
   ABOUT_YOU_USER_NAME_STORAGE_KEY,
@@ -19,6 +20,7 @@ import {
   type AutoSyncConversationChangedReason,
 } from '@services/sync/auto-sync/auto-sync-keys';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
+import { parseArticleCommentAddRequest, serializeArticleCommentDto } from '@services/comments/domain/comment-dto';
 
 type AnyRouter = {
   ok: (data: unknown) => any;
@@ -44,33 +46,39 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
     // so legacy contexts can still load comments.
     if (canonicalUrl) {
       const items = await listArticleCommentsByCanonicalUrl(canonicalUrl);
-      return router.ok(items);
+      return router.ok(items.map(serializeArticleCommentDto));
     }
 
     if (Number.isFinite(conversationId) && conversationId > 0) {
       const items = await listArticleCommentsByConversationId(conversationId);
-      return router.ok(items);
+      return router.ok(items.map(serializeArticleCommentDto));
     }
 
     return router.err('missing canonicalUrl or conversationId');
   });
 
   router.register(COMMENTS_MESSAGE_TYPES.ADD_ARTICLE_COMMENT, async (msg) => {
-    const canonicalUrl = canonicalizeArticleUrl(msg?.canonicalUrl);
-    if (!canonicalUrl) return router.err('missing canonicalUrl');
+    const request = parseArticleCommentAddRequest(msg);
+    if (!request) return router.err('invalid article comment payload');
 
     const local = await storageGet([ABOUT_YOU_USER_NAME_STORAGE_KEY]);
     const authorName = normalizeUserName(local?.[ABOUT_YOU_USER_NAME_STORAGE_KEY]) || DEFAULT_ABOUT_YOU_USER_NAME;
 
-    const comment = await addArticleComment({
-      parentId: msg?.parentId != null ? Number(msg.parentId) : null,
-      conversationId: msg?.conversationId ? Number(msg.conversationId) : null,
-      canonicalUrl,
-      authorName,
-      quoteText: msg?.quoteText ?? '',
-      commentText: String(msg?.commentText || ''),
-      locator: msg?.parentId ? null : (msg?.locator ?? null),
-    });
+    let comment;
+    try {
+      comment = await addArticleComment({
+        parentId: request.parentId,
+        conversationId: request.conversationId,
+        canonicalUrl: request.canonicalUrl,
+        authorName,
+        quoteText: request.quoteText,
+        commentText: request.commentText,
+        locator: request.locator,
+      });
+    } catch (error) {
+      if (error instanceof ArticleCommentInvariantError) return router.err(error.code);
+      throw error;
+    }
 
     if (comment.conversationId) {
       router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
@@ -85,7 +93,7 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
       );
     }
 
-    return router.ok(comment);
+    return router.ok(serializeArticleCommentDto(comment));
   });
 
   router.register(COMMENTS_MESSAGE_TYPES.DELETE_ARTICLE_COMMENT, async (msg) => {
@@ -135,24 +143,19 @@ export function registerArticleCommentsHandlers(router: AnyRouter, deps: Article
     if (!fromCanonicalUrl) return router.err('missing fromCanonicalUrl');
     if (!toCanonicalUrl) return router.err('missing toCanonicalUrl');
 
-    const res = await migrateArticleCommentsCanonicalUrl(fromCanonicalUrl, toCanonicalUrl);
-    if (conversationId != null && Number.isFinite(conversationId) && conversationId > 0) {
-      router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
-        reason: 'articleCommentsMigrated',
-        conversationId,
-        fromCanonicalUrl,
-        toCanonicalUrl,
-      });
-      fireAndForget(
-        deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
-      );
-    } else {
-      router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
-        reason: 'articleCommentsMigrated',
-        fromCanonicalUrl,
-        toCanonicalUrl,
-      });
+    if (conversationId == null || !Number.isFinite(conversationId) || conversationId <= 0) {
+      return router.err('invalid conversationId');
     }
+    const res = await migrateArticleCommentsCanonicalUrl({ fromCanonicalUrl, toCanonicalUrl, conversationId });
+    router.eventsHub?.broadcast(UI_EVENT_TYPES.CONVERSATIONS_CHANGED, {
+      reason: 'articleCommentsMigrated',
+      conversationId,
+      fromCanonicalUrl,
+      toCanonicalUrl,
+    });
+    fireAndForget(
+      deps.onConversationChanged(conversationId, AUTO_SYNC_CONVERSATION_CHANGED_REASONS.articleCommentChanged),
+    );
     return router.ok(res);
   });
 }

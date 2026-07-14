@@ -10,6 +10,10 @@ import { openDb, reqToPromise, tx, txDone } from '@services/sync/backup/idb';
 import { createZipBlob } from '@services/sync/backup/zip-utils';
 import { DB_NAME, DB_VERSION } from '@platform/idb/schema';
 import { buildLocalTimestampForFilename } from '@services/shared/file-timestamp';
+import {
+  serializeArticleCommentArchive,
+  type CommentArchiveSerializationWarning,
+} from '@services/comments/domain/comment-archive';
 
 type AnyRecord = Record<string, any>;
 
@@ -169,6 +173,7 @@ export type BackupZipV2ExportResult = {
     image_cache: number;
     article_comments: number;
   };
+  warnings: CommentArchiveSerializationWarning[];
 };
 
 export type BackupZipV2ExportProgress = {
@@ -398,42 +403,10 @@ export async function exportBackupZipV2(
     lastModified: exportedAt,
   });
 
-  const articleCommentItems: AnyRecord[] = [];
-  for (const row of allArticleComments) {
-    const commentId = Number(row && (row as any).id);
-    if (!Number.isFinite(commentId) || commentId <= 0) continue;
-    const parentRaw = Number(row && (row as any).parentId);
-    const parentCommentId = Number.isFinite(parentRaw) && parentRaw > 0 ? parentRaw : null;
+  const articleCommentsArchive = serializeArticleCommentArchive(allArticleComments, uniqueKeyByConversationId);
+  const articleCommentItems = articleCommentsArchive.document.comments;
 
-    const conversationIdRaw = Number(row && (row as any).conversationId);
-    const uniqueKey =
-      Number.isFinite(conversationIdRaw) && conversationIdRaw > 0
-        ? uniqueKeyByConversationId.get(conversationIdRaw) || ''
-        : '';
-
-    const canonicalUrl = row && (row as any).canonicalUrl ? String((row as any).canonicalUrl).trim() : '';
-    if (!canonicalUrl) continue;
-
-    const quoteText = row && (row as any).quoteText ? String((row as any).quoteText) : '';
-    const commentText = row && (row as any).commentText ? String((row as any).commentText).trim() : '';
-    if (!commentText) continue;
-
-    const createdAt = Number(row && (row as any).createdAt) || 0;
-    const updatedAt = Number(row && (row as any).updatedAt) || createdAt || 0;
-
-    articleCommentItems.push({
-      commentId,
-      parentCommentId,
-      uniqueKey,
-      canonicalUrl,
-      quoteText,
-      commentText,
-      createdAt,
-      updatedAt,
-    });
-  }
-
-  const articleCommentsIndexDoc = { schemaVersion: 1, comments: articleCommentItems };
+  const articleCommentsIndexDoc = articleCommentsArchive.document;
   files.push({
     name: ARTICLE_COMMENTS_INDEX_PATH,
     data: JSON.stringify(articleCommentsIndexDoc, null, 2),
@@ -479,5 +452,6 @@ export async function exportBackupZipV2(
     blob,
     exportedAt,
     counts: manifest.counts,
+    warnings: articleCommentsArchive.warnings,
   };
 }

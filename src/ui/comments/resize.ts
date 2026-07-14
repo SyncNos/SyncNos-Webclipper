@@ -78,6 +78,7 @@ export function installSidebarResize(options: InstallSidebarResizeOptions): { cl
   const isOverlay = options.isOverlay === true;
   const onWidthApplied = options.onWidthApplied;
   const readPanelWidthPx = options.readPanelWidthPx;
+  let disposed = false;
 
   const widthState: SidebarWidthState = {
     widthPx: null,
@@ -86,6 +87,7 @@ export function installSidebarResize(options: InstallSidebarResizeOptions): { cl
   };
 
   const applyWidthSync = () => {
+    if (disposed) return;
     try {
       onWidthApplied?.();
     } catch (_e) {
@@ -94,6 +96,7 @@ export function installSidebarResize(options: InstallSidebarResizeOptions): { cl
   };
 
   const setSidebarWidthPx = (widthPx: number | null, input?: { persist?: boolean }) => {
+    if (disposed) return;
     if (widthPx == null) {
       widthState.widthPx = null;
       try {
@@ -123,6 +126,7 @@ export function installSidebarResize(options: InstallSidebarResizeOptions): { cl
   }
 
   const onPointerMove = (event: PointerEvent) => {
+    if (disposed) return;
     if (!widthState.dragging) return;
     if (widthState.pointerId != null && event.pointerId !== widthState.pointerId) return;
     stopEvent(event);
@@ -135,6 +139,7 @@ export function installSidebarResize(options: InstallSidebarResizeOptions): { cl
   };
 
   const onPointerUp = (event: PointerEvent) => {
+    if (disposed) return;
     if (!widthState.dragging) return;
     if (widthState.pointerId != null && event.pointerId !== widthState.pointerId) return;
     stopEvent(event);
@@ -162,6 +167,7 @@ export function installSidebarResize(options: InstallSidebarResizeOptions): { cl
   };
 
   const onPointerDown = (event: PointerEvent) => {
+    if (disposed) return;
     if (event.button !== 0) return;
     stopEvent(event);
     widthState.dragging = true;
@@ -190,6 +196,7 @@ export function installSidebarResize(options: InstallSidebarResizeOptions): { cl
   };
 
   const onViewportResize = () => {
+    if (disposed) return;
     if (widthState.widthPx == null) return;
     const clamped = clampSidebarWidthPx(widthState.widthPx, isOverlay);
     if (clamped === widthState.widthPx) return;
@@ -205,19 +212,28 @@ export function installSidebarResize(options: InstallSidebarResizeOptions): { cl
   }
 
   const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    const pointerId = widthState.pointerId;
+    widthState.dragging = false;
+    widthState.pointerId = null;
     try {
-      handleEl.removeEventListener('pointerdown', onPointerDown);
+      panelEl.removeAttribute('data-resizing');
     } catch (_e) {
       // ignore
     }
+    if (pointerId != null) {
+      try {
+        handleEl.releasePointerCapture(pointerId);
+      } catch (_e) {
+        // ignore
+      }
+    }
     try {
+      handleEl.removeEventListener('pointerdown', onPointerDown);
       globalThis.removeEventListener('pointermove', onPointerMove, true);
       globalThis.removeEventListener('pointerup', onPointerUp, true);
       globalThis.removeEventListener('pointercancel', onPointerUp, true);
-    } catch (_e) {
-      // ignore
-    }
-    try {
       globalThis.removeEventListener('resize', onViewportResize);
     } catch (_e) {
       // ignore

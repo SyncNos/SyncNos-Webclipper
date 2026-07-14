@@ -125,4 +125,47 @@ describe('ConversationsScene (popup) comments external override', () => {
     });
     cleanupDom();
   });
+
+  it('forwards narrow route actions without mutating the comments context', () => {
+    setupDom();
+    openCommentsMock.mockReset();
+    sidebarOpenMock.mockReset();
+    const setContext = vi.fn();
+
+    const root = ReactDOM.createRoot(document.getElementById('root')!);
+    act(() => {
+      root.render(
+        createElement(ConversationsScene, {
+          commentsSidebarRuntime: {
+            sidebarSession: {},
+            sidebarController: {
+              setContext,
+              open: (...args: any[]) => sidebarOpenMock(...args),
+            },
+            sidebarSnapshot: {},
+            subscribeSidebarClose: vi.fn(() => () => {}),
+          },
+        } as any),
+      );
+    });
+
+    expect(setContext).not.toHaveBeenCalled();
+    const commentBtn = document.querySelector('[data-detail-comment="1"]') as HTMLButtonElement | null;
+    act(() => {
+      commentBtn!.click();
+    });
+
+    expect(openCommentsMock).toHaveBeenCalledTimes(1);
+    expect(sidebarOpenMock).toHaveBeenCalledWith({
+      focusComposer: true,
+      source: 'popup',
+      ensureContext: false,
+    });
+    expect(setContext).not.toHaveBeenCalled();
+
+    act(() => {
+      root.unmount();
+    });
+    cleanupDom();
+  });
 });

@@ -1,67 +1,66 @@
+import type { CommentThreadGraph } from '@services/comments/domain/comment-thread-graph';
 import type { ArticleCommentLocator } from '@services/comments/domain/models';
+import type {
+  CommentSidebarComposerAttachment,
+  CommentSidebarHostActionCallbacks,
+  CommentSidebarHostActions,
+  CommentSidebarHostSnapshot,
+  CommentSidebarLoadError,
+  CommentSidebarLoadStatus,
+  CommentSidebarItem,
+} from '@services/comments/sidebar/comment-sidebar-state';
+
+export type {
+  CommentSaveResult,
+  CommentSidebarComposerAttachment,
+  CommentSidebarComposerSelectionRequest,
+  CommentSidebarHostActionCallbacks,
+  CommentSidebarHostActions,
+  CommentSidebarHostSnapshot,
+  CommentSidebarLoadError,
+  CommentSidebarLoadStatus,
+  CommentSidebarItem,
+} from '@services/comments/sidebar/comment-sidebar-state';
 
 export type CommentSidebarOpenInput = {
   focusComposer?: boolean;
   source?: string;
 };
 
-export type CommentSidebarItem = {
-  id: number;
-  parentId: number | null;
-  authorName?: string | null;
-  createdAt?: number | null;
-  quoteText?: string | null;
-  commentText: string;
-  locator?: ArticleCommentLocator | null;
+export type CommentSidebarThreadGraph = CommentThreadGraph<CommentSidebarItem>;
+
+export type CommentSidebarHost = {
+  getSnapshot: () => CommentSidebarHostSnapshot;
+  subscribe: (listener: () => void) => () => void;
+  actions: CommentSidebarHostActions;
 };
 
-export type CommentSaveResult = void | boolean | { ok: boolean; createdRootId?: number | null };
-
-export type CommentSidebarComposerSelectionRequest = {
-  trigger: 'button' | 'auto';
-};
-
-export type CommentSidebarHandlers = {
-  onSave?: (text: string) => CommentSaveResult | Promise<CommentSaveResult>;
-  onReply?: (parentId: number, text: string) => void | Promise<void>;
-  onDelete?: (id: number) => void | Promise<void>;
-  onClose?: () => void;
-  onComposerSelectionRequest?: (input: CommentSidebarComposerSelectionRequest) => void | Promise<void>;
-  onComposerQuoteClearRequest?: () => void | Promise<void>;
+export type CommentSidebarPanelLease = {
+  dispose: () => void;
 };
 
 export type CommentSidebarPanelApi = {
-  open: (input?: { focusComposer?: boolean }) => void;
-  close: () => void;
-  isOpen: () => boolean;
-  setBusy: (busy: boolean) => void;
-  setQuoteText: (text: string) => void;
-  setComments: (items: CommentSidebarItem[]) => void;
-  setHandlers: (handlers: CommentSidebarHandlers) => void;
+  attachHost: (host: CommentSidebarHost) => CommentSidebarPanelLease;
 };
 
-export type CommentSidebarSessionSnapshot = {
-  attached: boolean;
-  isOpen: boolean;
-  busy: boolean;
-  openRequested: boolean;
-  focusRequested: boolean;
-  focusComposerSignal: number;
-  quoteText: string;
-  commentCount: number;
-  hasHandlers: boolean;
-  lastOpenSource: string | null;
+export type CommentSidebarHostUpdate = {
+  busy?: boolean;
+  comments?: CommentSidebarItem[];
+  actionCallbacks?: CommentSidebarHostActionCallbacks;
+  loadStatus?: CommentSidebarLoadStatus;
+  loadError?: CommentSidebarLoadError | null;
+  contextKey?: string;
 };
 
-export type CommentSidebarSession = {
-  attachPanel: (panel: CommentSidebarPanelApi) => void;
-  detachPanel: () => void;
-  subscribe: (listener: () => void) => () => void;
+export type CommentSidebarSession = CommentSidebarHost & {
+  attachPanel: (panel: CommentSidebarPanelApi) => CommentSidebarPanelLease;
   requestOpen: (input?: CommentSidebarOpenInput) => void;
   requestClose: () => void;
-  setQuoteText: (text: string) => void;
-  setBusy: (busy: boolean) => void;
-  setComments: (items: CommentSidebarItem[]) => void;
-  setHandlers: (handlers: CommentSidebarHandlers) => void;
-  getSnapshot: () => CommentSidebarSessionSnapshot;
+  setComposerAttachment: (input: {
+    displayQuote: string;
+    locator?: ArticleCommentLocator | null;
+  }) => CommentSidebarComposerAttachment;
+  clearComposerAttachment: (expectedSelectionRevision?: number) => boolean;
+  updateHost: (input: CommentSidebarHostUpdate) => void;
+  dispose: () => void;
 };

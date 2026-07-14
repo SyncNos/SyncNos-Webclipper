@@ -65,38 +65,26 @@ describe('shared/dom/selection', () => {
     });
   });
 
-  test('isSelectionLikelyWithinRoot: uses anchor/focus contains checks first', () => {
-    const anchorNode = {};
-    const selection = {
-      anchorNode,
-      focusNode: {},
-      rangeCount: 1,
-      getRangeAt: () => ({
-        commonAncestorContainer: {},
-      }),
-    } as any;
+  test('isSelectionLikelyWithinRoot: requires both range boundaries inside one root', () => {
+    const doc = {} as Document;
+    const inside = { ownerDocument: doc, getRootNode: () => doc } as Node;
+    const outside = { ownerDocument: doc, getRootNode: () => doc } as Node;
     const root = {
-      contains: (node: any) => node === anchorNode,
-    } as any;
-
-    expect(isSelectionLikelyWithinRoot(selection, root)).toBe(true);
-  });
-
-  test('isSelectionLikelyWithinRoot: falls back to range.commonAncestorContainer', () => {
-    const ancestor = {};
-    const selection = {
-      anchorNode: null,
-      focusNode: null,
+      ownerDocument: doc,
+      getRootNode: () => doc,
+      contains: (candidate: Node) => candidate === inside,
+    } as unknown as Element;
+    const validSelection = {
       rangeCount: 1,
-      getRangeAt: () => ({
-        commonAncestorContainer: ancestor,
-      }),
-    } as any;
-    const root = {
-      contains: (node: any) => node === ancestor,
-    } as any;
+      getRangeAt: () => ({ startContainer: inside, endContainer: inside, collapsed: false }),
+    } as unknown as Selection;
+    const invalidSelection = {
+      rangeCount: 1,
+      getRangeAt: () => ({ startContainer: inside, endContainer: outside, collapsed: false }),
+    } as unknown as Selection;
 
-    expect(isSelectionLikelyWithinRoot(selection, root)).toBe(true);
+    expect(isSelectionLikelyWithinRoot(validSelection, root)).toBe(true);
+    expect(isSelectionLikelyWithinRoot(invalidSelection, root)).toBe(false);
   });
 
   test('extractUserSelectionText: falls back to active iframe selection', () => {

@@ -342,12 +342,14 @@ export function ArticleReaderView({
       const decorationReady =
         root.getAttribute(READER_SENTENCE_DECORATION_STATUS_ATTR) === READER_SENTENCE_DECORATION_READY;
       const isUpToDate = decorationReady && decoratedSource === narrationSource && decoratedCount === sentences.length;
+      let decorationMode: 'sync' | 'progressive' | null = null;
       if (!isUpToDate) {
         cancelProgressiveDecoration?.();
         cancelProgressiveDecoration = null;
         clearReaderSentenceDecorations(root);
         const shouldProgressivelyDecorate =
           sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE && !!win?.requestAnimationFrame;
+        decorationMode = shouldProgressivelyDecorate ? 'progressive' : 'sync';
         if (shouldProgressivelyDecorate && win?.requestAnimationFrame) {
           cancelProgressiveDecoration = decorateReaderSentenceSpansProgressively(
             root,
@@ -366,14 +368,11 @@ export function ArticleReaderView({
         ...current,
         sourceLength: narrationSource.length,
         sentenceCount: sentences.length,
-        decorateMode:
-          shouldDeferInitialDecoration && sentences.length > READER_INITIAL_SENTENCE_DECORATION_BATCH_SIZE
-            ? 'progressive'
-            : 'sync',
+        decorateMode: decorationMode ?? current.decorateMode,
         decorateLastDurationMs:
-          current.decorateMode === 'progressive'
-            ? current.decorateLastDurationMs
-            : Math.max(0, readReaderPerformanceClock() - decorateStartedAt),
+          decorationMode === 'sync'
+            ? Math.max(0, readReaderPerformanceClock() - decorateStartedAt)
+            : current.decorateLastDurationMs,
       }));
 
       applyActiveHighlight(activeSentenceRef.current);

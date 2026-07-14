@@ -49,6 +49,10 @@ vi.mock('../../src/viewmodels/conversations/useConversationSyncFeedback', () => 
 }));
 
 vi.mock('@services/comments/client/repo', () => ({
+  addArticleComment: vi.fn(),
+  deleteArticleCommentById: vi.fn(async () => true),
+  listArticleCommentsByCanonicalUrl: vi.fn(async () => []),
+  listArticleCommentsByConversationId: vi.fn(async () => []),
   migrateArticleCommentsCanonicalUrl: vi.fn(async () => null),
 }));
 

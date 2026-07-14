@@ -1,62 +1,25 @@
-export type ThreadedCommentItem = {
-  id: number;
-  parentId: number | null;
-  authorName?: string | null;
-  createdAt?: number | null;
-  quoteText?: string | null;
-  commentText: string;
-  locator?: unknown | null;
+import type { ArticleCommentLocator } from '@services/comments/domain/comment-locator';
+import type { CommentSidebarPanelApi } from '@services/comments/sidebar/comment-sidebar-contract';
+
+export type ThreadedCommentsPanelApi = CommentSidebarPanelApi & {
+  refreshLocatorRoots: () => void;
 };
 
-export type CommentSaveResult = void | boolean | { ok: boolean; createdRootId?: number | null };
+import type {
+  CommentOptionalAction,
+  CommentPanelOptionalActionConfig,
+  CommentThreadOptionalActionConfig,
+  CommentThreadOptionalActionContext,
+} from '@viewmodels/comments/useCommentOptionalActions';
 
-export type ThreadedCommentsPanelComposerSelectionRequest = {
-  trigger: 'button' | 'auto';
-};
+export type ThreadedCommentsPanelChatWithAction = CommentOptionalAction;
+export type ThreadedCommentsPanelChatWithConfig = CommentPanelOptionalActionConfig;
+export type ThreadedCommentsPanelCommentChatWithContext = CommentThreadOptionalActionContext;
+export type ThreadedCommentsPanelCommentChatWithConfig = CommentThreadOptionalActionConfig;
 
-export type ThreadedCommentsPanelApi = {
-  open: (input?: { focusComposer?: boolean }) => void;
-  close: () => void;
-  isOpen: () => boolean;
-  setBusy: (busy: boolean) => void;
-  setQuoteText: (text: string) => void;
-  setComments: (items: ThreadedCommentItem[]) => void;
-  setHandlers: (handlers: {
-    onSave?: (text: string) => CommentSaveResult | Promise<CommentSaveResult>;
-    onReply?: (parentId: number, text: string) => void | Promise<void>;
-    onDelete?: (id: number) => void | Promise<void>;
-    onClose?: () => void;
-    onComposerSelectionRequest?: (input: ThreadedCommentsPanelComposerSelectionRequest) => void | Promise<void>;
-    onComposerQuoteClearRequest?: () => void | Promise<void>;
-  }) => void;
-};
-
-export type ThreadedCommentsPanelChatWithAction = {
-  id: string;
-  label: string;
-  disabled?: boolean;
-  onTrigger?: () => void | string | Promise<void | string>;
-};
-
-export type ThreadedCommentsPanelChatWithConfig = {
-  resolveActions: () => Promise<ThreadedCommentsPanelChatWithAction[]>;
-  resolveSingleActionLabel?: () => Promise<string | null>;
-};
-
-export type ThreadedCommentsPanelCommentChatWithContext = {
-  articleTitle?: string | null;
-  canonicalUrl?: string | null;
-};
-
-export type ThreadedCommentsPanelCommentChatWithConfig = {
-  resolveActions: (
-    rootComment: ThreadedCommentItem,
-    context: ThreadedCommentsPanelCommentChatWithContext,
-    replies?: ThreadedCommentItem[] | null,
-  ) => Promise<ThreadedCommentsPanelChatWithAction[]>;
-  resolveContext?: () =>
-    | ThreadedCommentsPanelCommentChatWithContext
-    | Promise<ThreadedCommentsPanelCommentChatWithContext>;
+export type CommentLocatorSurfaceRoots = {
+  sourceRoot: Element;
+  scrollRoot: Element;
 };
 
 export type MountOptions = {
@@ -64,13 +27,15 @@ export type MountOptions = {
   initiallyOpen?: boolean;
   showHeader?: boolean;
   showCollapseButton?: boolean;
-  variant?: 'embedded' | 'sidebar';
+  variant?: 'sidebar';
+  surface?: 'app-wide' | 'app-narrow' | 'inpage';
   fullWidth?: boolean;
   surfaceBg?: string;
   headerDivider?: boolean;
   dockPage?: boolean;
   locatorEnv?: 'inpage' | 'app' | null;
-  getLocatorRoot?: () => Element | null;
+  getLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
+  getLocatorRoots?: (locator: ArticleCommentLocator) => readonly Element[];
   chatWith?: ThreadedCommentsPanelChatWithConfig | null;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
   deferReactUpdates?: boolean;

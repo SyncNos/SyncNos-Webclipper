@@ -540,6 +540,72 @@ describe('backup service', () => {
     expect(stats.messagesAdded).toBe(1);
   });
 
+  it('keeps legacy comments orphaned when the same canonical URL maps to multiple conversations', async () => {
+    const chromeMock = mockChromeStorage();
+    // @ts-expect-error test global
+    globalThis.chrome = chromeMock;
+    // @ts-expect-error test global
+    globalThis.browser = undefined;
+
+    const enc = new TextEncoder();
+    const files = ['sources/web/a.json', 'sources/web/b.json'];
+    const manifest = {
+      backupSchemaVersion: 2,
+      exportedAt: '2026-07-14T00:00:00.000Z',
+      db: { name: 'webclipper', version: 1 },
+      counts: { conversations: 2, messages: 0, sync_mappings: 0, article_comments: 1 },
+      config: { storageLocalPath: 'config/storage-local.json' },
+      index: { conversationsCsvPath: 'sources/conversations.csv' },
+      sources: [{ source: 'web', conversationCount: 2, files }],
+      assets: { articleCommentsIndexPath: 'assets/article-comments/index.json' },
+    };
+    const conversation = (conversationKey: string) => ({
+      schemaVersion: 1,
+      conversation: {
+        sourceType: 'article',
+        source: 'web',
+        conversationKey,
+        title: conversationKey,
+        url: 'https://example.com/shared',
+        warningFlags: [],
+        lastCapturedAt: 1,
+      },
+      messages: [],
+      syncMapping: null,
+    });
+    const comments = {
+      schemaVersion: 1,
+      comments: [
+        {
+          commentId: 1,
+          parentCommentId: null,
+          uniqueKey: '',
+          canonicalUrl: 'https://example.com/shared',
+          quoteText: 'quote',
+          commentText: 'legacy',
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+    const entries = new Map<string, Uint8Array>([
+      ['manifest.json', enc.encode(JSON.stringify(manifest))],
+      ['config/storage-local.json', enc.encode(JSON.stringify({ schemaVersion: 1, storageLocal: {} }))],
+      ['sources/conversations.csv', enc.encode('source,conversationKey\n')],
+      [files[0]!, enc.encode(JSON.stringify(conversation('a')))],
+      [files[1]!, enc.encode(JSON.stringify(conversation('b')))],
+      ['assets/article-comments/index.json', enc.encode(JSON.stringify(comments))],
+    ]);
+
+    await importBackupZipV2Merge(entries);
+    const db = await openDb();
+    const tx = db.transaction(['article_comments'], 'readonly');
+    const rows = await reqToPromise<any[]>(tx.objectStore('article_comments').getAll());
+    db.close();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.conversationId ?? null).toBeNull();
+  });
+
   it('importBackupLegacyJsonMerge merges into IndexedDB and applies allowlisted settings only', async () => {
     const chromeMock = mockChromeStorage();
     // @ts-expect-error test global

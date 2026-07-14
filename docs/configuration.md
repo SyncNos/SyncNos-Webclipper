@@ -1,154 +1,67 @@
 # 配置
 
-## 配置入口
+## 真源
 
-| 配置面 | 路径 / 界面 | 存储位置 | 说明 |
-| --- | --- | --- | --- |
-| WebClipper manifest | `wxt.config.ts` | 代码配置 | 控制版本、权限、entrypointsDir、host permissions、manifest icons（`16/48/128`）与 `web_accessible_resources`（仅暴露 `icon-128.png`） |
-| WebClipper 运行时设置 | SettingsScene + `src/viewmodels/settings/useSettingsSceneController.ts` + `chrome.storage.local` | 浏览器本地 KV | 控制 Notion parent page、Obsidian、`inpage_display_mode`、`ai_chat_auto_save_enabled`、`ai_chat_cache_images_enabled`、`web_article_cache_images_enabled`、`anti_hotlink_rules_v1`、`markdown_reading_profile_v1`、Chat with AI、Notion AI 模型偏好、`VideosSection`（仅解释支持范围，不新增独立存储键） |
-| WebClipper UI-only 状态 | `localStorage` / `sessionStorage` | 浏览器本地 Web Storage | 控制设置页当前 section、来源筛选、窄屏下待打开的 conversation |
-| 发布参数 | `.github/workflows/*.yml` | workflow inputs / env | 控制 tag、Node 版本、CWS / AMO 行为 |
+| 配置类别 | 真源 |
+| --- | --- |
+| manifest version、permissions、host permissions | `wxt.config.ts` |
+| npm 命令和依赖版本 | `package.json` / `package-lock.json` |
+| UI 设置结构 | `src/ui/settings/SettingsScene.tsx` 与 `src/ui/settings/sections/` |
+| 设置状态和持久化编排 | `src/viewmodels/settings/useSettingsSceneController.ts` |
+| reader 偏好 | `src/services/protocols/reader-prefs.ts` |
+| app theme | `src/services/protocols/app-theme.ts` |
+| anti-hotlink | `src/services/integrations/anti-hotlink/anti-hotlink-settings.ts` |
+| OAuth 默认值 | 各 provider 的 `auth/oauth.ts` |
 
-## WebClipper 配置项
+不要在多个文档中复制当前版本号、权限数组或完整设置键清单。
 
-| 配置项 | 位置 | 当前值 / 默认 | 作用 |
-| --- | --- | --- | --- |
-| `manifestVersion` | `wxt.config.ts` | `3` | 扩展固定在 MV3 模式 |
-| `manifest.version` | `wxt.config.ts` | `1.8.3` | 商店 workflow 校验的版本事实源 |
-| `entrypointsDir` | `wxt.config.ts` | `src/entrypoints` | 统一 background/content/popup/app 入口目录 |
-| 安装后引导策略 | `src/entrypoints/background.ts` | `install` 打开 `/settings?section=aboutme`；`update` 不自动开标签页 | 保留首次上手引导，同时避免升级打断当前会话 |
-| `inpage_display_mode` | `chrome.storage.local`, `src/services/bootstrap/content.ts` | 默认 `all`；兼容旧 `inpage_supported_only` | 控制 inpage 在 `supported / all / off` 三档中的显示范围 |
-| `SelectMenu.adaptiveMaxHeight` | `ui/shared/SelectMenu.tsx`, `ConversationListPane.tsx` | 默认 `false`；source/site 筛选启用为 `true` | 在菜单展开时基于最邻近可裁剪容器动态计算 `panelMaxHeight`，减少多余滚动条与裁切 |
-| `ai_chat_auto_save_enabled` | `chrome.storage.local` | 默认 `true` | 控制支持 AI 站点是否自动保存（ChatGPT 与 Google AI Studio 因虚拟化渲染不在 auto-save 集合内，仅手动抓取）；开启时会在打开会话后尝试对近 200 条范围（`<=200`）做 backfill 补齐。Notion AI 额外会在发送按钮 / 回车提交后主动触发采样，并在可用时使用稳定 `messageKey` 做尾部补齐。若既找不到可靠 overlap、也没有稳定尾锚点，会安全跳过并只写 console 日志（无 UI 提示）；关闭后仍可手动保存 |
-| `ai_chat_dollar_mention_enabled` | `chrome.storage.local`, `src/services/bootstrap/content-controller.ts` | 默认 `true` | 控制支持站点的 `$ mention` 能力是否启用；关闭后 content script 会停止注入该交互（当前标签页可热更新） |
-| `ai_chat_cache_images_enabled` | `chrome.storage.local`, `src/services/conversations/background/handlers.ts` | 默认 `false` | 控制 chat 消息采集时是否尝试图片内联；历史会话可通过 detail header 的 `cache-images` 手动回填 |
-| `web_article_cache_images_enabled` | `chrome.storage.local`, `src/services/conversations/background/handlers.ts`, `src/collectors/web/article-fetch.ts` | 默认 `false` | 控制 article 消息采集时是否尝试图片内联；历史会话可通过 detail header 的 `cache-images` 手动回填 |
-| `anti_hotlink_rules_v1` | `chrome.storage.local`, `src/platform/webext/anti-hotlink-rules-store.ts`, `src/services/integrations/anti-hotlink/anti-hotlink-settings.ts` | 默认内置 `cdnfile.sspai.com` / `sns-webpic-qc.xhscdn.com` | 控制网页文章图片的反防盗链 Referer 规则；命中规则时即使关闭图片缓存也会自动走缓存链路 |
-| `markdown_reading_profile_v1` | `chrome.storage.local`, `src/services/protocols/markdown-reading-profiles.ts`, `src/ui/shared/markdown-reading-profile-presets.ts` | 默认 `medium` | 控制 popup / app 详情页的 markdown 阅读风格（Medium / Notion / Book） |
-| `notion_parent_page_id`, `notion_parent_page_title` | `chrome.storage.local`, `src/viewmodels/settings/useSettingsSceneController.ts` | 用户选择值 | 决定扩展 Notion 的写入根 |
-| `notion_oauth_client_id` | `chrome.storage.local`, `src/services/sync/notion/auth/oauth.ts` | 默认写入（best-effort） | Notion OAuth client id（扩展侧只保存 client id，不保存 secret） |
-| `notion_oauth_pending_state` | `chrome.storage.local`, `src/viewmodels/settings/useSettingsSceneController.ts` + `src/services/sync/notion/auth/oauth.ts` | 连接中临时值 | OAuth 发起后写入，用于回调 state 校验与 UI polling 停止条件 |
-| `notion_oauth_last_error` | `chrome.storage.local`, `src/viewmodels/settings/useSettingsSceneController.ts` + `src/services/sync/notion/auth/oauth.ts` | 空字符串或错误信息 | 记录上一次 OAuth 回调/交换失败原因；UI 会据此展示状态并停止 polling |
-| `notion_ai_preferred_model_index` | `chrome.storage.local` | 空字符串或正整数 | 控制 Notion AI model picker 偏好 |
-| `chat_with_prompt_template_v1`, `chat_with_ai_platforms_v1`, `chat_with_max_chars_v1` | `src/services/integrations/chatwith/chatwith-settings.ts`, `chrome.storage.local` | 默认模板 + 平台清单 + `28000` | 控制 Chat with AI 的载荷模板、目标平台和截断长度 |
-| `webclipper_sync_provider_notion_enabled` | `chrome.storage.local`, `src/services/sync/sync-provider-gate.ts` | 默认启用（缺省值） | Notion 同步 provider 门控（显式写 `false` 表示禁用） |
-| `webclipper_sync_provider_obsidian_enabled` | `chrome.storage.local`, `src/services/sync/sync-provider-gate.ts` | 默认启用（缺省值） | Obsidian 同步 provider 门控（显式写 `false` 表示禁用） |
-| `webclipper_sync_provider_feishu_enabled` | `chrome.storage.local`, `src/services/sync/sync-provider-gate.ts` | 默认启用（缺省值） | Feishu 同步 provider 门控（显式写 `false` 表示禁用） |
-| `webclipper_settings_active_section` | `src/viewmodels/settings/types.ts`, `localStorage` | 默认 `general`；当前稳定值：`general / articles / ai_chats / videos / chat_with / backup / notion / obsidian / aboutyou / aboutme`（兼容旧 `insight / about`） | 记住设置页当前选中的 sidebar 分组 / section |
-| `webclipper_conversations_source_filter_key` | `ConversationListPane.tsx`, `localStorage` | 默认 `all` | 记住会话列表来源筛选 |
-| `webclipper_pending_open_conversation_id` | `pending-open.ts`, `sessionStorage` | 临时值 | 在窄屏 list/detail 路由之间桥接待打开的会话 |
-| Insight 统计限制 | `src/viewmodels/settings/insight-stats.ts` | `INSIGHT_CHAT_SOURCE_LIMIT=4`, `INSIGHT_ARTICLE_DOMAIN_LIMIT=8`, `INSIGHT_TOP_CONVERSATION_LIMIT=3` | 控制平台来源排行、文章域名排行与 Top conversation 截断方式 |
-| Obsidian 设置 | `obsidian*` settings store | `apiBaseUrl`, `authHeaderName`, `chatFolder`, `articleFolder`, 可选 API Key | 控制扩展写入本地 vault |
-| 备份敏感键排除 | `src/services/sync/backup/backup-utils.ts` | 精确排除 `notion_oauth_token_v1`, `notion_oauth_client_secret`，且排除任何 `notion_oauth_token*` | 避免敏感信息进入备份 |
+## 关键本地设置
 
-### 版本号单一事实源（Single Source of Truth）
+| 键 | 行为 | 归一化规则 |
+| --- | --- | --- |
+| `inpage_display_mode` | `supported / all / off` | 未设置时可从旧 `inpage_supported_only` 回读；新代码只写新键 |
+| `markdown_reading_profile_v1` | `medium / notion / book` | 未知值回退 `medium` |
+| `anti_hotlink_rules_v1` | domain → referer 规则 | 非法规则忽略；命中后缓存图片但不阻断正文 |
+| `reader_prefs_v1` | 字体、字号、行高、宽度、对齐与 TTS 偏好 | `normalizeReaderPrefs()` 负责枚举回退和数值 clamp |
+| `app_theme_mode_v1` | `system / light / sepia / dark / black` | 未知值回退协议默认值 |
+| `ai_chat_cache_images_enabled` | AI chat 实时图片内联 | 失败只产生 warning |
+| `web_article_cache_images_enabled` | article 图片缓存 | anti-hotlink 命中时可强制尝试缓存 |
+| `*_auto_sync_enabled_v1` | Notion / Obsidian / Feishu 自动同步 | 各 provider 独立，默认关闭 |
 
-- deepwiki 里 **只在本页**记录 WebClipper 的具体发版号（`manifest.version`）。
-- 其他页面只引用本页，不再重复写死版本值。
-- 当版本变更时，只需要修改此处与源码 `wxt.config.ts`，避免多处文档漂移。
+旧键只允许用于迁移或兼容读取，不得形成长期双写路径。
 
-- 扩展 UI 文案没有独立的“语言设置”键；`src/ui/i18n/index.ts` 会按 `navigator.language` 自动在 `en` / `zh` 间切换。
-- 主题仅依赖 CSS 媒体查询：设计 token 在 `tokens.css` 里通过 `prefers-color-scheme` 统一切换，不再维护手动主题开关。
-- 文章抓取在命中反防盗链规则时会自动缓存图片，即使 `web_article_cache_images_enabled` 关闭也不会阻断主链路；规则读取失败只会继续采集，不会让整页抓取失败。
-- Insight 不写入新的 `chrome.storage.local` 键；统计只在用户打开 `Settings → Insight` 时从 IndexedDB 现算，失败时回到错误态或空态。
-- `ai_chat_cache_images_enabled` / `web_article_cache_images_enabled` 分别控制 chat/article 的消息内联策略；它们都不会回写新的设置键到 Insight 或列表筛选状态。
-- `VideosSection` 本身不对应新的 `chrome.storage.local` 配置键；它主要通过右键菜单 `Save video transcript` 与 `video` kind 协同工作，支持范围只覆盖已加载字幕的 YouTube / Bilibili 视频页。
-- `wxt.config.ts` 里 WebClipper 的 manifest icons 目前包含 `icon-16.png` / `icon-48.png` / `icon-128.png`；但出于跨站资源暴露收敛的考虑，`web_accessible_resources` 只暴露 `icons/icon-128.png`。
+## OAuth 与同步
 
-## 发布参数
+- Notion 和 Feishu token 存在 `chrome.storage.local`，并由备份 denylist 排除。
+- 官方 OAuth 模式通过 Cloudflare Worker 持有 client secret；用户自建 Feishu 应用可选择在扩展中保存 secret。
+- Parent Page、文件夹路径、API endpoint 和 job 状态由各 provider 的 settings store 管理。
+- Feishu 的完整部署流程见 [feishu-setup.md](feishu-setup.md)。
 
-| 参数 | 位置 | 值 / 规则 | 影响 |
-| --- | --- | --- | --- |
-| Release 触发条件 | `.github/workflows/release.yml` | `push tags: v*` 或 `workflow_dispatch` | 决定 GitHub Release 页面何时创建 |
-| WebClipper CI Node 版本 | `webclipper-*.yml` | `20` | 保持构建与发布一致 |
-| CWS `publish_target` | `webclipper-cws-publish.yml` | `default` / `trustedTesters` | 控制 Chrome Web Store 发布范围 |
-| AMO channel | `webclipper-amo-publish.yml` | `listed` | 控制 Firefox 商店提交通道 |
-| Safari Xcode 项目 | `setup-safari-xcode.mjs` | `npm run setup:safari:xcode` | 生成 macOS/iOS Safari Web Extension Xcode 项目（需 Xcode 14.1+） |
-| 版本一致性规则 | `webclipper-amo-publish.yml`, `webclipper-cws-publish.yml`, `webclipper-edge-publish.yml` | `tag 去掉 v == manifest.version` | 阻止错误版本发布 |
+## 构建时配置
 
-## 权限与安全边界
+常用命令：
 
-| 面 | 真实配置 | 安全意图 | 备注 |
-| --- | --- | --- | --- |
-| 扩展权限 | `storage`, `contextMenus`, `tabs`, `webNavigation`, `activeTab`, `scripting`, `alarms` + (`tabGroups` 仅 Chromium) + (`declarativeNetRequest*`：Safari 用 `declarativeNetRequest`，其余用 `declarativeNetRequestWithHostAccess`) | 尽量只保留采集、会话分组、图片防盗链与本地保存所需能力 | 新增权限必须解释原因 |
-| 扩展 host permissions | 支持站点 + Notion + Notion OAuth worker / GitHub Pages + anti-hotlink CDN + `http://*/*` + `https://*/*` | 允许 content script 在运行时自行判断是否激活，并支持手动文章抓取、图片缓存与 Notion 同步 | UI 级别由 `inpage_display_mode` 做 gating（并兼容回读旧 `inpage_supported_only`） |
-| 备份导入导出 | denylist + 前缀过滤 | 防止 OAuth token 跟随备份扩散 | Zip v2 仍保留非敏感运行设置 |
-
-## 常见误配
-
-- **改了 `wxt.config.ts` 的 `manifest.version` 却没对齐 tag**：CWS / AMO workflow 会直接报 `manifest version mismatch`。
-- **以为扩展升级后会自动打开设置页**：`background.ts` 仅在首次安装（`details.reason === 'install'`）自动打开 About；更新不会自动弹出设置页。
-- **切了 `inpage_display_mode` 或 `ai_chat_auto_save_enabled` 但当前页不变**：这些开关在 content bootstrap / controller 启动时读取，当前页面不会热更新；必须刷新或新开页面。
-- **打开 AI 对话后本地历史仍有缺口**：auto-save backfill 只覆盖近 200 条范围（`<=200`）。若控制台出现 `auto-save backfill skipped: no overlap, incremental continues`，说明本页窗口没有给出可靠 overlap，也没有稳定尾锚点；这时 auto-save 会安全跳过这次补齐，但后续同页增量不会再把这一帧偷偷吞成 baseline。若你要一次补齐较长历史，仍应优先手动保存。
-- **切了 `ai_chat_dollar_mention_enabled` 但当前页表现不一致**：该开关在 `content-controller.ts` 中会监听 `chrome.storage.onChanged`，通常无需刷新即可启停；但如果当前页因 `inpage_display_mode=off` 未启动 content controller，仍需刷新/重新进入支持站点后才会生效。
-- **打开 `ai_chat_cache_images_enabled` / `web_article_cache_images_enabled` 后旧会话图片仍是外链**：这些开关主要影响后续采集写入；历史消息需要在 detail 里手动触发 `cache-images` 才会回填。
-- **以为筛选下拉高度不再固定 `320px` 是样式异常**：`source/site` 筛选菜单现在显式启用 `adaptiveMaxHeight`，会随可视区域动态变化，这是预期行为。
-- **只在 Settings 里连上 Notion、却没选 Parent Page**：扩展仍然不能真正写入 Notion 页面。
-- **Obsidian 使用了错误的 URL / header / API Key**：当前设计默认围绕 `http://127.0.0.1:27123` 与 `Authorization` 头工作。
-- **WebClipper 只改 UI 没考虑字体缩放或窗口模式**：新视图若没调用现有字体 / 窗口辅助能力，体验会与主窗口不一致。
-
-## Feishu（DocX）相关配置（WebClipper）
-
-Feishu 同步的配置分两类：
-
-1. **OAuth / 连接状态**：都保存在 `chrome.storage.local`，用于授权、token refresh 与错误展示。
-2. **路径与 UI 行为**：路径在 `chrome.storage.local`；popup 的“建议打开标签页版同步”提醒是 UI-only 的 `localStorage`。
-
-### Feishu 配置键矩阵
-
-| 键 | 存储层 | 作用 | 备注 / 默认 |
-| --- | --- | --- | --- |
-| `feishu_oauth_client_id` | `chrome.storage.local` | Feishu OAuth client id | 维护者可在 `src/services/sync/feishu/auth/oauth.ts` 写入默认值；用户也可在 Settings → Feishu Advanced 覆盖 |
-| `feishu_oauth_client_secret` | `chrome.storage.local` | Feishu OAuth client secret（可选） | **敏感信息**：会被 Zip v2 备份排除；配置后扩展会优先走直连 token exchange/refresh（无需 Worker） |
-| `feishu_oauth_token_exchange_proxy_url` | `chrome.storage.local` | OAuth code exchange/refresh 代理 Worker URL | 默认由 `src/services/sync/feishu/auth/oauth.ts` 提供；当未配置 `feishu_oauth_client_secret` 时用它完成 exchange/refresh（避免在扩展端存 secret） |
-| `feishu_oauth_pending_state` | `chrome.storage.local` | OAuth state（防 CSRF） | 授权开始时写入、回调校验后清空 |
-| `feishu_oauth_last_error` | `chrome.storage.local` | 上一次 OAuth 错误 | Settings 会展示并允许用户重新 Connect |
-| `feishu_oauth_token_v1` | `chrome.storage.local` | OAuth token（access/refresh/expiresAt） | **敏感信息**：会被 Zip v2 备份排除 |
-| `feishu_chat_folder` | `chrome.storage.local` | chat 类型的目标路径（相对云盘根目录） | 默认 `SyncNos-AIChats`；不存在会自动创建 |
-| `feishu_article_folder` | `chrome.storage.local` | article 类型目标路径 | 默认 `SyncNos-WebArticles` |
-| `feishu_video_folder` | `chrome.storage.local` | video 类型目标路径 | 默认 `SyncNos-Videos` |
-| `feishu_sync_job_v1` | `chrome.storage.local` | Feishu 同步 job snapshot | 用于 UI 展示“同步中/成功/失败”；background reload 会把遗留 running job 标记为 aborted |
-| `webclipper_popup_feishu_sync_open_tab_dont_show_v1` | `localStorage` | popup 同步提醒“不再提示” | 仅 popup UI 使用，不参与备份 |
-
-### 代码入口（Source Anchors）
-
-- OAuth 默认值与回调：`src/services/sync/feishu/auth/oauth.ts`
-- 路径默认值与 normalize：`src/services/sync/feishu/settings-store.ts`
-- Drive 目录解析与创建：`src/services/sync/feishu/drive-folder-path.ts`
-- 同步编排（hash / Convert / 图片）：`src/services/sync/feishu/feishu-sync-orchestrator.ts`
-- 同步 job 统一 store：`src/services/sync/sync-job-store.ts`
-- popup 同步提醒：`src/ui/popup/PopupShell.tsx`
-
-## 示例片段
-
-### 片段 1：`wxt.config.ts` 用 `UserManifestFn` 生成 manifest（含 Safari/Chromium 权限差异）
-
-```ts
-const resolveManifest: UserManifestFn = (env) => {
-  const isSafari = env.browser === 'safari';
-
-  const permissions = ['storage', 'contextMenus', 'tabs', 'webNavigation', 'activeTab', 'scripting', 'alarms'];
-  if (isSafari) permissions.push('declarativeNetRequest');
-  else permissions.push('declarativeNetRequestWithHostAccess', 'tabGroups');
-
-  return {
-    version: '1.8.3',
-    permissions,
-    host_permissions: [/* ... */],
-  };
-};
-
-export default defineConfig({ manifest: resolveManifest });
+```bash
+npm run dev
+npm run dev:firefox
+npm run build
+npm run build:firefox
+npm run build:zen
+npm run build:safari
 ```
 
-### 片段 3：筛选菜单会根据最邻近可裁剪容器动态计算可用高度
+Feishu 官方默认值可由以下环境变量注入：
 
-```ts
-const clipRect = findNearestClippingRect(el);
-const available =
-  side === 'top'
-    ? rect.top - (clipRect?.top ?? 0) - gap - margin
-    : (clipRect?.bottom ?? window.innerHeight) - rect.bottom - gap - margin;
-
-const next = Math.floor(Math.max(80, Number.isFinite(available) ? available : 160));
+```text
+SYNCNOS_FEISHU_OAUTH_CLIENT_ID
+SYNCNOS_FEISHU_OAUTH_TOKEN_EXCHANGE_PROXY_URL
 ```
+
+Zen 可通过 `WXT_ZEN_BINARY` 指定浏览器路径；扩展 id 可通过 `FIREFOX_EXTENSION_ID` 覆盖。排障见 [troubleshooting.md](troubleshooting.md)。
+
+## 修改配置时的验证
+
+1. 确认协议层对未知值、空值和旧值有明确归一化。
+2. 确认 UI/ViewModel 不直接 import `@platform/*`。
+3. 补数据转换、状态变化和异常输入测试。
+4. 运行 `npm run gate:ci`；manifest、权限或构建改动再运行 `npm run gate`。

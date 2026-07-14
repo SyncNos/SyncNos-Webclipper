@@ -6,6 +6,7 @@ vi.mock('../../src/ui/i18n', () => ({
 }));
 
 import { mountThreadedCommentsPanel } from '@ui/comments';
+import { getCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -62,7 +63,7 @@ describe('Threaded comments panel ordering', () => {
     document.body.appendChild(host);
 
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setComments([
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
       { id: 1, parentId: null, createdAt: 1000, authorName: 'You', quoteText: '', commentText: 'root-old' },
       { id: 2, parentId: null, createdAt: 2000, authorName: 'You', quoteText: '', commentText: 'root-new' },
       { id: 3, parentId: 2, createdAt: 1500, authorName: 'You', quoteText: '', commentText: 'reply-old' },
@@ -80,16 +81,37 @@ describe('Threaded comments panel ordering', () => {
 
     const rootBodies = threads.map((t) =>
       t
-        .querySelector('.webclipper-inpage-comments-panel__comment > .webclipper-inpage-comments-panel__text')
+        .querySelector('.webclipper-inpage-comments-panel__comment-main > .webclipper-inpage-comments-panel__text')
         ?.textContent?.trim(),
     );
     expect(rootBodies).toEqual(['root-new', 'root-old']);
 
     const replies = Array.from(
-      threads[0].querySelectorAll('.webclipper-inpage-comments-panel__reply > .webclipper-inpage-comments-panel__text'),
+      threads[0].querySelectorAll(
+        '.webclipper-inpage-comments-panel__reply-main > .webclipper-inpage-comments-panel__text',
+      ),
     ).map((x) => x.textContent?.trim());
     expect(replies).toEqual(['reply-old', 'reply-new']);
 
+    mounted.cleanup();
+  });
+
+  it('uses the canonical graph for orphan and nested reply placement', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 10, parentId: 999, createdAt: 1000, authorName: 'You', quoteText: '', commentText: 'orphan-root' },
+      { id: 11, parentId: 10, createdAt: 1100, authorName: 'You', quoteText: '', commentText: 'nested-child' },
+      { id: 12, parentId: 11, createdAt: 1200, authorName: 'You', quoteText: '', commentText: 'nested-grandchild' },
+    ]);
+
+    const shadow = host.querySelector('webclipper-threaded-comments-panel')?.shadowRoot;
+    const threads = Array.from(shadow!.querySelectorAll('.webclipper-inpage-comments-panel__thread'));
+    expect(threads).toHaveLength(1);
+    expect(threads[0].textContent).toContain('orphan-root');
+    expect(threads[0].textContent).toContain('nested-child');
+    expect(threads[0].textContent).toContain('nested-grandchild');
     mounted.cleanup();
   });
 });

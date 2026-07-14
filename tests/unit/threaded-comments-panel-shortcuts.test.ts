@@ -6,6 +6,7 @@ vi.mock('../../src/ui/i18n', () => ({
 }));
 
 import { mountThreadedCommentsPanel } from '@ui/comments';
+import { getCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -71,7 +72,7 @@ describe('Threaded comments panel shortcuts', () => {
 
     const onSave = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setHandlers({ onSave });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onSave });
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
@@ -81,7 +82,10 @@ describe('Threaded comments panel shortcuts', () => {
       '.webclipper-inpage-comments-panel__composer-textarea',
     ) as HTMLTextAreaElement | null;
     expect(textarea).toBeTruthy();
+    textarea!.focus();
     textarea!.value = 'hello';
+    textarea!.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
 
     textarea!.dispatchEvent(
       new window.KeyboardEvent('keydown', {
@@ -89,7 +93,6 @@ describe('Threaded comments panel shortcuts', () => {
         metaKey: true,
         bubbles: true,
         cancelable: true,
-        composed: true,
       }),
     );
     await flushPromises();
@@ -106,8 +109,10 @@ describe('Threaded comments panel shortcuts', () => {
 
     const onReply = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setHandlers({ onReply });
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onReply });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root' },
+    ]);
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(panel).toBeTruthy();
@@ -117,7 +122,10 @@ describe('Threaded comments panel shortcuts', () => {
       '.webclipper-inpage-comments-panel__reply-textarea',
     ) as HTMLTextAreaElement | null;
     expect(textarea).toBeTruthy();
+    textarea!.focus();
     textarea!.value = 'reply';
+    textarea!.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
 
     textarea!.dispatchEvent(
       new window.KeyboardEvent('keydown', {
@@ -125,7 +133,6 @@ describe('Threaded comments panel shortcuts', () => {
         metaKey: true,
         bubbles: true,
         cancelable: true,
-        composed: true,
       }),
     );
     await flushPromises();
@@ -133,6 +140,73 @@ describe('Threaded comments panel shortcuts', () => {
     expect(onReply).toHaveBeenCalledTimes(1);
     expect(onReply).toHaveBeenCalledWith(1, 'reply');
 
+    mounted.cleanup();
+  });
+
+  it('preserves the root draft when the host reports a no-op save', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+
+    const onSave = vi.fn().mockResolvedValue(false);
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onSave });
+    const shadow = (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
+    const textarea = shadow.querySelector(
+      '.webclipper-inpage-comments-panel__composer-textarea',
+    ) as HTMLTextAreaElement;
+    textarea.value = 'keep root draft';
+    textarea.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
+
+    (
+      shadow.querySelector(
+        '[data-webclipper-root-composer="1"] .webclipper-inpage-comments-panel__send',
+      ) as HTMLButtonElement
+    ).click();
+    await flushReactScheduler();
+
+    expect(onSave).toHaveBeenCalledWith('keep root draft');
+    expect(textarea.value).toBe('keep root draft');
+    expect((shadow.querySelector('.webclipper-inpage-comments-panel__notice') as HTMLElement).textContent).toContain(
+      'Comment was not saved.',
+    );
+    expect(
+      errorSpy.mock.calls.some((args) =>
+        args.some((value) => String(value).includes('flushSync was called from inside a lifecycle method')),
+      ),
+    ).toBe(false);
+    errorSpy.mockRestore();
+    mounted.cleanup();
+  });
+
+  it('preserves the reply draft when the host reports a no-op reply', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+
+    const onReply = vi.fn().mockResolvedValue(false);
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    const driver = getCommentSidebarPanelTestDriver(mounted.api);
+    driver.replaceActionCallbacks({ onReply });
+    driver.replaceComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    const shadow = (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
+    const textarea = shadow.querySelector('.webclipper-inpage-comments-panel__reply-textarea') as HTMLTextAreaElement;
+    textarea.value = 'keep reply draft';
+    textarea.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
+
+    (
+      shadow.querySelector(
+        '[data-reply-composer-root-id="1"] .webclipper-inpage-comments-panel__send',
+      ) as HTMLButtonElement
+    ).click();
+    await flushReactScheduler();
+
+    expect(onReply).toHaveBeenCalledWith(1, 'keep reply draft');
+    expect(textarea.value).toBe('keep reply draft');
+    expect((shadow.querySelector('.webclipper-inpage-comments-panel__notice') as HTMLElement).textContent).toContain(
+      'Reply was not saved.',
+    );
     mounted.cleanup();
   });
 });

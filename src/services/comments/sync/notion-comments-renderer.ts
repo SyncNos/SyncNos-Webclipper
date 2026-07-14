@@ -1,7 +1,8 @@
-import type { ArticleComment } from '@services/comments/domain/models';
+import type { ArticleCommentDto } from '@services/comments/domain/comment-dto';
+import { normalizeCommentThreadGraph } from '@services/comments/domain/comment-thread-graph';
 
 const MAX_TEXT = 1900;
-const NOTION_COMMENTS_DIGEST_VERSION = 5;
+const NOTION_COMMENTS_DIGEST_VERSION = 6;
 const DEFAULT_COMMENT_AUTHOR = 'You';
 
 function pad2(value: number): string {
@@ -116,72 +117,32 @@ function commentItemBlock(input: {
   return bulletedItemBlock(metaLine, children);
 }
 
-export function buildNotionCommentsBlocks(comments: ArticleComment[]): {
+export function buildNotionCommentsBlocks(comments: ArticleCommentDto[]): {
   blocks: any[];
   threads: number;
   items: number;
 } {
-  const list = Array.isArray(comments) ? comments.slice() : [];
-  list.sort((a, b) => Number(a?.createdAt || 0) - Number(b?.createdAt || 0));
-
-  const byId = new Map<number, ArticleComment>();
-  for (const c of list) {
-    const id = Number(c?.id);
-    if (Number.isFinite(id) && id > 0) byId.set(id, c);
-  }
-
-  const byParentId = new Map<number, ArticleComment[]>();
-  const roots: ArticleComment[] = [];
-  for (const c of list) {
-    const parentId = c && c.parentId != null ? Number(c.parentId) : null;
-    if (parentId && Number.isFinite(parentId) && parentId > 0 && byId.has(parentId)) {
-      const bucket = byParentId.get(parentId) || [];
-      bucket.push(c);
-      byParentId.set(parentId, bucket);
-    } else {
-      roots.push(c);
-    }
-  }
-
+  const graph = normalizeCommentThreadGraph(comments);
   const blocks: any[] = [];
-  let threads = 0;
   let items = 0;
 
-  for (const root of roots) {
-    if (!root) continue;
+  for (const thread of graph.threads) {
     const threadBlocks: any[] = [];
-    const quoteText = safeString(root.quoteText);
-    const quoteParts = splitText(quoteText);
-    if (quoteParts.length) {
-      threads += 1;
-      for (const part of quoteParts) threadBlocks.push(quoteBlock(part));
-    }
+    for (const part of splitText(safeString(thread.root.quoteText))) threadBlocks.push(quoteBlock(part));
 
-    const ordered: ArticleComment[] = [];
-    const pushDescendants = (parent: ArticleComment) => {
-      const replies = byParentId.get(Number(parent?.id)) || [];
-      for (const reply of replies) {
-        ordered.push(reply);
-        pushDescendants(reply);
-      }
-    };
-    ordered.push(root);
-    pushDescendants(root);
-
-    for (const c of ordered) {
-      const text = safeString(c?.commentText);
-      const metaLine = formatCommentMetaLine({ authorName: (c as any)?.authorName, createdAt: c?.createdAt });
-      if (text) items += 1;
+    for (const comment of [thread.root, ...thread.replies]) {
+      const text = safeString(comment.commentText);
+      const metaLine = formatCommentMetaLine({ authorName: comment.authorName, createdAt: comment.createdAt });
       if (text) {
+        items += 1;
         threadBlocks.push(
           commentItemBlock({
-            authorName: (c as any)?.authorName,
+            authorName: comment.authorName,
             commentText: text,
-            createdAt: c?.createdAt,
-          } as any),
+            createdAt: comment.createdAt,
+          }),
         );
       } else if (metaLine) {
-        // Keep an anchor bullet for metadata-only comments so replies remain understandable.
         threadBlocks.push(bulletedItemBlock(metaLine));
       }
     }
@@ -191,7 +152,7 @@ export function buildNotionCommentsBlocks(comments: ArticleComment[]): {
     blocks.push(...threadBlocks);
   }
 
-  return { blocks, threads, items };
+  return { blocks, threads: graph.threads.length, items };
 }
 
 function fnv1a32(input: string): string {
@@ -204,16 +165,24 @@ function fnv1a32(input: string): string {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-export function computeNotionCommentsDigest(comments: ArticleComment[]): string {
-  const list = Array.isArray(comments) ? comments.slice() : [];
-  list.sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
-  const normalized = list.map((c) => ({
-    id: Number(c?.id || 0),
-    parentId: c?.parentId == null ? null : Number(c.parentId),
-    createdAt: Number(c?.createdAt || 0),
-    updatedAt: Number(c?.updatedAt || 0),
-    quoteText: safeString(c?.quoteText),
-    commentText: safeString(c?.commentText),
+export function computeNotionCommentsDigest(comments: ArticleCommentDto[]): string {
+  const graph = normalizeCommentThreadGraph(comments);
+  const normalized = graph.orderedItems.map((comment) => ({
+    id: comment.id,
+    parentId: comment.parentId,
+    authorName: safeString(comment.authorName),
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+    quoteText: safeString(comment.quoteText),
+    commentText: safeString(comment.commentText),
+    locatorVersion: comment.locator?.v ?? null,
+    locator: comment.locator ?? null,
   }));
-  return fnv1a32(JSON.stringify({ v: NOTION_COMMENTS_DIGEST_VERSION, items: normalized }));
+  return fnv1a32(
+    JSON.stringify({
+      v: NOTION_COMMENTS_DIGEST_VERSION,
+      graph: { orphanIds: graph.orphanIds, cycleIds: graph.cycleIds, duplicateIds: graph.duplicateIds },
+      items: normalized,
+    }),
+  );
 }

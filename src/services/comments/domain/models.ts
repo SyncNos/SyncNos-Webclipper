@@ -1,3 +1,18 @@
+import type { ArticleCommentLocator } from '@services/comments/domain/comment-locator';
+
+export type {
+  ArticleCommentBoundaryPath,
+  ArticleCommentLocator,
+  ArticleCommentLocatorEnv,
+  ArticleCommentLocatorV1,
+  ArticleCommentLocatorV2,
+  ArticleCommentRootEvidence,
+  ArticleCommentSurfaceHint,
+  ArticleCommentTextModelVersion,
+  ArticleCommentTextPositionSelector,
+  ArticleCommentTextQuoteSelector,
+} from '@services/comments/domain/comment-locator';
+
 export type ArticleComment = {
   id: number;
   parentId: number | null;
@@ -10,30 +25,6 @@ export type ArticleComment = {
   createdAt: number;
   updatedAt: number;
 };
-
-export type ArticleCommentLocatorEnv = 'inpage' | 'app';
-
-export type ArticleCommentTextQuoteSelector = {
-  type: 'TextQuoteSelector';
-  exact: string;
-  prefix?: string;
-  suffix?: string;
-};
-
-export type ArticleCommentTextPositionSelector = {
-  type: 'TextPositionSelector';
-  start: number;
-  end: number;
-};
-
-export type ArticleCommentLocatorV1 = {
-  v: 1;
-  env: ArticleCommentLocatorEnv;
-  quote: ArticleCommentTextQuoteSelector;
-  position: ArticleCommentTextPositionSelector;
-};
-
-export type ArticleCommentLocator = ArticleCommentLocatorV1;
 
 export type AddArticleCommentInput = {
   parentId?: number | null;

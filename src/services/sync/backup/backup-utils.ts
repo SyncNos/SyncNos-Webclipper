@@ -1,10 +1,14 @@
+import {
+  ARTICLE_COMMENT_ARCHIVE_CURRENT_SCHEMA,
+  validateArticleCommentArchiveDocument,
+} from '@services/comments/domain/comment-archive';
 type UnknownRecord = Record<string, any>;
 
 export const BACKUP_SCHEMA_VERSION = 1;
 export const BACKUP_ZIP_SCHEMA_VERSION = 2;
 export const LAST_BACKUP_EXPORT_AT_STORAGE_KEY = 'last_backup_export_at';
 export const IMAGE_CACHE_INDEX_SCHEMA_VERSION = 1;
-export const ARTICLE_COMMENTS_INDEX_SCHEMA_VERSION = 1;
+export const ARTICLE_COMMENTS_INDEX_SCHEMA_VERSION = ARTICLE_COMMENT_ARCHIVE_CURRENT_SCHEMA;
 
 const STORAGE_BACKUP_DENYLIST_EXACT = new Set<string>([
   // Never export tokens (explicit product constraint).
@@ -280,42 +284,8 @@ export function validateImageCacheIndexDocument(doc: unknown): { ok: boolean; er
 }
 
 export function validateArticleCommentsIndexDocument(doc: unknown): { ok: boolean; error: string } {
-  const d: any = doc;
-  if (!d || typeof d !== 'object') return { ok: false, error: 'Article comments index is not an object' };
-  if (Number(d.schemaVersion) !== ARTICLE_COMMENTS_INDEX_SCHEMA_VERSION) {
-    return { ok: false, error: 'Unsupported article comments schemaVersion' };
-  }
-  const comments = Array.isArray(d.comments) ? d.comments : null;
-  if (!comments) return { ok: false, error: 'Missing article comments list' };
-
-  for (const c of comments) {
-    if (!c || typeof c !== 'object') return { ok: false, error: 'Invalid article comment item' };
-    const commentId = Number(c.commentId);
-    if (!Number.isFinite(commentId) || commentId <= 0) return { ok: false, error: 'Invalid article commentId' };
-
-    const parentId = c.parentCommentId == null ? null : Number(c.parentCommentId);
-    if (parentId != null && (!Number.isFinite(parentId) || parentId <= 0)) {
-      return { ok: false, error: 'Invalid article parentCommentId' };
-    }
-
-    const uk = c.uniqueKey == null ? '' : String(c.uniqueKey || '').trim();
-    if (uk && (!isNonEmptyString(uk) || !uk.includes('||'))) {
-      return { ok: false, error: 'Invalid article comment uniqueKey' };
-    }
-
-    const canonicalUrl = String(c.canonicalUrl || '').trim();
-    if (!isNonEmptyString(canonicalUrl)) return { ok: false, error: 'Invalid article comment canonicalUrl' };
-
-    const commentText = String(c.commentText || '').trim();
-    if (!isNonEmptyString(commentText)) return { ok: false, error: 'Invalid article comment commentText' };
-
-    const createdAt = Number(c.createdAt);
-    const updatedAt = Number(c.updatedAt);
-    if (!Number.isFinite(createdAt) || createdAt < 0) return { ok: false, error: 'Invalid article comment createdAt' };
-    if (!Number.isFinite(updatedAt) || updatedAt < 0) return { ok: false, error: 'Invalid article comment updatedAt' };
-  }
-
-  return { ok: true, error: '' };
+  const result = validateArticleCommentArchiveDocument(doc);
+  return { ok: result.ok, error: result.error };
 }
 
 export function validateBackupManifest(doc: unknown): { ok: boolean; error: string } {

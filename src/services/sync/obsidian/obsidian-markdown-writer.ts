@@ -1,5 +1,5 @@
-import type { ArticleComment } from '@services/comments/domain/models';
-import { computeArticleCommentThreadCount } from '@services/comments/domain/comment-metrics';
+import type { ArticleCommentDto } from '@services/comments/domain/comment-dto';
+import { normalizeCommentThreadGraph } from '@services/comments/domain/comment-thread-graph';
 import { normalizeStandaloneImageCaptionLines } from '@services/sync/shared/markdown-image-normalizer';
 
 const MESSAGES_HEADING = 'Conversations';
@@ -156,88 +156,34 @@ function buildListItemParagraph(text: string, indentLevel: number): string[] {
     .filter((x) => !!x);
 }
 
-function buildObsidianCommentsMarkdown(comments: ArticleComment[]) {
-  const list = Array.isArray(comments) ? comments.slice() : [];
-  if (!list.length) return '';
+function buildObsidianCommentsMarkdown(comments: ArticleCommentDto[]) {
+  const graph = normalizeCommentThreadGraph(comments);
+  const output: string[] = [];
 
-  list.sort((a, b) => Number(a?.createdAt || 0) - Number(b?.createdAt || 0));
+  const renderItem = (comment: ArticleCommentDto): string => {
+    const lines: string[] = [];
+    const head = buildListItemHead(
+      buildCommentMetaLine({ authorName: comment.authorName, createdAt: comment.createdAt }),
+      0,
+    );
+    if (head) lines.push(head);
+    const text = safeString(comment.commentText);
+    if (text) lines.push(...buildListItemParagraph(text, 0));
+    return lines.join('\n').trim();
+  };
 
-  const byId = new Map<number, ArticleComment>();
-  for (const c of list) {
-    const id = Number(c?.id);
-    if (Number.isFinite(id) && id > 0) byId.set(id, c);
+  for (const thread of graph.threads) {
+    const chunks: string[] = [];
+    const quote = safeString(thread.root.quoteText);
+    if (quote) chunks.push(buildMarkdownQuote(quote));
+    const items = [thread.root, ...thread.replies].map(renderItem).filter(Boolean);
+    if (items.length) chunks.push(items.join('\n\n'));
+    const rendered = chunks.join('\n\n').trim();
+    if (!rendered) continue;
+    if (output.length) output.push('---');
+    output.push(rendered);
   }
-
-  const byParentId = new Map<number, ArticleComment[]>();
-  const roots: ArticleComment[] = [];
-  for (const c of list) {
-    const parentId = c && c.parentId != null ? Number(c.parentId) : null;
-    if (parentId && Number.isFinite(parentId) && parentId > 0 && byId.has(parentId)) {
-      const bucket = byParentId.get(parentId) || [];
-      bucket.push(c);
-      byParentId.set(parentId, bucket);
-    } else {
-      roots.push(c);
-    }
-  }
-
-  function renderFlatBulletItem(comment: ArticleComment): string[] {
-    const out: string[] = [];
-    const metaLine = buildCommentMetaLine({ authorName: (comment as any)?.authorName, createdAt: comment?.createdAt });
-    const head = buildListItemHead(metaLine, 0);
-    if (head) out.push(head);
-    const text = safeString(comment?.commentText);
-    if (text) out.push(...buildListItemParagraph(text, 0));
-    return out.filter((x) => !!x);
-  }
-
-  function renderFlatThread(root: ArticleComment): string[] {
-    const out: string[] = [];
-    const visited = new Set<number>();
-
-    const pushRecursive = (comment: ArticleComment) => {
-      if (!comment) return;
-      const id = Number(comment?.id);
-      if (Number.isFinite(id) && id > 0) {
-        if (visited.has(id)) return;
-        visited.add(id);
-      }
-      const itemLines = renderFlatBulletItem(comment);
-      if (itemLines.length) out.push(itemLines.join('\n'));
-
-      const replies = byParentId.get(Number(comment?.id)) || [];
-      for (const reply of replies) {
-        pushRecursive(reply);
-      }
-    };
-
-    pushRecursive(root);
-    return out.filter((x) => !!x);
-  }
-
-  const out: string[] = [];
-  for (const root of roots) {
-    if (!root) continue;
-    const thread: string[] = [];
-    const quote = safeString(root.quoteText);
-    if (quote) {
-      thread.push(buildMarkdownQuote(quote));
-      thread.push('');
-    }
-
-    const items = renderFlatThread(root);
-    if (items.length) thread.push(items.join('\n\n'));
-
-    const threadText = thread.join('\n').trim();
-    if (!threadText) continue;
-
-    if (out.length) {
-      out.push('---', '');
-    }
-    out.push(threadText, '');
-  }
-
-  return out.join('\n').trim();
+  return output.join('\n\n').trim();
 }
 
 function buildFullNoteMarkdown({
@@ -249,7 +195,7 @@ function buildFullNoteMarkdown({
   conversation?: any;
   messages?: any[];
   syncnosObject?: any;
-  comments?: ArticleComment[];
+  comments?: ArticleCommentDto[];
 }) {
   const c = conversation || {};
   const url = safeString(c.url);
@@ -262,7 +208,7 @@ function buildFullNoteMarkdown({
 
   const isArticle = sourceType === 'article';
   if (isArticle) {
-    const commentsRootCount = computeArticleCommentThreadCount(comments || []);
+    const commentsRootCount = normalizeCommentThreadGraph(comments || []).threads.length;
     frontmatter.comments_root_count = commentsRootCount;
     const articleMd = buildArticleBodyMarkdown(messages || []);
     const commentsMd = buildObsidianCommentsMarkdown(comments || []);

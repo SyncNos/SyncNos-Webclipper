@@ -87,11 +87,11 @@ YouTube and Bilibili video pages can capture already loaded subtitles/transcript
 - **Localized store metadata** — extension name/short description are localized via `public/_locales/` (20 locales).
 - **$ Mention in AI chats** — type `$` on supported AI sites to search saved items and insert markdown snippets inline.
 - **Inpage quick actions** — single-click the inpage button to save current content; double-click to open the comments sidebar.
-- **Article comment threads** — local threaded comments for web articles (detail + inpage panel); use the sidebar "Quote selection" button to attach current selection as quote (empty selection clears quote), while clicking/focusing composers does not auto-attach; preserved in Zip v2 backup/restore and article sync flows.
+- **Article comment threads** — local threaded discussions for web articles in App and Inpage surfaces. Committed page selections attach to the root composer automatically; exact quotes use panel-scoped passive/active markers, and comments remain part of Zip v2 backup/restore and article sync flows. See [Comments architecture and limits](docs/modules/comments.md).
 - **Smart current-page capture** — popup auto-detects page type and runs `Fetch AI Chat` or `Fetch Article`.
 - **Image caching** — optionally cache AI chat and web article images locally. Historical AI chat images can be backfilled from the detail page.
 - **Anti-hotlink image caching** — article images that match anti-hotlink rules are cached automatically, even if web article image caching is turned off.
-- **Markdown reading profiles** — choose Medium / Notion / Book in Inpage settings to tune how markdown is rendered in popup and app views.
+- **Article reader controls** — article and video details expose typography, theme, outline, and read-aloud controls; AI chats keep the normal conversation view.
 - **Database backup / restore** — full export and import of your local session database, including `image_cache` and article comment threads. Sensitive data (OAuth tokens, etc.) is automatically excluded.
 - **Theme** — the article-mode theme control switches the global System / Light / Sepia / Dark / Black theme for popup and app.
 - **Inpage button** — configurable display scope (all sites / supported sites only / off).
@@ -103,6 +103,28 @@ WebClipper Popup: save and browse conversations
 
 WebClipper Settings: backup and sync (Notion / Obsidian / Feishu)
 ![WebClipper Settings](docs/assets/setting-screenshots.png)
+
+Article discussion sidebar: exact quotes, compact threads, and one active reply composer
+![Article discussion sidebar](docs/assets/comments-discussion.png)
+
+## Development
+
+```bash
+npm ci
+npm run dev
+```
+
+Before submitting code, run:
+
+```bash
+npm run gate:ci
+```
+
+Use `npm run gate` when the change affects production builds, manifests, permissions, or release packaging.
+
+## Documentation
+
+Start at [docs/overview.md](docs/overview.md). It links the architecture, data flow, configuration, storage, API contracts, security model, module guides, and troubleshooting notes. Repository rules are in [AGENTS.md](AGENTS.md).
 
 ## Support
 

@@ -1,93 +1,68 @@
-# 业务语境
+# SyncNos WebClipper 文档
 
-## 产品定位
+本目录只保存长期有效的架构、协议、模块和运维知识。功能计划、阶段验收、截图比对和一次性 Gate 结果应留在 `.github/features/**`，不进入 canonical docs。
 
-SyncNos 仓库不是单一应用，而是一套围绕“知识沉淀”展开的 WebClipper 业务系统；浏览器扩展负责把 AI 对话与网页文章先保存为本地事实，再按需导出或同步到 Notion / Obsidian / Feishu（DocX）。
+## 先从哪里开始
 
-| 产品线 | 主要用户 | 解决的问题 | 用户可见结果 |
-| --- | --- | --- | --- |
-| WebClipper | 想保存 AI 对话、网页长文、备份本地知识资产的浏览器用户 | 页面内容稍纵即逝、各站点格式不同、需要本地优先再决定是否同步 | 本地会话列表、Markdown / Zip、Notion 页面、Obsidian 笔记、Feishu DocX |
+| 你要解决的问题 | 阅读 |
+| --- | --- |
+| 了解产品和主要用户流程 | 本页、[README](../README.md) |
+| 理解运行时、分层和依赖方向 | [architecture.md](architecture.md) |
+| 追踪采集、落库、同步与导出链路 | [data-flow.md](data-flow.md) |
+| 找设置键、默认值和 manifest 来源 | [configuration.md](configuration.md) |
+| 理解 IndexedDB、storage 和备份 | [storage.md](storage.md) |
+| 新增或修改 background 消息 | [api.md](api.md) |
+| 排查构建、Zen XPI 或评论定位 | [troubleshooting.md](troubleshooting.md) |
+| 配置 Feishu OAuth / Worker | [feishu-setup.md](feishu-setup.md) |
+| 检查权限、凭据和备份边界 | [security.md](security.md) |
 
-## 核心产物
+## 模块入口
 
-| 产物 | 生产方 | 对用户的意义 | 关键约束 |
-| --- | --- | --- | --- |
-| Notion Parent Page 下的数据库 / 页面 | WebClipper | 统一承载 AI chats、web articles | 没授权或没选 Parent Page 时必须阻止写入 |
-| Feishu 云文档 DocX | WebClipper | 把 conversation 以 DocX 文档形式写入飞书云盘（按类型分文件夹） | 默认可通过 OAuth + Worker 完成授权与 refresh（避免在扩展端存 `client_secret`）；也支持用户在扩展内填写 `client_secret` 走直连 exchange/refresh（Worker 可选）。token 不进入备份 |
-| WebClipper 本地会话库 | WebClipper | 让采集、导出、备份、二次同步都基于同一份本地事实 | 先落 IndexedDB，再派生到任何外部目标 |
-| WebClipper Insight 仪表盘 | WebClipper | 把"数据库里的行数"转成用户可见的累计成果、来源结构和最长对话 | 只读、本地计算、不得依赖网络或新增 schema |
-| Chat with AI 详情头动作 | WebClipper | 把文章 / 对话内容变成可复制 prompt，并一键跳转到用户启用的 AI 平台 | 先复制到剪贴板，再打开外部站点；不在后台自动发起模型调用；prompt 模板可在设置中自定义 |
-| WebClipper 文章评论 / 注释线程 | WebClipper | 给 article detail 和 inpage comments panel 提供本地 threaded comments（React 实现） | local-first 注释层；article 同步时会进入 Notion / Obsidian 的评论区段（含根评论数统计），同时继续随 Zip v2 备份 / 导入保留 |
-| WebClipper 视频字幕会话 | WebClipper | 把 YouTube / Bilibili 已加载字幕保存为本地可同步 / 可导出的会话 | 只抓已加载字幕，不下载视频；`sourceType='video'`，落点为 `SyncNos-Videos` |
-| WebClipper Inpage 设置 | WebClipper | 控制 markdown 阅读风格与反防盗链图片规则 | `markdown_reading_profile_v1` 影响 popup / app 详情页排版；`anti_hotlink_rules_v1` 命中时会自动补 referer 并缓存图片 |
-| Markdown / Zip / Obsidian | WebClipper | 支持离线保存、迁移、个人知识库接入 | 备份排除 Notion OAuth token 等敏感键；Obsidian frontmatter 含 `comments_root_count` |
+- [WebClipper 采集与同步](modules/webclipper.md)
+- [文章评论与精确锚点](modules/comments.md)
+- [视频字幕采集](modules/videos.md)
+- [文章阅读器与朗读](modules/reader.md)
 
-## 核心用户旅程
+## 产品模型
 
-### 旅程 1：AI 对话先变成扩展本地事实，再决定是否同步
+WebClipper 把三类来源统一为本地 conversation：
 
-1. 用户打开 ChatGPT、Claude、Gemini、Google AI Studio、DeepSeek、Kimi、豆包、元宝、Poe、Notion AI、z.ai 等页面。
-2. content script 通过 collector 识别站点，把页面 DOM 统一成 `conversation + messages` 结构。
-3. background 把会话写入 IndexedDB；popup / app 读取同一份本地会话数据。开启 auto-save 时，content controller 在打开会话后还会尝试对近 200 条范围（`<=200`）做 backfill 补齐，让本地事实源更接近跨设备真实历史。
-4. 之后用户可以选择继续同步到 Notion / Feishu DocX、写入 Obsidian、导出 Markdown / Zip，或做备份 / 恢复。
+| 来源 | `sourceType` | 主要内容 |
+| --- | --- | --- |
+| AI 对话 | `chat` | 标准化消息序列 |
+| 网页正文 | `article` | `article_body` Markdown；可附带本地评论线程 |
+| 视频字幕 | `video` | `video_transcript`，可带时间戳 |
 
-### 旅程 2：普通网页先抓正文，再进入和 AI 对话并列的 article 流程
+所有内容先写入浏览器本地数据库，再由用户选择同步到 Notion、Obsidian、Feishu，或导出 Markdown / Zip。外部目标不是事实源。
 
-1. 用户在普通 `http(s)` 页面触发当前页抓取。
-2. 扩展向页面注入 `readability.js`，尝试抽取标题、作者、发布时间、正文和 markdown 文本。
-3. 抓取结果被保存为 `sourceType = article` 的本地会话，并写入单条 `article_body` 消息。
-4. 后续 Notion / Obsidian / 备份 / 导出都把 article 当作与 chat 并列的一种会话类型处理；用户也可以在 article detail 或 inpage comments panel 里留下本地注释线程，这些评论会随 article 同步进入 Notion / Obsidian 的评论区段，并随 Zip v2 备份 / 导入保留。
-5. 当评论侧栏已打开时，用户可点击“附加选区”按钮把当前选区附加为引用；若无选区则清空引用；点击/聚焦 `Write a comment…` 与 reply 输入框都不会触发附加/清空。
-
-### 旅程 3：视频页先把字幕变成本地会话，再按同一条下游链路处理
-
-1. 用户在 YouTube / Bilibili 视频页打开字幕或字幕轨道。
-2. 扩展在页面 `document_start` 阶段拦截已加载的字幕响应，并从页面 meta / DOM 中补齐标题、作者、时长和缩略图。
-3. 保存后得到 `sourceType='video'` 的本地会话，以及一条 `video_transcript` transcript message；字幕可保留时间戳，也可在 DOM 回退时退化为纯文本行。
-4. 后续 Notion / Obsidian / 备份 / 导出都把 video 当作与 chat/article 并列的一种会话类型处理，落点分别是 `SyncNos-Videos` 数据库 / 文件夹。
-5. 如果字幕尚未加载完成，UI 会提示“未检测到字幕，未保存”，而不是伪装成成功保存。
-
-### 旅程 4：用户在 Settings 里查看自己的本地积累到底有多大
-
-1. 用户可以直接进入 WebClipper 的 `Settings → Insight`，也可以从会话列表底部统计（当日/总计）点击跳转到该分区。
-2. 设置控制器仅在第一次进入该 section 时调用 `getInsightStats()`，从 IndexedDB 的 `conversations` 与 `messages` 现算本地统计。
-3. 仪表盘把结果展示为总 clips、AI Conversations、Web Articles、来源分布、文章域名分布和 Top 3 longest conversations。
-4. 这个视图是**只读的**：它帮助用户"看见积累"，但不会写回新缓存、不会发网络请求，也不会改变 Notion / Obsidian 的同步状态。
-5. Settings 界面现在使用顶部标签导航（窄屏）或侧边栏导航（宽屏），支持关闭按钮返回；部分设置项（如 Inpage Display Mode、AI Chat Auto Save 等）改为 blur 自动保存；Inpage 分区负责阅读风格与 anti-hotlink 规则。
-
-### 旅程 5：用户从详情页把本地内容带去别的 AI 平台继续聊
-
-1. 用户在 popup / app 的 conversation detail 中打开某条 article 或 chat。
-2. detail header 会按槽位解析动作：Notion / Obsidian 属于 `open` 槽位，`Chat with AI` 与 `cache-images` 都在 `tools` 槽位。
-3. `Chat with AI` 触发时，扩展先把 conversation/article 渲染成模板化 payload，按 `maxChars` 截断后写入剪贴板。
-4. 完成复制后再跳转到目标 AI 平台首页，例如 `ChatGPT`；因此它是“复制 + 跳转”的本地辅助流，而不是后台帮用户提交 prompt。
-5. 当用户触发 `cache-images` 时，扩展会在本地回填历史消息中的图片内容，并刷新 detail，但不会自动发起 Notion / Obsidian 同步。
-
-## 改变行为的业务规则
-
-| 规则 | 生效位置 | 为什么重要 | 行为后果 |
-| --- | --- | --- | --- |
-| **先授权再写入** | WebClipper 的 Notion 流程 | 没有 Parent Page 或 token 时，所有"看起来成功"的写入都会变成假象 | 所有写入都应显式报错而不是静默跳过 |
-| **WebClipper 本地优先** | 扩展数据层 | Notion / Obsidian / 导出都不是事实源，事实源是本地 IndexedDB | 删除、迁移、备份和重建都先围绕本地会话库发生 |
-| **Insight 只读，不成为新事实源** | WebClipper Settings | 统计页如果写回缓存或引入额外 schema，会把"观察数据"变成"业务状态" | `Settings → Insight` 每次只读聚合 `conversations` / `messages`，失败时显示错误或空态 |
-| **Chat with AI 是"复制 + 跳转"，不是后台代聊** | detail header + settings | 这样才能保持用户对 prompt 与目标平台的控制权，也避免扩展暗中持有额外会话状态 | 没有 detail messages、平台未启用或 URL 无效时，动作直接不出现；prompt 模板可在设置中自定义 |
-| **图片缓存是"可选增强"，不是采集成功前提** | `ai_chat_cache_images_enabled` / `web_article_cache_images_enabled` + `anti_hotlink_rules_v1` + detail tools | 用户希望"离线可读"时可开启，但不应因图片链路失败影响文本采集 | 实时采集里的图片内联失败不会阻断保存；命中 anti-hotlink 规则时即使关闭 web article cache 也会自动缓存；历史会话可手动触发 `cache-images` 回填 |
-| **视频字幕采集只抓已加载字幕，不下载视频** | `VideosSection` + video transcript bridge/extract | 用户需要的是字幕文本，而不是视频文件本身 | 字幕未加载时会提示空字幕；仅支持 YouTube / Bilibili 视频页 |
-| **主题是全局状态** | `app_theme_mode_v1` + `html[data-theme-mode]` + `tokens.css` | 文章模式主题按钮需要影响整个 popup / app，而不是只改阅读器容器 | 支持 `system/light/sepia/dark/black`；`system` 跟随 `prefers-color-scheme`，其他值强制全局 token 覆盖 |
-| **升级不应打断当前会话** | `background.ts` 的 `onInstalled` 行为 | 扩展升级后自动弹设置页会打断正在进行的阅读/对话流程 | 当前仅首次安装自动打开 About；更新保持静默 |
-| **敏感信息尽量不出本机** | WebClipper 备份 | 站点 Cookie、加密密钥、Notion OAuth token 都不能随意进备份或明文落盘 | 备份显式排除 `notion_oauth_token*` 与 `notion_oauth_client_secret` |
-| **采集站点 ≠ UI 一定显示** | WebClipper inpage 逻辑 | 扩展虽然对所有 `http(s)` 注入 content script，但 inpage 按钮是否启动还受 `inpage_display_mode` 控制 | 切换该设置后必须刷新或新开页面；旧 `inpage_supported_only` 只做兼容回读 |
-| **并非所有站点都适合自动增量采集** | ChatGPT / Google AI Studio collector | 虚拟列表会卸载离屏轮次，自动采集只看到当前可见 turns | 两者都退出 auto-save、保留"手动保存优先"；全量历史由 `prepareManualCapture()` 滚动扫描水合恢复 |
-| **评论操作需防重入且保持 root-only 选区语义** | Comments React 模块 | 评论保存/回复/删除如果并发会引发竞态和重复提交；reply 输入误触会污染引用区 | 使用 `actionInFlightRef` 和 `runBusyTask` 做防重入保护；删除改为二次确认模式；仅根输入框允许附加/清空选区引用 |
-| **评论级 Chat with AI 复制整条线程** | `chatwith-comment-actions.ts` | 单条评论发送到 AI 平台时需要带上下文才有意义 | 评论级 Chat with AI 会把该评论及其所有回复一起打包复制，而非仅复制单条 |
-
-## 输出流程
+## 核心用户流程
 
 ```mermaid
 flowchart LR
-  C[AI 对话 / 网页正文 / 视频字幕] --> D[WebClipper]
-  D --> E[Notion]
-  D --> F[Markdown / Zip / Obsidian]
-  D --> G[Feishu DocX]
-  D --> H[IndexedDB]
+  P[网页 / AI 对话 / 视频字幕] --> C[collector 或页面抓取]
+  C --> B[background service]
+  B --> I[(IndexedDB)]
+  I --> U[popup / app / inpage]
+  I --> N[Notion]
+  I --> O[Obsidian]
+  I --> F[Feishu DocX]
+  I --> Z[Markdown / Zip]
 ```
+
+## 不可破坏的业务规则
+
+- **本地优先**：采集成功以本地落库为准，远端同步失败不得丢失本地内容。
+- **手动抓取虚拟列表**：ChatGPT 与 Google AI Studio 不做自动增量保存。
+- **图片是增强项**：图片缓存或反防盗链失败不能阻断文本保存。
+- **Reader 只作用于 article / video**：AI chat 不显示阅读器工具。
+- **评论是 article 的本地注释层**：根评论可保存精确 locator；定位失败明确报 unavailable，不做模糊回退。
+- **敏感数据不进备份**：OAuth token、client secret 等必须由 denylist 排除。
+- **同步是派生流程**：Notion、Obsidian、Feishu 的 mapping/cursor 可重建，不能反向覆盖本地事实。
+
+## 文档维护规则
+
+- `README.md` 只放产品入口、开发启动和文档导航。
+- `AGENTS.md` 只放不看就容易踩坑的仓库规则。
+- 每个主题只保留一个权威页面；其他页面只链接。
+- 阶段计划、审计、手工验收和历史截图放 `.github/features/**`。
+- 每次文档整理后更新 [GENERATION.md](GENERATION.md)。

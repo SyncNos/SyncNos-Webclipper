@@ -13,13 +13,13 @@ vi.mock('../../src/ui/i18n', () => ({
 }));
 
 import { mountThreadedCommentsPanel } from '@ui/comments';
+import { getCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
     url: 'https://example.com/',
     pretendToBeVisual: true,
   });
-
   Object.defineProperty(globalThis, 'window', { configurable: true, value: dom.window });
   Object.defineProperty(globalThis, 'document', { configurable: true, value: dom.window.document });
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
@@ -42,195 +42,176 @@ function cleanupDom() {
   delete (globalThis as any).getComputedStyle;
 }
 
-async function flushPromises() {
-  for (let i = 0; i < 8; i += 1) {
-    await Promise.resolve();
-  }
-}
-
 async function flushReactScheduler() {
-  await Promise.resolve();
+  for (let i = 0; i < 8; i += 1) await Promise.resolve();
   await new Promise<void>((resolve) => {
-    if (typeof setImmediate === 'function') {
-      setImmediate(resolve);
-      return;
-    }
-    setTimeout(resolve, 0);
+    if (typeof setImmediate === 'function') setImmediate(resolve);
+    else setTimeout(resolve, 0);
   });
   await Promise.resolve();
 }
 
-describe('Threaded comments panel comment chatwith', () => {
-  beforeEach(() => {
-    setupDom();
-  });
+function rootOverflow(shadow: ShadowRoot): HTMLButtonElement {
+  const trigger = shadow.querySelector(
+    '.webclipper-inpage-comments-panel__comment .webclipper-inpage-comments-panel__overflow-trigger',
+  ) as HTMLButtonElement | null;
+  expect(trigger).toBeTruthy();
+  return trigger!;
+}
 
+function visibleRootMenu(shadow: ShadowRoot): HTMLElement {
+  const menu = shadow.querySelector(
+    '.webclipper-inpage-comments-panel__comment .webclipper-inpage-comments-panel__overflow-menu',
+  ) as HTMLElement | null;
+  expect(menu).toBeTruthy();
+  expect(menu?.hidden).toBe(false);
+  return menu!;
+}
+
+describe('Threaded comments panel optional comment actions', () => {
+  beforeEach(setupDom);
   afterEach(async () => {
     await flushReactScheduler();
     cleanupDom();
   });
 
-  it('renders chatwith trigger for root comments only', async () => {
+  it('keeps Chat with AI actions on root overflow while replies expose their own overflow', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-
     const mounted = mountThreadedCommentsPanel(host, {
       overlay: false,
       showHeader: false,
       commentChatWith: {
-        resolveActions: vi.fn(async () => []),
+        resolveActions: vi.fn(async () => [{ id: 'chatgpt', label: 'Chat with ChatGPT', onTrigger: vi.fn() }]),
       },
     });
-
-    mounted.api.setComments([
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
       { id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' },
       { id: 2, parentId: 1, createdAt: 1100, commentText: 'reply comment' },
     ]);
 
-    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
-    const shadow = panel?.shadowRoot;
-    expect(shadow).toBeTruthy();
+    const shadow = (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
+    expect(shadow.querySelectorAll('.webclipper-inpage-comments-panel__overflow-trigger')).toHaveLength(2);
 
-    const triggers = Array.from(
-      shadow!.querySelectorAll('.webclipper-inpage-comments-panel__comment-chatwith-trigger'),
-    ) as HTMLButtonElement[];
-    expect(triggers.length).toBe(1);
+    rootOverflow(shadow).click();
+    await flushReactScheduler();
+    const rootMenu = visibleRootMenu(shadow);
+    expect(rootMenu.textContent).toContain('Chat with ChatGPT');
+    expect(rootMenu.textContent).toContain('Delete');
 
-    const replyRow = shadow!.querySelector('.webclipper-inpage-comments-panel__reply') as HTMLElement | null;
-    expect(replyRow?.querySelector('.webclipper-inpage-comments-panel__comment-chatwith-trigger')).toBeFalsy();
+    const reply = shadow.querySelector('.webclipper-inpage-comments-panel__reply') as HTMLElement;
+    const replyTrigger = reply.querySelector(
+      '.webclipper-inpage-comments-panel__overflow-trigger',
+    ) as HTMLButtonElement;
+    replyTrigger.click();
+    await flushReactScheduler();
+    const replyMenu = reply.querySelector('.webclipper-inpage-comments-panel__overflow-menu') as HTMLElement;
+    expect(replyMenu.hidden).toBe(false);
+    expect(replyMenu.textContent).toContain('Delete');
+    expect(replyMenu.textContent).not.toContain('Chat with ChatGPT');
 
     mounted.cleanup();
   });
 
-  it('disables trigger when root comment text is empty', () => {
+  it('keeps the root overflow available for delete when no optional AI action exists', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-
     const mounted = mountThreadedCommentsPanel(host, {
       overlay: false,
       showHeader: false,
-      commentChatWith: {
-        resolveActions: vi.fn(async () => []),
-      },
+      commentChatWith: { resolveActions: vi.fn(async () => []) },
     });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: '   ' },
+    ]);
 
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: '   ' }]);
-
-    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
-    const shadow = panel?.shadowRoot;
-    const trigger = shadow?.querySelector(
-      '.webclipper-inpage-comments-panel__comment-chatwith-trigger',
-    ) as HTMLButtonElement | null;
-
-    expect(trigger).toBeTruthy();
-    expect(trigger?.disabled).toBe(true);
+    const shadow = (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
+    const trigger = rootOverflow(shadow);
+    expect(trigger.disabled).toBe(false);
+    trigger.click();
+    await flushReactScheduler();
+    expect(visibleRootMenu(shadow).textContent).toContain('Delete');
 
     mounted.cleanup();
   });
 
-  it('runs single action immediately on trigger click', async () => {
+  it('renders a single optional action in the menu and runs it explicitly', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-
     const onTrigger = vi.fn(async () => {});
-
     const mounted = mountThreadedCommentsPanel(host, {
       overlay: false,
       showHeader: false,
       commentChatWith: {
-        resolveActions: vi.fn(async () => [
-          {
-            id: 'chatgpt',
-            label: 'Chat with ChatGPT',
-            onTrigger,
-          },
-        ]),
+        resolveActions: vi.fn(async () => [{ id: 'chatgpt', label: 'Chat with ChatGPT', onTrigger }]),
       },
     });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' },
+    ]);
 
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
-
-    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
-    const shadow = panel?.shadowRoot;
-    const trigger = shadow?.querySelector(
-      '.webclipper-inpage-comments-panel__comment-chatwith-trigger',
-    ) as HTMLButtonElement | null;
-
-    expect(trigger).toBeTruthy();
-    trigger?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-
+    const shadow = (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
+    rootOverflow(shadow).click();
+    await flushReactScheduler();
+    const action = Array.from(visibleRootMenu(shadow).querySelectorAll('button')).find(
+      (button) => button.textContent === 'Chat with ChatGPT',
+    ) as HTMLButtonElement | undefined;
+    expect(action).toBeTruthy();
+    action!.click();
+    await flushReactScheduler();
     expect(onTrigger).toHaveBeenCalledTimes(1);
 
     mounted.cleanup();
   });
 
-  it('opens multi-action menu and closes with Escape', async () => {
+  it('opens a multi-action menu and closes it with Escape', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-
-    const actionA = vi.fn(async () => {});
-    const actionB = vi.fn(async () => {});
-
     const mounted = mountThreadedCommentsPanel(host, {
       overlay: false,
       showHeader: false,
       commentChatWith: {
         resolveActions: vi.fn(async () => [
-          { id: 'chatgpt', label: 'Chat with ChatGPT', onTrigger: actionA },
-          { id: 'claude', label: 'Chat with Claude', onTrigger: actionB },
+          { id: 'chatgpt', label: 'Chat with ChatGPT', onTrigger: vi.fn() },
+          { id: 'claude', label: 'Chat with Claude', onTrigger: vi.fn() },
         ]),
       },
     });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' },
+    ]);
 
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
+    const shadow = (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
+    rootOverflow(shadow).click();
+    await flushReactScheduler();
+    const menu = visibleRootMenu(shadow);
+    expect(menu.textContent).toContain('Chat with ChatGPT');
+    expect(menu.textContent).toContain('Chat with Claude');
 
-    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
-    const shadow = panel?.shadowRoot;
-    const trigger = shadow?.querySelector(
-      '.webclipper-inpage-comments-panel__comment-chatwith-trigger',
-    ) as HTMLButtonElement | null;
-
-    trigger?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-
-    const menu = shadow?.querySelector(
-      '.webclipper-inpage-comments-panel__comment-chatwith-menu',
-    ) as HTMLElement | null;
-    expect(menu).toBeTruthy();
-    expect(menu?.hidden).toBe(false);
-
-    shadow?.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-    await flushPromises();
-
-    expect(menu?.hidden).toBe(true);
+    (shadow.querySelector('.webclipper-inpage-comments-panel__surface') as HTMLElement).dispatchEvent(
+      new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    await flushReactScheduler();
+    expect(menu.hidden).toBe(true);
 
     mounted.cleanup();
   });
 
-  it('disables comment chatwith while panel is busy', () => {
+  it('disables overflow triggers while the panel is busy', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-
     const mounted = mountThreadedCommentsPanel(host, {
       overlay: false,
       showHeader: false,
-      commentChatWith: {
-        resolveActions: vi.fn(async () => []),
-      },
+      commentChatWith: { resolveActions: vi.fn(async () => []) },
     });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' },
+    ]);
+    getCommentSidebarPanelTestDriver(mounted.api).updateBusy(true);
 
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root comment' }]);
-    mounted.api.setBusy(true);
-
-    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
-    const shadow = panel?.shadowRoot;
-    const trigger = shadow?.querySelector(
-      '.webclipper-inpage-comments-panel__comment-chatwith-trigger',
-    ) as HTMLButtonElement | null;
-
-    expect(trigger?.disabled).toBe(true);
-
+    const shadow = (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
+    expect(rootOverflow(shadow).disabled).toBe(true);
     mounted.cleanup();
   });
 });

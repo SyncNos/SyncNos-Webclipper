@@ -15,6 +15,7 @@ import {
   computeNotionCommentsDigest,
 } from '@services/comments/sync/notion-comments-renderer';
 import { computeArticleCommentThreadCount } from '@services/comments/domain/comment-metrics';
+import { parseArticleCommentDtos, type ArticleCommentDto } from '@services/comments/domain/comment-dto';
 import { buildToggleHeadingBlock as buildNotionToggleHeadingBlock } from '@services/sync/notion/notion-section-blocks.ts';
 import {
   ensureSectionHeadingBlockId,
@@ -678,7 +679,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
           let articleCommentsLoaded = false;
           let articleCommentsLoadFailed = false;
           let articleCommentsSourceAvailable = false;
-          let cachedArticleComments: any[] = [];
+          let cachedArticleComments: ArticleCommentDto[] = [];
           const ensureArticleCommentsLoaded = async (failureMessage: string) => {
             if (articleCommentsLoaded) return cachedArticleComments;
             articleCommentsLoaded = true;
@@ -695,7 +696,7 @@ export function createNotionSyncOrchestrator(services: NotionServices) {
                   await storage.attachOrphanArticleCommentsToConversation(url, id);
                 }
                 const loaded = await storage.getArticleCommentsByConversationId(id);
-                cachedArticleComments = Array.isArray(loaded) ? loaded : [];
+                cachedArticleComments = parseArticleCommentDtos(loaded);
               } catch (e) {
                 articleCommentsLoadFailed = true;
                 warnings.push({

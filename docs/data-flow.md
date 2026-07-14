@@ -54,11 +54,17 @@
 
 ### 6. 文章评论 / 注释线程
 
-1. 用户在 article detail 或 inpage comments panel 中打开评论区。
-2. `ArticleCommentsSection.tsx` 先按 canonical URL 读取 `article_comments`，并把结果交给 threaded panel。
-3. 新评论、回复、删除与 orphan attach 都通过 comments background handlers 统一落库；`conversationId` 解析出来后会刷新 detail。
-4. 面板的 open / close / quote / focus / busy 由 shared session 统一调度；评论线程可选使用 `locator` 恢复 Range/上下文（TextQuote/TextPosition selectors），但不做“持久高亮回显”式的正文标注。
-5. Zip v2 备份会把 `article_comments` 写入 `assets/article-comments/index.json`，导入时按 merge 规则把评论线程恢复回本地库。
+1. AppShell 或 Inpage bootstrap 持有唯一 sidebar controller。context identity 由 `canonicalUrl + conversationId` 组成，并分类为 same、attach-orphan、url-migrate、conversation-change 或 invalid。
+2. context 切换触发新的 load/migrate generation 与 `AbortSignal`；旧 operation 被取消。加载失败进入 `stale_error`，保留最后成功 comments，而不是清空讨论区。
+3. controller 通过 `comment-sidebar-session.ts` 原子发布 serializable snapshot 与稳定 actions；panel 用 identity-aware lease attach host，旧 lease 和重复 dispose 不影响新 host。
+4. React surface 稳定单次 mount。`discussionReducer` 管理 active root、root/reply drafts、menu/delete confirmation、focus intent 与 submit 状态；context key 改变时确定性 reset。
+5. `normalizeCommentThreadGraph()` 是唯一 roots/replies 归一化入口；UI 同时只挂载一个 active `ReplyComposer`，切换 root 时各自 draft 保留。
+6. selection attachment、optional AI actions、keyboard、notice 与 focus 分别由独立 hook 管理。Cmd/Ctrl+Enter 只由当前 composer 提交；Escape 不经过 panel/store relay。
+7. 根评论 capture 使用注入的 DOM source 写入 V2 locator；reader 兼容历史 V1。定位只接受受限 roots 上全局唯一 exact Range，并同步 panel-scoped passive/active markers。
+8. save/reply/delete 使用 mutation generation；context change/dispose 后的晚到 completion 不再 refresh 旧 identity、清空 attachment 或触发 focus。panel close/cleanup 幂等释放 load、migration、dock、resize、lease、marker 与 React root。
+9. comments background handlers 统一落库；reply 校验同 context root，root 删除递归清理后代。Notion、Obsidian 与 Zip 归档都消费 canonical thread graph。
+
+定位链路明确不使用正文根兜底、环境字段硬拒绝、固定等待重试、比例滚动或父元素高亮；定位或 optional action 失败只进入 notice/stale error，不破坏评论事实与 drafts。
 
 ## WebClipper：从本地会话到外部目标
 
@@ -102,7 +108,7 @@
 | WebClipper `sync_mappings` | IndexedDB | `notionPageId`, `lastSyncedMessageKey`, `lastSyncedSequence`, `lastSyncedAt` | 决定 Notion / Obsidian 是否可增量追加 |
 | WebClipper conversation | IndexedDB | `sourceType`, `source`, `conversationKey`, `lastCapturedAt` | UI 排序、导出、同步、备份的基础 |
 | WebClipper message | IndexedDB | `messageKey`, `sequence`, `updatedAt`, `contentMarkdown` | 生成 Notion blocks / Markdown / Obsidian 内容；图片可在实时采集或 backfill 时内联更新 |
-| WebClipper `article_comments` | IndexedDB | `canonicalUrl`, `conversationId`, `parentId`, `quoteText`, `commentText`, `locator?` | article 详情页的本地评论线程与回复 / 删除 |
+| WebClipper `article_comments` | IndexedDB | `canonicalUrl`, `conversationId`, `parentId`, `authorName`, `quoteText`, `commentText`, `locator?`, timestamps | article 评论事实源；thread graph 负责异常历史图归一化，DTO 负责跨 runtime 字段完整性 |
 | WebClipper 图片缓存开关 | `chrome.storage.local` | `ai_chat_cache_images_enabled`, `web_article_cache_images_enabled`, `anti_hotlink_rules_v1` | 分别控制 chat/article 消息图片内联策略；`anti_hotlink_rules_v1` 命中时会自动缓存 article 图片；历史消息需手动触发 backfill |
 
 ## 图表

@@ -1,18 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 
-vi.mock('../../src/ui/i18n', () => ({
-  t: (key: string) => key,
-}));
+vi.mock('../../src/ui/i18n', () => ({ t: (key: string) => key }));
 
 import { mountThreadedCommentsPanel } from '@ui/comments';
+import { getCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
 function setupDom() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
     url: 'https://example.com/',
     pretendToBeVisual: true,
   });
-
   Object.defineProperty(globalThis, 'window', { configurable: true, value: dom.window });
   Object.defineProperty(globalThis, 'document', { configurable: true, value: dom.window.document });
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
@@ -23,6 +21,9 @@ function setupDom() {
     configurable: true,
     value: dom.window.getComputedStyle.bind(dom.window),
   });
+
+  (dom.window.HTMLElement.prototype as any).attachEvent ||= () => {};
+  (dom.window.HTMLElement.prototype as any).detachEvent ||= () => {};
 }
 
 function cleanupDom() {
@@ -33,70 +34,99 @@ function cleanupDom() {
   delete (globalThis as any).Node;
   delete (globalThis as any).MutationObserver;
   delete (globalThis as any).getComputedStyle;
-}
-
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
+  delete (globalThis as any).confirm;
 }
 
 async function flushReactScheduler() {
-  await Promise.resolve();
+  for (let i = 0; i < 8; i += 1) await Promise.resolve();
   await new Promise<void>((resolve) => {
-    if (typeof setImmediate === 'function') {
-      setImmediate(resolve);
-      return;
-    }
-    setTimeout(resolve, 0);
+    if (typeof setImmediate === 'function') setImmediate(resolve);
+    else setTimeout(resolve, 0);
   });
   await Promise.resolve();
 }
 
-describe('Threaded comments panel delete confirmation', () => {
-  beforeEach(() => {
-    setupDom();
-  });
+function panelShadow(host: HTMLElement): ShadowRoot {
+  return (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
+}
 
+async function openRootMenu(shadow: ShadowRoot) {
+  const trigger = shadow.querySelector(
+    '.webclipper-inpage-comments-panel__comment .webclipper-inpage-comments-panel__overflow-trigger',
+  ) as HTMLButtonElement;
+  expect(trigger).toBeTruthy();
+  trigger.click();
+  await flushReactScheduler();
+}
+
+function deleteButton(shadow: ShadowRoot): HTMLButtonElement {
+  const button = shadow.querySelector('button[data-webclipper-comment-delete-id="1"]') as HTMLButtonElement | null;
+  expect(button).toBeTruthy();
+  return button!;
+}
+
+describe('Threaded comments panel delete confirmation', () => {
+  beforeEach(setupDom);
   afterEach(async () => {
     await flushReactScheduler();
     cleanupDom();
   });
 
-  it('uses inline, two-step confirmation (no alert confirm)', async () => {
+  it('uses an inline two-step menu confirmation without window.confirm', async () => {
     const confirmSpy = vi.fn(() => true);
     Object.defineProperty(globalThis, 'confirm', { configurable: true, value: confirmSpy });
-
     const host = document.createElement('div');
     document.body.appendChild(host);
-
     const onDelete = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setHandlers({ onDelete });
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onDelete });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root' },
+    ]);
+    const shadow = panelShadow(host);
+    await openRootMenu(shadow);
 
-    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
-    expect(panel).toBeTruthy();
-    const shadow = panel!.shadowRoot!;
+    let del = deleteButton(shadow);
+    expect(del.textContent).toBe('Delete');
+    del.click();
+    await flushReactScheduler();
+    del = deleteButton(shadow);
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(del.textContent).toBe('deleteButton');
+    expect(del.getAttribute('data-confirm')).toBe('1');
+    expect(del.classList.contains('webclipper-btn--danger')).toBe(true);
 
-    const del = shadow.querySelector('button[data-webclipper-comment-delete-id="1"]') as HTMLButtonElement | null;
-    expect(del).toBeTruthy();
-    expect(del!.textContent).toBe('×');
-
-    del!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(onDelete).toHaveBeenCalledTimes(0);
-    expect(confirmSpy).toHaveBeenCalledTimes(0);
-    expect(del!.textContent).toBe('deleteButton');
-    expect(del!.getAttribute('data-confirm')).toBe('1');
-    expect(del!.classList.contains('webclipper-btn--danger')).toBe(true);
-    expect(del!.classList.contains('webclipper-btn--icon')).toBe(false);
-
-    del!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(onDelete).toHaveBeenCalledTimes(1);
+    del.click();
+    await flushReactScheduler();
     expect(onDelete).toHaveBeenCalledWith(1);
-    expect(confirmSpy).toHaveBeenCalledTimes(0);
-    expect(del!.textContent).toBe('×');
+    expect(confirmSpy).not.toHaveBeenCalled();
+
+    mounted.cleanup();
+  });
+
+  it('shows a notice and keeps the comment when deletion fails', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const onDelete = vi.fn().mockRejectedValue(new Error('Delete failed.'));
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onDelete });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root' },
+    ]);
+    const shadow = panelShadow(host);
+    await openRootMenu(shadow);
+
+    deleteButton(shadow).click();
+    await flushReactScheduler();
+    deleteButton(shadow).click();
+    await flushReactScheduler();
+
+    expect(onDelete).toHaveBeenCalledWith(1);
+    expect(shadow.querySelector('[data-thread-root-id="1"]')).toBeTruthy();
+    expect((shadow.querySelector('.webclipper-inpage-comments-panel__notice') as HTMLElement).textContent).toContain(
+      'Delete failed.',
+    );
 
     mounted.cleanup();
   });
@@ -104,76 +134,61 @@ describe('Threaded comments panel delete confirmation', () => {
   it('cancels pending confirmation on outside click and Escape', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-
     const onDelete = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setHandlers({ onDelete });
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onDelete });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root' },
+    ]);
+    const shadow = panelShadow(host);
+    await openRootMenu(shadow);
 
-    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
-    expect(panel).toBeTruthy();
-    const shadow = panel!.shadowRoot!;
-
-    const del = shadow.querySelector('button[data-webclipper-comment-delete-id="1"]') as HTMLButtonElement | null;
-    expect(del).toBeTruthy();
-
-    del!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(del!.textContent).toBe('deleteButton');
+    deleteButton(shadow).click();
+    await flushReactScheduler();
+    expect(deleteButton(shadow).textContent).toBe('deleteButton');
 
     const commentBody = shadow.querySelector(
-      '.webclipper-inpage-comments-panel__comment > .webclipper-inpage-comments-panel__text',
-    ) as HTMLElement | null;
-    expect(commentBody).toBeTruthy();
-    commentBody!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(del!.textContent).toBe('×');
+      '.webclipper-inpage-comments-panel__comment-main > .webclipper-inpage-comments-panel__text',
+    ) as HTMLElement;
+    commentBody.click();
+    await flushReactScheduler();
+    expect(deleteButton(shadow).textContent).toBe('Delete');
 
-    del!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(del!.textContent).toBe('deleteButton');
-
-    shadow.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(del!.textContent).toBe('×');
-
-    expect(onDelete).toHaveBeenCalledTimes(0);
+    await openRootMenu(shadow);
+    deleteButton(shadow).click();
+    await flushReactScheduler();
+    expect(deleteButton(shadow).textContent).toBe('deleteButton');
+    const surface = shadow.querySelector('.webclipper-inpage-comments-panel__surface') as HTMLElement;
+    surface.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await flushReactScheduler();
+    expect(deleteButton(shadow).textContent).toBe('Delete');
+    expect(onDelete).not.toHaveBeenCalled();
 
     mounted.cleanup();
   });
 
-  it('keeps armed state on delete-button pointerdown so second click really deletes', async () => {
+  it('keeps armed state on delete-button pointerdown so the second click deletes', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-
     const onDelete = vi.fn().mockResolvedValue(undefined);
     const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
-    mounted.api.setHandlers({ onDelete });
-    mounted.api.setComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onDelete });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root' },
+    ]);
+    const shadow = panelShadow(host);
+    await openRootMenu(shadow);
 
-    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
-    expect(panel).toBeTruthy();
-    const shadow = panel!.shadowRoot!;
-
-    const del = shadow.querySelector('button[data-webclipper-comment-delete-id="1"]') as HTMLButtonElement | null;
-    expect(del).toBeTruthy();
-
-    del!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(del!.textContent).toBe('deleteButton');
-    expect(onDelete).toHaveBeenCalledTimes(0);
+    deleteButton(shadow).click();
+    await flushReactScheduler();
+    let del = deleteButton(shadow);
+    expect(del.textContent).toBe('deleteButton');
 
     const PointerCtor = (window as any).PointerEvent || window.MouseEvent;
-    const pointer = new PointerCtor('pointerdown', {
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-    });
-    del!.dispatchEvent(pointer as Event);
-
-    del!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
-    expect(onDelete).toHaveBeenCalledTimes(1);
+    del.dispatchEvent(new PointerCtor('pointerdown', { bubbles: true, cancelable: true, composed: true }));
+    del = deleteButton(shadow);
+    del.click();
+    await flushReactScheduler();
     expect(onDelete).toHaveBeenCalledWith(1);
 
     mounted.cleanup();

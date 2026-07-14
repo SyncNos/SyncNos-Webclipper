@@ -26,8 +26,8 @@ const subscribeSidebarClose = vi.fn((listener: () => void) => {
   };
 });
 let currentSidebarCloseListener: (() => void) | null = null;
-const attachPanel = vi.fn();
-const detachPanel = vi.fn();
+const panelLeaseDispose = vi.fn();
+const attachPanel = vi.fn(() => ({ dispose: panelLeaseDispose }));
 const sessionSubscribe = vi.fn(() => () => {});
 const setContext = vi.fn();
 const getSessionSnapshot = vi.fn(() => ({
@@ -42,8 +42,6 @@ const getSessionSnapshot = vi.fn(() => ({
   hasHandlers: true,
   lastOpenSource: null,
 }));
-const setLocatorRoot = vi.fn();
-const getLocatorRoot = vi.fn(() => null);
 
 vi.mock('../../src/ui/conversations/pending-open', () => ({
   consumePendingOpenConversation: () => consumePendingOpenConversation(),
@@ -185,8 +183,9 @@ describe('ConversationsScene narrow comments flow', () => {
     consumePendingOpenConversation.mockReturnValue(null);
     sidebarOpen.mockReset();
     subscribeSidebarClose.mockClear();
+    panelLeaseDispose.mockReset();
     attachPanel.mockReset();
-    detachPanel.mockReset();
+    attachPanel.mockImplementation(() => ({ dispose: panelLeaseDispose }));
     sessionSubscribe.mockReset();
     sessionSubscribe.mockImplementation(() => () => {});
     setContext.mockReset();
@@ -203,9 +202,6 @@ describe('ConversationsScene narrow comments flow', () => {
       hasHandlers: true,
       lastOpenSource: null,
     });
-    setLocatorRoot.mockReset();
-    getLocatorRoot.mockReset();
-    getLocatorRoot.mockReturnValue(null);
     currentSidebarCloseListener = null;
     root = ReactDOM.createRoot(document.getElementById('root')!);
   });
@@ -223,7 +219,6 @@ describe('ConversationsScene narrow comments flow', () => {
     const commentsSidebarRuntime = {
       sidebarSession: {
         attachPanel,
-        detachPanel,
         subscribe: sessionSubscribe,
         getSnapshot: getSessionSnapshot,
       } as any,
@@ -232,8 +227,6 @@ describe('ConversationsScene narrow comments flow', () => {
         setContext,
       } as any,
       sidebarSnapshot: {} as any,
-      setLocatorRoot,
-      getLocatorRoot,
       subscribeSidebarClose,
     };
 
@@ -246,10 +239,7 @@ describe('ConversationsScene narrow comments flow', () => {
       );
     });
 
-    expect(setContext).toHaveBeenCalledWith({
-      canonicalUrl: 'https://example.com/article/11',
-      conversationId: 11,
-    });
+    expect(setContext).not.toHaveBeenCalled();
     expect(document.querySelector('[data-conversation-id="11"]')).toBeTruthy();
 
     const row = document.querySelector('[data-conversation-id="11"]') as HTMLElement | null;
@@ -277,6 +267,7 @@ describe('ConversationsScene narrow comments flow', () => {
     expect(document.querySelector('webclipper-threaded-comments-panel')).toBeTruthy();
     const commentsPanel = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(commentsPanel?.getAttribute('data-layout')).toBe('full-width');
+    expect(commentsPanel?.getAttribute('data-surface')).toBe('app-narrow');
     expect(commentsPanel?.style.width).toBe('100%');
     expect(commentsPanel?.shadowRoot?.querySelector('.webclipper-inpage-comments-panel__resize-handle')).toBeFalsy();
 
@@ -319,7 +310,6 @@ describe('ConversationsScene narrow comments flow', () => {
     const commentsSidebarRuntime = {
       sidebarSession: {
         attachPanel,
-        detachPanel,
         subscribe: sessionSubscribe,
         getSnapshot: getSessionSnapshot,
       } as any,
@@ -328,8 +318,6 @@ describe('ConversationsScene narrow comments flow', () => {
         setContext,
       } as any,
       sidebarSnapshot: {} as any,
-      setLocatorRoot,
-      getLocatorRoot,
       subscribeSidebarClose,
     };
 
@@ -342,10 +330,7 @@ describe('ConversationsScene narrow comments flow', () => {
       );
     });
 
-    expect(setContext).toHaveBeenCalledWith({
-      canonicalUrl: 'https://example.com/article/11',
-      conversationId: 11,
-    });
+    expect(setContext).not.toHaveBeenCalled();
     expect(openConversationExternalBySourceKey).toHaveBeenCalledWith('chatgpt', 'conv-99');
     expect(document.querySelector('[aria-label="Conversation detail"]')).toBeTruthy();
 
@@ -365,6 +350,7 @@ describe('ConversationsScene narrow comments flow', () => {
     expect(document.querySelector('webclipper-threaded-comments-panel')).toBeTruthy();
     const commentsPanel = document.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
     expect(commentsPanel?.getAttribute('data-layout')).toBe('full-width');
+    expect(commentsPanel?.getAttribute('data-surface')).toBe('app-narrow');
     expect(commentsPanel?.style.width).toBe('100%');
   });
 });

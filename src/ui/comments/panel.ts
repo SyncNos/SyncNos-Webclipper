@@ -2,32 +2,38 @@ import { createElement, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 
-import { createChatWithMenuController } from './chatwith';
+import { normalizeArticleCommentLocator, type ArticleCommentLocator } from '@services/comments/domain/comment-locator';
+import { resolveCommentAnchor } from '@services/comments/locator/resolve-comment-anchor';
+import type { CommentSidebarHostActions } from '@services/comments/sidebar/comment-sidebar-contract';
+
+import { createCommentAnchorController } from './comment-anchor-controller';
 import { createDockController } from './dock';
-import { createThreadLocateController } from './locate';
+import { createCommentRangeMarkerRegistry } from './range-marker-registry';
+import { scrollExactCommentRange, type CommentScrollContainer } from './range-scroll-controller';
 import { ThreadedCommentsPanel } from './react/ThreadedCommentsPanel';
 import { createThreadedCommentsPanelStore, type ThreadedCommentsPanelStore } from './react/panel-store';
+import type { ThreadLocateResult } from './react/types';
 import { installSidebarResize } from './resize';
 import { buildThreadedCommentsPanelShadowCss } from './shadow-styles';
 import type { MountOptions, ThreadedCommentsPanelApi } from './types';
 
-type ThreadedCommentsPanelHandlers = Parameters<ThreadedCommentsPanelApi['setHandlers']>[0];
-
 type ThreadedCommentsPanelReactBridgeProps = {
   store: ThreadedCommentsPanelStore;
-  handlersRef: { current: ThreadedCommentsPanelHandlers };
-  variant: 'embedded' | 'sidebar';
+  actions: CommentSidebarHostActions;
+  setPendingFocusRootId: (rootId: number | null) => void;
+  variant: 'sidebar';
   fullWidth: boolean;
   surfaceBg?: string;
   showHeader: boolean;
   showCollapseButton: boolean;
-  showHeaderChatWith: boolean;
+  chatWith: MountOptions['chatWith'];
   commentChatWith: MountOptions['commentChatWith'];
   onRequestClose: () => void;
-  onHeaderChatWithRootChange?: (el: HTMLDivElement | null) => void;
-  locateThreadRoot?: (rootId: number) => Promise<boolean>;
-  onLocateFailed?: () => void;
+  locateThreadRoot?: (rootId: number) => Promise<ThreadLocateResult>;
+  onActiveRootChange?: (rootId: number | null) => void;
+  onLocateFailed?: (reason: string) => void;
   showNotice: (message: string) => void;
+  onNoticeExpired: () => void;
 };
 
 function ThreadedCommentsPanelReactBridge(props: ThreadedCommentsPanelReactBridgeProps) {
@@ -38,16 +44,17 @@ function ThreadedCommentsPanelReactBridge(props: ThreadedCommentsPanelReactBridg
     surfaceBg: props.surfaceBg,
     showHeader: props.showHeader,
     showCollapseButton: props.showCollapseButton,
-    showHeaderChatWith: props.showHeaderChatWith,
+    chatWith: props.chatWith || null,
     snapshot,
-    readHandlers: () => props.handlersRef.current,
+    actions: props.actions,
     onRequestClose: props.onRequestClose,
-    onHeaderChatWithRootChange: props.onHeaderChatWithRootChange,
-    setPendingFocusRootId: props.store.setPendingFocusRootId,
+    setPendingFocusRootId: props.setPendingFocusRootId,
     locateThreadRoot: props.locateThreadRoot,
+    onActiveRootChange: props.onActiveRootChange,
     onLocateFailed: props.onLocateFailed,
     commentChatWith: props.commentChatWith || null,
     showNotice: props.showNotice,
+    onNoticeExpired: props.onNoticeExpired,
   });
 }
 
@@ -71,26 +78,141 @@ function asyncReactUpdate(run: () => void) {
   schedule(run);
 }
 
-function isEditableTarget(target: unknown): boolean {
-  const el = target as HTMLElement | null;
-  const tag = String(el?.tagName || '').toUpperCase();
-  if (tag === 'TEXTAREA' || tag === 'INPUT') return true;
-  try {
-    if (el?.isContentEditable) return true;
-  } catch (_e) {
-    // ignore
-  }
-  return false;
-}
-
-function pickLocatorRoot(options: MountOptions): Element | null {
-  const getter = options.getLocatorRoot;
+function readLocatorSurfaceRoots(options: MountOptions) {
+  const getter = options.getLocatorSurfaceRoots;
   if (typeof getter !== 'function') return null;
   try {
     return getter() || null;
-  } catch (_e) {
+  } catch (_error) {
     return null;
   }
+}
+
+function readLocatorRoots(options: MountOptions, locator: ArticleCommentLocator): readonly Element[] {
+  if (typeof options.getLocatorRoots === 'function') {
+    try {
+      return Array.from(options.getLocatorRoots(locator) || [])
+        .filter((root): root is Element => !!root)
+        .slice(0, 8);
+    } catch (_error) {
+      return [];
+    }
+  }
+  const roots = readLocatorSurfaceRoots(options);
+  return roots?.sourceRoot ? [roots.sourceRoot] : [];
+}
+
+function rangeElement(range: Range): Element | null {
+  const node = range.commonAncestorContainer || range.startContainer;
+  return node.nodeType === 1 ? (node as Element) : node.parentElement;
+}
+
+function composedParentElement(element: Element): Element | null {
+  if (element.parentElement) return element.parentElement;
+  const root = element.getRootNode?.();
+  return root && 'host' in root ? (root as ShadowRoot).host || null : null;
+}
+
+function isScrollableElement(element: Element): boolean {
+  const view = element.ownerDocument.defaultView;
+  try {
+    const style = view?.getComputedStyle?.(element);
+    const overflow = `${style?.overflowY || ''} ${style?.overflow || ''}`;
+    return (
+      /(auto|scroll|overlay)/.test(overflow) &&
+      Number((element as HTMLElement).scrollHeight || 0) > Number((element as HTMLElement).clientHeight || 0)
+    );
+  } catch (_error) {
+    return false;
+  }
+}
+
+function createElementScrollContainer(element: Element): CommentScrollContainer {
+  const target = element as HTMLElement;
+  return {
+    getRect: () => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+        height: rect.height,
+      };
+    },
+    getScrollTop: () => Number(target.scrollTop || 0),
+    getScrollHeight: () => Number(target.scrollHeight || 0),
+    getClientHeight: () => Number(target.clientHeight || 0),
+    scrollTo: (top, behavior) => {
+      try {
+        if (typeof target.scrollTo === 'function') {
+          target.scrollTo({ top, behavior });
+          return;
+        }
+      } catch (_error) {
+        // Fall through to direct assignment for DOM implementations without scrollTo.
+      }
+      target.scrollTop = top;
+    },
+  };
+}
+
+function collectScrollContainers(range: Range, explicitScrollRoot: Element): CommentScrollContainer[] {
+  const elements: Element[] = [];
+  let cursor = rangeElement(range);
+  while (cursor) {
+    if (cursor === explicitScrollRoot) {
+      elements.push(cursor);
+      break;
+    }
+    if (isScrollableElement(cursor)) elements.push(cursor);
+    cursor = composedParentElement(cursor);
+  }
+  if (!elements.includes(explicitScrollRoot)) elements.push(explicitScrollRoot);
+  return elements.map(createElementScrollContainer);
+}
+
+function pickScrollRoot(options: MountOptions, range: Range, resolvedRoot: Element): Element {
+  const configured = readLocatorSurfaceRoots(options);
+  if (configured) {
+    try {
+      if (configured.sourceRoot === resolvedRoot || configured.sourceRoot.contains(range.startContainer)) {
+        return configured.scrollRoot;
+      }
+    } catch (_error) {
+      // Continue with a bounded ancestor lookup.
+    }
+  }
+  let cursor: Element | null = rangeElement(range) || resolvedRoot;
+  while (cursor) {
+    if (isScrollableElement(cursor)) return cursor;
+    cursor = composedParentElement(cursor);
+  }
+  return resolvedRoot.ownerDocument.scrollingElement || resolvedRoot.ownerDocument.documentElement;
+}
+
+function readViewportRect(document: Document) {
+  const view = document.defaultView;
+  const width = Number(view?.innerWidth || document.documentElement.clientWidth || 0);
+  const height = Number(view?.innerHeight || document.documentElement.clientHeight || 0);
+  return { top: 0, bottom: height, left: 0, right: width, width, height };
+}
+
+function prefersReducedMotion(document: Document): boolean {
+  try {
+    return document.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function locateFailureNotice(reason: string): string {
+  if (reason === 'budget_exceeded') return '内容过大，无法精确定位';
+  if (reason === 'ambiguous_root' || reason === 'ambiguous_quote') return '存在多个匹配位置，无法精确定位';
+  if (reason === 'missing_locator') return '该评论没有定位信息';
+  if (reason === 'missing_root') return '当前内容区域不可定位';
+  return '无法定位原文';
 }
 
 export function mountThreadedCommentsPanel(
@@ -99,8 +221,9 @@ export function mountThreadedCommentsPanel(
 ): { el: HTMLElement; api: ThreadedCommentsPanelApi; cleanup: () => void } {
   const el = document.createElement('webclipper-threaded-comments-panel') as HTMLElement;
   const isOverlay = options.overlay === true;
-  const variant = options.variant === 'sidebar' ? 'sidebar' : 'embedded';
+  const variant = 'sidebar' as const;
   const isFullWidth = options.fullWidth === true;
+  const surface = options.surface || (isOverlay ? 'inpage' : isFullWidth ? 'app-narrow' : 'app-wide');
   const showHeader = options.showHeader !== false;
   const showCollapseButton = options.showCollapseButton ?? options.overlay === true;
   const dockPage = options.dockPage === true && options.overlay === true;
@@ -111,22 +234,17 @@ export function mountThreadedCommentsPanel(
       ? options.commentChatWith
       : null;
   const surfaceBg = String(options.surfaceBg || '').trim();
-  const runReactUpdate = options.deferReactUpdates === true ? asyncReactUpdate : syncReactUpdate;
-  let focusComposerSignal = 0;
-  let escapeSignal = 0;
-  let noticeTimer: ReturnType<typeof setTimeout> | null = null;
-  const handlersRef: { current: ThreadedCommentsPanelHandlers } = {
-    current: {
-      onSave: undefined,
-      onReply: undefined,
-      onDelete: undefined,
-      onClose: undefined,
-      onComposerSelectionRequest: undefined,
-    },
-  };
-
+  let disposed = false;
+  const runReactUpdate =
+    options.deferReactUpdates === true
+      ? (run: () => void) =>
+          asyncReactUpdate(() => {
+            if (!disposed) run();
+          })
+      : syncReactUpdate;
   if (isOverlay) el.setAttribute('data-overlay', '1');
   if (variant === 'sidebar') el.setAttribute('data-variant', 'sidebar');
+  el.setAttribute('data-surface', surface);
   if (isFullWidth) {
     el.setAttribute('data-layout', 'full-width');
     el.style.width = '100%';
@@ -153,30 +271,66 @@ export function mountThreadedCommentsPanel(
   style.textContent = buildThreadedCommentsPanelShadowCss();
   shadow.appendChild(style);
 
-  const panelStore = createThreadedCommentsPanelStore();
-  const locateController = createThreadLocateController({
-    locatorEnv: options.locatorEnv ?? null,
-    pickLocatorRoot: () => pickLocatorRoot(options),
+  const panelController = createThreadedCommentsPanelStore();
+  const panelStore = panelController.store;
+  const panelDocument = host.ownerDocument;
+  const markerRegistry = createCommentRangeMarkerRegistry({
+    document: panelDocument,
+    window: panelDocument.defaultView || undefined,
+    styleSource: el,
+    getGeometryRoots: () => {
+      const roots = readLocatorSurfaceRoots(options);
+      return roots ? [roots.sourceRoot, roots.scrollRoot] : [];
+    },
   });
+  const anchorController = createCommentAnchorController({
+    getRoots: (locator) => readLocatorRoots(options, locator),
+    registry: markerRegistry,
+    resolve: ({ locator, roots, signal, generation, budget }) => {
+      if (!roots.length) return { ok: false, reason: 'missing_root' };
+      return resolveCommentAnchor({
+        locator,
+        roots,
+        signal,
+        generation,
+        isGenerationCurrent: (candidate) => candidate === anchorController.getGeneration(),
+        budget,
+      });
+    },
+  });
+  const readAnchorItems = () =>
+    panelStore
+      .getSnapshot()
+      .comments.filter((item) => item.parentId == null)
+      .map((item) => ({ commentId: Number(item.id), locator: normalizeArticleCommentLocator(item.locator) }));
+  const syncAnchorMarkers = async () => {
+    if (disposed) return;
+    if (!panelStore.getSnapshot().open) {
+      anchorController.reset();
+      return;
+    }
+    await anchorController.sync(readAnchorItems());
+  };
+  const scheduleNoticeUpdate = (run: () => void) => {
+    asyncReactUpdate(() => {
+      if (disposed) return;
+      runReactUpdate(run);
+    });
+  };
   const showNotice = (message: string) => {
+    if (disposed) return;
     const text = String(message || '').trim();
     if (!text) return;
-    runReactUpdate(() => {
-      panelStore.setNotice({ message: text, visible: true });
+    scheduleNoticeUpdate(() => {
+      panelController.setNotice({ message: text, visible: true });
     });
-    if (noticeTimer) clearTimeout(noticeTimer);
-    noticeTimer = setTimeout(() => {
-      runReactUpdate(() => {
-        panelStore.setNotice({ message: '', visible: false });
-      });
-      noticeTimer = null;
-    }, 1600);
   };
-
-  const chatWithMenuController = createChatWithMenuController({
-    config: chatWithConfig,
-    showNotice,
-  });
+  const expireNotice = () => {
+    if (disposed) return;
+    scheduleNoticeUpdate(() => {
+      panelController.setNotice({ message: '', visible: false });
+    });
+  };
 
   const reactRootHost = document.createElement('div');
   reactRootHost.className = 'webclipper-inpage-comments-panel__react-root';
@@ -205,256 +359,165 @@ export function mountThreadedCommentsPanel(
     reactRoot.render(
       createElement(ThreadedCommentsPanelReactBridge, {
         store: panelStore,
-        handlersRef,
+        actions: panelController.actions,
+        setPendingFocusRootId: panelController.setPendingFocusRootId,
         variant,
         fullWidth: isFullWidth,
         surfaceBg: surfaceBg || undefined,
         showHeader,
         showCollapseButton,
-        showHeaderChatWith: Boolean(chatWithConfig),
+        chatWith: chatWithConfig,
         commentChatWith: commentChatWithConfig,
-        onRequestClose: () => apiRef.close(),
-        onHeaderChatWithRootChange: (rootEl) => {
-          if (!chatWithConfig || !rootEl) return;
-          chatWithMenuController.attachRoot(rootEl);
-        },
+        onRequestClose: () => panelController.actions.close(),
         locateThreadRoot: async (rootId) => {
           const root = panelStore
             .getSnapshot()
             .comments.find((item) => Number(item?.id) === Number(rootId) && item?.parentId == null);
-          if (!root) return false;
-          return await locateController.locateThreadRootWithRetry(root);
+          if (!root) return { ok: false, reason: 'missing_locator' };
+          const locator = normalizeArticleCommentLocator(root.locator);
+          const result = await anchorController.locate({ commentId: Number(root.id), locator });
+          if (!result.ok) return result;
+          try {
+            const scrollRoot = pickScrollRoot(options, result.range, result.root);
+            scrollExactCommentRange({
+              range: result.range,
+              containers: collectScrollContainers(result.range, scrollRoot),
+              viewportRect: readViewportRect(result.root.ownerDocument),
+              reducedMotion: prefersReducedMotion(result.root.ownerDocument),
+            });
+          } catch (_error) {
+            return { ok: false, reason: 'scroll_failed' };
+          }
+          return { ok: true };
         },
-        onLocateFailed: () => showNotice('无法定位'),
+        onActiveRootChange: (rootId) => anchorController.setActive(rootId),
+        onLocateFailed: (reason) => showNotice(locateFailureNotice(reason)),
         showNotice,
+        onNoticeExpired: expireNotice,
       }),
     );
   });
 
-  const setOpen = (open: boolean) => {
-    runReactUpdate(() => {
-      panelStore.setOpen(open);
-    });
+  const applyOpenState = (open: boolean) => {
     if (open) {
       el.setAttribute('data-open', '1');
       setImportantStyle(el, 'display', 'block');
       dockController.setOpen(true);
       return;
     }
-    chatWithMenuController.closeMenu();
     el.removeAttribute('data-open');
     setImportantStyle(el, 'display', 'none');
     dockController.setOpen(false);
+    anchorController.reset();
   };
 
-  const onShadowClick = (event: Event) => {
-    chatWithMenuController.handleShadowClick(event.target as Element | null);
+  let appliedOpen: boolean | null = null;
+  let appliedMarkerKey = '';
+  const syncHostEffects = () => {
+    if (disposed) return;
+    const snapshot = panelStore.getSnapshot();
+    if (appliedOpen !== snapshot.open) {
+      appliedOpen = snapshot.open;
+      applyOpenState(snapshot.open);
+    }
+    const markerKey = snapshot.open
+      ? snapshot.comments
+          .filter((item) => item.parentId == null)
+          .map((item) => `${item.id}:${item.updatedAt}:${JSON.stringify(normalizeArticleCommentLocator(item.locator))}`)
+          .join('|')
+      : '';
+    if (markerKey === appliedMarkerKey) return;
+    appliedMarkerKey = markerKey;
+    void syncAnchorMarkers();
   };
-  const onShadowKeydown = (event: Event) => {
-    const keyEvent = event as KeyboardEvent;
-    if (keyEvent.isComposing) return;
-    if (keyEvent.key === 'Escape' && chatWithMenuController.handleShadowEscape(keyEvent)) return;
-    if (keyEvent.key !== 'Escape') return;
-    escapeSignal += 1;
-    runReactUpdate(() => {
-      panelStore.setEscapeSignal(escapeSignal);
-    });
-  };
-  const onShadowShortcutSubmitCapture = (event: Event) => {
-    const keyEvent = event as KeyboardEvent;
-    if (keyEvent.isComposing) return;
-    if (keyEvent.key !== 'Enter') return;
-    if (!(keyEvent.metaKey || keyEvent.ctrlKey)) return;
-    if (keyEvent.shiftKey || keyEvent.altKey) return;
+  let unsubscribeHostEffects: (() => void) | null = null;
 
-    const target = event.target as HTMLElement | null;
-    const textarea = target?.closest(
-      'textarea.webclipper-inpage-comments-panel__composer-textarea,textarea.webclipper-inpage-comments-panel__reply-textarea',
-    ) as HTMLTextAreaElement | null;
-    if (!textarea) return;
-    const text = String(textarea.value || '').trim();
-    if (!text) return;
-
-    try {
-      keyEvent.preventDefault();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      keyEvent.stopImmediatePropagation();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      keyEvent.stopPropagation();
-    } catch (_e) {
-      // ignore
-    }
-
-    if (textarea.classList.contains('webclipper-inpage-comments-panel__composer-textarea')) {
-      runReactUpdate(() => {
-        panelStore.requestShortcutSubmit({ kind: 'composer', text });
-      });
-      return;
-    }
-
-    const thread = textarea.closest('.webclipper-inpage-comments-panel__thread') as HTMLElement | null;
-    const rootId = Number(thread?.getAttribute('data-thread-root-id') || 0);
-    if (!Number.isFinite(rootId) || rootId <= 0) return;
-    runReactUpdate(() => {
-      panelStore.requestShortcutSubmit({ kind: 'reply', rootId: Math.round(rootId), text });
-    });
-  };
   const onShadowFocusIn = () => {
     asyncReactUpdate(() => {
-      panelStore.setHasFocusWithinPanel(true);
+      panelController.setHasFocusWithinPanel(true);
     });
   };
   const onShadowFocusOut = () => {
     try {
       asyncReactUpdate(() => {
-        panelStore.setHasFocusWithinPanel(Boolean(shadow.activeElement));
+        panelController.setHasFocusWithinPanel(Boolean(shadow.activeElement));
       });
     } catch (_e) {
       asyncReactUpdate(() => {
-        panelStore.setHasFocusWithinPanel(false);
+        panelController.setHasFocusWithinPanel(false);
       });
-    }
-  };
-
-  const stopShortcutKeyPropagation = (event: Event) => {
-    if (!isEditableTarget(event.target)) return;
-    try {
-      event.stopPropagation();
-    } catch (_e) {
-      // ignore
     }
   };
 
   try {
-    shadow.addEventListener('keydown', onShadowShortcutSubmitCapture, true);
-    shadow.addEventListener('click', onShadowClick);
-    shadow.addEventListener('keydown', onShadowKeydown);
     shadow.addEventListener('focusin', onShadowFocusIn);
     shadow.addEventListener('focusout', onShadowFocusOut);
-    shadow.addEventListener('keydown', stopShortcutKeyPropagation);
-    shadow.addEventListener('keypress', stopShortcutKeyPropagation);
-    shadow.addEventListener('keyup', stopShortcutKeyPropagation);
   } catch (_e) {
     // ignore
   }
 
   apiRef = {
-    open(input) {
-      setOpen(true);
-      if (input?.focusComposer) {
-        focusComposerSignal += 1;
-        runReactUpdate(() => {
-          panelStore.setFocusComposerSignal(focusComposerSignal);
-        });
-      }
-      apiRef.setBusy(false);
+    attachHost(host) {
+      if (disposed) return Object.freeze({ dispose() {} });
+      return panelController.attachHost(host);
     },
-    close() {
-      setOpen(false);
-      const handler = handlersRef.current.onClose;
-      if (typeof handler === 'function') {
-        handler();
-      }
-    },
-    isOpen() {
-      return el.getAttribute('data-open') === '1' && (getComputedStyle(el).display || '') !== 'none';
-    },
-    setBusy(busy) {
-      runReactUpdate(() => {
-        panelStore.setBusy(Boolean(busy));
-      });
-    },
-    setQuoteText(text) {
-      runReactUpdate(() => {
-        panelStore.setQuoteText(String(text || ''));
-      });
-    },
-    setComments(items) {
-      runReactUpdate(() => {
-        panelStore.setComments(Array.isArray(items) ? items : []);
-      });
-    },
-    setHandlers(handlers: ThreadedCommentsPanelHandlers) {
-      handlersRef.current = handlers || {
-        onSave: undefined,
-        onReply: undefined,
-        onDelete: undefined,
-        onClose: undefined,
-        onComposerSelectionRequest: undefined,
-      };
-      runReactUpdate(() => {
-        panelStore.setHandlers(handlersRef.current);
-      });
+    refreshLocatorRoots() {
+      if (disposed) return;
+      anchorController.reset();
+      appliedMarkerKey = '';
+      void syncAnchorMarkers();
     },
   };
 
-  if (!options.overlay) {
-    setOpen(true);
-  } else {
-    setOpen(options.initiallyOpen === true);
-  }
-
   host.appendChild(el);
+  unsubscribeHostEffects = panelStore.subscribe(syncHostEffects);
+  syncHostEffects();
 
   const cleanup = () => {
-    if (noticeTimer) clearTimeout(noticeTimer);
-    noticeTimer = null;
-    try {
-      dockController.cleanup();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      cleanupSidebarResize?.();
-    } catch (_e) {
-      // ignore
-    }
-    cleanupSidebarResize = null;
-    try {
-      locateController.clear();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      chatWithMenuController.cleanup();
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      shadow.removeEventListener('keydown', onShadowShortcutSubmitCapture, true);
-      shadow.removeEventListener('click', onShadowClick);
-      shadow.removeEventListener('keydown', onShadowKeydown);
-      shadow.removeEventListener('focusin', onShadowFocusIn);
-      shadow.removeEventListener('focusout', onShadowFocusOut);
-      shadow.removeEventListener('keydown', stopShortcutKeyPropagation);
-      shadow.removeEventListener('keypress', stopShortcutKeyPropagation);
-      shadow.removeEventListener('keyup', stopShortcutKeyPropagation);
-    } catch (_e) {
-      // ignore
-    }
-    try {
-      const activeEl = shadow.activeElement as HTMLElement | null;
-      activeEl?.blur?.();
-    } catch (_e) {
-      // ignore
-    }
-    runReactUpdate(() => {
+    if (disposed) return;
+    disposed = true;
+
+    const cleanupSteps: Array<() => void> = [
+      () => {
+        unsubscribeHostEffects?.();
+        unsubscribeHostEffects = null;
+      },
+      () => {
+        shadow.removeEventListener('focusin', onShadowFocusIn);
+        shadow.removeEventListener('focusout', onShadowFocusOut);
+      },
+      () => panelController.dispose(),
+      () => {
+        cleanupSidebarResize?.();
+        cleanupSidebarResize = null;
+      },
+      () => anchorController.dispose(),
+      () => dockController.cleanup(),
+      () => {
+        const activeEl = shadow.activeElement as HTMLElement | null;
+        activeEl?.blur?.();
+      },
+      () => {
+        const unmountAndRemove = () => {
+          try {
+            if (reactRootHost.ownerDocument.defaultView) reactRoot.unmount();
+          } catch (_error) {
+            // The owning document may already be gone during test/browser teardown.
+          } finally {
+            el.remove();
+          }
+        };
+        if (options.deferReactUpdates === true) asyncReactUpdate(unmountAndRemove);
+        else syncReactUpdate(unmountAndRemove);
+      },
+    ];
+
+    for (const step of cleanupSteps) {
       try {
-        reactRoot.unmount();
-      } catch (_e) {
-        // ignore
+        step();
+      } catch (_error) {
+        // Continue teardown so one failed subsystem cannot leak the rest.
       }
-    });
-    try {
-      el.remove();
-    } catch (_e) {
-      // ignore
     }
   };
 

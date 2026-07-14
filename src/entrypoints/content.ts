@@ -16,7 +16,7 @@ import normalizeApi from '@services/shared/normalize.ts';
 import { inpageButtonApi } from '@ui/inpage/inpage-button-shadow.ts';
 import { inpageItemMentionApi } from '@ui/inpage/inpage-item-mention-shadow.ts';
 import { inpageTipApi } from '@ui/inpage/inpage-tip-shadow.ts';
-import { getInpageCommentsPanelApi } from '@ui/inpage/inpage-comments-panel-shadow.ts';
+import { createInpageCommentsDomSource, getInpageCommentsPanelApi } from '@ui/inpage/inpage-comments-panel-shadow.ts';
 import { createRuntimeClient } from '@platform/runtime/client.ts';
 
 export default defineContentScript({
@@ -36,6 +36,11 @@ export default defineContentScript({
     registerCurrentPageCaptureContentHandlers(currentPageCapture, { inpageTip: inpageTipApi });
     registerInpageCommentsPanelContentHandlers(runtime, {
       createPanelApi: (rt) => getInpageCommentsPanelApi(rt),
+      domSource: createInpageCommentsDomSource({
+        window,
+        document,
+        getPanelRoot: () => document.getElementById('webclipper-inpage-comments-panel'),
+      }),
     });
     registerWebArticleExtractContentHandlers();
     registerVideoTranscriptCaptureContentHandlers(createVideoTranscriptCaptureService({ runtime }), {

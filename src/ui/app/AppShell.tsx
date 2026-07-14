@@ -7,6 +7,8 @@ import { ConversationsProvider, useConversationsApp } from '@viewmodels/conversa
 import { ConversationsScene } from '@ui/conversations/ConversationsScene';
 import { ConversationDetailPane } from '@ui/conversations/ConversationDetailPane';
 import { ArticleCommentsSection } from '@ui/conversations/ArticleCommentsSection';
+import type { CommentLocatorSurfaceRoots } from '@ui/comments';
+import { createAppCommentSelectionSource } from '@ui/comments/app-comment-selection-source';
 import { buttonIconCircleGhostClassName, headerButtonClassName } from '@ui/shared/button-styles';
 import { AppTooltipHost, tooltipAttrs } from '@ui/shared/AppTooltip';
 import { useResponsiveTier } from '@ui/shared/hooks/useResponsiveTier';
@@ -154,14 +156,19 @@ export default function AppShell() {
     const isWide = tier === 'wide';
     const previousTierRef = useRef<typeof tier | null>(null);
     const suppressCommentsSidebarCollapseRef = useRef(false);
+    const commentsLocatorSurfaceRootsRef = useRef<CommentLocatorSurfaceRoots | null>(null);
+    const commentsLocatorSurfaceRootsListenersRef = useRef(new Set<() => void>());
+    const resolveAppComposerSelection = useMemo(
+      () => createAppCommentSelectionSource({ getSurfaceRoots: () => commentsLocatorSurfaceRootsRef.current }),
+      [],
+    );
     const {
       sidebarSession: commentsSidebarSession,
       sidebarController: commentsSidebarController,
       sidebarSnapshot: commentsSidebarSnapshot,
-      setLocatorRoot: setCommentsLocatorRoot,
-      getLocatorRoot: getCommentsLocatorRoot,
       subscribeSidebarClose,
     } = useArticleCommentsSidebarRuntime({
+      resolveComposerSelection: resolveAppComposerSelection,
       onClose: () => {
         if (suppressCommentsSidebarCollapseRef.current) return;
         if (isMedium) {
@@ -173,6 +180,34 @@ export default function AppShell() {
         }
       },
     });
+    const commentsSidebarDisposeEpochRef = useRef(0);
+    useEffect(() => {
+      commentsSidebarDisposeEpochRef.current += 1;
+      return () => {
+        const disposeEpoch = ++commentsSidebarDisposeEpochRef.current;
+        const dispose = () => {
+          if (commentsSidebarDisposeEpochRef.current !== disposeEpoch) return;
+          commentsSidebarController.dispose();
+          commentsSidebarSession.dispose();
+        };
+        if (typeof globalThis.queueMicrotask === 'function') {
+          globalThis.queueMicrotask(dispose);
+        } else {
+          void Promise.resolve().then(dispose);
+        }
+      };
+    }, [commentsSidebarController, commentsSidebarSession]);
+    const pendingExternalLocRef = useRef<string | null>(null);
+    const setCommentsLocatorSurfaceRoots = useCallback((roots: CommentLocatorSurfaceRoots | null) => {
+      commentsLocatorSurfaceRootsRef.current = roots;
+      if (roots && pendingExternalLocRef.current) pendingExternalLocRef.current = null;
+      for (const listener of commentsLocatorSurfaceRootsListenersRef.current) listener();
+    }, []);
+    const getCommentsLocatorSurfaceRoots = useCallback(() => commentsLocatorSurfaceRootsRef.current, []);
+    const subscribeCommentsLocatorSurfaceRoots = useCallback((listener: () => void) => {
+      commentsLocatorSurfaceRootsListenersRef.current.add(listener);
+      return () => commentsLocatorSurfaceRootsListenersRef.current.delete(listener);
+    }, []);
     const runtimeClientRef = useRef<ReturnType<typeof createRuntimeClient> | null>(null);
     if (!runtimeClientRef.current) {
       runtimeClientRef.current = createRuntimeClient();
@@ -181,12 +216,22 @@ export default function AppShell() {
     const navigate = useNavigate();
     const { openConversationExternalByLoc, selectedConversation, detail } = useConversationsApp();
     const lastInternalLocRef = useRef<string | null>(null);
-    const pendingExternalLocRef = useRef<string | null>(null);
     const processedLocRef = useRef<string | null>(null);
     const locMountedRef = useRef(false);
     const selectedConversationView = conversationKinds.pick(selectedConversation as any)?.view ?? null;
     const commentsSidebarEnabled = Boolean(selectedConversationView?.commentsSidebar);
     const canonicalUrl = canonicalizeArticleUrl((selectedConversation as any)?.url);
+    const selectedConversationId = Number((selectedConversation as any)?.id || 0) || null;
+    const commentsSidebarContext = useMemo(
+      () =>
+        commentsSidebarEnabled && canonicalUrl
+          ? {
+              canonicalUrl,
+              conversationId: selectedConversationId,
+            }
+          : null,
+      [canonicalUrl, commentsSidebarEnabled, selectedConversationId],
+    );
     const canToggleCommentsSidebar = !isNarrow && commentsSidebarEnabled && Boolean(canonicalUrl);
     const commentsSidebarCollapsed = isMedium ? mediumCommentsSidebarCollapsed : wideCommentsSidebarCollapsed;
     const canAutoOpenCommentsSidebarInWide = isWide && canToggleCommentsSidebar;
@@ -252,7 +297,7 @@ export default function AppShell() {
       canToggleCommentsSidebar &&
       !showSettingsSheet &&
       !commentsSidebarCollapsed &&
-      (isMedium || commentsSidebarSnapshot.openRequested || commentsSidebarSnapshot.isOpen);
+      (isMedium || commentsSidebarSnapshot.open);
 
     const commentsSidebarCommentChatWithRuntimeRef = useRef<{
       showCommentsSidebar: boolean;
@@ -388,11 +433,8 @@ export default function AppShell() {
     }, [commentsSidebarSession, setMediumCommentsCollapsed, tier]);
 
     useEffect(() => {
-      if (commentsSidebarEnabled && canonicalUrl) {
-        commentsSidebarController.setContext({
-          canonicalUrl,
-          conversationId: Number((selectedConversation as any)?.id || 0) || null,
-        });
+      if (commentsSidebarContext) {
+        commentsSidebarController.setContext(commentsSidebarContext);
         return;
       }
 
@@ -403,22 +445,21 @@ export default function AppShell() {
       } finally {
         suppressCommentsSidebarCollapseRef.current = false;
       }
-      commentsSidebarSession.setQuoteText('');
-    }, [canonicalUrl, commentsSidebarController, commentsSidebarEnabled, commentsSidebarSession, selectedConversation]);
+      commentsSidebarSession.clearComposerAttachment();
+    }, [commentsSidebarContext, commentsSidebarController, commentsSidebarSession]);
 
     useEffect(() => {
       if (showSettingsSheet) return;
       if (!canAutoOpenCommentsSidebarInWide) return;
       if (commentsSidebarCollapsed) return;
-      if (commentsSidebarSnapshot.openRequested || commentsSidebarSnapshot.isOpen) return;
+      if (commentsSidebarSnapshot.open) return;
       void commentsSidebarController.open({ source: 'app-default', focusComposer: false, ensureContext: false });
     }, [
       canAutoOpenCommentsSidebarInWide,
       commentsSidebarCollapsed,
       commentsSidebarController,
       commentsSidebarSession,
-      commentsSidebarSnapshot.isOpen,
-      commentsSidebarSnapshot.openRequested,
+      commentsSidebarSnapshot.open,
       showSettingsSheet,
     ]);
 
@@ -551,13 +592,9 @@ export default function AppShell() {
           source: decoded.source,
           conversationKey: decoded.conversationKey,
         }),
-      )
-        .catch(() => {})
-        .finally(() => {
-          globalThis.setTimeout?.(() => {
-            if (pendingExternalLocRef.current === loc) pendingExternalLocRef.current = null;
-          }, 0);
-        });
+      ).catch(() => {
+        if (pendingExternalLocRef.current === loc) pendingExternalLocRef.current = null;
+      });
     }, [location.pathname, location.search, openConversationExternalByLoc]);
 
     useEffect(() => {
@@ -622,10 +659,11 @@ export default function AppShell() {
                           sidebarSession: commentsSidebarSession,
                           sidebarController: commentsSidebarController,
                           sidebarSnapshot: commentsSidebarSnapshot,
-                          setLocatorRoot: setCommentsLocatorRoot,
-                          getLocatorRoot: getCommentsLocatorRoot,
                           subscribeSidebarClose,
                         }}
+                        getCommentsLocatorSurfaceRoots={getCommentsLocatorSurfaceRoots}
+                        subscribeCommentsLocatorSurfaceRoots={subscribeCommentsLocatorSurfaceRoots}
+                        onCommentsLocatorSurfaceRootsChange={setCommentsLocatorSurfaceRoots}
                         narrowCommentsOpenSource="app"
                         resolveCommentsSidebarChatWithActions={resolveCommentsSidebarChatWithActions}
                         resolveCommentsSidebarSingleChatWithLabel={resolveCommentsSidebarSingleChatWithLabel}
@@ -659,9 +697,7 @@ export default function AppShell() {
                           <ConversationDetailPane
                             onExpandSidebar={sidebarCollapsed ? () => setCollapsed(false) : undefined}
                             onTriggerCommentsSidebar={canToggleCommentsSidebar ? triggerCommentsSidebar : undefined}
-                            onCommentsLocatorRootChange={(root) => {
-                              setCommentsLocatorRoot(root);
-                            }}
+                            onCommentsLocatorRootsChange={setCommentsLocatorSurfaceRoots}
                             commentsSidebarOpen={showCommentsSidebar}
                           />
                         }
@@ -719,7 +755,8 @@ export default function AppShell() {
                   <ArticleCommentsSection
                     sidebarSession={commentsSidebarSession}
                     containerClassName="tw-h-full tw-min-h-0"
-                    getLocatorRoot={getCommentsLocatorRoot}
+                    getLocatorSurfaceRoots={getCommentsLocatorSurfaceRoots}
+                    subscribeLocatorSurfaceRoots={subscribeCommentsLocatorSurfaceRoots}
                     resolveChatWithActions={resolveCommentsSidebarChatWithActions}
                     resolveChatWithSingleActionLabel={resolveCommentsSidebarSingleChatWithLabel}
                     commentChatWith={commentsSidebarCommentChatWithConfig}

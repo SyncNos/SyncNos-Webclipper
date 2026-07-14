@@ -1,52 +1,33 @@
-import type { CommentSaveResult, ThreadedCommentItem, ThreadedCommentsPanelCommentChatWithConfig } from '../types';
+import type {
+  CommentSidebarHostActions,
+  CommentSidebarHostSnapshot,
+} from '@services/comments/sidebar/comment-sidebar-contract';
+import type { ThreadedCommentsPanelChatWithConfig, ThreadedCommentsPanelCommentChatWithConfig } from '../types';
 
-export type ThreadedCommentsPanelComposerSelectionRequest = {
-  trigger: 'button' | 'auto';
-};
-
-export type ThreadedCommentsPanelHandlers = {
-  onSave?: (text: string) => CommentSaveResult | Promise<CommentSaveResult>;
-  onReply?: (parentId: number, text: string) => void | Promise<void>;
-  onDelete?: (id: number) => void | Promise<void>;
-  onClose?: () => void;
-  onComposerSelectionRequest?: (input: ThreadedCommentsPanelComposerSelectionRequest) => void | Promise<void>;
-  onComposerQuoteClearRequest?: () => void | Promise<void>;
-};
-
-export type ThreadedCommentsPanelSnapshot = {
-  open: boolean;
-  busy: boolean;
-  quoteText: string;
-  comments: ThreadedCommentItem[];
-  handlers: ThreadedCommentsPanelHandlers;
-  focusComposerSignal: number;
-  escapeSignal: number;
+export type ThreadedCommentsPanelSnapshot = CommentSidebarHostSnapshot & {
   noticeMessage: string;
   noticeVisible: boolean;
   hasFocusWithinPanel: boolean;
   pendingFocusRootId: number | null;
-  shortcutSubmit: {
-    signal: number;
-    kind: 'composer' | 'reply';
-    rootId: number | null;
-    text: string;
-  } | null;
 };
 
+export type ThreadLocateResult = { ok: true } | { ok: false; reason: string };
+
 export type ThreadedCommentsPanelProps = {
-  variant: 'embedded' | 'sidebar';
+  variant: 'sidebar';
   fullWidth?: boolean;
   surfaceBg?: string;
   showHeader: boolean;
   showCollapseButton: boolean;
-  showHeaderChatWith: boolean;
+  chatWith?: ThreadedCommentsPanelChatWithConfig | null;
   snapshot: ThreadedCommentsPanelSnapshot;
-  readHandlers?: () => ThreadedCommentsPanelHandlers;
+  actions: CommentSidebarHostActions;
   onRequestClose: () => void;
-  onHeaderChatWithRootChange?: (el: HTMLDivElement | null) => void;
   setPendingFocusRootId?: (rootId: number | null) => void;
-  locateThreadRoot?: (rootId: number) => Promise<boolean>;
-  onLocateFailed?: () => void;
+  locateThreadRoot?: (rootId: number) => Promise<ThreadLocateResult>;
+  onActiveRootChange?: (rootId: number | null) => void;
+  onLocateFailed?: (reason: string) => void;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
   showNotice?: (message: string) => void;
+  onNoticeExpired?: () => void;
 };

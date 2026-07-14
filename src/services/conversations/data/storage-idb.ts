@@ -874,17 +874,28 @@ async function readConversationListPageItems(input: {
 
   const hasMore = rows.length > safeLimit;
   const pageItems = hasMore ? rows.slice(0, safeLimit) : rows;
-  const articleCommentIndex = articleCommentsStore.index('by_canonicalUrl_createdAt');
+  const byConversation = articleCommentsStore.index('by_conversationId_createdAt');
+  const byCanonicalUrl = articleCommentsStore.index('by_canonicalUrl_createdAt');
   for (const item of pageItems) {
-    const sourceType = safeString((item as any).sourceType).toLowerCase();
-    if (sourceType !== 'article') continue;
+    if (safeString((item as any).sourceType).toLowerCase() !== 'article') continue;
+    const conversationId = Number((item as any).id);
     const canonicalUrl = normalizeArticleUrl((item as any).url);
-    if (!canonicalUrl) continue;
-    const range = globalThis.IDBKeyRange?.bound
-      ? globalThis.IDBKeyRange.bound([canonicalUrl, -Infinity] as any, [canonicalUrl, Infinity] as any)
-      : null;
-    if (!range) continue;
-    const comments = (await reqToPromise<any[]>(articleCommentIndex.getAll(range) as any)) || [];
+    const comments: any[] = [];
+    if (globalThis.IDBKeyRange?.bound && Number.isSafeInteger(conversationId) && conversationId > 0) {
+      const byConversationRange = globalThis.IDBKeyRange.bound(
+        [conversationId, -Infinity] as any,
+        [conversationId, Infinity] as any,
+      );
+      comments.push(...((await reqToPromise<any[]>(byConversation.getAll(byConversationRange) as any)) || []));
+    }
+    if (globalThis.IDBKeyRange?.bound && canonicalUrl) {
+      const byUrlRange = globalThis.IDBKeyRange.bound(
+        [canonicalUrl, -Infinity] as any,
+        [canonicalUrl, Infinity] as any,
+      );
+      const urlRows = (await reqToPromise<any[]>(byCanonicalUrl.getAll(byUrlRange) as any)) || [];
+      comments.push(...urlRows.filter((row) => row?.conversationId == null));
+    }
     (item as any).commentThreadCount = computeArticleCommentThreadCount(comments);
   }
 

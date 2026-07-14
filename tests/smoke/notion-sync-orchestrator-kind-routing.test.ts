@@ -106,8 +106,30 @@ describe('notion-sync-orchestrator kind routing', () => {
       getArticleCommentsByConversationId: async (conversationId: number) => {
         if (conversationId !== 1) return [];
         return [
-          { id: 1, parentId: null, createdAt: 1, updatedAt: 1, quoteText: 'q', commentText: 'root' },
-          { id: 2, parentId: 1, createdAt: 2, updatedAt: 2, quoteText: '', commentText: 'reply' },
+          {
+            id: 1,
+            parentId: null,
+            conversationId: 1,
+            canonicalUrl: 'https://a/',
+            authorName: null,
+            locator: null,
+            createdAt: 1,
+            updatedAt: 1,
+            quoteText: 'q',
+            commentText: 'root',
+          },
+          {
+            id: 2,
+            parentId: 1,
+            conversationId: 1,
+            canonicalUrl: 'https://a/',
+            authorName: null,
+            locator: null,
+            createdAt: 2,
+            updatedAt: 2,
+            quoteText: '',
+            commentText: 'reply',
+          },
         ];
       },
       setConversationNotionPageId: async () => true,
