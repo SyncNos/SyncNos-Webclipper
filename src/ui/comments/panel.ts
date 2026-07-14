@@ -311,17 +311,23 @@ export function mountThreadedCommentsPanel(
     }
     await anchorController.sync(readAnchorItems());
   };
+  const scheduleNoticeUpdate = (run: () => void) => {
+    asyncReactUpdate(() => {
+      if (disposed) return;
+      runReactUpdate(run);
+    });
+  };
   const showNotice = (message: string) => {
     if (disposed) return;
     const text = String(message || '').trim();
     if (!text) return;
-    runReactUpdate(() => {
+    scheduleNoticeUpdate(() => {
       panelController.setNotice({ message: text, visible: true });
     });
   };
   const expireNotice = () => {
     if (disposed) return;
-    runReactUpdate(() => {
+    scheduleNoticeUpdate(() => {
       panelController.setNotice({ message: '', visible: false });
     });
   };
