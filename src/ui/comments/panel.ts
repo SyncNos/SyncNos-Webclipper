@@ -492,7 +492,7 @@ export function mountThreadedCommentsPanel(
         activeEl?.blur?.();
       },
       () => {
-        asyncReactUpdate(() => {
+        const unmountAndRemove = () => {
           try {
             if (reactRootHost.ownerDocument.defaultView) reactRoot.unmount();
           } catch (_error) {
@@ -500,7 +500,9 @@ export function mountThreadedCommentsPanel(
           } finally {
             el.remove();
           }
-        });
+        };
+        if (options.deferReactUpdates === true) asyncReactUpdate(unmountAndRemove);
+        else syncReactUpdate(unmountAndRemove);
       },
     ];
 
