@@ -90,5 +90,4 @@ describe('single active reply composer', () => {
     expect(shadow.querySelector('.webclipper-inpage-comments-panel__reply-textarea')).toBeNull();
     mounted.cleanup();
   });
-
 });

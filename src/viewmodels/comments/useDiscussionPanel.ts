@@ -11,7 +11,6 @@ type UseDiscussionPanelInput = {
   actions: CommentSidebarHostActions;
 };
 
-
 function isSuccessfulMutation(result: CommentSaveResult): boolean {
   if (result === true) return true;
   return Boolean(result && typeof result === 'object' && result.ok === true);

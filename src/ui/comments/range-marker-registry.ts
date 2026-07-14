@@ -96,7 +96,8 @@ export function createCommentRangeMarkerRegistry(input: {
   };
 
   const syncGeometryObservers = () => {
-    const ResizeObserverCtor = (win as (Window & { ResizeObserver?: typeof ResizeObserver }) | undefined)?.ResizeObserver;
+    const ResizeObserverCtor = (win as (Window & { ResizeObserver?: typeof ResizeObserver }) | undefined)
+      ?.ResizeObserver;
     if (!ResizeObserverCtor || !input.getGeometryRoots) return;
     let nextRoots: Element[] = [];
     try {

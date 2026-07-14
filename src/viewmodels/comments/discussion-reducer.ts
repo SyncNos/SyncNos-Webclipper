@@ -64,7 +64,6 @@ export function createDiscussionState(contextKey = ''): DiscussionState {
   };
 }
 
-
 function clearSubmitError(state: DiscussionState): DiscussionState {
   return state.submit.status === 'error' ? { ...state, submit: idleSubmit() } : state;
 }
@@ -125,8 +124,7 @@ export function discussionReducer(state: DiscussionState, action: DiscussionActi
       const replyDrafts = Object.fromEntries(
         Object.entries(state.replyDrafts).filter(([rootId]) => rootIds.has(Number(rootId))),
       );
-      const openMenu =
-        typeof state.openMenu === 'number' && !commentIds.has(state.openMenu) ? null : state.openMenu;
+      const openMenu = typeof state.openMenu === 'number' && !commentIds.has(state.openMenu) ? null : state.openMenu;
       const confirmDelete =
         state.confirmDelete != null && !commentIds.has(state.confirmDelete) ? null : state.confirmDelete;
       const focusIntent =

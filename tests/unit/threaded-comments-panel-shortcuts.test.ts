@@ -159,7 +159,11 @@ describe('Threaded comments panel shortcuts', () => {
     textarea.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
     await flushReactScheduler();
 
-    (shadow.querySelector('[data-webclipper-root-composer="1"] .webclipper-inpage-comments-panel__send') as HTMLButtonElement).click();
+    (
+      shadow.querySelector(
+        '[data-webclipper-root-composer="1"] .webclipper-inpage-comments-panel__send',
+      ) as HTMLButtonElement
+    ).click();
     await flushReactScheduler();
 
     expect(onSave).toHaveBeenCalledWith('keep root draft');
@@ -186,14 +190,16 @@ describe('Threaded comments panel shortcuts', () => {
     driver.replaceActionCallbacks({ onReply });
     driver.replaceComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'root' }]);
     const shadow = (host.querySelector('webclipper-threaded-comments-panel') as HTMLElement).shadowRoot!;
-    const textarea = shadow.querySelector(
-      '.webclipper-inpage-comments-panel__reply-textarea',
-    ) as HTMLTextAreaElement;
+    const textarea = shadow.querySelector('.webclipper-inpage-comments-panel__reply-textarea') as HTMLTextAreaElement;
     textarea.value = 'keep reply draft';
     textarea.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
     await flushReactScheduler();
 
-    (shadow.querySelector('[data-reply-composer-root-id="1"] .webclipper-inpage-comments-panel__send') as HTMLButtonElement).click();
+    (
+      shadow.querySelector(
+        '[data-reply-composer-root-id="1"] .webclipper-inpage-comments-panel__send',
+      ) as HTMLButtonElement
+    ).click();
     await flushReactScheduler();
 
     expect(onReply).toHaveBeenCalledWith(1, 'keep reply draft');
@@ -203,5 +209,4 @@ describe('Threaded comments panel shortcuts', () => {
     );
     mounted.cleanup();
   });
-
 });

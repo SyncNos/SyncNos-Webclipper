@@ -72,7 +72,6 @@ describe('discussionReducer', () => {
     expect(state.submit.status).toBe('idle');
   });
 
-
   it('reconciles active and transient state against the latest thread graph', () => {
     let state = createDiscussionState();
     state = discussionReducer(state, { type: 'activate-root', rootId: 7 });
@@ -90,5 +89,4 @@ describe('discussionReducer', () => {
     expect(next.focusIntent).toBeNull();
     expect(next.submit.status).toBe('idle');
   });
-
 });

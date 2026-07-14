@@ -2,10 +2,7 @@ import type {
   CommentSidebarHostActions,
   CommentSidebarHostSnapshot,
 } from '@services/comments/sidebar/comment-sidebar-contract';
-import type {
-  ThreadedCommentsPanelChatWithConfig,
-  ThreadedCommentsPanelCommentChatWithConfig,
-} from '../types';
+import type { ThreadedCommentsPanelChatWithConfig, ThreadedCommentsPanelCommentChatWithConfig } from '../types';
 
 export type ThreadedCommentsPanelSnapshot = CommentSidebarHostSnapshot & {
   noticeMessage: string;

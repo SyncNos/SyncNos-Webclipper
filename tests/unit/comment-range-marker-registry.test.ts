@@ -137,5 +137,4 @@ describe('comment range marker registry', () => {
     registry.dispose();
     expect(disconnected).toBe(1);
   });
-
 });
