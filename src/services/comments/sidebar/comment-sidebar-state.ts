@@ -30,13 +30,14 @@ export type CommentSidebarHostSnapshot = {
   comments: CommentSidebarItem[];
   focusComposerSignal: number;
   lastOpenSource: string | null;
+  contextKey: string;
   loadStatus: CommentSidebarLoadStatus;
   loadError: CommentSidebarLoadError | null;
 };
 
 export type CommentSidebarHostActionCallbacks = {
   onSave?: (text: string) => CommentSaveResult | Promise<CommentSaveResult>;
-  onReply?: (parentId: number, text: string) => void | Promise<void>;
+  onReply?: (parentId: number, text: string) => CommentSaveResult | Promise<CommentSaveResult>;
   onDelete?: (id: number) => void | Promise<void>;
   onClose?: () => void;
   onComposerSelectionRequest?: (input: CommentSidebarComposerSelectionRequest) => void | Promise<void>;
@@ -46,7 +47,7 @@ export type CommentSidebarHostActionCallbacks = {
 
 export type CommentSidebarHostActions = {
   save: (text: string) => CommentSaveResult | Promise<CommentSaveResult>;
-  reply: (parentId: number, text: string) => void | Promise<void>;
+  reply: (parentId: number, text: string) => CommentSaveResult | Promise<CommentSaveResult>;
   delete: (id: number) => void | Promise<void>;
   close: () => void;
   requestComposerSelection: (input: CommentSidebarComposerSelectionRequest) => void | Promise<void>;
@@ -85,6 +86,7 @@ export function createCommentSidebarHostSnapshot(
     focusComposerSignal:
       Number.isSafeInteger(focusComposerSignal) && focusComposerSignal >= 0 ? focusComposerSignal : 0,
     lastOpenSource: source || null,
+    contextKey: String(input.contextKey ?? ''),
     loadStatus: ['idle', 'loading', 'ready', 'stale_error'].includes(String(input.loadStatus))
       ? (input.loadStatus as CommentSidebarLoadStatus)
       : 'idle',

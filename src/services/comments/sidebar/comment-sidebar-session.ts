@@ -155,6 +155,7 @@ export function createCommentSidebarSession(initialPanel?: CommentSidebarPanelAp
     if ('comments' in input) next.comments = Array.isArray(input.comments) ? input.comments : [];
     if ('loadStatus' in input) next.loadStatus = input.loadStatus;
     if ('loadError' in input) next.loadError = input.loadError || null;
+    if ('contextKey' in input) next.contextKey = String(input.contextKey ?? '');
     if (Object.keys(next).length) publish(next);
   }
 

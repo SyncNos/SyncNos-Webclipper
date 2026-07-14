@@ -32,6 +32,7 @@ export type DiscussionAction =
   | { type: 'set-root-draft'; value: string }
   | { type: 'set-reply-draft'; rootId: number; value: string }
   | { type: 'clear-reply-draft'; rootId: number }
+  | { type: 'reconcile-threads'; rootIds: readonly number[]; commentIds: readonly number[] }
   | { type: 'open-menu'; target: DiscussionMenuTarget }
   | { type: 'confirm-delete'; id: number | null }
   | { type: 'focus-root' }
@@ -61,6 +62,11 @@ export function createDiscussionState(contextKey = ''): DiscussionState {
     actionEpoch: 0,
     submit: idleSubmit(),
   };
+}
+
+
+function clearSubmitError(state: DiscussionState): DiscussionState {
+  return state.submit.status === 'error' ? { ...state, submit: idleSubmit() } : state;
 }
 
 function validRootId(value: number | null | undefined): number | null {
@@ -93,14 +99,17 @@ export function discussionReducer(state: DiscussionState, action: DiscussionActi
         confirmDelete: null,
       };
     }
-    case 'set-root-draft':
-      return { ...state, rootDraft: String(action.value ?? '') };
+    case 'set-root-draft': {
+      const next = clearSubmitError(state);
+      return { ...next, rootDraft: String(action.value ?? '') };
+    }
     case 'set-reply-draft': {
       const rootId = validRootId(action.rootId);
       if (rootId == null) return state;
       const value = String(action.value ?? '');
-      if (state.replyDrafts[rootId] === value) return state;
-      return { ...state, replyDrafts: { ...state.replyDrafts, [rootId]: value } };
+      const next = clearSubmitError(state);
+      if (next.replyDrafts[rootId] === value) return next;
+      return { ...next, replyDrafts: { ...next.replyDrafts, [rootId]: value } };
     }
     case 'clear-reply-draft': {
       const rootId = validRootId(action.rootId);
@@ -108,6 +117,49 @@ export function discussionReducer(state: DiscussionState, action: DiscussionActi
       const replyDrafts = { ...state.replyDrafts };
       delete replyDrafts[rootId];
       return { ...state, replyDrafts };
+    }
+    case 'reconcile-threads': {
+      const rootIds = new Set(action.rootIds.map(validRootId).filter((id): id is number => id != null));
+      const commentIds = new Set(action.commentIds.map(validRootId).filter((id): id is number => id != null));
+      const activeRootId = state.activeRootId != null && rootIds.has(state.activeRootId) ? state.activeRootId : null;
+      const replyDrafts = Object.fromEntries(
+        Object.entries(state.replyDrafts).filter(([rootId]) => rootIds.has(Number(rootId))),
+      );
+      const openMenu =
+        typeof state.openMenu === 'number' && !commentIds.has(state.openMenu) ? null : state.openMenu;
+      const confirmDelete =
+        state.confirmDelete != null && !commentIds.has(state.confirmDelete) ? null : state.confirmDelete;
+      const focusIntent =
+        state.focusIntent?.kind === 'reply' && !rootIds.has(state.focusIntent.rootId)
+          ? null
+          : state.focusIntent?.kind === 'menu' &&
+              typeof state.focusIntent.target === 'number' &&
+              !commentIds.has(state.focusIntent.target)
+            ? null
+            : state.focusIntent;
+      const submit =
+        state.submit.kind === 'reply' && state.submit.rootId != null && !rootIds.has(state.submit.rootId)
+          ? idleSubmit()
+          : state.submit;
+      if (
+        activeRootId === state.activeRootId &&
+        Object.keys(replyDrafts).length === Object.keys(state.replyDrafts).length &&
+        openMenu === state.openMenu &&
+        confirmDelete === state.confirmDelete &&
+        focusIntent === state.focusIntent &&
+        submit === state.submit
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        activeRootId,
+        replyDrafts,
+        openMenu,
+        confirmDelete,
+        focusIntent,
+        submit,
+      };
     }
     case 'open-menu':
       return { ...state, openMenu: action.target, confirmDelete: null };

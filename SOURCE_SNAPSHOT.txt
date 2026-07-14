@@ -1,10 +1,3 @@
-SyncNos Webclipper source snapshot
-Created: 2026-07-13
-Git commit: f9049394c62d0b335086c3b7cb74e02d79c21f97
-Short commit: f904939
-Branch: master
-Working tree status: source code clean; feature todo/audit evidence updated locally
-Plan state: P1-P4 all tasks complete; audit-p1 through audit-p4 all Go / Resolved
-Validation: todo OK; all four phases COMPLETE; lint 0 errors/0 warnings; format/compile/build PASS; 227 test files and 999 assertions PASS; comments audit regression 47 files/200 tests PASS; layering/radius scans PASS
-Known limits: installed-extension Chrome/Edge manual checklist remains a release-time human check; closed shadow and cross-frame limits are documented
-Excluded: .git, node_modules, .wxt, .output, coverage, dist, build, logs
+Checkpoint: independent re-audit, P1-P3 resolved, P4 RA-P4-F01 open
+Source: restored from SyncNos-checkpoint-re-audit-p1-p3-resolved.zip
+Status: 69/69 plan tasks completed; independent audit P1-P3 Go/Resolved; P4 No-Go/Open pending real Chrome and Edge installed-browser acceptance evidence.

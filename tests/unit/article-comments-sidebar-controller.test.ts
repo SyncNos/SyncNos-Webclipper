@@ -98,6 +98,7 @@ describe('article-comments-sidebar-controller', () => {
     const snapshot = session.getSnapshot();
     expect(snapshot.composerAttachment.displayQuote).toBe('Quoted');
     expect(snapshot.open).toBe(true);
+    expect(snapshot.contextKey).toContain('/article');
     expect(adapter.ensureContext).toHaveBeenCalledTimes(1);
     expect(adapter.list).toHaveBeenCalledWith({
       canonicalUrl: 'https://example.com/article',
@@ -718,6 +719,7 @@ describe('article-comments-sidebar-controller', () => {
 
     expect(adapter.list).toHaveBeenCalledTimes(2);
     expect(controller.getContext()).toEqual({ canonicalUrl: 'https://example.com/b', conversationId: 2 });
+    expect(session.getSnapshot().contextKey).toContain('/b');
   });
 
   it('close is idempotent and does not notify after the first transition', async () => {

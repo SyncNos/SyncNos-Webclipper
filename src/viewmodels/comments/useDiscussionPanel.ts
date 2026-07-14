@@ -11,8 +11,14 @@ type UseDiscussionPanelInput = {
   actions: CommentSidebarHostActions;
 };
 
+
+function isSuccessfulMutation(result: CommentSaveResult): boolean {
+  if (result === true) return true;
+  return Boolean(result && typeof result === 'object' && result.ok === true);
+}
+
 function buildContextKey(snapshot: CommentSidebarHostSnapshot): string {
-  return `source:${String(snapshot.lastOpenSource || '')}`;
+  return String(snapshot.contextKey || `source:${String(snapshot.lastOpenSource || '')}`);
 }
 
 export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInput) {
@@ -54,7 +60,13 @@ export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInpu
       dispatch({ type: 'submit-start', kind: 'root' });
       try {
         const result = await actions.save(text);
-        if (mountedRef.current) dispatch({ type: 'submit-success', kind: 'root' });
+        if (mountedRef.current) {
+          dispatch(
+            isSuccessfulMutation(result)
+              ? { type: 'submit-success', kind: 'root' }
+              : { type: 'submit-error', kind: 'root', error: 'Comment was not saved.' },
+          );
+        }
         return result;
       } catch (error) {
         if (mountedRef.current) {
@@ -64,7 +76,7 @@ export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInpu
             error: error instanceof Error ? error.message : String(error),
           });
         }
-        throw error;
+        return false;
       } finally {
         actionInFlightRef.current = false;
         if (mountedRef.current) setLocalBusyCount((count) => Math.max(0, count - 1));
@@ -74,14 +86,21 @@ export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInpu
   );
 
   const submitReply = useCallback(
-    async (rootId: number, text: string): Promise<void> => {
-      if (!mountedRef.current || actionInFlightRef.current) return;
+    async (rootId: number, text: string): Promise<CommentSaveResult> => {
+      if (!mountedRef.current || actionInFlightRef.current) return false;
       actionInFlightRef.current = true;
       setLocalBusyCount((count) => count + 1);
       dispatch({ type: 'submit-start', kind: 'reply', rootId });
       try {
-        await actions.reply(rootId, text);
-        if (mountedRef.current) dispatch({ type: 'submit-success', kind: 'reply', rootId });
+        const result = await actions.reply(rootId, text);
+        if (mountedRef.current) {
+          dispatch(
+            isSuccessfulMutation(result)
+              ? { type: 'submit-success', kind: 'reply', rootId }
+              : { type: 'submit-error', kind: 'reply', rootId, error: 'Reply was not saved.' },
+          );
+        }
+        return result;
       } catch (error) {
         if (mountedRef.current) {
           dispatch({
@@ -91,7 +110,7 @@ export function useDiscussionPanel({ snapshot, actions }: UseDiscussionPanelInpu
             error: error instanceof Error ? error.message : String(error),
           });
         }
-        throw error;
+        return false;
       } finally {
         actionInFlightRef.current = false;
         if (mountedRef.current) setLocalBusyCount((count) => Math.max(0, count - 1));

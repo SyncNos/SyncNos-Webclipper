@@ -37,6 +37,7 @@ export function ThreadedCommentsPanel({
   onNoticeExpired,
 }: ThreadedCommentsPanelProps) {
   const discussion = useDiscussionPanel({ snapshot, actions });
+  const discussionDispatch = discussion.dispatch;
   const composerText = discussion.state.rootDraft;
   const replyTexts = discussion.state.replyDrafts;
   const armedDeleteId = discussion.state.confirmDelete;
@@ -55,6 +56,11 @@ export function ThreadedCommentsPanel({
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const replyTextareaRefs = useRef<Record<number, HTMLTextAreaElement | null>>({});
   const busy = discussion.busy;
+  const submitError = discussion.state.submit.status === 'error' ? discussion.state.submit.error : null;
+
+  useLayoutEffect(() => {
+    if (submitError) showNotice?.(submitError);
+  }, [showNotice, submitError]);
 
   const syncLocalState = useCallback((run: () => void) => {
     try {
@@ -105,6 +111,22 @@ export function ThreadedCommentsPanel({
     () => new Map(normalizedGraph.threads.map((thread) => [Number(thread.root.id), thread.replies] as const)),
     [normalizedGraph],
   );
+  const commentIds = useMemo(
+    () =>
+      normalizedGraph.threads.flatMap((thread) => [
+        Number(thread.root.id),
+        ...thread.replies.map((reply) => Number(reply.id)),
+      ]),
+    [normalizedGraph],
+  );
+
+  useLayoutEffect(() => {
+    discussionDispatch({
+      type: 'reconcile-threads',
+      rootIds: roots.map((root) => Number(root.id)),
+      commentIds,
+    });
+  }, [commentIds, discussionDispatch, roots]);
 
   const submitReply = useCallback(
     async (rootId: number, rawText?: string | null) => {

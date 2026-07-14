@@ -20,6 +20,7 @@ export function createCommentRangeMarkerRegistry(input: {
   window?: Window;
   host?: HTMLElement;
   styleSource?: Element;
+  getGeometryRoots?: () => readonly Element[];
 }): CommentRangeMarkerRegistry {
   const doc = input.document;
   const win = input.window || doc.defaultView || undefined;
@@ -38,6 +39,8 @@ export function createCommentRangeMarkerRegistry(input: {
   let activeId: number | null = null;
   let rafId: number | null = null;
   let disposed = false;
+  let resizeObserver: ResizeObserver | null = null;
+  let observedGeometryRoots = new Set<Element>();
 
   const syncVisualTokens = () => {
     if (!input.styleSource || !win?.getComputedStyle) return;
@@ -92,8 +95,30 @@ export function createCommentRangeMarkerRegistry(input: {
     }
   };
 
+  const syncGeometryObservers = () => {
+    const ResizeObserverCtor = (win as (Window & { ResizeObserver?: typeof ResizeObserver }) | undefined)?.ResizeObserver;
+    if (!ResizeObserverCtor || !input.getGeometryRoots) return;
+    let nextRoots: Element[] = [];
+    try {
+      nextRoots = Array.from(input.getGeometryRoots() || []).filter(
+        (root, index, roots): root is Element => Boolean(root) && roots.indexOf(root) === index,
+      );
+    } catch (_error) {
+      nextRoots = [];
+    }
+    const unchanged =
+      nextRoots.length === observedGeometryRoots.size && nextRoots.every((root) => observedGeometryRoots.has(root));
+    if (unchanged) return;
+    resizeObserver?.disconnect();
+    const observer = resizeObserver || new ResizeObserverCtor(() => refresh());
+    resizeObserver = observer;
+    observedGeometryRoots = new Set(nextRoots);
+    for (const root of nextRoots) observer.observe(root);
+  };
+
   const refresh = () => {
     if (disposed) return;
+    syncGeometryObservers();
     if (rafId != null && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
     const run = () => {
       rafId = null;
@@ -133,6 +158,9 @@ export function createCommentRangeMarkerRegistry(input: {
       disposed = true;
       if (rafId != null && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
       win?.removeEventListener('resize', onGeometryChange);
+      resizeObserver?.disconnect();
+      resizeObserver = null;
+      observedGeometryRoots.clear();
       win?.removeEventListener('scroll', onGeometryChange, true);
       for (const entry of entries.values()) clearElements(entry);
       entries.clear();

@@ -3,7 +3,6 @@ import type {
   CommentSidebarHostSnapshot,
 } from '@services/comments/sidebar/comment-sidebar-contract';
 import type {
-  CommentLocatorSurfaceRoots,
   ThreadedCommentsPanelChatWithConfig,
   ThreadedCommentsPanelCommentChatWithConfig,
 } from '../types';
@@ -30,7 +29,6 @@ export type ThreadedCommentsPanelProps = {
   setPendingFocusRootId?: (rootId: number | null) => void;
   locateThreadRoot?: (rootId: number) => Promise<ThreadLocateResult>;
   onActiveRootChange?: (rootId: number | null) => void;
-  getLocatorSurfaceRoots?: () => CommentLocatorSurfaceRoots | null;
   onLocateFailed?: (reason: string) => void;
   commentChatWith?: ThreadedCommentsPanelCommentChatWithConfig | null;
   showNotice?: (message: string) => void;

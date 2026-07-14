@@ -156,7 +156,12 @@ export function createArticleCommentsSidebarController(input: {
       generation,
       contextKey: getContextKey(),
     };
-    session.updateHost({ busy: status === 'loading', loadStatus: status, loadError: error });
+    session.updateHost({
+      busy: status === 'loading',
+      loadStatus: status,
+      loadError: error,
+      contextKey: loadSnapshot.contextKey,
+    });
     for (const listener of loadListeners) {
       try {
         listener();
@@ -217,6 +222,7 @@ export function createArticleCommentsSidebarController(input: {
 
     if (options?.invalidateMutations !== false) mutationGeneration += 1;
     activeContext = transition.next;
+    session.updateHost({ contextKey: getContextKey() });
     if (options?.clearComposer !== false) {
       session.clearComposerAttachment();
     }
@@ -348,14 +354,14 @@ export function createArticleCommentsSidebarController(input: {
       },
       onReply: async (parentId, text) => {
         const generation = mutationGeneration;
-        if (!isMutationCurrent(generation)) return;
+        if (!isMutationCurrent(generation)) return false;
         const value = safeString(text);
-        if (!value) return;
+        if (!value) return false;
         const id = Number(parentId);
-        if (!Number.isFinite(id) || id <= 0) return;
+        if (!Number.isFinite(id) || id <= 0) return false;
 
         const ctx = await ensureContextForAction(generation);
-        if (!isMutationCurrent(generation)) return;
+        if (!isMutationCurrent(generation)) return false;
         const canonicalUrl = canonicalizeArticleUrl(ctx?.canonicalUrl);
         if (!canonicalUrl) throw new Error('missing canonicalUrl for article comment reply');
 
@@ -365,8 +371,10 @@ export function createArticleCommentsSidebarController(input: {
           parentId: id,
           commentText: value,
         });
-        if (!isMutationCurrent(generation)) return;
+        if (!isMutationCurrent(generation)) return false;
         await refresh();
+        if (!isMutationCurrent(generation)) return false;
+        return true;
       },
       onDelete: async (id) => {
         const generation = mutationGeneration;
@@ -474,7 +482,7 @@ export function createArticleCommentsSidebarController(input: {
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    session.updateHost({ busy: false, loadStatus: 'idle', loadError: null, actionCallbacks: {} });
+    session.updateHost({ busy: false, loadStatus: 'idle', loadError: null, contextKey: '', actionCallbacks: {} });
     composerSelectionRequestSeq += 1;
     mutationGeneration += 1;
     operationGeneration += 1;

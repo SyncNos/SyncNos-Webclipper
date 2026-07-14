@@ -122,6 +122,7 @@ describe('comment-sidebar-host-state', () => {
       comments: [{ ...item, commentText: 'comment-7', locator: snapshot.comments[0].locator }],
       focusComposerSignal: 3,
       lastOpenSource: 'app',
+      contextKey: '',
       loadStatus: 'idle',
       loadError: null,
     });
@@ -194,6 +195,7 @@ describe('comment-sidebar-session', () => {
       comments: [comment],
       focusComposerSignal: 1,
       lastOpenSource: 'inpage',
+      contextKey: '',
       loadStatus: 'idle',
       loadError: null,
     });

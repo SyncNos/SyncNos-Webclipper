@@ -60,4 +60,35 @@ describe('discussionReducer', () => {
     expect(discussionReducer(state, { type: 'set-reply-draft', rootId: 0, value: 'x' })).toBe(state);
     expect(discussionReducer(state, { type: 'submit-start', kind: 'reply', rootId: -1 })).toBe(state);
   });
+
+  it('clears a submit error when the user edits the affected draft', () => {
+    let state = createDiscussionState();
+    state = discussionReducer(state, { type: 'submit-error', kind: 'root', error: 'failed' });
+    state = discussionReducer(state, { type: 'set-root-draft', value: 'retry root' });
+    expect(state.submit.status).toBe('idle');
+
+    state = discussionReducer(state, { type: 'submit-error', kind: 'reply', rootId: 4, error: 'failed' });
+    state = discussionReducer(state, { type: 'set-reply-draft', rootId: 4, value: 'retry reply' });
+    expect(state.submit.status).toBe('idle');
+  });
+
+
+  it('reconciles active and transient state against the latest thread graph', () => {
+    let state = createDiscussionState();
+    state = discussionReducer(state, { type: 'activate-root', rootId: 7 });
+    state = discussionReducer(state, { type: 'set-reply-draft', rootId: 7, value: 'draft' });
+    state = discussionReducer(state, { type: 'open-menu', target: 8 });
+    state = discussionReducer(state, { type: 'confirm-delete', id: 8 });
+    state = discussionReducer(state, { type: 'focus-reply', rootId: 7 });
+    state = discussionReducer(state, { type: 'submit-start', kind: 'reply', rootId: 7 });
+
+    const next = discussionReducer(state, { type: 'reconcile-threads', rootIds: [9], commentIds: [9, 10] });
+    expect(next.activeRootId).toBeNull();
+    expect(next.replyDrafts).toEqual({});
+    expect(next.openMenu).toBeNull();
+    expect(next.confirmDelete).toBeNull();
+    expect(next.focusIntent).toBeNull();
+    expect(next.submit.status).toBe('idle');
+  });
+
 });

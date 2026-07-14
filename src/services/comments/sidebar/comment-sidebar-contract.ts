@@ -49,6 +49,7 @@ export type CommentSidebarHostUpdate = {
   actionCallbacks?: CommentSidebarHostActionCallbacks;
   loadStatus?: CommentSidebarLoadStatus;
   loadError?: CommentSidebarLoadError | null;
+  contextKey?: string;
 };
 
 export type CommentSidebarSession = CommentSidebarHost & {

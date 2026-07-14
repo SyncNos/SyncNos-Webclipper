@@ -72,4 +72,23 @@ describe('single active reply composer', () => {
     expect(shadow.querySelectorAll('.webclipper-inpage-comments-panel__reply-textarea')).toHaveLength(1);
     mounted.cleanup();
   });
+
+  it('clears the active reply composer when its root disappears', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    const driver = getCommentSidebarPanelTestDriver(mounted.api);
+    driver.replaceComments([{ id: 1, parentId: null, createdAt: 1000, commentText: 'one' }]);
+    await flush();
+    const shadow = host.querySelector('webclipper-threaded-comments-panel')!.shadowRoot!;
+    (shadow.querySelector('.webclipper-inpage-comments-panel__comment') as HTMLElement).click();
+    await flush();
+    expect(shadow.querySelector('.webclipper-inpage-comments-panel__reply-textarea')).toBeTruthy();
+
+    driver.replaceComments([]);
+    await flush();
+    expect(shadow.querySelector('.webclipper-inpage-comments-panel__reply-textarea')).toBeNull();
+    mounted.cleanup();
+  });
+
 });

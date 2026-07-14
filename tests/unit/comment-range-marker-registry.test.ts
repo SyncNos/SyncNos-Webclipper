@@ -89,4 +89,53 @@ describe('comment range marker registry', () => {
     expect(registry.size()).toBe(0);
     expect(dom.window.document.querySelector('.webclipper-comment-range-markers')).toBeNull();
   });
+  test('refreshes geometry from observed roots and disconnects on dispose', () => {
+    const dom = new JSDOM('<body><main id="source"></main><section id="scroll"></section></body>', {
+      url: 'https://example.com/',
+    });
+    const sourceRoot = dom.window.document.querySelector('#source')!;
+    const scrollRoot = dom.window.document.querySelector('#scroll')!;
+    let left = 10;
+    const range = {
+      cloneRange: () => range,
+      getClientRects: () => [{ left, top: 10, right: left + 20, bottom: 20, width: 20, height: 10 }],
+    } as unknown as Range;
+    const observed: Element[] = [];
+    let disconnected = 0;
+    let notifyResize = () => {};
+    class FakeResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        notifyResize = () => callback([], this as unknown as ResizeObserver);
+      }
+      observe(element: Element) {
+        observed.push(element);
+      }
+      unobserve() {}
+      disconnect() {
+        disconnected += 1;
+      }
+    }
+    Object.defineProperty(dom.window, 'ResizeObserver', {
+      configurable: true,
+      value: FakeResizeObserver,
+    });
+
+    const registry = createCommentRangeMarkerRegistry({
+      document: dom.window.document,
+      window: dom.window as unknown as Window,
+      getGeometryRoots: () => [sourceRoot, scrollRoot],
+    });
+    registry.replace(1, range);
+    registry.refresh();
+    expect(observed).toEqual([sourceRoot, scrollRoot]);
+    expect((dom.window.document.querySelector('[data-comment-id="1"]') as HTMLElement).style.left).toBe('10px');
+
+    left = 44;
+    notifyResize();
+    expect((dom.window.document.querySelector('[data-comment-id="1"]') as HTMLElement).style.left).toBe('44px');
+
+    registry.dispose();
+    expect(disconnected).toBe(1);
+  });
+
 });

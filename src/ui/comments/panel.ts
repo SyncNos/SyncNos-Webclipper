@@ -278,6 +278,10 @@ export function mountThreadedCommentsPanel(
     document: panelDocument,
     window: panelDocument.defaultView || undefined,
     styleSource: el,
+    getGeometryRoots: () => {
+      const roots = readLocatorSurfaceRoots(options);
+      return roots ? [roots.sourceRoot, roots.scrollRoot] : [];
+    },
   });
   const anchorController = createCommentAnchorController({
     getRoots: (locator) => readLocatorRoots(options, locator),
