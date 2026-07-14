@@ -1,12 +1,14 @@
 import { t } from '@i18n';
-import type { Ref } from 'react';
+import { useId, type Ref } from 'react';
 import { useAutosizeTextarea } from './use-autosize-textarea';
+import { isDiscussionSubmitShortcut } from './use-discussion-keyboard';
 
 type RootCommentComposerProps = {
   value: string;
   disabled: boolean;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void | Promise<void>;
+  onCancel?: () => void;
   textareaRef?: Ref<HTMLTextAreaElement>;
 };
 
@@ -15,8 +17,16 @@ function assignRef(ref: Ref<HTMLTextAreaElement> | undefined, node: HTMLTextArea
   else if (ref) ref.current = node;
 }
 
-export function RootCommentComposer({ value, disabled, onChange, onSubmit, textareaRef }: RootCommentComposerProps) {
+export function RootCommentComposer({
+  value,
+  disabled,
+  onChange,
+  onSubmit,
+  onCancel,
+  textareaRef,
+}: RootCommentComposerProps) {
   const autosize = useAutosizeTextarea(value);
+  const hintId = useId();
   const setTextareaRef = (node: HTMLTextAreaElement | null) => {
     autosize.setRef(node);
     assignRef(textareaRef, node);
@@ -36,6 +46,7 @@ export function RootCommentComposer({ value, disabled, onChange, onSubmit, texta
           className="webclipper-inpage-comments-panel__composer-textarea"
           placeholder="Write a comment…"
           aria-label="Write a comment"
+          aria-describedby={hintId}
           rows={1}
           value={value}
           onInput={(event) => {
@@ -46,9 +57,25 @@ export function RootCommentComposer({ value, disabled, onChange, onSubmit, texta
             onChange(event.currentTarget.value);
             autosize.resize();
           }}
+          onKeyDown={(event) => {
+            if (isDiscussionSubmitShortcut({ ...event, isComposing: event.nativeEvent.isComposing })) {
+              event.preventDefault();
+              event.stopPropagation();
+              void onSubmit(event.currentTarget.value);
+              return;
+            }
+            if (event.key === 'Escape' && onCancel && value) {
+              event.preventDefault();
+              event.stopPropagation();
+              onCancel();
+            }
+          }}
           disabled={disabled}
         />
         <div className="webclipper-inpage-comments-panel__composer-toolbar">
+          <span id={hintId} className="webclipper-inpage-comments-panel__composer-hint">
+            Ctrl/⌘ + Enter to submit
+          </span>
           <button
             type="button"
             className="webclipper-inpage-comments-panel__send webclipper-btn webclipper-btn--icon"

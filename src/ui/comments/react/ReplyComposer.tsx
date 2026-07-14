@@ -1,6 +1,7 @@
 import { t } from '@i18n';
-import type { Ref } from 'react';
+import { useId, type Ref } from 'react';
 import { useAutosizeTextarea } from './use-autosize-textarea';
+import { isDiscussionSubmitShortcut } from './use-discussion-keyboard';
 
 type ReplyComposerProps = {
   rootId: number;
@@ -27,6 +28,7 @@ export function ReplyComposer({
   onCancel,
 }: ReplyComposerProps) {
   const autosize = useAutosizeTextarea(value);
+  const hintId = useId();
   const setRef = (node: HTMLTextAreaElement | null) => {
     autosize.setRef(node);
     assignRef(textareaRef, node);
@@ -46,6 +48,7 @@ export function ReplyComposer({
           className="webclipper-inpage-comments-panel__reply-textarea"
           placeholder="Reply…"
           aria-label="Write a reply"
+          aria-describedby={hintId}
           rows={1}
           value={value}
           onInput={(event) => {
@@ -55,6 +58,19 @@ export function ReplyComposer({
           onChange={(event) => {
             onChange(event.currentTarget.value);
             autosize.resize();
+          }}
+          onKeyDown={(event) => {
+            if (isDiscussionSubmitShortcut({ ...event, isComposing: event.nativeEvent.isComposing })) {
+              event.preventDefault();
+              event.stopPropagation();
+              void onSubmit(event.currentTarget.value);
+              return;
+            }
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              onCancel();
+            }
           }}
           disabled={disabled}
         />
@@ -67,6 +83,9 @@ export function ReplyComposer({
           >
             Cancel
           </button>
+          <span id={hintId} className="webclipper-inpage-comments-panel__composer-hint">
+            Ctrl/⌘ + Enter to submit
+          </span>
           <button
             type="button"
             className="webclipper-inpage-comments-panel__send webclipper-btn webclipper-btn--icon"

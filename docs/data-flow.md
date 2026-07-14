@@ -59,7 +59,7 @@
 3. controller 通过 `comment-sidebar-session.ts` 原子发布 serializable snapshot 与稳定 actions；panel 用 identity-aware lease attach host，旧 lease 和重复 dispose 不影响新 host。
 4. React surface 稳定单次 mount。`discussionReducer` 管理 active root、root/reply drafts、menu/delete confirmation、focus intent 与 submit 状态；context key 改变时确定性 reset。
 5. `normalizeCommentThreadGraph()` 是唯一 roots/replies 归一化入口；UI 同时只挂载一个 active `ReplyComposer`，切换 root 时各自 draft 保留。
-6. selection attachment、optional AI actions、notice 与 focus 分别由独立 hook 管理。评论提交、取消、菜单和侧栏关闭只通过显式控件触发，不提供评论专用键盘快捷键。
+6. selection attachment、optional AI actions、keyboard、notice 与 focus 分别由独立 hook 管理。Cmd/Ctrl+Enter 只由当前 composer 提交；Escape 不经过 panel/store relay。
 7. 根评论 capture 使用注入的 DOM source 写入 V2 locator；reader 兼容历史 V1。定位只接受受限 roots 上全局唯一 exact Range，并同步 panel-scoped passive/active markers。
 8. save/reply/delete 使用 mutation generation；context change/dispose 后的晚到 completion 不再 refresh 旧 identity、清空 attachment 或触发 focus。panel close/cleanup 幂等释放 load、migration、dock、resize、lease、marker 与 React root。
 9. comments background handlers 统一落库；reply 校验同 context root，root 删除递归清理后代。Notion、Obsidian 与 Zip 归档都消费 canonical thread graph。

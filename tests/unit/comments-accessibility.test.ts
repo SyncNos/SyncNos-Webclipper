@@ -65,7 +65,7 @@ describe('comments accessibility', () => {
     root = null;
   });
 
-  it('exposes named composer controls without custom shortcut hints', () => {
+  it('exposes named composer controls and shortcut descriptions', () => {
     const rootMarkup = renderToStaticMarkup(
       createElement(RootCommentComposer, {
         value: '',
@@ -88,8 +88,8 @@ describe('comments accessibility', () => {
     expect(rootMarkup).toContain('role="group"');
     expect(rootMarkup).toContain('aria-label="New comment"');
     expect(rootMarkup).toContain('aria-label="Write a comment"');
-    expect(rootMarkup).not.toContain('aria-describedby=');
-    expect(rootMarkup).not.toContain('Ctrl/⌘ + Enter to submit');
+    expect(rootMarkup).toContain('aria-describedby=');
+    expect(rootMarkup).toContain('Ctrl/⌘ + Enter to submit');
     expect(replyMarkup).toContain('aria-label="Reply composer"');
     expect(replyMarkup).toContain('aria-label="Write a reply"');
   });

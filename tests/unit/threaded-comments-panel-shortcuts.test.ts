@@ -39,6 +39,11 @@ function cleanupDom() {
   delete (globalThis as any).getComputedStyle;
 }
 
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 async function flushReactScheduler() {
   await Promise.resolve();
   await new Promise<void>((resolve) => {
@@ -51,7 +56,7 @@ async function flushReactScheduler() {
   await Promise.resolve();
 }
 
-describe('Threaded comments panel submit regressions', () => {
+describe('Threaded comments panel shortcuts', () => {
   beforeEach(() => {
     setupDom();
   });
@@ -59,6 +64,83 @@ describe('Threaded comments panel submit regressions', () => {
   afterEach(async () => {
     await flushReactScheduler();
     cleanupDom();
+  });
+
+  it('sends composer comment on Cmd+Enter', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onSave });
+
+    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
+    expect(panel).toBeTruthy();
+    const shadow = panel!.shadowRoot!;
+
+    const textarea = shadow.querySelector(
+      '.webclipper-inpage-comments-panel__composer-textarea',
+    ) as HTMLTextAreaElement | null;
+    expect(textarea).toBeTruthy();
+    textarea!.focus();
+    textarea!.value = 'hello';
+    textarea!.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
+
+    textarea!.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await flushPromises();
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('hello');
+
+    mounted.cleanup();
+  });
+
+  it('sends reply on Cmd+Enter', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+
+    const onReply = vi.fn().mockResolvedValue(undefined);
+    const mounted = mountThreadedCommentsPanel(host, { overlay: false, showHeader: false });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceActionCallbacks({ onReply });
+    getCommentSidebarPanelTestDriver(mounted.api).replaceComments([
+      { id: 1, parentId: null, createdAt: 1000, commentText: 'root' },
+    ]);
+
+    const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement | null;
+    expect(panel).toBeTruthy();
+    const shadow = panel!.shadowRoot!;
+
+    const textarea = shadow.querySelector(
+      '.webclipper-inpage-comments-panel__reply-textarea',
+    ) as HTMLTextAreaElement | null;
+    expect(textarea).toBeTruthy();
+    textarea!.focus();
+    textarea!.value = 'reply';
+    textarea!.dispatchEvent(new window.Event('input', { bubbles: true, cancelable: true }));
+    await flushReactScheduler();
+
+    textarea!.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await flushPromises();
+
+    expect(onReply).toHaveBeenCalledTimes(1);
+    expect(onReply).toHaveBeenCalledWith(1, 'reply');
+
+    mounted.cleanup();
   });
 
   it('preserves the root draft when the host reports a no-op save', async () => {
