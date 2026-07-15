@@ -1,13 +1,12 @@
 import type {
   ArticleCommentAnchorResolveReason,
   ArticleCommentLocator,
-  ArticleCommentSurfaceHint,
 } from '@services/comments/domain/comment-locator';
 import { compareCommentRootEvidence } from '@services/comments/locator/comment-root-evidence';
 import { createCommentDomTextIndex, type CommentDomTextIndex } from '@services/comments/locator/dom-text-index';
 import { resolveV1CommentAnchor } from '@services/comments/locator/resolve-v1-comment-anchor';
 import { resolveV2ByPathOrPosition } from '@services/comments/locator/resolve-v2-by-path';
-import { collectV2ExactQuoteMatches, resolveV2ByQuoteContext } from '@services/comments/locator/resolve-v2-by-quote';
+import { resolveV2ByQuoteContext } from '@services/comments/locator/resolve-v2-by-quote';
 
 export type CommentAnchorResolutionBudget = { remainingTextLength: number };
 
@@ -15,14 +14,9 @@ export type ResolveCommentAnchorResult =
   | { ok: true; range: Range; root: Element; rootIndex: number }
   | { ok: false; reason: ArticleCommentAnchorResolveReason | 'aborted' | 'ambiguous_root' };
 
-function isKnownSurface(value: ArticleCommentSurfaceHint | null | undefined): value is 'inpage' | 'app' {
-  return value === 'inpage' || value === 'app';
-}
-
 export function resolveCommentAnchor(input: {
   locator: ArticleCommentLocator;
   roots: readonly Element[];
-  targetSurfaceHint?: ArticleCommentSurfaceHint | null;
   signal?: AbortSignal;
   generation?: number;
   isGenerationCurrent?: (generation: number) => boolean;
@@ -35,12 +29,6 @@ export function resolveCommentAnchor(input: {
   const maxTotalTextLength = Math.max(0, Math.floor(Number(input.maxTotalTextLength ?? 400_000) || 0));
   if (!input.roots.length) return { ok: false, reason: 'missing_root' };
   if (input.roots.length > maxRoots) return { ok: false, reason: 'budget_exceeded' };
-
-  const crossSurface =
-    input.locator.v === 2 &&
-    isKnownSurface(input.locator.surfaceHint) &&
-    isKnownSurface(input.targetSurfaceHint) &&
-    input.locator.surfaceHint !== input.targetSurfaceHint;
 
   const candidates: Array<{ range: Range; root: Element; rootIndex: number; signature: string }> = [];
   let scanned = 0;
@@ -59,18 +47,6 @@ export function resolveCommentAnchor(input: {
     if (input.budget) {
       if (index.text.length > input.budget.remainingTextLength) return { ok: false, reason: 'budget_exceeded' };
       input.budget.remainingTextLength -= index.text.length;
-    }
-
-    if (crossSurface && input.locator.v === 2) {
-      const exact = collectV2ExactQuoteMatches({ root, locator: input.locator, index });
-      if (!exact.ok) return exact;
-      for (const match of exact.matches) {
-        const signature = `${rootIndex}:${match.start}:${match.end}`;
-        if (!candidates.some((candidate) => candidate.signature === signature)) {
-          candidates.push({ range: match.range, root, rootIndex, signature });
-        }
-      }
-      continue;
     }
 
     const ranges: Range[] = [];
@@ -105,16 +81,6 @@ export function resolveCommentAnchor(input: {
         candidates.push({ range, root, rootIndex, signature });
       }
     }
-  }
-
-  if (crossSurface) {
-    if (!candidates.length) return { ok: false, reason: 'quote_not_found' };
-    if (candidates.length !== 1) {
-      const matchedRoots = new Set(candidates.map((candidate) => candidate.rootIndex));
-      return { ok: false, reason: matchedRoots.size > 1 ? 'ambiguous_root' : 'ambiguous_quote' };
-    }
-    const [candidate] = candidates;
-    return { ok: true, range: candidate.range, root: candidate.root, rootIndex: candidate.rootIndex };
   }
 
   if (!candidates.length) {

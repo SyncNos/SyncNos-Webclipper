@@ -292,7 +292,6 @@ export function mountThreadedCommentsPanel(
       return resolveCommentAnchor({
         locator,
         roots,
-        targetSurfaceHint: options.locatorEnv || 'unknown',
         signal,
         generation,
         isGenerationCurrent: (candidate) => candidate === anchorController.getGeneration(),

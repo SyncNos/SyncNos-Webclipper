@@ -55,40 +55,6 @@ describe('resolveCommentAnchor', () => {
     });
   });
 
-  test('resolves a cross-surface V2 locator only when its exact quote is globally unique', () => {
-    const source = element('source prefix exact source suffix');
-    const range = source.ownerDocument.createRange();
-    range.setStart(source.firstChild!, 14);
-    range.setEnd(source.firstChild!, 19);
-    const locator = captureCommentAnchor({ root: source, range, surfaceHint: 'inpage' })!;
-    const renderedArticle = element('reader prefix changed exact reader suffix changed');
-
-    expect(resolveCommentAnchor({ locator, roots: [renderedArticle] })).toEqual({
-      ok: false,
-      reason: 'root_mismatch',
-    });
-
-    const result = resolveCommentAnchor({ locator, roots: [renderedArticle], targetSurfaceHint: 'app' });
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.range.toString()).toBe('exact');
-  });
-
-  test('rejects ambiguous cross-surface exact quotes within one root or across roots', () => {
-    const source = element('source exact context');
-    const range = source.ownerDocument.createRange();
-    range.setStart(source.firstChild!, 7);
-    range.setEnd(source.firstChild!, 12);
-    const locator = captureCommentAnchor({ root: source, range, surfaceHint: 'inpage' })!;
-
-    expect(resolveCommentAnchor({ locator, roots: [element('exact and exact')], targetSurfaceHint: 'app' })).toEqual({
-      ok: false,
-      reason: 'ambiguous_quote',
-    });
-    expect(
-      resolveCommentAnchor({ locator, roots: [element('exact'), element('exact')], targetSurfaceHint: 'app' }),
-    ).toEqual({ ok: false, reason: 'ambiguous_root' });
-  });
-
   test('rejects a V1 locator that resolves in more than one root', () => {
     const locator = {
       v: 1 as const,
