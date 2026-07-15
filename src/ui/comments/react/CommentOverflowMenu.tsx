@@ -39,11 +39,9 @@ export function CommentOverflowMenu({
 }: CommentOverflowMenuProps) {
   const reactId = useId();
   const menuId = `webclipper-comment-menu-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const internalTriggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const setTriggerRef = (node: HTMLButtonElement | null) => {
-    internalTriggerRef.current = node;
     assignButtonRef(triggerRef, node);
   };
 
@@ -97,13 +95,6 @@ export function CommentOverflowMenu({
         aria-label={targetLabel}
         hidden={!open}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            event.stopPropagation();
-            void onToggle();
-            internalTriggerRef.current?.focus();
-            return;
-          }
           if (event.key === 'ArrowDown') focusRelativeItem(event, 1);
           if (event.key === 'ArrowUp') focusRelativeItem(event, -1);
           if (event.key === 'Home') {

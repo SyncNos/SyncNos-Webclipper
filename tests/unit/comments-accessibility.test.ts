@@ -126,7 +126,7 @@ describe('comments accessibility', () => {
     expect(onActivate).toHaveBeenCalledWith(7);
   });
 
-  it('links the overflow trigger to its menu and restores focus after Escape', () => {
+  it('links the overflow trigger to its menu and ignores Escape', () => {
     const host = document.getElementById('root')!;
     root = createRoot(host);
     act(() => root!.render(createElement(OverflowHarness)));
@@ -144,11 +144,13 @@ describe('comments accessibility', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     expect(document.activeElement).toBe(firstItem);
 
+    const escape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     act(() => {
-      firstItem.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      firstItem.dispatchEvent(escape);
     });
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(document.activeElement).toBe(trigger);
+    expect(escape.defaultPrevented).toBe(false);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(firstItem);
   });
 
   it('keeps visible focus styles and does not suppress textarea outlines', () => {

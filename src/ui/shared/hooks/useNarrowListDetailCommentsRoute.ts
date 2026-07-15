@@ -38,20 +38,16 @@ export function useNarrowListDetailCommentsRoute(input: UseNarrowListDetailComme
   }, [defaultRoute, isNarrow]);
 
   useEffect(() => {
-    if (!isNarrow || route === 'list') return;
+    if (!isNarrow || route !== 'detail') return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
-      if (route === 'comments') {
-        returnToDetail();
-        return;
-      }
       returnToList();
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [isNarrow, returnToDetail, returnToList, route]);
+  }, [isNarrow, returnToList, route]);
 
   return {
     route,

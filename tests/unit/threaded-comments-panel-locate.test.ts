@@ -13,6 +13,8 @@ import { resolveCommentAnchor } from '@services/comments/locator/resolve-comment
 import { mountThreadedCommentsPanel } from '@ui/comments';
 import { getCommentSidebarPanelTestDriver } from '../helpers/comment-sidebar-panel-driver';
 
+let registeredHighlights: Map<string, { priority: number; ranges: AbstractRange[] }>;
+
 const locator = {
   v: 1 as const,
   env: 'inpage' as const,
@@ -36,6 +38,35 @@ function setupDom() {
     configurable: true,
     value: dom.window.getComputedStyle.bind(dom.window),
   });
+
+  registeredHighlights = new Map();
+  class FakeHighlight {
+    priority = 0;
+    type = 'highlight' as const;
+    readonly ranges: AbstractRange[];
+
+    constructor(...ranges: AbstractRange[]) {
+      this.ranges = ranges;
+    }
+
+    forEach(callback: (value: AbstractRange, key: AbstractRange, parent: Highlight) => void) {
+      for (const range of this.ranges) callback(range, range, this as unknown as Highlight);
+    }
+  }
+  Object.defineProperty(dom.window, 'CSS', {
+    configurable: true,
+    value: {
+      highlights: {
+        set(name: string, highlight: FakeHighlight) {
+          registeredHighlights.set(name, { priority: highlight.priority, ranges: highlight.ranges });
+        },
+        delete(name: string) {
+          return registeredHighlights.delete(name);
+        },
+      },
+    },
+  });
+  Object.defineProperty(dom.window, 'Highlight', { configurable: true, value: FakeHighlight });
 
   (dom.window.HTMLElement.prototype as any).attachEvent ||= () => {};
   (dom.window.HTMLElement.prototype as any).detachEvent ||= () => {};
@@ -124,6 +155,7 @@ describe('Threaded comments panel locate', () => {
       overlay: false,
       showHeader: false,
       variant: 'sidebar',
+      locatorEnv: 'app',
       getLocatorSurfaceRoots: () => ({ sourceRoot: article, scrollRoot }),
     });
 
@@ -154,7 +186,8 @@ describe('Threaded comments panel locate', () => {
     expect(resolveCommentAnchor).toHaveBeenCalledTimes(beforeBodyClick);
 
     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-    expect(document.querySelector('[data-comment-id="1"]')?.className).toContain('is-active');
+    expect(document.querySelector('.webclipper-comment-range-markers')).toBeNull();
+    expect(Array.from(registeredHighlights.keys()).some((name) => name.includes('active'))).toBe(true);
 
     const locateButton = panel.shadowRoot!.querySelector(
       '.webclipper-inpage-comments-panel__quote-locate',
@@ -165,7 +198,7 @@ describe('Threaded comments panel locate', () => {
 
     expect(resolveCommentAnchor).toHaveBeenCalled();
     expect((scrollRoot as any).scrollTo).toHaveBeenCalledWith({ top: 70, behavior: 'smooth' });
-    expect(document.querySelector('[data-comment-id="1"]')?.className).toContain('is-active');
+    expect(Array.from(registeredHighlights.keys()).some((name) => name.includes('active'))).toBe(true);
 
     const beforeReplyClick = (resolveCommentAnchor as any).mock.calls.length;
     const replyBody = panel.shadowRoot!.querySelector(
@@ -176,7 +209,8 @@ describe('Threaded comments panel locate', () => {
     expect(resolveCommentAnchor).toHaveBeenCalledTimes(beforeReplyClick);
 
     mounted.cleanup();
-    expect(document.querySelector('.webclipper-comment-range-markers')).toBeNull();
+    expect(registeredHighlights.size).toBe(0);
+    expect(document.querySelector('[data-webclipper-comment-highlights]')).toBeNull();
   });
 
   it('does not invoke the resolver when the surface root is missing', async () => {
