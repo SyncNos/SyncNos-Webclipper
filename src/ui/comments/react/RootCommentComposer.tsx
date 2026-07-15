@@ -8,7 +8,6 @@ type RootCommentComposerProps = {
   disabled: boolean;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void | Promise<void>;
-  onCancel?: () => void;
   textareaRef?: Ref<HTMLTextAreaElement>;
 };
 
@@ -17,14 +16,7 @@ function assignRef(ref: Ref<HTMLTextAreaElement> | undefined, node: HTMLTextArea
   else if (ref) ref.current = node;
 }
 
-export function RootCommentComposer({
-  value,
-  disabled,
-  onChange,
-  onSubmit,
-  onCancel,
-  textareaRef,
-}: RootCommentComposerProps) {
+export function RootCommentComposer({ value, disabled, onChange, onSubmit, textareaRef }: RootCommentComposerProps) {
   const autosize = useAutosizeTextarea(value);
   const hintId = useId();
   const setTextareaRef = (node: HTMLTextAreaElement | null) => {
@@ -63,11 +55,6 @@ export function RootCommentComposer({
               event.stopPropagation();
               void onSubmit(event.currentTarget.value);
               return;
-            }
-            if (event.key === 'Escape' && onCancel && value) {
-              event.preventDefault();
-              event.stopPropagation();
-              onCancel();
             }
           }}
           disabled={disabled}

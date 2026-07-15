@@ -105,7 +105,7 @@ describe('useNarrowListDetailCommentsRoute', () => {
     expect(latestSnapshot?.listRestoreKey).toBe(1);
   });
 
-  it('handles Escape as comments -> detail -> list', () => {
+  it('ignores Escape in comments and keeps detail -> list Escape navigation', () => {
     act(() => {
       root!.render(createElement(RouteHarness, { isNarrow: true }));
     });
@@ -116,25 +116,28 @@ describe('useNarrowListDetailCommentsRoute', () => {
     });
     expect(latestSnapshot?.route).toBe('comments');
 
-    const firstEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    const commentsEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     act(() => {
-      document.dispatchEvent(firstEscape);
+      document.dispatchEvent(commentsEscape);
     });
-    expect(firstEscape.defaultPrevented).toBe(true);
-    expect(latestSnapshot?.route).toBe('detail');
+    expect(commentsEscape.defaultPrevented).toBe(false);
+    expect(latestSnapshot?.route).toBe('comments');
 
-    const secondEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     act(() => {
-      document.dispatchEvent(secondEscape);
+      latestSnapshot?.returnToDetail();
     });
-    expect(secondEscape.defaultPrevented).toBe(true);
+    const detailEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => {
+      document.dispatchEvent(detailEscape);
+    });
+    expect(detailEscape.defaultPrevented).toBe(true);
     expect(latestSnapshot?.route).toBe('list');
 
-    const thirdEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    const listEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     act(() => {
-      document.dispatchEvent(thirdEscape);
+      document.dispatchEvent(listEscape);
     });
-    expect(thirdEscape.defaultPrevented).toBe(false);
+    expect(listEscape.defaultPrevented).toBe(false);
     expect(latestSnapshot?.route).toBe('list');
   });
 });

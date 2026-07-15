@@ -131,7 +131,7 @@ describe('Threaded comments panel delete confirmation', () => {
     mounted.cleanup();
   });
 
-  it('cancels pending confirmation on outside click and Escape', async () => {
+  it('cancels pending confirmation on outside click and ignores Escape', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const onDelete = vi.fn().mockResolvedValue(undefined);
@@ -159,9 +159,11 @@ describe('Threaded comments panel delete confirmation', () => {
     await flushReactScheduler();
     expect(deleteButton(shadow).textContent).toBe('deleteButton');
     const surface = shadow.querySelector('.webclipper-inpage-comments-panel__surface') as HTMLElement;
-    surface.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    const escape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    surface.dispatchEvent(escape);
     await flushReactScheduler();
-    expect(deleteButton(shadow).textContent).toBe('Delete');
+    expect(escape.defaultPrevented).toBe(false);
+    expect(deleteButton(shadow).textContent).toBe('deleteButton');
     expect(onDelete).not.toHaveBeenCalled();
 
     mounted.cleanup();

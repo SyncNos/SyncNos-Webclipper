@@ -13,7 +13,6 @@ import { CommentQuotePreview } from './CommentQuotePreview';
 import { CommentThread } from './CommentThread';
 import { ReplyComposer } from './ReplyComposer';
 import { CommentOverflowMenu, type CommentOverflowAction } from './CommentOverflowMenu';
-import { useDiscussionKeyboard } from './use-discussion-keyboard';
 import { useCommentNotice } from './use-comment-notice';
 import { useCommentFocusIntent } from './use-comment-focus-intent';
 import { CommentsSidebarHeader } from './CommentsSidebarHeader';
@@ -283,16 +282,6 @@ export function ThreadedCommentsPanel({
     onExpired: onNoticeExpired,
   });
 
-  const handlePanelKeyDown = useDiscussionKeyboard({
-    openMenu: discussion.state.openMenu != null,
-    confirmDelete: armedDeleteId != null,
-    activeReply: effectiveActiveRootId != null,
-    closeMenu: () => discussion.setOpenMenu(null),
-    clearDeleteConfirm: () => discussion.setConfirmDelete(null),
-    closeActiveReply: () => discussion.setActiveRoot(null),
-    closePanel: onRequestClose,
-  });
-
   return (
     <div
       ref={panelSurfaceRef}
@@ -307,7 +296,6 @@ export function ThreadedCommentsPanel({
         }
         updateArmedDeleteId(null);
       }}
-      onKeyDown={handlePanelKeyDown}
     >
       {showHeader ? (
         <CommentsSidebarHeader
@@ -357,7 +345,6 @@ export function ThreadedCommentsPanel({
           disabled={busy}
           textareaRef={composerTextareaRef}
           onChange={updateComposerText}
-          onCancel={() => updateComposerText('')}
           onSubmit={(value) => submitComposer(value)}
         />
         <div className="webclipper-inpage-comments-panel__threads" role="list" aria-label="Comment threads">

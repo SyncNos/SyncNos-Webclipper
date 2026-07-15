@@ -66,11 +66,6 @@ export function ReplyComposer({
               void onSubmit(event.currentTarget.value);
               return;
             }
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              onCancel();
-            }
           }}
           disabled={disabled}
         />

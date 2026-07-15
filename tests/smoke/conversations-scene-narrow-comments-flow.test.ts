@@ -215,7 +215,7 @@ describe('ConversationsScene narrow comments flow', () => {
     cleanupDom();
   });
 
-  it('goes list -> detail -> comments and returns via close + Escape', () => {
+  it('goes list -> detail -> comments, ignores Escape there, and returns via close', () => {
     const commentsSidebarRuntime = {
       sidebarSession: {
         attachPanel,
@@ -285,18 +285,23 @@ describe('ConversationsScene narrow comments flow', () => {
     expect(sidebarOpen).toHaveBeenCalledTimes(2);
     expect(document.querySelector('webclipper-threaded-comments-panel')).toBeTruthy();
 
-    const firstEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    const commentsEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     act(() => {
-      document.dispatchEvent(firstEscape);
+      document.dispatchEvent(commentsEscape);
     });
-    expect(firstEscape.defaultPrevented).toBe(true);
+    expect(commentsEscape.defaultPrevented).toBe(false);
+    expect(document.querySelector('webclipper-threaded-comments-panel')).toBeTruthy();
+
+    act(() => {
+      currentSidebarCloseListener?.();
+    });
     expect(document.querySelector('[aria-label="Conversation detail"]')).toBeTruthy();
 
-    const secondEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    const detailEscape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     act(() => {
-      document.dispatchEvent(secondEscape);
+      document.dispatchEvent(detailEscape);
     });
-    expect(secondEscape.defaultPrevented).toBe(true);
+    expect(detailEscape.defaultPrevented).toBe(true);
     expect(document.querySelector('[data-conversation-id="11"]')).toBeTruthy();
   });
 
