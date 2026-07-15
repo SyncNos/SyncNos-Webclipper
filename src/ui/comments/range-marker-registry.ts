@@ -12,7 +12,6 @@ export type CommentRangeMarkerRegistry = {
 };
 
 const MARKER_ACCENT_VAR = '--webclipper-comment-marker-accent';
-const MARKER_RADIUS_VAR = '--webclipper-comment-marker-radius';
 const DEFAULT_MARKER_ACCENT = 'rgb(255 198 173)';
 
 export function createCommentRangeMarkerRegistry(input: {
@@ -33,7 +32,6 @@ export function createCommentRangeMarkerRegistry(input: {
   layer.style.zIndex = '2147483600';
   layer.style.pointerEvents = 'none';
   layer.style.setProperty(MARKER_ACCENT_VAR, DEFAULT_MARKER_ACCENT);
-  layer.style.setProperty(MARKER_RADIUS_VAR, 'var(--radius-inline)');
   host.appendChild(layer);
   const entries = new Map<number, MarkerEntry>();
   let activeId: number | null = null;
@@ -47,9 +45,7 @@ export function createCommentRangeMarkerRegistry(input: {
     try {
       const styles = win.getComputedStyle(input.styleSource);
       const accent = styles.getPropertyValue('--panel-accent').trim() || styles.getPropertyValue('--accent').trim();
-      const radius = styles.getPropertyValue('--radius-inline').trim();
       if (accent) layer.style.setProperty(MARKER_ACCENT_VAR, accent);
-      if (radius) layer.style.setProperty(MARKER_RADIUS_VAR, radius);
     } catch (_error) {
       // Keep the registry-owned fallbacks when the host style is unavailable.
     }
@@ -64,12 +60,11 @@ export function createCommentRangeMarkerRegistry(input: {
     element.style.position = 'absolute';
     element.style.boxSizing = 'border-box';
     element.style.pointerEvents = 'none';
-    element.style.borderRadius = `var(${MARKER_RADIUS_VAR})`;
+    element.style.borderRadius = '0';
     element.dataset.tone = tone;
-    element.style.background = `color-mix(in srgb, var(${MARKER_ACCENT_VAR}) ${tone === 'active' ? '28%' : '14%'}, transparent)`;
-    element.style.boxShadow = `inset 0 0 0 1px color-mix(in srgb, var(${MARKER_ACCENT_VAR}) ${tone === 'active' ? '62%' : '34%'}, transparent)`;
-    element.style.opacity = tone === 'active' ? '1' : '0.82';
-    element.style.transition = 'background-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease';
+    element.style.background = `color-mix(in srgb, var(${MARKER_ACCENT_VAR}) ${tone === 'active' ? '88%' : '62%'}, transparent)`;
+    element.style.opacity = tone === 'active' ? '1' : '0.78';
+    element.style.transition = 'background-color 120ms ease, opacity 120ms ease';
   };
 
   const renderEntry = (commentId: number, entry: MarkerEntry) => {
@@ -86,10 +81,11 @@ export function createCommentRangeMarkerRegistry(input: {
       element.className = `webclipper-comment-range-marker is-${entry.tone}`;
       element.dataset.commentId = String(commentId);
       applyMarkerStyles(element, entry.tone);
+      const thickness = entry.tone === 'active' ? 2 : 1;
       element.style.left = `${rect.left + (win?.scrollX || 0)}px`;
-      element.style.top = `${rect.top + (win?.scrollY || 0)}px`;
+      element.style.top = `${rect.bottom + (win?.scrollY || 0) - thickness}px`;
       element.style.width = `${rect.width}px`;
-      element.style.height = `${rect.height}px`;
+      element.style.height = `${thickness}px`;
       layer.appendChild(element);
       entry.elements.push(element);
     }

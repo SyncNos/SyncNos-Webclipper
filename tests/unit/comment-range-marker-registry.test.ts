@@ -30,7 +30,6 @@ describe('comment range marker registry', () => {
     const dom = new JSDOM('<body><aside id="panel"></aside></body>', { url: 'https://example.com/' });
     const styleSource = dom.window.document.querySelector('#panel')!;
     (styleSource as HTMLElement).style.setProperty('--panel-accent', 'rgb(1 2 3)');
-    (styleSource as HTMLElement).style.setProperty('--radius-inline', '6px');
     const registry = createCommentRangeMarkerRegistry({
       document: dom.window.document,
       window: dom.window as unknown as Window,
@@ -45,21 +44,24 @@ describe('comment range marker registry', () => {
     expect(layer.style.position).toBe('absolute');
     expect(layer.style.pointerEvents).toBe('none');
     expect(layer.style.getPropertyValue('--webclipper-comment-marker-accent')).toBe('rgb(1 2 3)');
-    expect(layer.style.getPropertyValue('--webclipper-comment-marker-radius')).toBe('6px');
     expect(marker.style.position).toBe('absolute');
     expect(marker.style.pointerEvents).toBe('none');
-    expect(marker.style.borderRadius).toBe('var(--webclipper-comment-marker-radius)');
+    expect(marker.style.borderRadius).toBe('0px');
     expect(marker.dataset.tone).toBe('passive');
-    expect(marker.style.background).toContain('14%');
-    expect(marker.style.boxShadow).toContain('34%');
-    expect(marker.style.opacity).toBe('0.82');
+    expect(marker.style.top).toBe('19px');
+    expect(marker.style.height).toBe('1px');
+    expect(marker.style.background).toContain('62%');
+    expect(marker.style.boxShadow).toBe('');
+    expect(marker.style.opacity).toBe('0.78');
 
     registry.setActive(1);
     registry.refresh();
     const active = dom.window.document.querySelector('[data-comment-id="1"]') as HTMLElement;
     expect(active.dataset.tone).toBe('active');
-    expect(active.style.background).toContain('28%');
-    expect(active.style.boxShadow).toContain('62%');
+    expect(active.style.top).toBe('18px');
+    expect(active.style.height).toBe('2px');
+    expect(active.style.background).toContain('88%');
+    expect(active.style.boxShadow).toBe('');
     expect(active.style.opacity).toBe('1');
   });
 
