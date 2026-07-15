@@ -5,6 +5,40 @@ export type ResolveV2QuoteResult =
   | { ok: true; range: Range; start: number; end: number }
   | { ok: false; reason: 'quote_not_found' | 'ambiguous_quote' | 'budget_exceeded' };
 
+export type CommentExactQuoteMatch = { range: Range; start: number; end: number };
+
+export type CollectV2ExactQuoteMatchesResult =
+  | { ok: true; matches: CommentExactQuoteMatch[] }
+  | { ok: false; reason: 'budget_exceeded' };
+
+export function collectV2ExactQuoteMatches(input: {
+  root: Element;
+  locator: ArticleCommentLocatorV2;
+  maxMatches?: number;
+  maxTextLength?: number;
+  index?: CommentDomTextIndex;
+}): CollectV2ExactQuoteMatchesResult {
+  const index = input.index?.root === input.root ? input.index : createCommentDomTextIndex(input.root);
+  const maxTextLength = Math.max(0, Math.floor(Number(input.maxTextLength ?? 200_000) || 0));
+  if (index.text.length > maxTextLength) return { ok: false, reason: 'budget_exceeded' };
+
+  const exact = input.locator.quote.exact;
+  const maxMatches = Math.max(1, Math.floor(Number(input.maxMatches ?? 32) || 1));
+  const matches: CommentExactQuoteMatch[] = [];
+  let cursor = 0;
+  while (cursor <= index.text.length - exact.length) {
+    const start = index.text.indexOf(exact, cursor);
+    if (start < 0) break;
+    const end = start + exact.length;
+    const range = index.offsetsToRange(start, end);
+    if (range) matches.push({ range, start, end });
+    if (matches.length > maxMatches) return { ok: false, reason: 'budget_exceeded' };
+    cursor = start + Math.max(1, exact.length);
+  }
+
+  return { ok: true, matches };
+}
+
 export function resolveV2ByQuoteContext(input: {
   root: Element;
   locator: ArticleCommentLocatorV2;
@@ -13,29 +47,19 @@ export function resolveV2ByQuoteContext(input: {
   index?: CommentDomTextIndex;
 }): ResolveV2QuoteResult {
   const index = input.index?.root === input.root ? input.index : createCommentDomTextIndex(input.root);
-  const maxTextLength = Math.max(0, Math.floor(Number(input.maxTextLength ?? 200_000) || 0));
-  if (index.text.length > maxTextLength) return { ok: false, reason: 'budget_exceeded' };
+  const collected = collectV2ExactQuoteMatches({ ...input, index });
+  if (!collected.ok) return collected;
 
-  const exact = input.locator.quote.exact;
-  const maxMatches = Math.max(1, Math.floor(Number(input.maxMatches ?? 32) || 1));
-  const matches: Array<{ start: number; end: number }> = [];
-  let cursor = 0;
-  while (cursor <= index.text.length - exact.length) {
-    const start = index.text.indexOf(exact, cursor);
-    if (start < 0) break;
-    const end = start + exact.length;
+  const matches = collected.matches.filter(({ start, end }) => {
     const prefix = input.locator.quote.prefix || '';
     const suffix = input.locator.quote.suffix || '';
     const prefixMatches = !prefix || index.text.slice(Math.max(0, start - prefix.length), start) === prefix;
     const suffixMatches = !suffix || index.text.slice(end, end + suffix.length) === suffix;
-    if (prefixMatches && suffixMatches) matches.push({ start, end });
-    if (matches.length > maxMatches) return { ok: false, reason: 'budget_exceeded' };
-    cursor = start + Math.max(1, exact.length);
-  }
+    return prefixMatches && suffixMatches;
+  });
 
   if (!matches.length) return { ok: false, reason: 'quote_not_found' };
   if (matches.length !== 1) return { ok: false, reason: 'ambiguous_quote' };
   const [match] = matches;
-  const range = index.offsetsToRange(match.start, match.end);
-  return range ? { ok: true, range, ...match } : { ok: false, reason: 'quote_not_found' };
+  return { ok: true, range: match.range, start: match.start, end: match.end };
 }

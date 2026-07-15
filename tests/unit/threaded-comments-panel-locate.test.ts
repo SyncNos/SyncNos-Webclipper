@@ -177,6 +177,7 @@ describe('Threaded comments panel locate', () => {
       },
     ]);
     await flushReactScheduler();
+    expect(resolveCommentAnchor).toHaveBeenCalledWith(expect.objectContaining({ targetSurfaceHint: 'app' }));
 
     const panel = host.querySelector('webclipper-threaded-comments-panel') as HTMLElement;
     const rootComment = panel.shadowRoot!.querySelector('.webclipper-inpage-comments-panel__comment') as HTMLElement;

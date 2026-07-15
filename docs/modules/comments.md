@@ -29,6 +29,7 @@ article conversation 可以在 App 和 Inpage surface 中保存本地 threaded c
 
 - DOM owner 由 App/Inpage 注入 `{sourceRoot, scrollRoot}` 或候选 roots；service 不读取全局 `document`。
 - capture 保存 canonical quote/context、text position、boundary path 和 root evidence。
+- 同 surface 优先验证 root evidence、boundary path 与 position；跨 App/Inpage surface 时不复用结构证据，只接受候选 roots 中全局唯一的 exact quote。
 - resolver 只在所有候选 roots 中得到一个全局唯一 exact Range 时成功。
 - 缺失、歧义、root evidence 不匹配、预算超限或取消都返回明确 reason。
 - 禁止模糊文本匹配、按文本比例滚动、父元素高亮、first-success root 和固定 sleep/retry。
