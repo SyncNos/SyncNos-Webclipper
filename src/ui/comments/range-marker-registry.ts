@@ -2,6 +2,16 @@ export type CommentMarkerTone = 'passive' | 'active';
 
 type MarkerEntry = { range: Range; tone: CommentMarkerTone; elements: HTMLElement[] };
 
+type NativeHighlightRegistry = {
+  set(name: string, highlight: Highlight): unknown;
+  delete(name: string): boolean;
+};
+
+type NativeHighlightWindow = Window & {
+  CSS?: { highlights?: NativeHighlightRegistry };
+  Highlight?: new (...ranges: AbstractRange[]) => Highlight;
+};
+
 export type CommentRangeMarkerRegistry = {
   replace(commentId: number, range: Range, tone?: CommentMarkerTone): void;
   remove(commentId: number): void;
@@ -13,6 +23,36 @@ export type CommentRangeMarkerRegistry = {
 
 const MARKER_ACCENT_VAR = '--webclipper-comment-marker-accent';
 const DEFAULT_MARKER_ACCENT = 'rgb(255 198 173)';
+let nativeHighlightRegistrySequence = 0;
+
+function readMarkerAccent(input: { window?: Window; styleSource?: Element }): string {
+  if (!input.styleSource || !input.window?.getComputedStyle) return DEFAULT_MARKER_ACCENT;
+  try {
+    const styles = input.window.getComputedStyle(input.styleSource);
+    return (
+      styles.getPropertyValue('--panel-accent').trim() ||
+      styles.getPropertyValue('--accent').trim() ||
+      DEFAULT_MARKER_ACCENT
+    );
+  } catch (_error) {
+    return DEFAULT_MARKER_ACCENT;
+  }
+}
+
+function normalizeCssColor(document: Document, value: string): string {
+  const probe = document.createElement('span');
+  probe.style.color = value;
+  return probe.style.color || DEFAULT_MARKER_ACCENT;
+}
+
+function readNativeHighlightApi(window: Window | undefined) {
+  const candidate = window as NativeHighlightWindow | undefined;
+  const registry = candidate?.CSS?.highlights;
+  const HighlightCtor = candidate?.Highlight;
+  if (!registry || typeof registry.set !== 'function' || typeof registry.delete !== 'function') return null;
+  if (typeof HighlightCtor !== 'function') return null;
+  return { registry, HighlightCtor };
+}
 
 export function createCommentRangeMarkerRegistry(input: {
   document: Document;
@@ -20,35 +60,65 @@ export function createCommentRangeMarkerRegistry(input: {
   host?: HTMLElement;
   styleSource?: Element;
   getGeometryRoots?: () => readonly Element[];
+  renderMode?: 'overlay' | 'native';
 }): CommentRangeMarkerRegistry {
   const doc = input.document;
   const win = input.window || doc.defaultView || undefined;
+  const nativeMode = input.renderMode === 'native';
+  const nativeApi = nativeMode ? readNativeHighlightApi(win) : null;
   const host = input.host || doc.body || doc.documentElement;
-  const layer = doc.createElement('div');
-  layer.className = 'webclipper-comment-range-markers';
-  layer.setAttribute('aria-hidden', 'true');
-  layer.style.position = 'absolute';
-  layer.style.inset = '0';
-  layer.style.zIndex = '2147483600';
-  layer.style.pointerEvents = 'none';
-  layer.style.setProperty(MARKER_ACCENT_VAR, DEFAULT_MARKER_ACCENT);
-  host.appendChild(layer);
+  const layer = nativeMode ? null : doc.createElement('div');
+  if (layer) {
+    layer.className = 'webclipper-comment-range-markers';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.style.position = 'absolute';
+    layer.style.inset = '0';
+    layer.style.zIndex = '2147483600';
+    layer.style.pointerEvents = 'none';
+    layer.style.setProperty(MARKER_ACCENT_VAR, DEFAULT_MARKER_ACCENT);
+    host.appendChild(layer);
+  }
+
+  const nativeHighlightId = nativeApi ? ++nativeHighlightRegistrySequence : null;
+  const passiveHighlightName = nativeHighlightId ? `webclipper-comment-passive-${nativeHighlightId}` : '';
+  const activeHighlightName = nativeHighlightId ? `webclipper-comment-active-${nativeHighlightId}` : '';
+  const nativeStyle = nativeApi ? doc.createElement('style') : null;
+  if (nativeStyle) {
+    nativeStyle.setAttribute('data-webclipper-comment-highlights', String(nativeHighlightId));
+    (doc.head || doc.documentElement).appendChild(nativeStyle);
+  }
+
   const entries = new Map<number, MarkerEntry>();
   let activeId: number | null = null;
   let rafId: number | null = null;
   let disposed = false;
   let resizeObserver: ResizeObserver | null = null;
   let observedGeometryRoots = new Set<Element>();
+  let nativeAccent = '';
 
   const syncVisualTokens = () => {
-    if (!input.styleSource || !win?.getComputedStyle) return;
-    try {
-      const styles = win.getComputedStyle(input.styleSource);
-      const accent = styles.getPropertyValue('--panel-accent').trim() || styles.getPropertyValue('--accent').trim();
-      if (accent) layer.style.setProperty(MARKER_ACCENT_VAR, accent);
-    } catch (_error) {
-      // Keep the registry-owned fallbacks when the host style is unavailable.
+    const sourceAccent = readMarkerAccent({ window: win, styleSource: input.styleSource });
+    if (layer) {
+      layer.style.setProperty(MARKER_ACCENT_VAR, sourceAccent);
+      return;
     }
+    const accent = normalizeCssColor(doc, sourceAccent);
+    if (!nativeStyle || accent === nativeAccent) return;
+    nativeAccent = accent;
+    nativeStyle.textContent = `
+::highlight(${passiveHighlightName}) {
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, ${accent} 62%, transparent);
+  text-decoration-thickness: 1px;
+  text-decoration-skip-ink: none;
+}
+::highlight(${activeHighlightName}) {
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, ${accent} 88%, transparent);
+  text-decoration-thickness: 2px;
+  text-decoration-skip-ink: none;
+}
+`;
   };
 
   const clearElements = (entry: MarkerEntry) => {
@@ -67,7 +137,8 @@ export function createCommentRangeMarkerRegistry(input: {
     element.style.transition = 'background-color 120ms ease, opacity 120ms ease';
   };
 
-  const renderEntry = (commentId: number, entry: MarkerEntry) => {
+  const renderOverlayEntry = (commentId: number, entry: MarkerEntry) => {
+    if (!layer) return;
     clearElements(entry);
     let rects: DOMRect[] = [];
     try {
@@ -91,7 +162,30 @@ export function createCommentRangeMarkerRegistry(input: {
     }
   };
 
+  const renderNativeHighlights = () => {
+    if (!nativeApi) return;
+    nativeApi.registry.delete(passiveHighlightName);
+    nativeApi.registry.delete(activeHighlightName);
+    const passiveRanges: AbstractRange[] = [];
+    const activeRanges: AbstractRange[] = [];
+    for (const entry of entries.values()) {
+      if (entry.tone === 'active') activeRanges.push(entry.range);
+      else passiveRanges.push(entry.range);
+    }
+    if (passiveRanges.length) {
+      const highlight = new nativeApi.HighlightCtor(...passiveRanges);
+      highlight.priority = 0;
+      nativeApi.registry.set(passiveHighlightName, highlight);
+    }
+    if (activeRanges.length) {
+      const highlight = new nativeApi.HighlightCtor(...activeRanges);
+      highlight.priority = 1;
+      nativeApi.registry.set(activeHighlightName, highlight);
+    }
+  };
+
   const syncGeometryObservers = () => {
+    if (!layer) return;
     const ResizeObserverCtor = (win as (Window & { ResizeObserver?: typeof ResizeObserver }) | undefined)
       ?.ResizeObserver;
     if (!ResizeObserverCtor || !input.getGeometryRoots) return;
@@ -115,19 +209,26 @@ export function createCommentRangeMarkerRegistry(input: {
 
   const refresh = () => {
     if (disposed) return;
+    if (nativeMode) {
+      syncVisualTokens();
+      renderNativeHighlights();
+      return;
+    }
     syncGeometryObservers();
     if (rafId != null && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
     const run = () => {
       rafId = null;
       syncVisualTokens();
-      for (const [commentId, entry] of entries) renderEntry(commentId, entry);
+      for (const [commentId, entry] of entries) renderOverlayEntry(commentId, entry);
     };
     rafId = win?.requestAnimationFrame ? win.requestAnimationFrame(run) : (run(), null);
   };
 
   const onGeometryChange = () => refresh();
-  win?.addEventListener('resize', onGeometryChange);
-  win?.addEventListener('scroll', onGeometryChange, true);
+  if (layer) {
+    win?.addEventListener('resize', onGeometryChange);
+    win?.addEventListener('scroll', onGeometryChange, true);
+  }
 
   return {
     replace(commentId, range, tone = commentId === activeId ? 'active' : 'passive') {
@@ -143,6 +244,7 @@ export function createCommentRangeMarkerRegistry(input: {
       clearElements(entry);
       entries.delete(commentId);
       if (activeId === commentId) activeId = null;
+      refresh();
     },
     setActive(commentId) {
       activeId = commentId;
@@ -154,14 +256,21 @@ export function createCommentRangeMarkerRegistry(input: {
       if (disposed) return;
       disposed = true;
       if (rafId != null && win?.cancelAnimationFrame) win.cancelAnimationFrame(rafId);
-      win?.removeEventListener('resize', onGeometryChange);
+      if (layer) {
+        win?.removeEventListener('resize', onGeometryChange);
+        win?.removeEventListener('scroll', onGeometryChange, true);
+      }
       resizeObserver?.disconnect();
       resizeObserver = null;
       observedGeometryRoots.clear();
-      win?.removeEventListener('scroll', onGeometryChange, true);
       for (const entry of entries.values()) clearElements(entry);
       entries.clear();
-      layer.remove();
+      layer?.remove();
+      if (nativeApi) {
+        nativeApi.registry.delete(passiveHighlightName);
+        nativeApi.registry.delete(activeHighlightName);
+      }
+      nativeStyle?.remove();
     },
     size: () => entries.size,
   };

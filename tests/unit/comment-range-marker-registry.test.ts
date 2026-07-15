@@ -42,6 +42,7 @@ describe('comment range marker registry', () => {
     const layer = dom.window.document.querySelector('.webclipper-comment-range-markers') as HTMLElement;
     const marker = dom.window.document.querySelector('[data-comment-id="1"]') as HTMLElement;
     expect(layer.style.position).toBe('absolute');
+    expect(layer.style.zIndex).toBe('2147483600');
     expect(layer.style.pointerEvents).toBe('none');
     expect(layer.style.getPropertyValue('--webclipper-comment-marker-accent')).toBe('rgb(1 2 3)');
     expect(marker.style.position).toBe('absolute');
@@ -63,6 +64,81 @@ describe('comment range marker registry', () => {
     expect(active.style.background).toContain('88%');
     expect(active.style.boxShadow).toBe('');
     expect(active.style.opacity).toBe('1');
+  });
+
+  test('uses native text highlights for app ranges so browser clipping and stacking stay authoritative', () => {
+    const dom = new JSDOM('<html><head></head><body><aside id="panel"></aside><p>hello world</p></body></html>', {
+      url: 'https://example.com/',
+    });
+    const registered = new Map<string, { priority: number; ranges: AbstractRange[] }>();
+    class FakeHighlight {
+      priority = 0;
+      type = 'highlight' as const;
+      readonly ranges: AbstractRange[];
+
+      constructor(...ranges: AbstractRange[]) {
+        this.ranges = ranges;
+      }
+
+      forEach(callback: (value: AbstractRange, key: AbstractRange, parent: Highlight) => void) {
+        for (const range of this.ranges) callback(range, range, this as unknown as Highlight);
+      }
+    }
+    Object.defineProperty(dom.window, 'CSS', {
+      configurable: true,
+      value: {
+        highlights: {
+          set(name: string, highlight: FakeHighlight) {
+            registered.set(name, { priority: highlight.priority, ranges: highlight.ranges });
+          },
+          delete(name: string) {
+            return registered.delete(name);
+          },
+        },
+      },
+    });
+    Object.defineProperty(dom.window, 'Highlight', { configurable: true, value: FakeHighlight });
+    const styleSource = dom.window.document.querySelector('#panel')!;
+    (styleSource as HTMLElement).style.setProperty('--panel-accent', 'rgb(1 2 3)');
+    const registry = createCommentRangeMarkerRegistry({
+      document: dom.window.document,
+      window: dom.window as unknown as Window,
+      styleSource,
+      renderMode: 'native',
+    });
+
+    registry.replace(1, fakeRange(dom.window.document, 10));
+
+    expect(dom.window.document.querySelector('.webclipper-comment-range-markers')).toBeNull();
+    const style = dom.window.document.querySelector('[data-webclipper-comment-highlights]') as HTMLStyleElement;
+    expect(style.textContent).toContain('::highlight(webclipper-comment-passive-');
+    expect(style.textContent).toContain('text-decoration-line: underline');
+    expect(style.textContent).toContain('text-decoration-thickness: 1px');
+    expect(Array.from(registered.keys()).some((name) => name.includes('passive'))).toBe(true);
+
+    registry.setActive(1);
+    const active = Array.from(registered.entries()).find(([name]) => name.includes('active'));
+    expect(active?.[1].priority).toBe(1);
+    expect(active?.[1].ranges).toHaveLength(1);
+
+    registry.dispose();
+    expect(registered.size).toBe(0);
+    expect(dom.window.document.querySelector('[data-webclipper-comment-highlights]')).toBeNull();
+  });
+
+  test('does not fall back to a global overlay when native highlights are unavailable', () => {
+    const dom = new JSDOM('<body></body>', { url: 'https://example.com/' });
+    const registry = createCommentRangeMarkerRegistry({
+      document: dom.window.document,
+      window: dom.window as unknown as Window,
+      renderMode: 'native',
+    });
+
+    registry.replace(1, fakeRange(dom.window.document, 10));
+
+    expect(dom.window.document.querySelector('.webclipper-comment-range-markers')).toBeNull();
+    expect(dom.window.document.querySelector('[data-webclipper-comment-highlights]')).toBeNull();
+    registry.dispose();
   });
 
   test('switches active/passive state', () => {
