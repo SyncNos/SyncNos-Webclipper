@@ -90,6 +90,10 @@ function safeString(value: unknown): string {
   return String(value || '').trim();
 }
 
+function normalizeMessageTimestamp(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : Date.now();
+}
+
 function normalizeListKey(value: unknown, fallback: string): string {
   const text = safeString(value).toLowerCase();
   return text || fallback;
@@ -689,7 +693,9 @@ export async function syncConversationMessages(
           ? existing.contentMarkdown || ''
           : incomingMarkdown || (existing ? existing.contentMarkdown || '' : ''),
         sequence,
-        updatedAt: preserveExistingContent ? existing.updatedAt || Date.now() : m.updatedAt || Date.now(),
+        updatedAt: preserveExistingContent
+          ? normalizeMessageTimestamp(existing.updatedAt)
+          : normalizeMessageTimestamp(m.updatedAt),
       };
       const record: any = withOptionalId(existing && existing.id, baseRecord);
       if (existing) {
@@ -733,7 +739,7 @@ export async function syncConversationMessages(
       contentText: m.contentText || '',
       contentMarkdown: incomingMarkdown || (existing ? existing.contentMarkdown || '' : ''),
       sequence: Number.isFinite(m.sequence) ? m.sequence : 0,
-      updatedAt: m.updatedAt || Date.now(),
+      updatedAt: normalizeMessageTimestamp(m.updatedAt),
     };
     const record: any = withOptionalId(existing && existing.id, baseRecord);
     if (existing) {

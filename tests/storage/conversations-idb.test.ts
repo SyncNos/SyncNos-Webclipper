@@ -452,7 +452,7 @@ describe('conversations storage-idb', () => {
     expect(stored).not.toHaveProperty('captureSequencePolicy');
   });
 
-  it('preserves existing content while allowing first-time protective insert', async () => {
+  it('preserves existing content and zero timestamp while allowing first-time protective insert', async () => {
     const convo = await upsertConversation({
       sourceType: 'chat',
       source: 'debug',
@@ -468,7 +468,7 @@ describe('conversations storage-idb', () => {
         contentText: 'hydrated report',
         contentMarkdown: '# Hydrated report',
         sequence: 3,
-        updatedAt: 10,
+        updatedAt: 0,
       },
     ]);
 
@@ -505,7 +505,7 @@ describe('conversations storage-idb', () => {
       contentText: 'hydrated report',
       contentMarkdown: '# Hydrated report',
       sequence: 3,
-      updatedAt: 10,
+      updatedAt: 0,
     });
     expect(stored[1]).toMatchObject({
       messageKey: 'm2',
