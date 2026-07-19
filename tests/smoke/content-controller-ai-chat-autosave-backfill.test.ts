@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { AI_CHAT_AUTO_SAVE_COLLECTOR_IDS } from '@collectors/ai-chat-sites.ts';
 import { createContentController } from '@services/bootstrap/content-controller.ts';
 import { createCurrentPageCaptureService } from '@services/bootstrap/current-page-capture.ts';
 import normalizeApi from '@services/shared/normalize.ts';
@@ -448,6 +449,11 @@ describe('content-controller ai chat autosave backfill', () => {
     const syncCalls = harness.sendCalls.filter((entry) => entry.type === 'syncConversationMessages');
     expect(syncCalls).toHaveLength(2);
     expect(syncCalls[1].payload.messages.map((entry: any) => entry.contentText)).toEqual(['A', 'B']);
+  });
+
+  it('keeps virtualized providers out of the auto-save source set', () => {
+    expect(AI_CHAT_AUTO_SAVE_COLLECTOR_IDS.has('chatgpt')).toBe(false);
+    expect(AI_CHAT_AUTO_SAVE_COLLECTOR_IDS.has('googleaistudio')).toBe(false);
   });
 
   it.each(['chatgpt', 'googleaistudio'])(

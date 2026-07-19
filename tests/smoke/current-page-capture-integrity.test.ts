@@ -160,18 +160,24 @@ describe('current page capture integrity routing', () => {
     expect(harness.calls[1].payload).toMatchObject({ mode: 'snapshot', diff: null });
   });
 
-  it('passes the exact prepared object to one capture call', async () => {
-    const preparedCapture = { token: Symbol('prepared') };
-    const prepare = vi.fn(() => preparedCapture);
-    const harness = createHarness({ collectorId: 'chatgpt', snapshot: chatSnapshot(), prepare });
+  it.each(['chatgpt', 'googleaistudio'])(
+    'passes the exact prepared object to one capture call for %s',
+    async (collectorId) => {
+      const preparedCapture = { token: Symbol('prepared') };
+      const prepare = vi.fn(() => preparedCapture);
+      const snapshot = chatSnapshot({ source: collectorId });
+      snapshot.conversation.url =
+        collectorId === 'chatgpt' ? 'https://chatgpt.com/c/1' : 'https://aistudio.google.com/app/1';
+      const harness = createHarness({ collectorId, snapshot, prepare });
 
-    await harness.service.captureCurrentPage();
+      await harness.service.captureCurrentPage();
 
-    expect(prepare).toHaveBeenCalledTimes(1);
-    expect(harness.capture).toHaveBeenCalledTimes(1);
-    expect(harness.capture.mock.calls[0][0]).toEqual({ manual: true, preparedCapture });
-    expect(harness.capture.mock.calls[0][0].preparedCapture).toBe(preparedCapture);
-  });
+      expect(prepare).toHaveBeenCalledTimes(1);
+      expect(harness.capture).toHaveBeenCalledTimes(1);
+      expect(harness.capture.mock.calls[0][0]).toEqual({ manual: true, preparedCapture });
+      expect(harness.capture.mock.calls[0][0].preparedCapture).toBe(preparedCapture);
+    },
+  );
 
   it('stops before capture and persistence when prepare rejects', async () => {
     const prepare = vi.fn(async () => {
