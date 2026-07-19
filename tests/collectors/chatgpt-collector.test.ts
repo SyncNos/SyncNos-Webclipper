@@ -671,6 +671,39 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
     expect(def.collector.__test.manualAdapter.getExtractionCount()).toBe(1);
   });
 
+  it('keeps content, URLs, stable IDs, and image references out of sweep diagnostics', async () => {
+    const sentinel = 'PRIVATE_DIAGNOSTIC_SENTINEL';
+    const dom = setupChatgptDom(
+      `
+        <article data-testid="conversation-turn-1" data-turn-id="${sentinel}_turn">
+          <div data-message-author-role="assistant" data-message-id="${sentinel}_message">
+            <div class="markdown prose"><p>${sentinel}_body</p></div>
+            <img src="https://example.com/${sentinel}_image.png" />
+          </div>
+        </article>
+      `,
+      `https://chatgpt.com/c/${sentinel}_conversation`,
+    );
+    dom.window.document.title = `${sentinel}_title`;
+    (dom.window as any).scrollTo = vi.fn();
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    const def = createChatgptCollectorDef(env) as any;
+    const prepared = await def.collector.prepareManualCapture({
+      maxPasses: 2,
+      stableSamples: 1,
+      pollMs: 0,
+      stepTimeoutMs: 20,
+    });
+    const diagnostics = JSON.stringify({ reasons: prepared.reasons, metrics: prepared.metrics });
+    expect(diagnostics).not.toContain(sentinel);
+    expect(prepared.reasons.every((reason: string) => /^[a-z][a-z0-9_]*$/.test(reason))).toBe(true);
+  });
+
   it('captures the virtualized fixture as a full document without regression (9 messages, 3 rounds)', async () => {
     const dom = loadFixture();
     expect(dom.window.document.querySelectorAll('main').length).toBe(0);

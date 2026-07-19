@@ -209,9 +209,34 @@ export function createPreparedAccumulator<T>(input: {
   };
 }
 
+const VIRTUALIZED_REASON_CODES = new Set([
+  'invalid_reason',
+  'missing_identity',
+  'unstable_identity',
+  'identity_changed',
+  'root_detached',
+  'root_replaced',
+  'restore_failed',
+  'order_unanchored',
+  'order_conflict',
+  'step_timeout',
+  'step_budget_exhausted',
+  'pass_budget_exhausted',
+  'total_deadline_exhausted',
+  'unresolved_turn',
+  'pass_failed',
+  'extraction_error',
+  'scroll_stalled',
+  'top_not_reached',
+  'bottom_not_reached',
+  'final_live_changed',
+]);
+
 export function addPreparedReason<T>(accumulator: PreparedAccumulator<T>, reason: string): void {
-  const normalized = String(reason || '').trim();
-  if (normalized && !accumulator.reasons.includes(normalized)) accumulator.reasons.push(normalized);
+  const requested = String(reason || '').trim();
+  if (!requested) return;
+  const normalized = VIRTUALIZED_REASON_CODES.has(requested) ? requested : 'invalid_reason';
+  if (!accumulator.reasons.includes(normalized)) accumulator.reasons.push(normalized);
 }
 
 export function mergePreparedRecords<T>(
@@ -364,15 +389,55 @@ export type VirtualizedPassOptions = {
   now?: () => number;
 };
 
-function boundedInteger(value: unknown, fallback: number, min: number, max: number): number {
+const PASS_DEFAULTS = Object.freeze({
+  maxSteps: 120,
+  stableSamples: 2,
+  pollMs: 40,
+  stepTimeoutMs: 1200,
+  overlapRatio: 0.65,
+  maxOverlapRecoveries: 4,
+});
+
+const SWEEP_DEFAULTS = Object.freeze({
+  maxPasses: 4,
+  totalDeadlineMs: 30_000,
+});
+
+function boundedInteger(value: unknown, fallback: number, min: number, max: number, allowZero = false): number {
   const number = Number(value);
-  if (!Number.isFinite(number)) return fallback;
+  if (!Number.isFinite(number) || number < 0 || (!allowZero && number === 0)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(number)));
 }
 
 function boundedRatio(value: unknown, fallback: number): number {
   const number = Number(value);
-  return Number.isFinite(number) ? Math.min(0.95, Math.max(0.1, number)) : fallback;
+  if (!Number.isFinite(number) || number <= 0) return fallback;
+  return Math.min(0.95, Math.max(0.1, number));
+}
+
+function checkpointAccumulatorData<T>(accumulator: PreparedAccumulator<T>) {
+  return {
+    records: accumulator.records.map((record) => ({ ...record })),
+    samples: accumulator.samples,
+    descriptorFingerprints: { ...accumulator.descriptorFingerprints },
+  };
+}
+
+function restoreAccumulatorData<T>(
+  accumulator: PreparedAccumulator<T>,
+  checkpoint: ReturnType<typeof checkpointAccumulatorData<T>>,
+): void {
+  accumulator.records = checkpoint.records;
+  accumulator.samples = checkpoint.samples;
+  accumulator.descriptorFingerprints = checkpoint.descriptorFingerprints;
+}
+
+function invalidateAccumulatorIdentity<T>(accumulator: PreparedAccumulator<T>): void {
+  accumulator.records = [];
+  accumulator.descriptorFingerprints = Object.create(null) as Record<string, string>;
+  accumulator.conversationKey = '';
+  accumulator.identityVerified = false;
+  accumulator.completeness = 'partial';
 }
 
 function contentFreeWindowSignature(identity: string, metrics: ScrollMetrics, keys: string[]): string {
@@ -385,12 +450,18 @@ export async function runVirtualizedPass<T>(
   accumulator: PreparedAccumulator<T>,
   options: VirtualizedPassOptions = {},
 ): Promise<VirtualizedPassResult> {
-  const maxSteps = boundedInteger(options.maxSteps, 120, 1, 2000);
-  const stableSamples = boundedInteger(options.stableSamples, 2, 1, 10);
-  const pollMs = boundedInteger(options.pollMs, 40, 0, 5000);
-  const stepTimeoutMs = boundedInteger(options.stepTimeoutMs, 1200, 1, 60_000);
-  const overlapRatio = boundedRatio(options.overlapRatio, 0.65);
-  const maxOverlapRecoveries = boundedInteger(options.maxOverlapRecoveries, 4, 0, 20);
+  const maxSteps = boundedInteger(options.maxSteps, PASS_DEFAULTS.maxSteps, 1, 2000);
+  const stableSamples = boundedInteger(options.stableSamples, PASS_DEFAULTS.stableSamples, 1, 10);
+  const pollMs = boundedInteger(options.pollMs, PASS_DEFAULTS.pollMs, 0, 5000, true);
+  const stepTimeoutMs = boundedInteger(options.stepTimeoutMs, PASS_DEFAULTS.stepTimeoutMs, 1, 60_000);
+  const overlapRatio = boundedRatio(options.overlapRatio, PASS_DEFAULTS.overlapRatio);
+  const maxOverlapRecoveries = boundedInteger(
+    options.maxOverlapRecoveries,
+    PASS_DEFAULTS.maxOverlapRecoveries,
+    0,
+    20,
+    true,
+  );
   const sleep = options.sleep || ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const now = options.now || Date.now;
   const reasons: string[] = [];
@@ -409,6 +480,12 @@ export async function runVirtualizedPass<T>(
   let overlapRecoveries = 0;
   let added = 0;
   let updated = 0;
+
+  if (!originalIdentity) {
+    addReason('missing_identity');
+    invalidateAccumulatorIdentity(accumulator);
+    return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated };
+  }
 
   const validateAfterAwait = (): boolean => {
     if (!isDocumentScrollRoot(runtime.document, root) && !root.isConnected) {
@@ -471,10 +548,22 @@ export async function runVirtualizedPass<T>(
       }
       if (!hasOverlap && knownKeys.size) addReason('order_unanchored');
 
-      const harvested = await adapter.harvest(accumulator);
+      const checkpoint = checkpointAccumulatorData(accumulator);
+      let harvested: { added: number; updated: number };
+      try {
+        harvested = await adapter.harvest(accumulator);
+      } catch (_error) {
+        restoreAccumulatorData(accumulator, checkpoint);
+        addReason('extraction_error');
+        break;
+      }
+      if (!validateAfterAwait()) {
+        restoreAccumulatorData(accumulator, checkpoint);
+        if (accumulator.reasons.includes('identity_changed')) invalidateAccumulatorIdentity(accumulator);
+        break;
+      }
       added += harvested.added;
       updated += harvested.updated;
-      if (!validateAfterAwait()) break;
       steps += 1;
       const metrics = readScrollMetrics(runtime, root);
       maxScrollExtent = Math.max(maxScrollExtent, metrics.scrollHeight);
@@ -543,8 +632,8 @@ export async function runVirtualizedSweep<T>(
   accumulator: PreparedAccumulator<T>,
   options: VirtualizedSweepOptions = {},
 ): Promise<VirtualizedSweepResult> {
-  const maxPasses = boundedInteger(options.maxPasses, 4, 2, 20);
-  const totalDeadlineMs = boundedInteger(options.totalDeadlineMs, 30_000, 1, 300_000);
+  const maxPasses = boundedInteger(options.maxPasses, SWEEP_DEFAULTS.maxPasses, 2, 20);
+  const totalDeadlineMs = boundedInteger(options.totalDeadlineMs, SWEEP_DEFAULTS.totalDeadlineMs, 1, 300_000);
   const now = options.now || Date.now;
   const deadline = now() + totalDeadlineMs;
   let passes = 0;
@@ -556,6 +645,15 @@ export async function runVirtualizedSweep<T>(
   let complete = false;
   let finalUnresolved: string[] = [];
   let finalLiveChanged = false;
+  const sweepIdentity = String(adapter.sampleIdentity() || '').trim();
+  const terminalPassReasons = new Set([
+    'missing_identity',
+    'identity_changed',
+    'root_detached',
+    'root_replaced',
+    'extraction_error',
+    'pass_failed',
+  ]);
 
   for (; passes < maxPasses; ) {
     if (now() > deadline) {
@@ -569,7 +667,19 @@ export async function runVirtualizedSweep<T>(
     reachedTop = pass.reachedTop;
     reachedBottom = pass.reachedBottom;
 
-    const unresolved = adapter.readUnresolvedKeys?.().filter(Boolean) || [];
+    if (now() > deadline) {
+      addPreparedReason(accumulator, 'total_deadline_exhausted');
+      break;
+    }
+    if (pass.reasons.some((reason) => terminalPassReasons.has(reason))) break;
+
+    let unresolved: string[] = [];
+    try {
+      unresolved = adapter.readUnresolvedKeys?.().filter(Boolean) || [];
+    } catch (_error) {
+      addPreparedReason(accumulator, 'pass_failed');
+      break;
+    }
     finalUnresolved = unresolved;
     const extentStable = previousExtent !== null && previousExtent === pass.maxScrollExtent;
     previousExtent = pass.maxScrollExtent;
@@ -586,14 +696,22 @@ export async function runVirtualizedSweep<T>(
       !unresolved.length &&
       !hasBlockingReason
     ) {
+      const checkpoint = checkpointAccumulatorData(accumulator);
       try {
         const finalLive = await adapter.harvest(accumulator);
+        if (String(adapter.sampleIdentity() || '').trim() !== sweepIdentity) {
+          restoreAccumulatorData(accumulator, checkpoint);
+          addPreparedReason(accumulator, 'identity_changed');
+          invalidateAccumulatorIdentity(accumulator);
+          break;
+        }
         if (finalLive.added === 0 && finalLive.updated === 0) {
           complete = true;
           break;
         }
         finalLiveChanged = true;
       } catch (_error) {
+        restoreAccumulatorData(accumulator, checkpoint);
         addPreparedReason(accumulator, 'extraction_error');
         break;
       }

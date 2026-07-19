@@ -1,6 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  addPreparedReason,
   createPreparedAccumulator,
   createScrollRootRestorer,
   finishPreparedCapture,
@@ -43,6 +44,9 @@ describe('virtualized chat scroll root', () => {
     expect(restorer.restore()).toEqual({ restored: true, reason: 'restored' });
     expect(root.scrollTop).toBe(120);
     expect(root.scrollLeft).toBe(40);
+    root.scrollTop = 300;
+    expect(restorer.restore()).toEqual({ restored: false, reason: 'restore_failed' });
+    expect(root.scrollTop).toBe(300);
   });
 
   it('clamps restore after the scroll extent shrinks', () => {
@@ -161,6 +165,22 @@ describe('virtualized chat prepared accumulator', () => {
     ]);
     expect(finishPreparedCapture(first).records.map((record) => record.key)).toEqual(['a']);
     expect(finishPreparedCapture(second).records.map((record) => record.key)).toEqual(['b']);
+  });
+
+  it('keeps arbitrary provider text out of prepared diagnostics', () => {
+    const sentinel = 'PRIVATE_TITLE_URL_MESSAGE_ID_IMAGE_REF';
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'test',
+      conversationKey: sentinel,
+      identityVerified: true,
+      identityGuard: { route: sentinel, durableId: sentinel, anchors: [sentinel], topAnchor: sentinel },
+    });
+    addPreparedReason(accumulator, sentinel);
+    accumulator.sweepMetrics = { passes: 1, reachedTop: false };
+    const prepared = finishPreparedCapture(accumulator);
+    const diagnostics = JSON.stringify({ reasons: prepared.reasons, metrics: prepared.metrics });
+    expect(prepared.reasons).toEqual(['invalid_reason']);
+    expect(diagnostics).not.toContain(sentinel);
   });
 });
 
@@ -397,6 +417,100 @@ describe('virtualized chat single pass', () => {
     );
     expect(result.reasons).toContain('step_timeout');
   });
+
+  it('reports step budget exhaustion without discarding prior stable data', async () => {
+    const test = harness([
+      { top: 0, keys: ['a'] },
+      { top: 60, keys: ['a', 'b'] },
+    ]);
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, maxSteps: 1 },
+    );
+    expect(result.reasons).toContain('step_budget_exhausted');
+    expect(finishPreparedCapture(test.accumulator).records.map((record) => record.key)).toEqual(['a']);
+  });
+
+  it('rolls back only the failing extraction window', async () => {
+    const test = harness([
+      { top: 0, keys: ['a'] },
+      { top: 60, keys: ['a', 'b'] },
+    ]);
+    const harvest = test.adapter.harvest;
+    let calls = 0;
+    test.adapter.harvest = async (target) => {
+      calls += 1;
+      if (calls === 2) throw new Error('PRIVATE_CONTENT');
+      return harvest(target);
+    };
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, overlapRatio: 0.6 },
+    );
+    expect(result.reasons).toContain('extraction_error');
+    expect(finishPreparedCapture(test.accumulator).records.map((record) => record.key)).toEqual(['a']);
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_CONTENT');
+  });
+
+  it('invalidates harvested data when identity changes during extraction', async () => {
+    const test = harness([{ top: 0, keys: ['secret-message-id'] }]);
+    const harvest = test.adapter.harvest;
+    let identity = 'identity-a';
+    test.adapter.sampleIdentity = () => identity;
+    test.adapter.harvest = async (target) => {
+      const harvested = await harvest(target);
+      identity = 'identity-b';
+      return harvested;
+    };
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0 },
+    );
+    expect(result.reasons).toContain('identity_changed');
+    expect(test.accumulator.identityVerified).toBe(false);
+    expect(test.accumulator.conversationKey).toBe('');
+    expect(test.accumulator.records).toEqual([]);
+    expect(JSON.stringify(result)).not.toContain('secret-message-id');
+  });
+
+  it('rolls back the current window when the scroll root detaches', async () => {
+    const test = harness([{ top: 0, keys: ['a'] }]);
+    const harvest = test.adapter.harvest;
+    test.adapter.harvest = async (target) => {
+      const harvested = await harvest(target);
+      test.root.remove();
+      return harvested;
+    };
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0 },
+    );
+    expect(result.reasons).toContain('root_detached');
+    expect(test.accumulator.records).toEqual([]);
+  });
+
+  it('reports a pass failure without leaking thrown descriptor content', async () => {
+    const test = harness([{ top: 0, keys: ['a'] }]);
+    test.adapter.readDescriptorKeys = () => {
+      throw new Error('PRIVATE_URL');
+    };
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0 },
+    );
+    expect(result.reasons).toContain('pass_failed');
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_URL');
+  });
 });
 
 describe('virtualized chat confirmation sweep', () => {
@@ -405,6 +519,7 @@ describe('virtualized chat confirmation sweep', () => {
     unresolved: () => string[] = () => [],
   ) {
     const dom = new JSDOM('<body><div id="root"><div id="seed"></div></div></body>');
+    (dom.window as any).scrollTo = vi.fn();
     const root = dom.window.document.querySelector('#root') as HTMLElement;
     const seed = dom.window.document.querySelector('#seed') as HTMLElement;
     root.style.overflowY = 'auto';
@@ -526,5 +641,51 @@ describe('virtualized chat confirmation sweep', () => {
     );
     expect(result.completeness).toBe('partial');
     expect(result.reasons).toEqual(expect.arrayContaining(['unresolved_turn', 'pass_budget_exhausted']));
+  });
+
+  it('normalizes invalid budgets to bounded defaults', async () => {
+    const test = singlePageAdapter([
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+    ]);
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      {
+        maxPasses: Number.NaN,
+        maxSteps: -10,
+        stableSamples: 0,
+        pollMs: -1,
+        stepTimeoutMs: Number.POSITIVE_INFINITY,
+        overlapRatio: 0,
+        maxOverlapRecoveries: -1,
+        totalDeadlineMs: 0,
+      },
+    );
+    expect(result.completeness).toBe('complete');
+    expect(result.passes).toBe(2);
+  });
+
+  it('stops on total deadline exhaustion with content-free diagnostics', async () => {
+    const test = singlePageAdapter([[{ key: 'PRIVATE_MESSAGE_ID', fingerprint: 'a', text: 'PRIVATE_BODY' }]]);
+    let tick = 0;
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      {
+        stableSamples: 1,
+        pollMs: 0,
+        totalDeadlineMs: 1,
+        now: () => tick++,
+        sleep: async () => undefined,
+      },
+    );
+    expect(result.completeness).toBe('partial');
+    expect(result.reasons).toContain('total_deadline_exhausted');
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_MESSAGE_ID');
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_BODY');
   });
 });
