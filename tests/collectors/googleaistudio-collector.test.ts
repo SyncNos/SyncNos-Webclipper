@@ -285,6 +285,39 @@ describe('googleaistudio-collector', () => {
     expect(user.contentMarkdown).toContain('![](data:image/png;base64,');
   });
 
+  it('finishes asynchronous image extraction from plain snapshots after the live DOM is replaced', async () => {
+    const html = `<div class="chat-session-content">
+      <ms-chat-turn id="turn-1"><div data-turn-role="User"><div class="turn-content">one<img src="blob:https://aistudio.google.com/one" /></div></div></ms-chat-turn>
+      <ms-chat-turn id="turn-2"><div data-turn-role="User"><div class="turn-content">two<img src="blob:https://aistudio.google.com/two" /></div></div></ms-chat-turn>
+    </div>`;
+    const dom = setupDom(html, 'https://aistudio.google.com/app/plain-input');
+    let releaseFirst: (() => void) | null = null;
+    let calls = 0;
+    (dom.window as any).fetch = async () => {
+      calls += 1;
+      if (calls === 1) await new Promise<void>((resolve) => (releaseFirst = resolve));
+      return {
+        ok: true,
+        blob: async () => new (dom.window as any).Blob([new Uint8Array([1])], { type: 'image/png' }),
+      };
+    };
+    const def = createGoogleAiStudioCollectorDef(
+      createCollectorEnv({
+        window: dom.window as any,
+        document: dom.window.document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const capture = def.collector.capture();
+    while (!releaseFirst) await Promise.resolve();
+    dom.window.document.querySelector('.chat-session-content')!.innerHTML = '<p>replaced</p>';
+    releaseFirst();
+    const snap = await capture;
+    expect(snap.messages.map((message: any) => message.contentText)).toEqual(['one', 'two']);
+    expect(calls).toBe(2);
+  });
+
   it('preserves inline image warningFlags in manual capture flow', async () => {
     const html = `
       <div class="chat-session-content">
