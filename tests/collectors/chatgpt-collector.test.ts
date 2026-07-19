@@ -606,6 +606,47 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
     expect(after[0].fingerprint).not.toBe(first.fingerprint);
   });
 
+  it('retries a rendered message when its first plain snapshot is transiently unavailable', async () => {
+    const dom = setupChatgptDom(
+      `
+        <article data-testid="conversation-turn-1" data-turn-id="turn_retry">
+          <div data-message-author-role="assistant"><div class="markdown prose"><p>retry me</p></div></div>
+        </article>
+      `,
+      'https://chatgpt.com/c/conv_retry',
+    );
+    (dom.window as any).scrollTo = vi.fn();
+    const def = createChatgptCollectorDef(
+      createCollectorEnv({
+        window: dom.window as any,
+        document: dom.window.document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const adapter = def.collector.__test.manualAdapter;
+    const originalSnapshot = adapter.snapshotExtractionInput;
+    let remainingMisses = 1;
+    adapter.snapshotExtractionInput = (key: string) => {
+      if (remainingMisses > 0) {
+        remainingMisses -= 1;
+        return null;
+      }
+      return originalSnapshot(key);
+    };
+
+    const prepared = await def.collector.prepareManualCapture({
+      maxPasses: 2,
+      maxSteps: 4,
+      stableSamples: 1,
+      pollMs: 0,
+      stepTimeoutMs: 20,
+    });
+
+    expect(remainingMisses).toBe(0);
+    expect(prepared.records.map((record: any) => record.payload.contentText)).toEqual(['retry me']);
+  });
+
   it('bounds manual extraction to new or changed descriptor fingerprints', async () => {
     const dom = setupChatgptDom(
       `

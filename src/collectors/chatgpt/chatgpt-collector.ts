@@ -734,8 +734,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     for (let i = 0; i < descriptors.length; i += 1) {
       const descriptor = descriptors[i];
       const existing = existingByKey.get(descriptor.key);
-      const previousFingerprint = accumulator.descriptorFingerprints[descriptor.key];
-      accumulator.descriptorFingerprints[descriptor.key] = descriptor.fingerprint;
       if (existing && existing.fingerprint === descriptor.fingerprint) {
         records.push({
           key: existing.key,
@@ -746,7 +744,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         });
         continue;
       }
-      if (!existing && previousFingerprint === descriptor.fingerprint) continue;
       const input = manualAdapter.snapshotExtractionInput(descriptor.key);
       if (!input) continue;
       const message = extractManualMessage(input, i);
@@ -829,7 +826,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
       accumulator.identityVerified = false;
       accumulator.conversationKey = '';
       accumulator.records = [];
-      accumulator.descriptorFingerprints = Object.create(null) as Record<string, string>;
       accumulator.completeness = 'partial';
       addPreparedReason(accumulator, 'identity_changed');
     }
@@ -861,7 +857,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         accumulator,
         prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
       );
-      Object.assign(accumulator.descriptorFingerprints, prepared.descriptorFingerprints || {});
       const root = getConversationRoot();
       const finalLive = root
         ? await harvestRenderedInto(accumulator, root, { allowEditing: true })

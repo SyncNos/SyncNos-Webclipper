@@ -164,7 +164,6 @@ export type PreparedAccumulator<T> = {
   records: PreparedMessageRecord<T>[];
   reasons: string[];
   samples: number;
-  descriptorFingerprints: Record<string, string>;
   completeness: 'complete' | 'partial';
   sweepMetrics: Record<string, number | boolean>;
 };
@@ -177,7 +176,6 @@ export type VirtualizedPreparedCapture<T> = {
   identityGuard: PreparedIdentityGuard;
   records: PreparedMessageRecord<T>[];
   reasons: string[];
-  descriptorFingerprints: Record<string, string>;
   completeness: 'complete' | 'partial';
   metrics: Record<string, number | boolean> & { samples: number; messages: number };
 };
@@ -203,7 +201,6 @@ export function createPreparedAccumulator<T>(input: {
     records: [],
     reasons: [],
     samples: 0,
-    descriptorFingerprints: Object.create(null) as Record<string, string>,
     completeness: 'partial',
     sweepMetrics: {},
   };
@@ -342,7 +339,6 @@ export function finishPreparedCapture<T>(accumulator: PreparedAccumulator<T>): V
     },
     records: accumulator.records.map((record) => ({ ...record })),
     reasons: accumulator.reasons.slice(),
-    descriptorFingerprints: { ...accumulator.descriptorFingerprints },
     completeness: accumulator.completeness,
     metrics: {
       samples: accumulator.samples,
@@ -400,8 +396,6 @@ export function readPreparedCapture<T>(value: unknown, source: string): Virtuali
   if (!isPreparedIdentityGuard(value.identityGuard)) return null;
   if (!Array.isArray(value.records) || !value.records.every((record) => isPreparedRecord<T>(record))) return null;
   if (!Array.isArray(value.reasons) || !value.reasons.every((reason) => typeof reason === 'string')) return null;
-  if (!isPlainRecord(value.descriptorFingerprints)) return null;
-  if (!Object.values(value.descriptorFingerprints).every((fingerprint) => typeof fingerprint === 'string')) return null;
   if (value.completeness !== 'complete' && value.completeness !== 'partial') return null;
   if (!isPreparedMetrics(value.metrics)) return null;
   return value as VirtualizedPreparedCapture<T>;
@@ -478,7 +472,6 @@ function checkpointAccumulatorData<T>(accumulator: PreparedAccumulator<T>) {
   return {
     records: accumulator.records.map((record) => ({ ...record })),
     samples: accumulator.samples,
-    descriptorFingerprints: { ...accumulator.descriptorFingerprints },
   };
 }
 
@@ -488,12 +481,10 @@ function restoreAccumulatorData<T>(
 ): void {
   accumulator.records = checkpoint.records;
   accumulator.samples = checkpoint.samples;
-  accumulator.descriptorFingerprints = checkpoint.descriptorFingerprints;
 }
 
 function invalidateAccumulatorIdentity<T>(accumulator: PreparedAccumulator<T>): void {
   accumulator.records = [];
-  accumulator.descriptorFingerprints = Object.create(null) as Record<string, string>;
   accumulator.conversationKey = '';
   accumulator.identityVerified = false;
   accumulator.completeness = 'partial';

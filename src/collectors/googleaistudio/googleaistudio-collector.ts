@@ -490,7 +490,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
       for (const { turn, entry } of readCurrentManualEntryRefs()) {
         const descriptor = descriptorFromEntry(entry);
         const existing = existingByKey.get(descriptor.key);
-        accumulator.descriptorFingerprints[descriptor.key] = descriptor.fingerprint;
         if (existing && existing.fingerprint === descriptor.fingerprint) {
           output.push({ descriptor, existing });
           continue;
@@ -600,7 +599,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
       accumulator.identityVerified = false;
       accumulator.conversationKey = '';
       accumulator.records = [];
-      accumulator.descriptorFingerprints = Object.create(null) as Record<string, string>;
       accumulator.completeness = 'partial';
       addPreparedReason(accumulator, 'identity_changed');
     }
@@ -633,7 +631,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
         accumulator,
         prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
       );
-      Object.assign(accumulator.descriptorFingerprints, prepared.descriptorFingerprints || {});
       const finalLive = await harvestManualInto(accumulator, ctx);
       if (accumulator.completeness === 'complete' && (finalLive.added > 0 || finalLive.updated > 0)) {
         accumulator.completeness = 'partial';
