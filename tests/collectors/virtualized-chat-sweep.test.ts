@@ -643,6 +643,31 @@ describe('virtualized chat confirmation sweep', () => {
     expect(result.reasons).toEqual(expect.arrayContaining(['unresolved_turn', 'pass_budget_exhausted']));
   });
 
+  it('keeps sanitized provider errors incomplete', async () => {
+    const test = singlePageAdapter([
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+    ]);
+    const harvest = test.adapter.harvest;
+    test.adapter.harvest = async (target) => {
+      const result = await harvest(target);
+      addPreparedReason(target, 'PRIVATE_PROVIDER_ERROR');
+      return result;
+    };
+
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, maxPasses: 2 },
+    );
+
+    expect(result.completeness).toBe('partial');
+    expect(result.reasons).toContain('invalid_reason');
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_PROVIDER_ERROR');
+  });
+
   it('normalizes invalid budgets to bounded defaults', async () => {
     const test = singlePageAdapter([
       [{ key: 'a', fingerprint: 'a', text: 'A' }],

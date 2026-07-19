@@ -608,6 +608,10 @@ export type VirtualizedSweepResult = {
 };
 
 const INCOMPLETE_REASONS = new Set([
+  'invalid_reason',
+  'missing_identity',
+  'unstable_identity',
+  'restore_failed',
   'step_timeout',
   'step_budget_exhausted',
   'pass_budget_exhausted',
