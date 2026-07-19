@@ -635,7 +635,11 @@ export async function syncConversationMessages(
     }
 
     const requestedKeys = Array.from(new Set([...normalizeKeys(diff?.added), ...normalizeKeys(diff?.updated)]));
-    const upsertKeys = mode === 'append' && requestedKeys.length === 0 ? Array.from(byKey.keys()) : requestedKeys;
+    const requestedKeySet = new Set(requestedKeys);
+    const upsertKeys =
+      mode === 'append' && requestedKeys.length === 0
+        ? Array.from(byKey.keys())
+        : Array.from(byKey.keys()).filter((key) => requestedKeySet.has(key));
     const removedKeys = mode === 'incremental' ? normalizeKeys(diff?.removed) : [];
 
     const hasTailPolicy =

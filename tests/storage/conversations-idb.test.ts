@@ -307,6 +307,43 @@ describe('conversations storage-idb', () => {
     ]);
   });
 
+  it('tail-assigns virtual partial rows in incoming order across added and updated diff groups', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: 'append_sequence_incoming_order',
+      title: 'Order',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+
+    await syncConversationMessages(
+      id,
+      [
+        {
+          messageKey: 'm2',
+          role: 'assistant',
+          contentText: 'second',
+          sequence: 99,
+          captureSequencePolicy: 'preserve-existing-tail',
+        },
+        {
+          messageKey: 'm1',
+          role: 'user',
+          contentText: 'first',
+          sequence: 99,
+          captureSequencePolicy: 'preserve-existing-tail',
+        },
+      ],
+      { mode: 'append', diff: { added: ['m1'], updated: ['m2'], removed: [] } },
+    );
+
+    expect((await getMessagesByConversationId(id)).map(({ messageKey, sequence }) => [messageKey, sequence])).toEqual([
+      ['m2', 0],
+      ['m1', 1],
+    ]);
+  });
+
   it('tail-assigns virtual partial rows from zero in an empty conversation', async () => {
     const convo = await upsertConversation({
       sourceType: 'chat',
