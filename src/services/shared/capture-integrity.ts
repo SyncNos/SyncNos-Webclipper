@@ -111,9 +111,9 @@ export function resolveCaptureIntegrity(collectorId: unknown, snapshot: any): Ca
   );
 
   if (isVirtual) {
-    const source = stableIdentityString(snapshot?.conversation?.source);
+    const source = stableIdentityString(snapshot?.conversation?.source).toLowerCase();
     const conversationKey = stableIdentityString(snapshot?.conversation?.conversationKey);
-    if (!meta || meta.identityVerified !== true || !source || !conversationKey) {
+    if (!meta || meta.identityVerified !== true || source !== normalizedCollectorId || !conversationKey) {
       return {
         ok: false,
         code: 'capture_integrity_unverified',

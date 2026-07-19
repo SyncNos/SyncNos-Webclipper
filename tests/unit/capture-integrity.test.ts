@@ -75,6 +75,14 @@ describe('resolveCaptureIntegrity', () => {
     expect(result).toMatchObject({ ok: true, meta: { completeness: 'partial' }, persistence: { mode: 'append' } });
   });
 
+  it('rejects a virtual snapshot whose source does not match its collector', () => {
+    const result = resolveCaptureIntegrity(
+      'chatgpt',
+      snapshot({ conversation: { source: 'googleaistudio', conversationKey: 'conversation-1' } }),
+    );
+    expect(result).toMatchObject({ ok: false, code: 'capture_integrity_unverified' });
+  });
+
   it('routes verified partial messages to append with exact transient policy', () => {
     const result = resolveCaptureIntegrity(
       'chatgpt',
