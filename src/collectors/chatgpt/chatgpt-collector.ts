@@ -645,7 +645,9 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     }
     if (!messages.length) return null;
     const conversationKey =
-      (manual && prepared?.conversationKey) || findConversationIdFromUrl() || makeFallbackConversationKey(messages);
+      (manual && prepared?.identityVerified ? prepared.conversationKey : '') ||
+      findConversationIdFromUrl() ||
+      makeFallbackConversationKey(messages);
     return {
       conversation: {
         sourceType: 'chat',

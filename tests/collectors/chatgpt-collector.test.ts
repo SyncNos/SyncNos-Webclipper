@@ -602,6 +602,10 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
     expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(5);
     expect(snap.messages.every((m: any, i: number) => m.sequence === i)).toBe(true);
     expect(snap.captureMeta).toMatchObject({ completeness: 'partial', identityVerified: true });
+    const injectedPositions = snap.messages
+      .map((message: any, index: number) => (String(message.contentText || '').startsWith('注入-') ? index : -1))
+      .filter((index: number) => index >= 0);
+    expect(injectedPositions).toEqual([3, 4, 5]);
   });
 
   it('returns a plain prepared object without sharing state across collector instances', async () => {

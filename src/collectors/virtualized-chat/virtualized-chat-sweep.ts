@@ -193,26 +193,89 @@ export function mergePreparedRecords<T>(
   records: Array<Omit<PreparedMessageRecord<T>, 'firstSeenIndex'>>,
 ): { added: number; updated: number } {
   accumulator.samples += 1;
-  let added = 0;
+  const incoming = records
+    .map((record) => ({ ...record, key: String(record?.key || '').trim() }))
+    .filter((record) => !!record.key);
+  if (!incoming.length) return { added: 0, updated: 0 };
+
+  const uniqueIncoming: typeof incoming = [];
+  const incomingKeys = new Set<string>();
+  for (const record of incoming) {
+    if (incomingKeys.has(record.key)) continue;
+    incomingKeys.add(record.key);
+    uniqueIncoming.push(record);
+  }
+
   let updated = 0;
-  for (const record of records) {
-    const key = String(record?.key || '').trim();
-    if (!key) continue;
-    const existingIndex = accumulator.records.findIndex((item) => item.key === key);
-    if (existingIndex < 0) {
-      accumulator.records.push({ ...record, key, firstSeenIndex: accumulator.records.length });
-      added += 1;
-      continue;
-    }
-    const existing = accumulator.records[existingIndex];
-    if (existing.fingerprint === record.fingerprint) continue;
-    accumulator.records[existingIndex] = {
-      ...record,
-      key,
-      firstSeenIndex: existing.firstSeenIndex,
-    };
+  const existingByKey = new Map(accumulator.records.map((record) => [record.key, record]));
+  for (const record of uniqueIncoming) {
+    const existing = existingByKey.get(record.key);
+    if (!existing || existing.fingerprint === record.fingerprint) continue;
+    existing.turnKey = record.turnKey;
+    existing.withinTurn = record.withinTurn;
+    existing.fingerprint = record.fingerprint;
+    existing.payload = record.payload;
     updated += 1;
   }
+
+  if (!accumulator.records.length) {
+    for (const record of uniqueIncoming) {
+      accumulator.records.push({ ...record, firstSeenIndex: accumulator.records.length });
+    }
+    return { added: uniqueIncoming.length, updated };
+  }
+
+  const knownIncoming = uniqueIncoming.filter((record) => existingByKey.has(record.key));
+  if (!knownIncoming.length) {
+    addPreparedReason(accumulator, 'order_unanchored');
+    let added = 0;
+    for (const record of uniqueIncoming) {
+      if (existingByKey.has(record.key)) continue;
+      const prepared = { ...record, firstSeenIndex: accumulator.records.length };
+      accumulator.records.push(prepared);
+      existingByKey.set(record.key, prepared);
+      added += 1;
+    }
+    return { added, updated };
+  }
+
+  const currentPositions = new Map(accumulator.records.map((record, index) => [record.key, index]));
+  const knownPositions = knownIncoming.map((record) => currentPositions.get(record.key) as number);
+  if (knownPositions.some((position, index) => index > 0 && position <= knownPositions[index - 1])) {
+    addPreparedReason(accumulator, 'order_conflict');
+    return { added: 0, updated };
+  }
+
+  let added = 0;
+  let cursor = 0;
+  while (cursor < uniqueIncoming.length) {
+    if (existingByKey.has(uniqueIncoming[cursor].key)) {
+      cursor += 1;
+      continue;
+    }
+    const start = cursor;
+    while (cursor < uniqueIncoming.length && !existingByKey.has(uniqueIncoming[cursor].key)) cursor += 1;
+    const unknownRun = uniqueIncoming.slice(start, cursor);
+    const previousKnown = start > 0 ? uniqueIncoming[start - 1].key : '';
+    const nextKnown = cursor < uniqueIncoming.length ? uniqueIncoming[cursor].key : '';
+
+    let insertionIndex = accumulator.records.length;
+    if (nextKnown) {
+      insertionIndex = accumulator.records.findIndex((record) => record.key === nextKnown);
+    } else if (previousKnown) {
+      const previousIndex = accumulator.records.findIndex((record) => record.key === previousKnown);
+      insertionIndex = previousIndex < 0 ? accumulator.records.length : previousIndex + 1;
+    }
+
+    const preparedRun = unknownRun.map((record) => ({
+      ...record,
+      firstSeenIndex: accumulator.records.length + added,
+    }));
+    accumulator.records.splice(insertionIndex, 0, ...preparedRun);
+    for (const prepared of preparedRun) existingByKey.set(prepared.key, prepared);
+    added += preparedRun.length;
+  }
+
   return { added, updated };
 }
 

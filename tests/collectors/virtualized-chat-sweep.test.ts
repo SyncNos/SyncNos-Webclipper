@@ -161,3 +161,84 @@ describe('virtualized chat prepared accumulator', () => {
     expect(finishPreparedCapture(second).records.map((record) => record.key)).toEqual(['b']);
   });
 });
+
+describe('virtualized chat overlapping window order', () => {
+  function record(key: string, fingerprint = key, text = key) {
+    return { key, turnKey: key.split(':')[0], withinTurn: 0, fingerprint, payload: { text } };
+  }
+
+  it('merges prefix, suffix, and between keys around stable overlap', () => {
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'c',
+      identityVerified: true,
+    });
+    mergePreparedRecords(accumulator, [record('b'), record('d')]);
+    mergePreparedRecords(accumulator, [record('a'), record('b'), record('c'), record('d'), record('e')]);
+    expect(finishPreparedCapture(accumulator).records.map((item) => item.key)).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
+
+  it('refreshes a changed known key without moving its ordered position', () => {
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'c',
+      identityVerified: true,
+    });
+    mergePreparedRecords(accumulator, [record('a'), record('b', 'old', 'draft'), record('c')]);
+    expect(mergePreparedRecords(accumulator, [record('b', 'new', 'final'), record('c')])).toEqual({
+      added: 0,
+      updated: 1,
+    });
+    const prepared = finishPreparedCapture(accumulator);
+    expect(prepared.records.map((item) => item.key)).toEqual(['a', 'b', 'c']);
+    expect(prepared.records[1].payload.text).toBe('final');
+  });
+
+  it('marks disconnected and contradictory windows as permanently incomplete', () => {
+    const disconnected = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'c',
+      identityVerified: true,
+    });
+    mergePreparedRecords(disconnected, [record('a'), record('b')]);
+    mergePreparedRecords(disconnected, [record('x'), record('y')]);
+    expect(finishPreparedCapture(disconnected).reasons).toContain('order_unanchored');
+
+    const conflicting = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'c',
+      identityVerified: true,
+    });
+    mergePreparedRecords(conflicting, [record('a'), record('b'), record('c')]);
+    mergePreparedRecords(conflicting, [record('c'), record('b')]);
+    expect(finishPreparedCapture(conflicting).reasons).toContain('order_conflict');
+  });
+
+  it('preserves multiple message records inside one turn', () => {
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'c',
+      identityVerified: true,
+    });
+    mergePreparedRecords(accumulator, [
+      { ...record('turn-a:m1'), turnKey: 'turn-a', withinTurn: 0 },
+      { ...record('turn-b:m1'), turnKey: 'turn-b', withinTurn: 0 },
+      { ...record('turn-b:m2'), turnKey: 'turn-b', withinTurn: 1 },
+    ]);
+    expect(finishPreparedCapture(accumulator).records.map((item) => item.key)).toEqual([
+      'turn-a:m1',
+      'turn-b:m1',
+      'turn-b:m2',
+    ]);
+  });
+
+  it('does not update repeated unchanged windows', () => {
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'c',
+      identityVerified: true,
+    });
+    mergePreparedRecords(accumulator, [record('a'), record('b')]);
+    expect(mergePreparedRecords(accumulator, [record('a'), record('b')])).toEqual({ added: 0, updated: 0 });
+  });
+});
