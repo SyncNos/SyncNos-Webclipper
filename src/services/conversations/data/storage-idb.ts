@@ -1,4 +1,5 @@
 import type { Conversation, ConversationMessage } from '@services/conversations/domain/models';
+import type { CaptureMessageMergePolicy } from '@services/shared/capture-integrity';
 import { canonicalizeArticleUrl } from '@services/url-cleaning/http-url';
 import {
   LIST_SITE_KEY_ALL,
@@ -662,17 +663,29 @@ export async function syncConversationMessages(
         : Number.isFinite(m.sequence)
           ? m.sequence
           : 0;
+      const rawMergePolicy = String(m.captureMergePolicy || 'replace') as CaptureMessageMergePolicy;
+      const mergePolicy: CaptureMessageMergePolicy =
+        rawMergePolicy === 'preserve-existing-markdown' || rawMergePolicy === 'preserve-existing-content'
+          ? rawMergePolicy
+          : 'replace';
       const incomingMarkdown = m.contentMarkdown && String(m.contentMarkdown).trim() ? String(m.contentMarkdown) : '';
       const incomingAuthorName = m.authorName && String(m.authorName).trim() ? String(m.authorName).trim() : '';
+      const preserveExistingContent = mergePolicy === 'preserve-existing-content' && !!existing;
+      const preserveExistingMarkdown =
+        !!existing &&
+        (mergePolicy === 'preserve-existing-content' || mergePolicy === 'preserve-existing-markdown') &&
+        !!String(existing.contentMarkdown || '').trim();
       const baseRecord = {
         conversationId,
         messageKey: key,
         role: m.role || 'assistant',
         authorName: incomingAuthorName || (existing ? existing.authorName || '' : ''),
-        contentText: m.contentText || '',
-        contentMarkdown: incomingMarkdown || (existing ? existing.contentMarkdown || '' : ''),
+        contentText: preserveExistingContent ? existing.contentText || '' : m.contentText || '',
+        contentMarkdown: preserveExistingMarkdown
+          ? existing.contentMarkdown || ''
+          : incomingMarkdown || (existing ? existing.contentMarkdown || '' : ''),
         sequence,
-        updatedAt: m.updatedAt || Date.now(),
+        updatedAt: preserveExistingContent ? existing.updatedAt || Date.now() : m.updatedAt || Date.now(),
       };
       const record: any = withOptionalId(existing && existing.id, baseRecord);
       if (existing) {
