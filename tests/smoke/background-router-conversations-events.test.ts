@@ -130,8 +130,26 @@ describe('background-router conversations events', () => {
     });
 
     expect(res.ok).toBe(true);
-    expect(writeMocks.writeConversationMessagesSnapshot).toHaveBeenCalled();
+    expect(writeMocks.writeConversationMessagesSnapshot).toHaveBeenCalledWith(123, [], {
+      mode: 'snapshot',
+      diff: null,
+    });
     expect(broadcast).toHaveBeenCalledWith('conversationsChanged', { reason: 'upsert', conversationId: 123 });
+  });
+
+  it('rejects an unknown non-empty persistence mode before image or storage work', async () => {
+    const router = createRouter();
+
+    const res = await router.__handleMessageForTests({
+      type: 'syncConversationMessages',
+      conversationId: 123,
+      mode: 'snapshop',
+      messages: [{ messageKey: 'm1', contentText: 'unsafe' }],
+    });
+
+    expect(res).toMatchObject({ ok: false, error: { message: 'invalid mode' } });
+    expect(imageInlineMocks.inlineChatImagesInMessages).not.toHaveBeenCalled();
+    expect(writeMocks.writeConversationMessagesSnapshot).not.toHaveBeenCalled();
   });
 
   it('uses ai_chat_cache_images_enabled for chat source auto-save', async () => {
