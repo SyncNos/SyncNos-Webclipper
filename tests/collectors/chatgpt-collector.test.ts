@@ -872,6 +872,55 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
     expect(injectedPositions).toEqual([3, 4, 5]);
   });
 
+  it('binds temporary-chat identity only after reaching the canonical top', async () => {
+    const dom = setupChatgptDom('', 'https://chatgpt.com/?temporary-chat=true');
+    const main = dom.window.document.querySelector('main') as HTMLElement;
+    const root = dom.window.document.documentElement;
+    Object.defineProperty(root, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollHeight', { configurable: true, value: 200 });
+    Object.defineProperty(root, 'clientWidth', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollWidth', { configurable: true, value: 100 });
+    let top = 100;
+    const render = () => {
+      const atTop = top < 50;
+      main.innerHTML = `
+        <article data-testid="conversation-turn-1" data-turn-id="${atTop ? 'turn_top' : 'turn_middle'}">
+          <div data-message-author-role="${atTop ? 'user' : 'assistant'}">
+            <div class="${atTop ? 'whitespace-pre-wrap' : 'markdown prose'}">${atTop ? 'top' : 'middle'}</div>
+          </div>
+        </article>
+      `;
+    };
+    render();
+    Object.defineProperty(dom.window, 'scrollY', { configurable: true, get: () => top });
+    Object.defineProperty(dom.window, 'scrollX', { configurable: true, get: () => 0 });
+    (dom.window as any).scrollTo = (_left: number, nextTop: number) => {
+      top = Number(nextTop) || 0;
+      render();
+    };
+    const def = createChatgptCollectorDef(buildEnv(dom)) as any;
+    const topGuard = {
+      route: 'chatgpt.com/?temporary-chat=true',
+      durableId: '',
+      anchors: ['turn:turn_top', 'turn_top:user:0'],
+      topAnchor: 'turn:turn_top',
+    };
+
+    const prepared = await def.collector.prepareManualCapture({
+      maxPasses: 2,
+      maxSteps: 4,
+      maxOverlapRecoveries: 0,
+      stableSamples: 1,
+      pollMs: 0,
+      stepTimeoutMs: 20,
+    });
+
+    expect(prepared.conversationKey).toBe(def.collector.__test.identityConversationKey(topGuard));
+    expect(prepared.identityGuard.topAnchor).toBe('turn:turn_top');
+    expect(prepared.identityGuard.anchors).toContain('turn:turn_middle');
+    expect(top).toBe(100);
+  });
+
   it('recycles every visible anchor without treating scrolling as navigation', async () => {
     const dom = setupChatgptDom('', 'https://chatgpt.com/?temporary-chat=true');
     const main = dom.window.document.querySelector('main') as HTMLElement;

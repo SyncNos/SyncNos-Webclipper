@@ -10,6 +10,8 @@ import {
   mergePreparedRecords,
   createPreparedCaptureConsumer,
   runVirtualizedSweep,
+  resolveScrollRoot,
+  writeScrollPosition,
   type PreparedAccumulator,
   type PreparedIdentityGuard,
   type PreparedMessageRecord,
@@ -291,6 +293,27 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
   function identityConversationKey(guard: PreparedIdentityGuard): string {
     if (guard.durableId) return guard.durableId;
     return guard.topAnchor ? `chatgpt_${hashStableIdentity(guard.topAnchor)}` : '';
+  }
+
+  function mergeIdentityAnchors(target: PreparedIdentityGuard, current: PreparedIdentityGuard): void {
+    const seen = new Set(target.anchors);
+    for (const anchor of current.anchors) {
+      if (!anchor || seen.has(anchor)) continue;
+      seen.add(anchor);
+      target.anchors.push(anchor);
+    }
+  }
+
+  function createNavigationIdentitySampler(): () => string | null {
+    const route = normalizedRoute();
+    const durableId = findConversationIdFromUrl() || findShareIdFromUrl();
+    const stableIdentity = route ? `${route}|${durableId ? `durable:${durableId}` : 'temporary-session'}` : '';
+    return () => {
+      if (!stableIdentity || normalizedRoute() !== route) return null;
+      const currentDurableId = findConversationIdFromUrl() || findShareIdFromUrl();
+      if (durableId || currentDurableId) return durableId && currentDurableId === durableId ? stableIdentity : null;
+      return stableIdentity;
+    };
   }
 
   function identityGuardsMatch(expected: PreparedIdentityGuard, actual: PreparedIdentityGuard): boolean {
@@ -712,6 +735,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     _root: any,
     _options: any = {},
   ): Promise<{ added: number; updated: number }> {
+    mergeIdentityAnchors(accumulator.identityGuard, manualAdapter.readIdentity());
     const { descriptors, inputsByKey } = manualAdapter.readWindow();
     const existingByKey = new Map(accumulator.records.map((record) => [record.key, record]));
     const records: Array<Omit<PreparedMessageRecord<any>, 'firstSeenIndex'>> = [];
@@ -754,6 +778,19 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     const root = manualAdapter.readRoot();
     if (!root) return null;
 
+    const scrollRuntime = { document: env.document, window: env.window };
+    const sampleNavigationIdentity = createNavigationIdentitySampler();
+    const scrollRestorer = createScrollRootRestorer({
+      ...scrollRuntime,
+      getSeed: manualAdapter.readScrollSeed,
+      sampleIdentity: sampleNavigationIdentity,
+    });
+    const scrollRoot = resolveScrollRoot(scrollRuntime, manualAdapter.readScrollSeed());
+    writeScrollPosition(scrollRuntime, scrollRoot, 0, 0);
+    const settle =
+      options.sleep || ((ms: number) => new Promise<void>((resolve) => env.window.setTimeout(resolve, ms)));
+    await settle(Math.max(0, Number(options.pollMs) || 0));
+
     const identityGuard = manualAdapter.readIdentity();
     const conversationKey = identityConversationKey(identityGuard);
     const sampleCaptureIdentity = createCaptureIdentitySampler(identityGuard);
@@ -764,13 +801,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
       identityGuard,
     });
     if (!conversationKey) addPreparedReason(accumulator, 'unstable_identity');
-
-    const scrollRuntime = { document: env.document, window: env.window };
-    const scrollRestorer = createScrollRootRestorer({
-      ...scrollRuntime,
-      getSeed: manualAdapter.readScrollSeed,
-      sampleIdentity: sampleCaptureIdentity,
-    });
 
     try {
       const sweep = await runVirtualizedSweep(
