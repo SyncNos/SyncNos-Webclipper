@@ -13,7 +13,6 @@ import {
   getMessagesTailByConversationId,
   mergeConversationsByIds,
   syncConversationMessages,
-  syncConversationMessagesAppendOnly,
   upsertConversation,
 } from '@services/conversations/data/storage-idb';
 
@@ -165,10 +164,10 @@ describe('conversations storage-idb', () => {
       { messageKey: 'm2', role: 'assistant', contentText: 'a', sequence: 2, updatedAt: 2 },
     ]);
 
-    const res = await syncConversationMessagesAppendOnly(
+    const res = await syncConversationMessages(
       id,
       [{ messageKey: 'm1', role: 'user', contentText: 'u2', sequence: 1, updatedAt: 3 }],
-      { added: [], updated: ['m1'], removed: ['m2'] },
+      { mode: 'append', diff: { added: [], updated: ['m1'], removed: ['m2'] } },
     );
     expect(res.upserted).toBe(1);
     expect(res.deleted).toBe(0);
@@ -176,6 +175,83 @@ describe('conversations storage-idb', () => {
     const after = await getMessagesByConversationId(id);
     expect(after.map((m) => m.messageKey)).toEqual(['m1', 'm2']);
     expect(after.find((m) => m.messageKey === 'm1')?.contentText).toBe('u2');
+  });
+
+  it.each([
+    ['null diff', null],
+    ['empty diff', {}],
+    ['malformed diff', { added: 'm1', updated: 12, removed: ['m2'] }],
+  ])('keeps append non-destructive with %s', async (_label, diff) => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: `append_${_label}`,
+      title: 'Append',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+    await syncConversationMessages(id, [
+      { messageKey: 'm1', role: 'user', contentText: 'old', sequence: 1 },
+      { messageKey: 'm2', role: 'assistant', contentText: 'keep', sequence: 2 },
+    ]);
+
+    const result = await syncConversationMessages(
+      id,
+      [{ messageKey: 'm1', role: 'user', contentText: 'new', sequence: 1 }],
+      { mode: 'append', diff: diff as any },
+    );
+
+    expect(result).toEqual({ upserted: 1, deleted: 0 });
+    const stored = await getMessagesByConversationId(id);
+    expect(stored.map((message) => message.messageKey)).toEqual(['m1', 'm2']);
+    expect(stored.find((message) => message.messageKey === 'm1')?.contentText).toBe('new');
+  });
+
+  it('treats unkeyed append input as a no-delete no-op', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: 'append_unkeyed',
+      title: 'Append',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+    await syncConversationMessages(id, [
+      { messageKey: 'm1', role: 'user', contentText: 'old', sequence: 1 },
+      { messageKey: 'm2', role: 'assistant', contentText: 'keep', sequence: 2 },
+    ]);
+
+    const result = await syncConversationMessages(id, [{ role: 'user', contentText: 'ignored', sequence: 1 }], {
+      mode: 'append',
+      diff: null,
+    });
+
+    expect(result).toEqual({ upserted: 0, deleted: 0 });
+    expect((await getMessagesByConversationId(id)).map((message) => message.messageKey)).toEqual(['m1', 'm2']);
+  });
+
+  it('requires an explicit diff for incremental mode', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: 'incremental_no_diff',
+      title: 'Incremental',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+    await syncConversationMessages(id, [
+      { messageKey: 'm1', role: 'user', contentText: 'old', sequence: 1 },
+      { messageKey: 'm2', role: 'assistant', contentText: 'keep', sequence: 2 },
+    ]);
+
+    const result = await syncConversationMessages(
+      id,
+      [{ messageKey: 'm1', role: 'user', contentText: 'ignored', sequence: 1 }],
+      { mode: 'incremental', diff: null },
+    );
+
+    expect(result).toEqual({ upserted: 0, deleted: 0 });
+    expect((await getMessagesByConversationId(id)).map((message) => message.contentText)).toEqual(['old', 'keep']);
   });
 
   it('reads message tails by conversation id with ascending sequence order', async () => {

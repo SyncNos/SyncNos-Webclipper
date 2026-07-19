@@ -620,7 +620,7 @@ export async function syncConversationMessages(
     return value.map((x) => String(x || '').trim()).filter(Boolean);
   };
 
-  if (mode !== 'snapshot' && diff) {
+  if (mode !== 'snapshot') {
     const byKey = new Map<string, any>();
     for (const m of messages || []) {
       const key = m && m.messageKey ? String(m.messageKey).trim() : '';
@@ -628,9 +628,14 @@ export async function syncConversationMessages(
       byKey.set(key, m);
     }
 
-    const upsertKeys = Array.from(new Set([...normalizeKeys(diff.added), ...normalizeKeys(diff.updated)]));
-    const allowDeletes = mode === 'incremental';
-    const removedKeys = allowDeletes ? normalizeKeys(diff.removed) : [];
+    if (mode === 'incremental' && !diff) {
+      await txDone(t);
+      return { upserted: 0, deleted: 0 };
+    }
+
+    const requestedKeys = Array.from(new Set([...normalizeKeys(diff?.added), ...normalizeKeys(diff?.updated)]));
+    const upsertKeys = mode === 'append' && requestedKeys.length === 0 ? Array.from(byKey.keys()) : requestedKeys;
+    const removedKeys = mode === 'incremental' ? normalizeKeys(diff?.removed) : [];
 
     let upserted = 0;
     for (const key of upsertKeys) {
@@ -725,14 +730,6 @@ export async function syncConversationMessages(
 
   await txDone(t);
   return { upserted, deleted };
-}
-
-export async function syncConversationMessagesAppendOnly(
-  conversationId: number,
-  messages: any[],
-  diff?: { added?: string[]; updated?: string[]; removed?: string[] } | null,
-): Promise<{ upserted: number; deleted: number }> {
-  return await syncConversationMessages(conversationId, messages, { mode: 'append', diff: diff || null });
 }
 
 function normalizeConversationListSiteFilterKey(value: unknown): string {
