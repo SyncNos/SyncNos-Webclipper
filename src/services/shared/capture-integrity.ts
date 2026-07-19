@@ -136,7 +136,7 @@ export function resolveCaptureIntegrity(collectorId: unknown, snapshot: any): Ca
     identityVerified: false,
     reasons: ['protective_message_merge'],
   };
-  const completeKeys = rawMessages.map((message: any) => stableIdentityString(message?.messageKey));
+  const completeKeys: string[] = rawMessages.map((message: any) => stableIdentityString(message?.messageKey));
   const completeKeysAreSafe =
     rawMessages.length > 0 &&
     completeKeys.every((key) => isStablePartialKey(key)) &&
