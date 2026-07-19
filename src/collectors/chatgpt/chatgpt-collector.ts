@@ -2,7 +2,16 @@ import type { CollectorDefinition } from '@collectors/collector-contract.ts';
 import type { CollectorEnv } from '@collectors/collector-env.ts';
 import { appendImageMarkdown, extractImageUrlsFromElement } from '@collectors/collector-utils.ts';
 import chatgptMarkdown from '@collectors/chatgpt/chatgpt-markdown.ts';
-import { createScrollRootRestorer } from '@collectors/virtualized-chat/virtualized-chat-sweep.ts';
+import {
+  addPreparedReason,
+  createPreparedAccumulator,
+  createScrollRootRestorer,
+  finishPreparedCapture,
+  mergePreparedRecords,
+  readPreparedCapture,
+  type PreparedAccumulator,
+  type PreparedMessageRecord,
+} from '@collectors/virtualized-chat/virtualized-chat-sweep.ts';
 
 // ---- Pure turn primitives ----
 // These are env-free and side-effect-free (they never scroll or mutate the DOM), so they can be
@@ -50,70 +59,6 @@ export function turnIsHydrated(turnEl: any): boolean {
   return text.length > 0;
 }
 
-// ---- Cross-pass harvest cache ----
-// Accumulates messages seen across multiple capture passes (e.g. a manual scroll-sweep) so that
-// turns which were empty virtualized shells on one pass and hydrated on another are all retained.
-// Storage is keyed by turn so a single turn that holds multiple messages (e.g. several assistant
-// bubbles) keeps them as an ordered list (see F3).
-export type HarvestCache = {
-  conversationKey: string;
-  byTurn: Map<string, any[]>;
-  seenKeys: Set<string>;
-};
-
-export function createHarvestCache(conversationKey: string): HarvestCache {
-  return { conversationKey: String(conversationKey || ''), byTurn: new Map(), seenKeys: new Set() };
-}
-
-// Pure dedupe + group. `items` are already-extracted messages tagged with their turnKey and
-// position within the turn. Returns how many new messages were added. Cross-pass identity prefers
-// a real message id; otherwise a turn-relative position so re-harvesting a hydrated turn dedupes.
-export function harvestMessagesInto(cache: HarvestCache, items: any[]): number {
-  if (!cache || !Array.isArray(items)) return 0;
-  let added = 0;
-  for (const item of items) {
-    if (!item || !item.message) continue;
-    const turnKey = String(item.turnKey || '');
-    const within =
-      typeof item.withinTurn === 'number' && Number.isFinite(item.withinTurn)
-        ? item.withinTurn
-        : (cache.byTurn.get(turnKey) || []).length;
-    const mk = item.message.messageKey ? String(item.message.messageKey) : '';
-    const stableId = mk && !mk.startsWith('fallback_') ? mk : `${turnKey}#${within}`;
-    if (cache.seenKeys.has(stableId)) continue;
-    cache.seenKeys.add(stableId);
-    const list = cache.byTurn.get(turnKey) || [];
-    list.push(item.message);
-    cache.byTurn.set(turnKey, list);
-    added += 1;
-  }
-  return added;
-}
-
-// Pure assembly. Walks the current turn skeleton in document order and emits each turn's cached
-// messages (expanding multi-message turns in insertion order), then appends any cached turns not
-// present in the skeleton. Re-sequences globally. Returns null when nothing has been harvested.
-export function assembleFromCache(cache: HarvestCache, root: any): any[] | null {
-  if (!cache || !cache.byTurn || cache.byTurn.size === 0) return null;
-  const ordered: any[] = [];
-  const used = new Set<string>();
-  for (const turnEl of getTurnSkeleton(root)) {
-    const turnKey = turnKeyOf(turnEl);
-    if (!turnKey || used.has(turnKey)) continue;
-    const list = cache.byTurn.get(turnKey);
-    if (list && list.length) {
-      for (const m of list) ordered.push(m);
-      used.add(turnKey);
-    }
-  }
-  for (const [turnKey, list] of cache.byTurn) {
-    if (used.has(turnKey)) continue;
-    for (const m of list) ordered.push(m);
-  }
-  if (!ordered.length) return null;
-  return ordered.map((m, idx) => ({ ...m, sequence: idx }));
-}
-
 export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinition {
   const DEEP_RESEARCH_MESSAGE_TYPES = Object.freeze({
     REQUEST: 'SYNCNOS_DEEP_RESEARCH_REQUEST',
@@ -131,11 +76,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     }
   >();
   let deepResearchListenerInstalled = false;
-
-  // Cross-pass harvest cache populated by prepareManualCapture() and consumed once by the next
-  // manual capture(). Keyed by the content-independent conversation cache key so a stale cache
-  // from a different conversation is never reused.
-  let manualHarvestCache: HarvestCache | null = null;
 
   function sleep(ms: any): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
@@ -295,6 +235,11 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     const m =
       env.location.pathname.match(/^\/c\/([^/?#]+)/) || env.location.pathname.match(/^\/g\/[^/]+\/c\/([^/?#]+)/);
     return m && m[1] ? m[1] : '';
+  }
+
+  function findShareIdFromUrl(): string {
+    const match = env.location.pathname.match(/^\/share\/([^/?#]+)/);
+    return match?.[1] ? String(match[1]) : '';
   }
 
   function makeFallbackConversationKey(messages: any): any {
@@ -572,35 +517,44 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return out;
   }
 
-  // Harvest the currently-rendered messages from `root` into a cross-pass cache. Used by the
-  // manual scroll-sweep so that turns hydrated on different passes all survive. Each message is
-  // tagged with its stable turnKey and position within the turn before being deduped/grouped.
-  async function harvestInto(cache: HarvestCache, root: any, options: any = {}): Promise<number> {
-    if (!cache || !root) return 0;
+  function messageFingerprint(message: any): string {
+    const source = `${String(message?.role || '')}|${String(message?.contentText || '')}|${String(
+      message?.contentMarkdown || '',
+    )}`;
+    return env.normalize?.fnv1a32 ? String(env.normalize.fnv1a32(source)) : source;
+  }
+
+  async function harvestRenderedInto(
+    accumulator: PreparedAccumulator<any>,
+    root: any,
+    options: any = {},
+  ): Promise<{ added: number; updated: number }> {
+    if (!root) return { added: 0, updated: 0 };
     const wrappers = getTurnWrappers(root);
     const preferDeepResearchPlaceholders = computePreferDeepResearchPlaceholders(wrappers);
     const perTurn = new Map<string, number>();
-    const items: any[] = [];
+    const records: Array<Omit<PreparedMessageRecord<any>, 'firstSeenIndex'>> = [];
     for (let i = 0; i < wrappers.length; i += 1) {
       const el = wrappers[i];
       const turnKey = turnKeyOf(el) || `idx_${i}`;
-      const within = perTurn.get(turnKey) || 0;
-      perTurn.set(turnKey, within + 1);
+      const withinTurn = perTurn.get(turnKey) || 0;
+      perTurn.set(turnKey, withinTurn + 1);
       const message = await extractMessageFromWrapper(el, i, {
         allowEditing: !!options.allowEditing,
         preferDeepResearchPlaceholders,
       });
       if (!message) continue;
-      items.push({ turnKey, withinTurn: within, message });
+      const key = String(message.messageKey || `${turnKey}#${withinTurn}`);
+      records.push({ key, turnKey, withinTurn, fingerprint: messageFingerprint(message), payload: message });
     }
-    return harvestMessagesInto(cache, items);
+    return mergePreparedRecords(accumulator, records);
   }
 
   // Manual scroll-sweep. Walks the turn skeleton top-to-bottom, brings each still-virtualized turn
   // into view, polls until it hydrates, and harvests after every step so turns that unmount again
   // as we scroll past are already cached. The result is stashed for the next manual capture().
   // Scroll position is restored when finished. Pure additive method; never called automatically.
-  async function prepareManualCapture(options: any = {}): Promise<void> {
+  async function prepareManualCapture(options: any = {}): Promise<any | null> {
     if (!matches({ hostname: env.location.hostname })) return;
     const root = getConversationRoot();
     if (!root) return;
@@ -612,7 +566,13 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     const pollMs = Math.max(30, Number(options.pollMs) || 80);
 
     const conversationKey = resolveConversationCacheKey();
-    const cache = createHarvestCache(conversationKey);
+    const durableId = findConversationIdFromUrl() || findShareIdFromUrl();
+    const accumulator = createPreparedAccumulator<any>({
+      source: 'chatgpt',
+      conversationKey,
+      identityVerified: !!durableId,
+    });
+    addPreparedReason(accumulator, 'single_pass_unconfirmed');
 
     const scrollRestorer = createScrollRootRestorer({
       document: env.document,
@@ -623,7 +583,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
 
     try {
       // Harvest whatever is already rendered before we start moving the viewport.
-      await harvestInto(cache, root, { allowEditing: true });
+      await harvestRenderedInto(accumulator, root, { allowEditing: true });
 
       for (let i = 0; i < skeleton.length; i += 1) {
         const turnEl = skeleton[i];
@@ -641,13 +601,13 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         }
         if (settleMs) await sleep(settleMs);
         // Re-harvest after this turn hydrated; captures it before it can virtualize away again.
-        await harvestInto(cache, root, { allowEditing: true });
+        await harvestRenderedInto(accumulator, root, { allowEditing: true });
       }
 
       // Final sweep to pick up anything that hydrated late.
-      await harvestInto(cache, root, { allowEditing: true });
+      await harvestRenderedInto(accumulator, root, { allowEditing: true });
 
-      manualHarvestCache = cache;
+      return finishPreparedCapture(accumulator);
     } finally {
       scrollRestorer.restore();
     }
@@ -657,21 +617,35 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     if (!matches({ hostname: env.location.hostname })) return null;
     const manual = !!(options && options.manual);
 
-    // Manual capture prefers the cross-pass harvest gathered by prepareManualCapture(): it is
-    // reassembled in turn-skeleton order (expanding multi-message turns) so virtualized middle
-    // turns are not dropped. The cache is single-use and only valid for the current conversation;
-    // anything else falls back to a live single-pass collection.
-    let messages: any[] | null = null;
-    if (manual && manualHarvestCache && manualHarvestCache.conversationKey === resolveConversationCacheKey()) {
+    let messages: any[] = [];
+    let prepared = manual ? readPreparedCapture<any>(options?.preparedCapture, 'chatgpt') : null;
+    const currentIdentity = resolveConversationCacheKey();
+    if (prepared && prepared.conversationKey !== currentIdentity) prepared = null;
+
+    if (manual) {
+      const durableId = findConversationIdFromUrl() || findShareIdFromUrl();
+      const accumulator = createPreparedAccumulator<any>({
+        source: 'chatgpt',
+        conversationKey: prepared?.conversationKey || currentIdentity,
+        identityVerified: prepared?.identityVerified === true || !!durableId,
+      });
+      addPreparedReason(accumulator, 'single_pass_unconfirmed');
+      if (prepared) {
+        mergePreparedRecords(
+          accumulator,
+          prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
+        );
+      }
       const root = getConversationRoot();
-      messages = assembleFromCache(manualHarvestCache, root);
-      manualHarvestCache = null;
-    }
-    if (!messages || !messages.length) {
-      messages = await collectMessages({ allowEditing: manual });
+      if (root) await harvestRenderedInto(accumulator, root, { allowEditing: true });
+      prepared = finishPreparedCapture(accumulator);
+      messages = prepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
+    } else {
+      messages = await collectMessages({ allowEditing: false });
     }
     if (!messages.length) return null;
-    const conversationKey = findConversationIdFromUrl() || makeFallbackConversationKey(messages);
+    const conversationKey =
+      (manual && prepared?.conversationKey) || findConversationIdFromUrl() || makeFallbackConversationKey(messages);
     return {
       conversation: {
         sourceType: 'chat',
@@ -683,6 +657,16 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         lastCapturedAt: Date.now(),
       },
       messages,
+      ...(manual
+        ? {
+            captureMeta: {
+              completeness: 'partial',
+              identityVerified: prepared?.identityVerified === true,
+              reasons: prepared?.reasons || ['single_pass_unconfirmed'],
+              metrics: prepared?.metrics,
+            },
+          }
+        : null),
     };
   }
 
@@ -691,7 +675,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     getRoot: getConversationRoot,
     prepareManualCapture,
     __test: {
-      harvestInto,
       resolveConversationCacheKey,
       getRoot: getConversationRoot,
       collectMessages,

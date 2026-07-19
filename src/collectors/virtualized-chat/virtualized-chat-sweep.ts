@@ -139,3 +139,99 @@ export function createScrollRootRestorer(runtime: ScrollRuntime): { restore: () 
     },
   };
 }
+
+export type PreparedMessageRecord<T> = {
+  key: string;
+  turnKey: string;
+  withinTurn: number;
+  fingerprint: string;
+  payload: T;
+  firstSeenIndex: number;
+};
+
+export type PreparedAccumulator<T> = {
+  source: string;
+  conversationKey: string;
+  identityVerified: boolean;
+  records: PreparedMessageRecord<T>[];
+  reasons: string[];
+  samples: number;
+};
+
+export type VirtualizedPreparedCapture<T> = {
+  kind: 'syncnos.virtualized-chat.prepared.v1';
+  source: string;
+  conversationKey: string;
+  identityVerified: boolean;
+  records: PreparedMessageRecord<T>[];
+  reasons: string[];
+  metrics: { samples: number; messages: number };
+};
+
+export function createPreparedAccumulator<T>(input: {
+  source: string;
+  conversationKey: string;
+  identityVerified: boolean;
+}): PreparedAccumulator<T> {
+  return {
+    source: String(input.source || '').trim(),
+    conversationKey: String(input.conversationKey || '').trim(),
+    identityVerified: input.identityVerified === true,
+    records: [],
+    reasons: [],
+    samples: 0,
+  };
+}
+
+export function addPreparedReason<T>(accumulator: PreparedAccumulator<T>, reason: string): void {
+  const normalized = String(reason || '').trim();
+  if (normalized && !accumulator.reasons.includes(normalized)) accumulator.reasons.push(normalized);
+}
+
+export function mergePreparedRecords<T>(
+  accumulator: PreparedAccumulator<T>,
+  records: Array<Omit<PreparedMessageRecord<T>, 'firstSeenIndex'>>,
+): { added: number; updated: number } {
+  accumulator.samples += 1;
+  let added = 0;
+  let updated = 0;
+  for (const record of records) {
+    const key = String(record?.key || '').trim();
+    if (!key) continue;
+    const existingIndex = accumulator.records.findIndex((item) => item.key === key);
+    if (existingIndex < 0) {
+      accumulator.records.push({ ...record, key, firstSeenIndex: accumulator.records.length });
+      added += 1;
+      continue;
+    }
+    const existing = accumulator.records[existingIndex];
+    if (existing.fingerprint === record.fingerprint) continue;
+    accumulator.records[existingIndex] = {
+      ...record,
+      key,
+      firstSeenIndex: existing.firstSeenIndex,
+    };
+    updated += 1;
+  }
+  return { added, updated };
+}
+
+export function finishPreparedCapture<T>(accumulator: PreparedAccumulator<T>): VirtualizedPreparedCapture<T> {
+  return {
+    kind: 'syncnos.virtualized-chat.prepared.v1',
+    source: accumulator.source,
+    conversationKey: accumulator.conversationKey,
+    identityVerified: accumulator.identityVerified,
+    records: accumulator.records.map((record) => ({ ...record })),
+    reasons: accumulator.reasons.slice(),
+    metrics: { samples: accumulator.samples, messages: accumulator.records.length },
+  };
+}
+
+export function readPreparedCapture<T>(value: unknown, source: string): VirtualizedPreparedCapture<T> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const token = value as Partial<VirtualizedPreparedCapture<T>>;
+  if (token.kind !== 'syncnos.virtualized-chat.prepared.v1') return null;
+  if (token.source !== source || !token.conversationKey || !Array.isArray(token.records)) return null;
+  return token as VirtualizedPreparedCapture<T>;
+}

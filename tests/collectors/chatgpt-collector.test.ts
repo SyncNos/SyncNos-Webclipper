@@ -9,9 +9,6 @@ import {
   getTurnSkeleton,
   scrollTargetForTurn,
   turnIsHydrated,
-  createHarvestCache,
-  harvestMessagesInto,
-  assembleFromCache,
 } from '../../src/collectors/chatgpt/chatgpt-collector.ts';
 
 function setupChatgptDom(html: string, url: string) {
@@ -525,59 +522,6 @@ describe('chatgpt turn primitives', () => {
   });
 });
 
-describe('chatgpt harvest cache', () => {
-  function skeletonDoc() {
-    const html = `<!DOCTYPE html><html><body>
-      <div data-turn-id-container><section data-testid="conversation-turn-1" data-turn-id="turn_a"></section></div>
-      <div data-turn-id-container><section data-testid="conversation-turn-2" data-turn-id="turn_b"></section></div>
-      <div data-turn-id-container><section data-testid="conversation-turn-3" data-turn-id="turn_c"></section></div>
-    </body></html>`;
-    return new JSDOM(html, { url: 'https://chatgpt.com/share/x' }).window.document;
-  }
-  function msg(messageKey: string, role: string, text: string) {
-    return { messageKey, role, contentText: text, contentMarkdown: text, sequence: 0, updatedAt: 1 };
-  }
-
-  it('reassembles a middle turn hydrated on a later pass into its correct position', () => {
-    const doc = skeletonDoc();
-    const cache = createHarvestCache('conv_test');
-    // Pass 1: middle turn (turn_b) is an empty shell, only turn_a and turn_c are present.
-    expect(
-      harvestMessagesInto(cache, [
-        { turnKey: 'turn_a', withinTurn: 0, message: msg('m_a', 'user', 'Q1') },
-        { turnKey: 'turn_c', withinTurn: 0, message: msg('m_c', 'assistant', 'A2') },
-      ]),
-    ).toBe(2);
-    expect((assembleFromCache(cache, doc) || []).map((m: any) => m.messageKey)).toEqual(['m_a', 'm_c']);
-    // Pass 2: the middle turn hydrates; re-harvesting turn_a/turn_c must not duplicate.
-    expect(
-      harvestMessagesInto(cache, [
-        { turnKey: 'turn_a', withinTurn: 0, message: msg('m_a', 'user', 'Q1') },
-        { turnKey: 'turn_b', withinTurn: 0, message: msg('m_b', 'user', 'Q-mid') },
-        { turnKey: 'turn_c', withinTurn: 0, message: msg('m_c', 'assistant', 'A2') },
-      ]),
-    ).toBe(1);
-    const full = assembleFromCache(cache, doc) || [];
-    expect(full.map((m: any) => m.messageKey)).toEqual(['m_a', 'm_b', 'm_c']);
-    expect(full.map((m: any) => m.sequence)).toEqual([0, 1, 2]);
-  });
-
-  it('keeps multiple messages within one turn in insertion order (F3)', () => {
-    const doc = skeletonDoc();
-    const cache = createHarvestCache('conv_multi');
-    harvestMessagesInto(cache, [
-      { turnKey: 'turn_a', withinTurn: 0, message: msg('m_a', 'user', 'Q') },
-      { turnKey: 'turn_b', withinTurn: 0, message: msg('m_b1', 'assistant', 'part1') },
-      { turnKey: 'turn_b', withinTurn: 1, message: msg('m_b2', 'assistant', 'part2') },
-    ]);
-    expect((assembleFromCache(cache, doc) || []).map((m: any) => m.messageKey)).toEqual(['m_a', 'm_b1', 'm_b2']);
-  });
-
-  it('returns null when nothing has been harvested', () => {
-    expect(assembleFromCache(createHarvestCache('empty'), skeletonDoc())).toBeNull();
-  });
-});
-
 describe('chatgpt virtualized share fixture (5 rounds)', () => {
   function loadFixture() {
     const html = fs.readFileSync(new URL('../fixtures/chatgpt-share-virtualized.html', import.meta.url), 'utf8');
@@ -598,53 +542,6 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(9);
     expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(3);
-  });
-
-  it('fills the middle gap via cross-pass harvest once the empty shells hydrate (5 rounds)', async () => {
-    const dom = loadFixture();
-    const doc = dom.window.document;
-    const env = createCollectorEnv({
-      window: dom.window as any,
-      document: doc as any,
-      location: dom.window.location as any,
-      normalize: normalizeApi,
-    });
-    const def = createChatgptCollectorDef(env) as any;
-    const t = def.collector.__test;
-    const root = t.getRoot();
-    const cache = createHarvestCache(t.resolveConversationCacheKey());
-
-    // Pass 1: t3/t4/t5 are empty virtualized shells, so only 3 rounds are visible (the bug).
-    expect(await t.harvestInto(cache, root, { allowEditing: true })).toBe(9);
-    expect((assembleFromCache(cache, root) || []).filter((m: any) => m.role === 'user').length).toBe(3);
-
-    // Simulate scroll hydration: the 3 empty shells render their content.
-    const shells = getTurnSkeleton(doc).filter((s: any) => !turnIsHydrated(s));
-    expect(shells.length).toBe(3);
-    const injRoles = ['user', 'assistant', 'user'];
-    shells.forEach((s: any, idx: number) => {
-      const role = injRoles[idx];
-      const wrap = doc.createElement('div');
-      wrap.setAttribute('data-message-author-role', role);
-      wrap.setAttribute('data-message-id', `inj_${idx}`);
-      const inner = doc.createElement('div');
-      inner.className = role === 'user' ? 'whitespace-pre-wrap' : 'markdown prose';
-      inner.textContent = `注入-${role}-${idx}`;
-      wrap.appendChild(inner);
-      s.appendChild(wrap);
-    });
-
-    // Pass 2: the previously-empty shells are harvested; already-seen messages are not duplicated.
-    expect(await t.harvestInto(cache, root, { allowEditing: true })).toBe(3);
-    const full = assembleFromCache(cache, root) || [];
-    expect(full.length).toBe(12);
-    expect(full.filter((m: any) => m.role === 'user').length).toBe(5);
-    expect(full.every((m: any, i: number) => m.sequence === i)).toBe(true);
-    // The recovered messages land in the MIDDLE (positions 3,4,5), not appended at the end.
-    const injPositions = full
-      .map((m: any, i: number) => (String(m.contentText || '').startsWith('注入-') ? i : -1))
-      .filter((i: number) => i >= 0);
-    expect(injPositions).toEqual([3, 4, 5]);
   });
 });
 
@@ -693,17 +590,61 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
     expect(shells.length).toBe(3);
     const def = createChatgptCollectorDef(buildEnv(dom)) as any;
 
-    await def.collector.prepareManualCapture({ perTurnTimeoutMs: 300, pollMs: 10, settleMs: 5 });
+    const preparedCapture = await def.collector.prepareManualCapture({
+      perTurnTimeoutMs: 300,
+      pollMs: 10,
+      settleMs: 5,
+    });
     expect(counter.calls).toBe(3);
 
-    const snap = (await Promise.resolve(def.collector.capture({ manual: true }))) as any;
+    const snap = (await Promise.resolve(def.collector.capture({ manual: true, preparedCapture }))) as any;
     expect(snap.messages.length).toBe(12);
     expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(5);
     expect(snap.messages.every((m: any, i: number) => m.sequence === i)).toBe(true);
-    const injPositions = snap.messages
-      .map((m: any, i: number) => (String(m.contentText || '').startsWith('注入-') ? i : -1))
-      .filter((i: number) => i >= 0);
-    expect(injPositions).toEqual([3, 4, 5]);
+    expect(snap.captureMeta).toMatchObject({ completeness: 'partial', identityVerified: true });
+  });
+
+  it('returns a plain prepared object without sharing state across collector instances', async () => {
+    const firstDom = loadFixtureDom();
+    const secondDom = loadFixtureDom();
+    (firstDom.window as any).scrollTo = vi.fn();
+    (secondDom.window as any).scrollTo = vi.fn();
+    mockHydrationOnScroll(firstDom.window.document);
+    mockHydrationOnScroll(secondDom.window.document);
+    const first = createChatgptCollectorDef(buildEnv(firstDom)) as any;
+    const second = createChatgptCollectorDef(buildEnv(secondDom)) as any;
+
+    const [firstPrepared, secondPrepared] = await Promise.all([
+      first.collector.prepareManualCapture({ perTurnTimeoutMs: 200, pollMs: 10, settleMs: 0 }),
+      second.collector.prepareManualCapture({ perTurnTimeoutMs: 200, pollMs: 10, settleMs: 0 }),
+    ]);
+
+    expect(firstPrepared).not.toBe(secondPrepared);
+    expect(JSON.parse(JSON.stringify(firstPrepared))).toEqual(firstPrepared);
+    expect(JSON.parse(JSON.stringify(secondPrepared))).toEqual(secondPrepared);
+    firstPrepared.records[0].payload.contentText = 'mutated-first-only';
+    expect(secondPrepared.records[0].payload.contentText).not.toBe('mutated-first-only');
+  });
+
+  it('ignores a prepared object from another conversation identity', async () => {
+    const preparedDom = loadFixtureDom();
+    (preparedDom.window as any).scrollTo = vi.fn();
+    mockHydrationOnScroll(preparedDom.window.document);
+    const preparedDef = createChatgptCollectorDef(buildEnv(preparedDom)) as any;
+    const prepared = await preparedDef.collector.prepareManualCapture({
+      perTurnTimeoutMs: 200,
+      pollMs: 10,
+      settleMs: 0,
+    });
+
+    const otherDom = setupChatgptDom(
+      '<div data-message-author-role="user" data-message-id="other"><div class="whitespace-pre-wrap">other</div></div>',
+      'https://chatgpt.com/c/other-conversation',
+    );
+    const other = createChatgptCollectorDef(buildEnv(otherDom)) as any;
+    const snap = await other.collector.capture({ manual: true, preparedCapture: prepared });
+    expect(snap.messages).toHaveLength(1);
+    expect(snap.messages[0].contentText).toBe('other');
   });
 
   it('manual capture without prepareManualCapture falls back to a live single pass (3 rounds)', async () => {

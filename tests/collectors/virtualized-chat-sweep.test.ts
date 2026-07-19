@@ -1,7 +1,10 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createPreparedAccumulator,
   createScrollRootRestorer,
+  finishPreparedCapture,
+  mergePreparedRecords,
   isAtScrollBottom,
   isAtScrollTop,
   readScrollMetrics,
@@ -114,5 +117,47 @@ describe('virtualized chat scroll root', () => {
       sampleIdentity: () => 'chat-a',
     });
     expect(restorer.restore()).toEqual({ restored: false, reason: 'restore_failed' });
+  });
+});
+
+describe('virtualized chat prepared accumulator', () => {
+  it('returns a plain prepared token and updates changed records in place', () => {
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'conversation-a',
+      identityVerified: true,
+    });
+    expect(
+      mergePreparedRecords(accumulator, [
+        { key: 'm1', turnKey: 't1', withinTurn: 0, fingerprint: 'a', payload: { text: 'first' } },
+      ]),
+    ).toEqual({ added: 1, updated: 0 });
+    expect(
+      mergePreparedRecords(accumulator, [
+        { key: 'm1', turnKey: 't1', withinTurn: 0, fingerprint: 'b', payload: { text: 'final' } },
+      ]),
+    ).toEqual({ added: 0, updated: 1 });
+    const prepared = finishPreparedCapture(accumulator);
+    expect(JSON.parse(JSON.stringify(prepared))).toEqual(prepared);
+    expect(prepared.records[0]).toMatchObject({ firstSeenIndex: 0, payload: { text: 'final' } });
+  });
+
+  it('keeps concurrent prepared accumulators isolated', () => {
+    const first = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'conversation-a',
+      identityVerified: true,
+    });
+    const second = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'conversation-b',
+      identityVerified: true,
+    });
+    mergePreparedRecords(first, [{ key: 'a', turnKey: 'ta', withinTurn: 0, fingerprint: 'a', payload: { text: 'A' } }]);
+    mergePreparedRecords(second, [
+      { key: 'b', turnKey: 'tb', withinTurn: 0, fingerprint: 'b', payload: { text: 'B' } },
+    ]);
+    expect(finishPreparedCapture(first).records.map((record) => record.key)).toEqual(['a']);
+    expect(finishPreparedCapture(second).records.map((record) => record.key)).toEqual(['b']);
   });
 });
