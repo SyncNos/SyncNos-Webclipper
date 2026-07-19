@@ -112,6 +112,45 @@ describe('current page capture integrity routing', () => {
     });
   });
 
+  it('routes AI Studio image fallback as protective partial append without persisting capture metadata', async () => {
+    const snapshot = {
+      ...chatSnapshot({ completeness: 'partial', source: 'googleaistudio' }),
+      conversation: {
+        ...chatSnapshot({ source: 'googleaistudio' }).conversation,
+        source: 'googleaistudio',
+        url: 'https://aistudio.google.com/app/conversation-1',
+      },
+      messages: [
+        {
+          messageKey: 'm1',
+          role: 'assistant',
+          contentText: 'safe body',
+          contentMarkdown: 'safe body',
+          sequence: 0,
+          captureMergePolicy: 'preserve-existing-markdown',
+        },
+      ],
+      captureMeta: {
+        completeness: 'partial',
+        identityVerified: true,
+        reasons: ['inline_images_incomplete'],
+      },
+    };
+    const harness = createHarness({ collectorId: 'googleaistudio', snapshot });
+
+    await harness.service.captureCurrentPage();
+
+    expect(harness.calls[0].payload).not.toHaveProperty('captureMeta');
+    expect(harness.calls[1].payload).toMatchObject({
+      mode: 'append',
+      diff: { added: ['m1'], updated: [], removed: [] },
+    });
+    expect(harness.calls[1].payload.messages[0]).toMatchObject({
+      captureSequencePolicy: 'preserve-existing-tail',
+      captureMergePolicy: 'preserve-existing-markdown',
+    });
+  });
+
   it('keeps legacy non-virtual collectors compatible', async () => {
     const snapshot = { ...chatSnapshot({ source: 'gemini' }), captureMeta: undefined };
     const harness = createHarness({ collectorId: 'gemini', snapshot });

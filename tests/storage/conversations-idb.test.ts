@@ -452,6 +452,52 @@ describe('conversations storage-idb', () => {
     expect(stored).not.toHaveProperty('captureSequencePolicy');
   });
 
+  it('allows a later complete AI image snapshot to replace an earlier protected fallback', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'googleaistudio',
+      conversationKey: 'image_fallback_recovery',
+      title: 'Images',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+    await syncConversationMessages(
+      id,
+      [
+        {
+          messageKey: 'm1',
+          role: 'assistant',
+          contentText: 'fallback',
+          contentMarkdown: 'fallback',
+          sequence: 0,
+          captureMergePolicy: 'preserve-existing-markdown',
+        },
+      ],
+      { mode: 'append', diff: { added: ['m1'], updated: [], removed: [] } },
+    );
+
+    await syncConversationMessages(
+      id,
+      [
+        {
+          messageKey: 'm1',
+          role: 'assistant',
+          contentText: 'complete',
+          contentMarkdown: 'complete\n\n![](syncnos-asset://asset-1)',
+          sequence: 0,
+        },
+      ],
+      { mode: 'snapshot', diff: null },
+    );
+
+    const [stored] = await getMessagesByConversationId(id);
+    expect(stored).toMatchObject({
+      contentText: 'complete',
+      contentMarkdown: 'complete\n\n![](syncnos-asset://asset-1)',
+    });
+    expect(stored).not.toHaveProperty('captureMergePolicy');
+  });
+
   it('preserves existing content and zero timestamp while allowing first-time protective insert', async () => {
     const convo = await upsertConversation({
       sourceType: 'chat',
