@@ -401,4 +401,42 @@ describe('googleaistudio-collector', () => {
     expect(snap.messages[1]?.contentText).toBe('hello-2');
     expect(snap.messages[2]?.contentText).toBe('hello-3');
   });
+
+  it('uses stable turn-role-ordinal keys for multiple messages in one turn', async () => {
+    const html = `<div class="chat-session-content"><ms-chat-turn id="turn-1"><div data-turn-role="User"><div class="turn-content">Q</div></div><div data-turn-role="Model"><div class="turn-content">A</div></div></ms-chat-turn></div>`;
+    const dom = setupDom(html, 'https://aistudio.google.com/app/identity');
+    const def = createGoogleAiStudioCollectorDef(
+      createCollectorEnv({
+        window: dom.window as any,
+        document: dom.window.document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const preparedCapture = await def.collector.prepareManualCapture({ settleMs: 0 });
+    expect(preparedCapture.messages.map((message: any) => message.messageKey)).toEqual([
+      'turn-1:user:0',
+      'turn-1:assistant:1',
+    ]);
+    expect(preparedCapture.messages.every((message: any) => !String(message.messageKey).startsWith('fallback_'))).toBe(
+      true,
+    );
+  });
+
+  it('refuses to verify manual identity when stable turn ids are missing', async () => {
+    const html = `<div class="chat-session-content"><ms-chat-turn><div data-turn-role="User"><div class="turn-content">Q</div></div></ms-chat-turn></div>`;
+    const dom = setupDom(html, 'https://aistudio.google.com/app/missing-id');
+    const def = createGoogleAiStudioCollectorDef(
+      createCollectorEnv({
+        window: dom.window as any,
+        document: dom.window.document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const preparedCapture = await def.collector.prepareManualCapture({ settleMs: 0 });
+    const snap = await def.collector.capture({ manual: true, preparedCapture });
+    expect(snap.captureMeta.identityVerified).toBe(false);
+    expect(snap.conversation.conversationKey).toBe('');
+  });
 });

@@ -67,7 +67,7 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     kind: 'syncnos.googleaistudio.prepared.v1';
     source: 'googleaistudio';
     conversationKey: string;
-    identityGuard: { route: string; anchors: string[] };
+    identityGuard: { route: string; durableId: string; anchors: string[]; topAnchor: string };
     messages: any[];
     warningFlags: string[];
   };
@@ -80,9 +80,12 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
   }
 
   function sampleIdentityGuard() {
+    const anchors = stableTurnAnchors();
     return {
       route: String(env.location.pathname || ''),
-      anchors: stableTurnAnchors(),
+      durableId: String(findConversationKey() || '').trim(),
+      anchors,
+      topAnchor: anchors[0] || '',
     };
   }
 
@@ -109,6 +112,40 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     const id = (turn as any).getAttribute ? String((turn as any).getAttribute('id') || '').trim() : '';
     if (id) return `${id}:${role}`;
     return env.normalize.makeFallbackMessageKey({ role, contentText, sequence });
+  }
+
+  type ManualTurnEntry = {
+    turnId: string;
+    role: 'user' | 'assistant';
+    content: Element;
+    withinTurn: number;
+    messageKey: string;
+  };
+
+  function roleFromMarker(marker: Element): 'user' | 'assistant' | null {
+    const value = String(marker.getAttribute?.('data-turn-role') || '').trim();
+    if (/^user$/i.test(value)) return 'user';
+    if (/model|assistant/i.test(value)) return 'assistant';
+    return null;
+  }
+
+  function readManualTurnEntries(turn: Element): ManualTurnEntry[] {
+    const turnId = String(turn.getAttribute?.('id') || '').trim();
+    if (!turnId) return [];
+    const entries: ManualTurnEntry[] = [];
+    for (const marker of Array.from(turn.querySelectorAll('[data-turn-role]'))) {
+      const role = roleFromMarker(marker);
+      if (!role) continue;
+      const content = marker.matches?.('.turn-content') ? marker : marker.querySelector('.turn-content');
+      if (!content) continue;
+      const withinTurn = entries.length;
+      entries.push({ turnId, role, content, withinTurn, messageKey: `${turnId}:${role}:${withinTurn}` });
+    }
+    if (entries.length) return entries;
+    const role = normalizeRoleFromTurn(turn);
+    const content = role ? pickTurnContent(turn, role) : null;
+    if (!role || !content) return [];
+    return [{ turnId, role, content, withinTurn: 0, messageKey: `${turnId}:${role}:0` }];
   }
 
   function normalizeTitle(value: any): any {
@@ -337,11 +374,16 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     return stripTurnChromeFromNode(noThinking);
   }
 
-  async function extractMessageFromTurn(turn: Element, sequence: number, ctx: InlineImageContext): Promise<any | null> {
-    const role = normalizeRoleFromTurn(turn);
+  async function extractMessageFromTurn(
+    turn: Element,
+    sequence: number,
+    ctx: InlineImageContext,
+    manualEntry?: ManualTurnEntry,
+  ): Promise<any | null> {
+    const role = manualEntry?.role || normalizeRoleFromTurn(turn);
     if (!role) return null;
 
-    const contentEl = pickTurnContent(turn, role);
+    const contentEl = manualEntry?.content || pickTurnContent(turn, role);
     if (!contentEl) return null;
     const cleanedContent = cleanTurnContentNode(contentEl as any) || contentEl;
 
@@ -355,7 +397,7 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
       const contentText = text || '';
       const contentMarkdown = appendImageMarkdown(contentText, imageUrls, { allowDataImageUrls: true });
       return {
-        messageKey: messageKeyFromTurn(turn, 'user', contentText, sequence),
+        messageKey: manualEntry?.messageKey || messageKeyFromTurn(turn, 'user', contentText, sequence),
         role: 'user',
         contentText,
         contentMarkdown,
@@ -372,7 +414,7 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     const baseMarkdown = extractAssistantMarkdown(cleanedContent, contentText);
     const contentMarkdown = appendImageMarkdown(baseMarkdown || contentText, imageUrls, { allowDataImageUrls: true });
     return {
-      messageKey: messageKeyFromTurn(turn, 'assistant', contentText, sequence),
+      messageKey: manualEntry?.messageKey || messageKeyFromTurn(turn, 'assistant', contentText, sequence),
       role: 'assistant',
       contentText,
       contentMarkdown,
@@ -424,28 +466,25 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
 
     try {
       for (const turn of turns) {
-        const role = normalizeRoleFromTurn(turn);
-        if (!role) continue;
         try {
           (turn as any).scrollIntoView?.({ block: 'center' });
         } catch (_error) {
           // ignore
         }
-        const startedAt = Date.now();
-        while (Date.now() - startedAt <= perTurnTimeoutMs) {
-          const content = pickTurnContent(turn, role);
-          if (content) {
-            const clean = cleanTurnContentNode(content) || content;
+        for (const entry of readManualTurnEntries(turn)) {
+          const startedAt = Date.now();
+          while (Date.now() - startedAt <= perTurnTimeoutMs) {
+            const clean = cleanTurnContentNode(entry.content) || entry.content;
             const text = String((clean as any).textContent || '')
               .replace(/\s+/g, ' ')
               .trim();
             if (text || (clean as any).querySelector?.('img')) break;
+            await sleep(pollMs);
           }
-          await sleep(pollMs);
+          if (settleMs) await sleep(settleMs);
+          const message = await extractMessageFromTurn(turn, messages.length, ctx, entry);
+          if (message) messages.push({ ...message, sequence: messages.length });
         }
-        if (settleMs) await sleep(settleMs);
-        const message = await extractMessageFromTurn(turn, messages.length, ctx);
-        if (message) messages.push({ ...message, sequence: messages.length });
       }
     } finally {
       restorer.restore();
