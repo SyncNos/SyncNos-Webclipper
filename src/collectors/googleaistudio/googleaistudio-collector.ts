@@ -390,32 +390,34 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     return output;
   }
 
-  function readCurrentManualKeys(): string[] {
+  type ManualEntryRef = { turn: Element; entry: ManualTurnEntry };
+
+  function readCurrentManualEntryRefs(): ManualEntryRef[] {
     const root = getConversationRoot();
     if (!root) return [];
-    const output: string[] = [];
+    const output: ManualEntryRef[] = [];
     for (const turn of Array.from(root.querySelectorAll('ms-chat-turn')) as Element[]) {
-      for (const entry of readManualTurnEntries(turn)) output.push(entry.messageKey);
+      for (const entry of readManualTurnEntries(turn)) output.push({ turn, entry });
     }
     return output;
   }
 
+  function readCurrentManualKeys(): string[] {
+    return readCurrentManualEntryRefs().map(({ entry }) => entry.messageKey);
+  }
+
   function snapshotManualInput(key: string, sequence: number): PlainExtractionInput | null {
-    const root = getConversationRoot();
-    if (!root) return null;
-    for (const turn of Array.from(root.querySelectorAll('ms-chat-turn')) as Element[]) {
-      for (const entry of readManualTurnEntries(turn)) {
-        if (entry.messageKey !== key) continue;
-        return snapshotPlainInput(turn, entry.role, entry.content, sequence, entry);
-      }
+    for (const { turn, entry } of readCurrentManualEntryRefs()) {
+      if (entry.messageKey !== key) continue;
+      return snapshotPlainInput(turn, entry.role, entry.content, sequence, entry);
     }
     return null;
   }
 
   function snapshotCurrentManualInputs(): PlainExtractionInput[] {
     const output: PlainExtractionInput[] = [];
-    for (const key of readCurrentManualKeys()) {
-      const input = snapshotManualInput(key, output.length);
+    for (const { turn, entry } of readCurrentManualEntryRefs()) {
+      const input = snapshotPlainInput(turn, entry.role, entry.content, output.length, entry);
       if (input) output.push(input);
     }
     return output;
@@ -490,35 +492,57 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     );
   }
 
+  function descriptorFromEntry(entry: ManualTurnEntry): AiStudioDescriptor {
+    const rawText = env.normalize.normalizeText(
+      (entry.content as any).innerText || (entry.content as any).textContent || '',
+    );
+    const rawHtml = String((entry.content as any).innerHTML || '');
+    const httpUrls = extractImageUrlsFromElement(entry.content);
+    const blobUrls = extractBlobImageUrlsFromElement(entry.content);
+    return {
+      key: entry.messageKey,
+      turnKey: entry.turnId,
+      withinTurn: entry.withinTurn,
+      fingerprint: compactFingerprint(
+        [entry.messageKey, entry.role, rawText, rawHtml, httpUrls.join('|'), blobUrls.join('|')].join('\u001f'),
+      ),
+      rendered: !!rawText || !!httpUrls.length || !!blobUrls.length,
+    };
+  }
+
   function readCurrentDescriptors(): AiStudioDescriptor[] {
-    const output: AiStudioDescriptor[] = [];
-    for (const key of readCurrentManualKeys()) {
-      const input = snapshotManualInput(key, output.length);
-      if (!input) continue;
-      output.push({
-        key: input.messageKey,
-        turnKey: input.turnKey,
-        withinTurn: input.withinTurn,
-        fingerprint: extractionFingerprint(input),
-        rendered:
-          !!input.contentText || !!input.imageReferences.httpUrls.length || !!input.imageReferences.blobUrls.length,
-      });
-    }
-    return output;
+    return readCurrentManualEntryRefs().map(({ entry }) => descriptorFromEntry(entry));
   }
 
   async function harvestManualInto(
     accumulator: PreparedAccumulator<any>,
     ctx: InlineImageContext,
   ): Promise<{ added: number; updated: number }> {
-    const descriptors = readCurrentDescriptors();
     const existingByKey = new Map(accumulator.records.map((record) => [record.key, record]));
+    const candidates = (() => {
+      const output: Array<{
+        descriptor: AiStudioDescriptor;
+        existing?: PreparedMessageRecord<any>;
+        input?: PlainExtractionInput;
+      }> = [];
+      for (const { turn, entry } of readCurrentManualEntryRefs()) {
+        const descriptor = descriptorFromEntry(entry);
+        const existing = existingByKey.get(descriptor.key);
+        accumulator.descriptorFingerprints[descriptor.key] = descriptor.fingerprint;
+        if (existing && existing.fingerprint === descriptor.fingerprint) {
+          output.push({ descriptor, existing });
+          continue;
+        }
+        const input = snapshotPlainInput(turn, entry.role, entry.content, output.length, entry);
+        if (input) output.push({ descriptor, input });
+      }
+      return output;
+    })();
+
     const records: Array<Omit<PreparedMessageRecord<any>, 'firstSeenIndex'>> = [];
-    for (let index = 0; index < descriptors.length; index += 1) {
-      const descriptor = descriptors[index];
-      const existing = existingByKey.get(descriptor.key);
-      accumulator.descriptorFingerprints[descriptor.key] = descriptor.fingerprint;
-      if (existing && existing.fingerprint === descriptor.fingerprint) {
+    for (const candidate of candidates) {
+      const { descriptor, existing, input } = candidate;
+      if (existing) {
         records.push({
           key: existing.key,
           turnKey: existing.turnKey,
@@ -528,7 +552,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
         });
         continue;
       }
-      const input = snapshotManualInput(descriptor.key, index);
       if (!input) continue;
       const message = await extractMessageFromInput(input, ctx);
       if (!message) continue;
@@ -542,11 +565,11 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
         key: descriptor.key,
         turnKey: descriptor.turnKey,
         withinTurn: descriptor.withinTurn,
-        fingerprint: extractionFingerprint(input),
+        fingerprint: descriptor.fingerprint,
         payload: message,
       });
     }
-    if (!descriptors.length && stableTurnAnchors().length) addPreparedReason(accumulator, 'unstable_identity');
+    if (!candidates.length && stableTurnAnchors().length) addPreparedReason(accumulator, 'unstable_identity');
     return mergePreparedRecords(accumulator, records);
   }
 
