@@ -693,9 +693,7 @@ export async function syncConversationMessages(
         role: m.role || 'assistant',
         authorName: incomingAuthorName || (existing ? existing.authorName || '' : ''),
         contentText: preserveExistingContent ? existing.contentText || '' : m.contentText || '',
-        contentMarkdown: preserveExistingMarkdown
-          ? existing.contentMarkdown || ''
-          : incomingMarkdown || (existing ? existing.contentMarkdown || '' : ''),
+        contentMarkdown: preserveExistingMarkdown ? existing.contentMarkdown || '' : incomingMarkdown,
         sequence,
         updatedAt: preserveExistingContent
           ? normalizeMessageTimestamp(existing.updatedAt)
@@ -741,7 +739,7 @@ export async function syncConversationMessages(
       role: m.role || 'assistant',
       authorName: incomingAuthorName || (existing ? existing.authorName || '' : ''),
       contentText: m.contentText || '',
-      contentMarkdown: incomingMarkdown || (existing ? existing.contentMarkdown || '' : ''),
+      contentMarkdown: incomingMarkdown,
       sequence: Number.isFinite(m.sequence) ? m.sequence : 0,
       updatedAt: normalizeMessageTimestamp(m.updatedAt),
     };

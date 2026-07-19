@@ -423,6 +423,32 @@ describe('conversations storage-idb', () => {
     ]);
   });
 
+  it('lets explicit replace clear stale markdown in append and snapshot modes', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: 'clear_markdown',
+      title: 'Clear',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+    await syncConversationMessages(id, [
+      { messageKey: 'm1', role: 'assistant', contentText: 'old', contentMarkdown: '**old**', sequence: 0 },
+    ]);
+
+    await syncConversationMessages(
+      id,
+      [{ messageKey: 'm1', role: 'assistant', contentText: 'append plain', contentMarkdown: '', sequence: 0 }],
+      { mode: 'append', diff: { added: [], updated: ['m1'], removed: [] } },
+    );
+    expect((await getMessagesByConversationId(id))[0].contentMarkdown).toBe('');
+
+    await syncConversationMessages(id, [
+      { messageKey: 'm1', role: 'assistant', contentText: 'snapshot plain', contentMarkdown: '', sequence: 0 },
+    ]);
+    expect((await getMessagesByConversationId(id))[0].contentMarkdown).toBe('');
+  });
+
   it('preserves existing markdown for protective append merge policy', async () => {
     const convo = await upsertConversation({
       sourceType: 'chat',
