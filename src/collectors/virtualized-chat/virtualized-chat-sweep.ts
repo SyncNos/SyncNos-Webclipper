@@ -646,6 +646,13 @@ export async function runVirtualizedSweep<T>(
   let finalUnresolved: string[] = [];
   let finalLiveChanged = false;
   const sweepIdentity = String(adapter.sampleIdentity() || '').trim();
+  const validateSweepIdentity = (): boolean => {
+    const currentIdentity = String(adapter.sampleIdentity() || '').trim();
+    if (sweepIdentity && currentIdentity === sweepIdentity) return true;
+    addPreparedReason(accumulator, sweepIdentity ? 'identity_changed' : 'missing_identity');
+    invalidateAccumulatorIdentity(accumulator);
+    return false;
+  };
   const terminalPassReasons = new Set([
     'missing_identity',
     'identity_changed',
@@ -656,6 +663,7 @@ export async function runVirtualizedSweep<T>(
   ]);
 
   for (; passes < maxPasses; ) {
+    if (!validateSweepIdentity()) break;
     if (now() > deadline) {
       addPreparedReason(accumulator, 'total_deadline_exhausted');
       break;
@@ -667,6 +675,7 @@ export async function runVirtualizedSweep<T>(
     reachedTop = pass.reachedTop;
     reachedBottom = pass.reachedBottom;
 
+    if (!validateSweepIdentity()) break;
     if (now() > deadline) {
       addPreparedReason(accumulator, 'total_deadline_exhausted');
       break;
@@ -680,6 +689,7 @@ export async function runVirtualizedSweep<T>(
       addPreparedReason(accumulator, 'pass_failed');
       break;
     }
+    if (!validateSweepIdentity()) break;
     finalUnresolved = unresolved;
     const extentStable = previousExtent !== null && previousExtent === pass.maxScrollExtent;
     previousExtent = pass.maxScrollExtent;
@@ -699,9 +709,8 @@ export async function runVirtualizedSweep<T>(
       const checkpoint = checkpointAccumulatorData(accumulator);
       try {
         const finalLive = await adapter.harvest(accumulator);
-        if (String(adapter.sampleIdentity() || '').trim() !== sweepIdentity) {
+        if (!validateSweepIdentity()) {
           restoreAccumulatorData(accumulator, checkpoint);
-          addPreparedReason(accumulator, 'identity_changed');
           invalidateAccumulatorIdentity(accumulator);
           break;
         }

@@ -668,6 +668,34 @@ describe('virtualized chat confirmation sweep', () => {
     expect(result.passes).toBe(2);
   });
 
+  it('invalidates data when identity changes between passes', async () => {
+    const test = singlePageAdapter([
+      [{ key: 'old-message', fingerprint: 'old', text: 'old' }],
+      [{ key: 'new-message', fingerprint: 'new', text: 'new' }],
+    ]);
+    let identity = 'conversation-a';
+    let unresolvedReads = 0;
+    test.adapter.sampleIdentity = () => identity;
+    test.adapter.readUnresolvedKeys = () => {
+      unresolvedReads += 1;
+      if (unresolvedReads === 1) identity = 'conversation-b';
+      return ['pending'];
+    };
+
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, maxPasses: 2 },
+    );
+
+    expect(result.completeness).toBe('partial');
+    expect(result.reasons).toContain('identity_changed');
+    expect(test.accumulator.identityVerified).toBe(false);
+    expect(test.accumulator.conversationKey).toBe('');
+    expect(test.accumulator.records).toEqual([]);
+  });
+
   it('stops on total deadline exhaustion with content-free diagnostics', async () => {
     const test = singlePageAdapter([[{ key: 'PRIVATE_MESSAGE_ID', fingerprint: 'a', text: 'PRIVATE_BODY' }]]);
     let tick = 0;
