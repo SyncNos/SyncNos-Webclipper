@@ -104,6 +104,7 @@ function createHarness(options: {
 
   return {
     sendCalls,
+    getCaptureCount: () => captureCount,
     tipCalls,
     runTick: async () => {
       if (tickRef) await tickRef();
@@ -448,4 +449,19 @@ describe('content-controller ai chat autosave backfill', () => {
     expect(syncCalls).toHaveLength(2);
     expect(syncCalls[1].payload.messages.map((entry: any) => entry.contentText)).toEqual(['A', 'B']);
   });
+
+  it.each(['chatgpt', 'googleaistudio'])(
+    'skips virtualized manual collector %s before capture',
+    async (collectorId) => {
+      const harness = createHarness({
+        snapshots: [makeSnapshot(`manual-${collectorId}`, ['A'])],
+        collectorId,
+      });
+
+      await harness.runTick();
+
+      expect(harness.getCaptureCount()).toBe(0);
+      expect(harness.sendCalls).toHaveLength(0);
+    },
+  );
 });
