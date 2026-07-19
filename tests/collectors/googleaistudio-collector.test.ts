@@ -314,11 +314,46 @@ describe('googleaistudio-collector', () => {
     });
 
     const def = createGoogleAiStudioCollectorDef(env) as any;
-    await Promise.resolve(def.collector.prepareManualCapture({ settleMs: 0 }));
-    const snap = (await Promise.resolve(def.collector.capture({ manual: true }))) as any;
+    const preparedCapture = await Promise.resolve(def.collector.prepareManualCapture({ settleMs: 0 }));
+    const snap = (await Promise.resolve(def.collector.capture({ manual: true, preparedCapture }))) as any;
     expect(snap).toBeTruthy();
     expect(Array.isArray(snap.conversation.warningFlags)).toBe(true);
     expect(snap.conversation.warningFlags).toContain('inline_images_fetch_failed');
+  });
+
+  it('keeps prepared results isolated across collector instances', async () => {
+    const firstDom = setupDom(
+      '<div class="chat-session-content"><ms-chat-turn id="a"><div class="chat-turn-container user"><div data-turn-role="User"><div class="turn-content">A</div></div></div></ms-chat-turn></div>',
+      'https://aistudio.google.com/app/a',
+    );
+    const secondDom = setupDom(
+      '<div class="chat-session-content"><ms-chat-turn id="b"><div class="chat-turn-container user"><div data-turn-role="User"><div class="turn-content">B</div></div></div></ms-chat-turn></div>',
+      'https://aistudio.google.com/app/b',
+    );
+    const first = createGoogleAiStudioCollectorDef(
+      createCollectorEnv({
+        window: firstDom.window as any,
+        document: firstDom.window.document as any,
+        location: firstDom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const second = createGoogleAiStudioCollectorDef(
+      createCollectorEnv({
+        window: secondDom.window as any,
+        document: secondDom.window.document as any,
+        location: secondDom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const [a, b] = await Promise.all([
+      first.collector.prepareManualCapture({ settleMs: 0 }),
+      second.collector.prepareManualCapture({ settleMs: 0 }),
+    ]);
+    const firstSnap = await first.collector.capture({ manual: true, preparedCapture: a });
+    const secondSnap = await second.collector.capture({ manual: true, preparedCapture: b });
+    expect(firstSnap.messages.map((message: any) => message.contentText)).toEqual(['A']);
+    expect(secondSnap.messages.map((message: any) => message.contentText)).toEqual(['B']);
   });
 
   it('manual capture keeps full turn list', async () => {
@@ -357,8 +392,8 @@ describe('googleaistudio-collector', () => {
     });
 
     const def = createGoogleAiStudioCollectorDef(env) as any;
-    await Promise.resolve(def.collector.prepareManualCapture({ settleMs: 0 }));
-    const snap = (await Promise.resolve(def.collector.capture({ manual: true }))) as any;
+    const preparedCapture = await Promise.resolve(def.collector.prepareManualCapture({ settleMs: 0 }));
+    const snap = (await Promise.resolve(def.collector.capture({ manual: true, preparedCapture }))) as any;
 
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(3);

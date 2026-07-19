@@ -7,10 +7,7 @@ import {
   inEditMode as inEditModeUtil,
 } from '@collectors/collector-utils.ts';
 import geminiMarkdown from '@collectors/gemini/gemini-markdown.ts';
-
-let manualTurnCache: Map<string, any> | null = null;
-let manualCacheConversationKey: string = '';
-let manualCacheWarningFlags: string[] = [];
+import { createScrollRootRestorer } from '@collectors/virtualized-chat/virtualized-chat-sweep.ts';
 
 function sleep(ms: any): any {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
@@ -64,6 +61,44 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     return (
       env.document.querySelector('.chat-session-content') || env.document.querySelector('main') || env.document.body
     );
+  }
+
+  type LegacyPreparedCapture = {
+    kind: 'syncnos.googleaistudio.prepared.v1';
+    source: 'googleaistudio';
+    conversationKey: string;
+    identityGuard: { route: string; anchors: string[] };
+    messages: any[];
+    warningFlags: string[];
+  };
+
+  function stableTurnAnchors(root = getConversationRoot()): string[] {
+    if (!root || typeof root.querySelectorAll !== 'function') return [];
+    return Array.from(root.querySelectorAll('ms-chat-turn[id]'))
+      .map((turn: any) => String(turn?.getAttribute?.('id') || '').trim())
+      .filter(Boolean);
+  }
+
+  function sampleIdentityGuard() {
+    return {
+      route: String(env.location.pathname || ''),
+      anchors: stableTurnAnchors(),
+    };
+  }
+
+  function identityGuardsMatch(
+    expected: { route: string; anchors: string[] },
+    actual = sampleIdentityGuard(),
+  ): boolean {
+    if (!expected?.route || expected.route !== actual.route) return false;
+    const current = new Set(actual.anchors);
+    return expected.anchors.some((anchor) => current.has(anchor));
+  }
+
+  function sampleRestoreIdentity(): string | null {
+    const route = String(env.location.pathname || '');
+    const key = String(findConversationKey() || '').trim();
+    return route && key ? `${route}|${key}` : null;
   }
 
   function inEditMode(root: any): any {
@@ -365,101 +400,97 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     return out;
   }
 
-  async function prepareManualCapture(options: any = {}): Promise<void> {
-    if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl()) return;
+  async function prepareManualCapture(options: any = {}): Promise<LegacyPreparedCapture | null> {
+    if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl()) return null;
 
     const root = getConversationRoot();
-    if (!root) return;
-
+    if (!root) return null;
     const turns: Element[] = Array.from(root.querySelectorAll('ms-chat-turn')) as any;
-    if (!turns.length) return;
+    if (!turns.length) return null;
 
     const settleMs = Math.max(0, Number(options.settleMs) || 80);
     const perTurnTimeoutMs = Math.max(120, Number(options.perTurnTimeoutMs) || 900);
     const pollMs = Math.max(30, Number(options.pollMs) || 80);
-
     const conversationKey = String(findConversationKey() || '').trim();
-    manualCacheConversationKey = conversationKey;
-    manualTurnCache = new Map<string, any>();
+    const identityGuard = sampleIdentityGuard();
     const ctx = createInlineImageContext();
-    manualCacheWarningFlags = [];
-
-    const bottomTurn = turns[turns.length - 1] || null;
-
-    const total = turns.length;
-    for (let i = 0; i < total; i += 1) {
-      const turn = turns[i];
-      const role = normalizeRoleFromTurn(turn);
-      if (!role) continue;
-
-      try {
-        (turn as any).scrollIntoView?.({ block: 'center' });
-      } catch (_e) {
-        // ignore
-      }
-
-      const start = Date.now();
-      while (Date.now() - start <= perTurnTimeoutMs) {
-        const contentEl = pickTurnContent(turn, role);
-        if (contentEl) {
-          const checkEl = cleanTurnContentNode(contentEl as any) || contentEl;
-          const text = String((checkEl as any).textContent || '')
-            .replace(/\s+/g, ' ')
-            .trim();
-          const imgs = Array.from((checkEl as any).querySelectorAll?.('img') || []);
-          const hasImage = imgs.some((img: any) => {
-            const src = String(img?.currentSrc || img?.src || img?.getAttribute?.('src') || '').trim();
-            return !!src;
-          });
-          if (text || hasImage) break;
-        }
-        await sleep(pollMs);
-      }
-
-      if (settleMs) await sleep(settleMs);
-
-      const msg = await extractMessageFromTurn(turn, 0, ctx);
-      if (!msg) continue;
-      const turnId = (turn as any).getAttribute ? String((turn as any).getAttribute('id') || '').trim() : '';
-      if (turnId) manualTurnCache.set(turnId, msg);
-    }
-
-    const warningFlags = new Set<string>(ctx.warningFlags);
-    manualCacheWarningFlags = Array.from(warningFlags);
+    const messages: any[] = [];
+    const restorer = createScrollRootRestorer({
+      document: env.document,
+      window: env.window,
+      getSeed: getConversationRoot,
+      sampleIdentity: sampleRestoreIdentity,
+    });
 
     try {
-      (bottomTurn as any)?.scrollIntoView?.({ block: 'end' });
-    } catch (_e) {
-      // ignore
+      for (const turn of turns) {
+        const role = normalizeRoleFromTurn(turn);
+        if (!role) continue;
+        try {
+          (turn as any).scrollIntoView?.({ block: 'center' });
+        } catch (_error) {
+          // ignore
+        }
+        const startedAt = Date.now();
+        while (Date.now() - startedAt <= perTurnTimeoutMs) {
+          const content = pickTurnContent(turn, role);
+          if (content) {
+            const clean = cleanTurnContentNode(content) || content;
+            const text = String((clean as any).textContent || '')
+              .replace(/\s+/g, ' ')
+              .trim();
+            if (text || (clean as any).querySelector?.('img')) break;
+          }
+          await sleep(pollMs);
+        }
+        if (settleMs) await sleep(settleMs);
+        const message = await extractMessageFromTurn(turn, messages.length, ctx);
+        if (message) messages.push({ ...message, sequence: messages.length });
+      }
+    } finally {
+      restorer.restore();
     }
+
+    return {
+      kind: 'syncnos.googleaistudio.prepared.v1',
+      source: 'googleaistudio',
+      conversationKey,
+      identityGuard,
+      messages,
+      warningFlags: Array.from(ctx.warningFlags),
+    };
   }
 
   async function capture(options: any = {}): Promise<any> {
     if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl()) return null;
     const manual = options && options.manual === true;
-    let messages: any[] = [];
     const ctx = createInlineImageContext();
-
     const currentConversationKey = String(findConversationKey() || '').trim();
-    if (
-      manual &&
-      manualTurnCache &&
-      manualCacheConversationKey &&
-      manualCacheConversationKey === currentConversationKey
-    ) {
-      const root = getConversationRoot();
-      const turns: Element[] = root ? (Array.from(root.querySelectorAll('ms-chat-turn')) as any) : [];
-      for (const turn of turns) {
-        const turnId = (turn as any).getAttribute ? String((turn as any).getAttribute('id') || '').trim() : '';
-        if (!turnId) continue;
-        const hit = manualTurnCache.get(turnId);
-        if (hit) messages.push(hit);
-      }
-      messages = messages.map((m, idx) => ({ ...m, sequence: idx, updatedAt: Date.now() }));
-      for (const flag of manualCacheWarningFlags || []) ctx.warningFlags.add(String(flag));
-      manualTurnCache = null;
-      manualCacheConversationKey = '';
-      manualCacheWarningFlags = [];
+    const candidate = manual ? (options.preparedCapture as LegacyPreparedCapture | null) : null;
+    const prepared =
+      candidate?.kind === 'syncnos.googleaistudio.prepared.v1' &&
+      candidate.source === 'googleaistudio' &&
+      candidate.conversationKey === currentConversationKey &&
+      identityGuardsMatch(candidate.identityGuard)
+        ? candidate
+        : null;
+
+    let messages: any[] = [];
+    let captureMeta: any = null;
+    if (manual && prepared) {
+      for (const flag of prepared.warningFlags) ctx.warningFlags.add(flag);
+      const live = await collectMessages(ctx);
+      const byKey = new Map(prepared.messages.map((message) => [String(message.messageKey || ''), message]));
+      for (const message of live) byKey.set(String(message.messageKey || ''), message);
+      messages = Array.from(byKey.values()).map((message, index) => ({ ...message, sequence: index }));
+      captureMeta = { completeness: 'partial', identityVerified: true, reasons: ['legacy_fixed_traversal'] };
+    } else if (manual) {
+      messages = await collectMessages(ctx);
+      captureMeta = {
+        completeness: 'partial',
+        identityVerified: false,
+        reasons: [candidate ? 'identity_changed' : 'prepare_missing'],
+      };
     } else {
       messages = await collectMessages(ctx);
     }
@@ -469,13 +500,14 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
       conversation: {
         sourceType: 'chat',
         source: 'googleaistudio',
-        conversationKey: findConversationKey(),
+        conversationKey: manual && !captureMeta?.identityVerified ? '' : findConversationKey(),
         title: extractConversationTitle(),
         url: env.location.href,
         warningFlags: Array.from(ctx.warningFlags),
         lastCapturedAt: Date.now(),
       },
       messages,
+      ...(captureMeta ? { captureMeta } : null),
     };
   }
 
