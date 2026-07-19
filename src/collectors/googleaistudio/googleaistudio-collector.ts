@@ -104,11 +104,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     };
   }
 
-  function sampleRestoreIdentity(): string | null {
-    const guard = sampleIdentityGuard();
-    return guard.route && guard.durableId ? `${guard.route}|${guard.durableId}` : null;
-  }
-
   function inEditMode(root: any): any {
     return inEditModeUtil(root);
   }
@@ -402,27 +397,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     return output;
   }
 
-  function readCurrentManualKeys(): string[] {
-    return readCurrentManualEntryRefs().map(({ entry }) => entry.messageKey);
-  }
-
-  function snapshotManualInput(key: string, sequence: number): PlainExtractionInput | null {
-    for (const { turn, entry } of readCurrentManualEntryRefs()) {
-      if (entry.messageKey !== key) continue;
-      return snapshotPlainInput(turn, entry.role, entry.content, sequence, entry);
-    }
-    return null;
-  }
-
-  function snapshotCurrentManualInputs(): PlainExtractionInput[] {
-    const output: PlainExtractionInput[] = [];
-    for (const { turn, entry } of readCurrentManualEntryRefs()) {
-      const input = snapshotPlainInput(turn, entry.role, entry.content, output.length, entry);
-      if (input) output.push(input);
-    }
-    return output;
-  }
-
   async function resolveImageReferences(
     references: PlainImageReferences,
     ctx: InlineImageContext,
@@ -477,19 +451,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
   function compactFingerprint(value: string): string {
     const normalized = String(value || '');
     return env.normalize?.fnv1a32 ? String(env.normalize.fnv1a32(normalized)) : normalized;
-  }
-
-  function extractionFingerprint(input: PlainExtractionInput): string {
-    return compactFingerprint(
-      [
-        input.messageKey,
-        input.role,
-        input.contentText,
-        input.baseMarkdown,
-        input.imageReferences.httpUrls.join('|'),
-        input.imageReferences.blobUrls.join('|'),
-      ].join('\u001f'),
-    );
   }
 
   function descriptorFromEntry(entry: ManualTurnEntry): AiStudioDescriptor {

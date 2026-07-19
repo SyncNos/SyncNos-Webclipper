@@ -183,7 +183,7 @@ describe('content-controller inpage combo', () => {
       setupDom();
       const prepared = { source: collectorId, token: Symbol(collectorId) };
       const prepareImpl = vi.fn(() => prepared);
-      const captureImpl = vi.fn((args?: any) => ({
+      const captureImpl = vi.fn((_args?: any) => ({
         conversation: {
           source: collectorId,
           conversationKey: `${collectorId}-1`,
