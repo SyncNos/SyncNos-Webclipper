@@ -7,11 +7,18 @@ import {
   inEditMode as inEditModeUtil,
 } from '@collectors/collector-utils.ts';
 import geminiMarkdown from '@collectors/gemini/gemini-markdown.ts';
-import { createScrollRootRestorer } from '@collectors/virtualized-chat/virtualized-chat-sweep.ts';
-
-function sleep(ms: any): any {
-  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
-}
+import {
+  addPreparedReason,
+  createPreparedAccumulator,
+  createScrollRootRestorer,
+  finishPreparedCapture,
+  mergePreparedRecords,
+  readPreparedCapture,
+  runVirtualizedSweep,
+  type PreparedAccumulator,
+  type PreparedIdentityGuard,
+  type PreparedMessageRecord,
+} from '@collectors/virtualized-chat/virtualized-chat-sweep.ts';
 
 function normalizeRoleFromTurn(turn: Element): 'user' | 'assistant' | null {
   const container = turn.querySelector('.chat-turn-container');
@@ -63,15 +70,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     );
   }
 
-  type LegacyPreparedCapture = {
-    kind: 'syncnos.googleaistudio.prepared.v1';
-    source: 'googleaistudio';
-    conversationKey: string;
-    identityGuard: { route: string; durableId: string; anchors: string[]; topAnchor: string };
-    messages: any[];
-    warningFlags: string[];
-  };
-
   function stableTurnAnchors(root = getConversationRoot()): string[] {
     if (!root || typeof root.querySelectorAll !== 'function') return [];
     return Array.from(root.querySelectorAll('ms-chat-turn[id]'))
@@ -79,7 +77,7 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
       .filter(Boolean);
   }
 
-  function sampleIdentityGuard() {
+  function sampleIdentityGuard(): PreparedIdentityGuard {
     const anchors = stableTurnAnchors();
     return {
       route: String(env.location.pathname || ''),
@@ -89,19 +87,26 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     };
   }
 
-  function identityGuardsMatch(
-    expected: { route: string; anchors: string[] },
-    actual = sampleIdentityGuard(),
-  ): boolean {
-    if (!expected?.route || expected.route !== actual.route) return false;
+  function identityGuardsMatch(expected: PreparedIdentityGuard, actual = sampleIdentityGuard()): boolean {
+    if (!expected || !actual || !expected.route || expected.route !== actual.route) return false;
+    if (!expected.durableId || expected.durableId !== actual.durableId) return false;
+    if (!expected.anchors.length || !actual.anchors.length) return false;
     const current = new Set(actual.anchors);
     return expected.anchors.some((anchor) => current.has(anchor));
   }
 
+  function createCaptureIdentitySampler(expected: PreparedIdentityGuard): () => string | null {
+    const stableIdentity = expected.route && expected.durableId ? `${expected.route}|${expected.durableId}` : '';
+    return () => {
+      if (!stableIdentity) return null;
+      const current = sampleIdentityGuard();
+      return current.route === expected.route && current.durableId === expected.durableId ? stableIdentity : null;
+    };
+  }
+
   function sampleRestoreIdentity(): string | null {
-    const route = String(env.location.pathname || '');
-    const key = String(findConversationKey() || '').trim();
-    return route && key ? `${route}|${key}` : null;
+    const guard = sampleIdentityGuard();
+    return guard.route && guard.durableId ? `${guard.route}|${guard.durableId}` : null;
   }
 
   function inEditMode(root: any): any {
@@ -473,86 +478,220 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     return extractMessagesFromInputs(snapshotNormalInputs(), ctx);
   }
 
-  async function prepareManualCapture(options: any = {}): Promise<LegacyPreparedCapture | null> {
+  type AiStudioDescriptor = {
+    key: string;
+    turnKey: string;
+    withinTurn: number;
+    fingerprint: string;
+    rendered: boolean;
+  };
+
+  function compactFingerprint(value: string): string {
+    const normalized = String(value || '');
+    return env.normalize?.fnv1a32 ? String(env.normalize.fnv1a32(normalized)) : normalized;
+  }
+
+  function extractionFingerprint(input: PlainExtractionInput): string {
+    return compactFingerprint(
+      [
+        input.messageKey,
+        input.role,
+        input.contentText,
+        input.baseMarkdown,
+        input.imageReferences.httpUrls.join('|'),
+        input.imageReferences.blobUrls.join('|'),
+      ].join('\u001f'),
+    );
+  }
+
+  function readCurrentDescriptors(): AiStudioDescriptor[] {
+    const output: AiStudioDescriptor[] = [];
+    for (const key of readCurrentManualKeys()) {
+      const input = snapshotManualInput(key, output.length);
+      if (!input) continue;
+      output.push({
+        key: input.messageKey,
+        turnKey: input.turnKey,
+        withinTurn: input.withinTurn,
+        fingerprint: extractionFingerprint(input),
+        rendered:
+          !!input.contentText || !!input.imageReferences.httpUrls.length || !!input.imageReferences.blobUrls.length,
+      });
+    }
+    return output;
+  }
+
+  async function harvestManualInto(
+    accumulator: PreparedAccumulator<any>,
+    ctx: InlineImageContext,
+  ): Promise<{ added: number; updated: number }> {
+    const descriptors = readCurrentDescriptors();
+    const existingByKey = new Map(accumulator.records.map((record) => [record.key, record]));
+    const records: Array<Omit<PreparedMessageRecord<any>, 'firstSeenIndex'>> = [];
+    for (let index = 0; index < descriptors.length; index += 1) {
+      const descriptor = descriptors[index];
+      const existing = existingByKey.get(descriptor.key);
+      accumulator.descriptorFingerprints[descriptor.key] = descriptor.fingerprint;
+      if (existing && existing.fingerprint === descriptor.fingerprint) {
+        records.push({
+          key: existing.key,
+          turnKey: existing.turnKey,
+          withinTurn: existing.withinTurn,
+          fingerprint: existing.fingerprint,
+          payload: existing.payload,
+        });
+        continue;
+      }
+      const input = snapshotManualInput(descriptor.key, index);
+      if (!input) continue;
+      const message = await extractMessageFromInput(input, ctx);
+      if (!message) continue;
+      records.push({
+        key: descriptor.key,
+        turnKey: descriptor.turnKey,
+        withinTurn: descriptor.withinTurn,
+        fingerprint: extractionFingerprint(input),
+        payload: message,
+      });
+    }
+    if (!descriptors.length && stableTurnAnchors().length) addPreparedReason(accumulator, 'unstable_identity');
+    return mergePreparedRecords(accumulator, records);
+  }
+
+  async function prepareManualCapture(options: any = {}): Promise<any | null> {
     if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl()) return null;
     const root = getConversationRoot();
     if (!root) return null;
-    const keys = readCurrentManualKeys();
-    if (!keys.length) return null;
 
-    const settleMs = Math.max(0, Number(options.settleMs) || 80);
-    const perTurnTimeoutMs = Math.max(120, Number(options.perTurnTimeoutMs) || 900);
-    const pollMs = Math.max(30, Number(options.pollMs) || 80);
-    const conversationKey = String(findConversationKey() || '').trim();
     const identityGuard = sampleIdentityGuard();
+    const conversationKey = identityGuard.durableId && identityGuard.anchors.length ? identityGuard.durableId : '';
+    const accumulator = createPreparedAccumulator<any>({
+      source: 'googleaistudio',
+      conversationKey,
+      identityVerified: !!conversationKey,
+      identityGuard,
+    });
+    if (!conversationKey) addPreparedReason(accumulator, 'unstable_identity');
     const ctx = createInlineImageContext();
-    const messages: any[] = [];
+    const sampleIdentity = createCaptureIdentitySampler(identityGuard);
+    const runtime = { document: env.document, window: env.window };
     const restorer = createScrollRootRestorer({
-      document: env.document,
-      window: env.window,
+      ...runtime,
       getSeed: getConversationRoot,
-      sampleIdentity: sampleRestoreIdentity,
+      sampleIdentity,
     });
 
     try {
-      for (const key of keys) {
-        const startedAt = Date.now();
-        let input: PlainExtractionInput | null = null;
-        while (Date.now() - startedAt <= perTurnTimeoutMs) {
-          input = snapshotManualInput(key, messages.length);
-          if (input) break;
-          await sleep(pollMs);
-        }
-        if (!input) continue;
-        if (settleMs) await sleep(settleMs);
-        input = snapshotManualInput(key, messages.length);
-        if (!input) continue;
-        const message = await extractMessageFromInput(input, ctx);
-        if (message) messages.push({ ...message, sequence: messages.length });
-      }
+      const sweep = await runVirtualizedSweep(
+        runtime,
+        {
+          getScrollSeed: getConversationRoot,
+          sampleIdentity,
+          readDescriptorKeys: () => readCurrentDescriptors().map((descriptor) => descriptor.key),
+          readUnresolvedKeys: () =>
+            readCurrentDescriptors()
+              .filter((descriptor) => !descriptor.rendered)
+              .map((descriptor) => descriptor.key),
+          harvest: (target) => harvestManualInto(target, ctx),
+        },
+        accumulator,
+        {
+          maxPasses: options.maxPasses,
+          totalDeadlineMs: options.totalDeadlineMs,
+          maxSteps: options.maxSteps,
+          stableSamples: options.stableSamples,
+          pollMs: options.pollMs,
+          stepTimeoutMs: options.stepTimeoutMs || options.perTurnTimeoutMs,
+          overlapRatio: options.overlapRatio,
+          maxOverlapRecoveries: options.maxOverlapRecoveries,
+          sleep: options.sleep,
+          now: options.now,
+        },
+      );
+      accumulator.completeness = sweep.completeness;
     } finally {
-      restorer.restore();
+      const restored = restorer.restore();
+      if (!restored.restored) {
+        accumulator.completeness = 'partial';
+        addPreparedReason(accumulator, 'restore_failed');
+      }
     }
 
-    return {
-      kind: 'syncnos.googleaistudio.prepared.v1',
-      source: 'googleaistudio',
-      conversationKey,
-      identityGuard,
-      messages,
-      warningFlags: Array.from(ctx.warningFlags),
-    };
+    if (!identityGuardsMatch(accumulator.identityGuard)) {
+      accumulator.identityVerified = false;
+      accumulator.conversationKey = '';
+      accumulator.records = [];
+      accumulator.descriptorFingerprints = Object.create(null) as Record<string, string>;
+      accumulator.completeness = 'partial';
+      addPreparedReason(accumulator, 'identity_changed');
+    }
+    return { ...finishPreparedCapture(accumulator), warningFlags: Array.from(ctx.warningFlags) };
   }
 
   async function capture(options: any = {}): Promise<any> {
     if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl()) return null;
-    const manual = options && options.manual === true;
+    const manual = options?.manual === true;
     const ctx = createInlineImageContext();
-    const currentConversationKey = String(findConversationKey() || '').trim();
-    const candidate = manual ? (options.preparedCapture as LegacyPreparedCapture | null) : null;
-    const prepared =
-      candidate?.kind === 'syncnos.googleaistudio.prepared.v1' &&
-      candidate.source === 'googleaistudio' &&
-      candidate.conversationKey === currentConversationKey &&
-      identityGuardsMatch(candidate.identityGuard)
-        ? candidate
-        : null;
-
     let messages: any[] = [];
     let captureMeta: any = null;
+    let manualConversationKey = '';
+
+    let prepared = manual ? readPreparedCapture<any>(options?.preparedCapture, 'googleaistudio') : null;
+    if (prepared && !identityGuardsMatch(prepared.identityGuard)) prepared = null;
+
     if (manual && prepared) {
-      for (const flag of prepared.warningFlags) ctx.warningFlags.add(flag);
-      const live = await extractMessagesFromInputs(snapshotCurrentManualInputs(), ctx);
-      const byKey = new Map(prepared.messages.map((message) => [String(message.messageKey || ''), message]));
-      for (const message of live) byKey.set(String(message.messageKey || ''), message);
-      messages = Array.from(byKey.values()).map((message, index) => ({ ...message, sequence: index }));
-      captureMeta = { completeness: 'partial', identityVerified: true, reasons: ['legacy_fixed_traversal'] };
+      for (const flag of (options.preparedCapture as any)?.warningFlags || []) ctx.warningFlags.add(String(flag));
+      const accumulator = createPreparedAccumulator<any>({
+        source: 'googleaistudio',
+        conversationKey: prepared.conversationKey,
+        identityVerified: prepared.identityVerified === true,
+        identityGuard: prepared.identityGuard,
+      });
+      accumulator.completeness = prepared.completeness;
+      accumulator.reasons.push(...prepared.reasons.filter((reason) => !accumulator.reasons.includes(reason)));
+      accumulator.sweepMetrics = { ...prepared.metrics };
+      mergePreparedRecords(
+        accumulator,
+        prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
+      );
+      Object.assign(accumulator.descriptorFingerprints, prepared.descriptorFingerprints || {});
+      const finalLive = await harvestManualInto(accumulator, ctx);
+      if (accumulator.completeness === 'complete' && (finalLive.added > 0 || finalLive.updated > 0)) {
+        accumulator.completeness = 'partial';
+        addPreparedReason(accumulator, 'final_live_changed');
+      }
+      if (!identityGuardsMatch(accumulator.identityGuard)) {
+        accumulator.identityVerified = false;
+        accumulator.conversationKey = '';
+        accumulator.records = [];
+        accumulator.completeness = 'partial';
+        addPreparedReason(accumulator, 'identity_changed');
+      }
+      const finalPrepared = finishPreparedCapture(accumulator);
+      messages = finalPrepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
+      manualConversationKey = finalPrepared.conversationKey;
+      captureMeta = {
+        completeness: finalPrepared.completeness,
+        identityVerified: finalPrepared.identityVerified,
+        reasons: finalPrepared.reasons,
+        metrics: finalPrepared.metrics,
+      };
     } else if (manual) {
-      messages = await extractMessagesFromInputs(snapshotCurrentManualInputs(), ctx);
+      const identityGuard = sampleIdentityGuard();
+      const accumulator = createPreparedAccumulator<any>({
+        source: 'googleaistudio',
+        conversationKey: '',
+        identityVerified: false,
+        identityGuard,
+      });
+      addPreparedReason(accumulator, prepared ? 'identity_changed' : 'missing_identity');
+      await harvestManualInto(accumulator, ctx);
+      messages = accumulator.records.map((record, index) => ({ ...record.payload, sequence: index }));
       captureMeta = {
         completeness: 'partial',
         identityVerified: false,
-        reasons: [candidate ? 'identity_changed' : 'prepare_missing'],
+        reasons: accumulator.reasons,
+        metrics: finishPreparedCapture(accumulator).metrics,
       };
     } else {
       messages = await collectMessages(ctx);
@@ -563,7 +702,7 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
       conversation: {
         sourceType: 'chat',
         source: 'googleaistudio',
-        conversationKey: manual && !captureMeta?.identityVerified ? '' : findConversationKey(),
+        conversationKey: manual ? manualConversationKey : findConversationKey(),
         title: extractConversationTitle(),
         url: env.location.href,
         warningFlags: Array.from(ctx.warningFlags),

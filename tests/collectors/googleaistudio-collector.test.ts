@@ -435,6 +435,76 @@ describe('googleaistudio-collector', () => {
     expect(snap.messages[2]?.contentText).toBe('hello-3');
   });
 
+  it('sweeps remounted virtual windows and restores the nested scroll root', async () => {
+    const dom = setupDom(
+      '<div id="scroll"><div class="chat-session-content"></div></div>',
+      'https://aistudio.google.com/app/dynamic',
+    );
+    const document = dom.window.document;
+    const scroll = document.querySelector('#scroll') as HTMLElement;
+    const session = document.querySelector('.chat-session-content') as HTMLElement;
+    scroll.style.overflowY = 'auto';
+    Object.defineProperties(scroll, {
+      clientHeight: { configurable: true, value: 100 },
+      clientWidth: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 300 },
+      scrollWidth: { configurable: true, value: 140 },
+    });
+    let top = 60;
+    let left = 7;
+    const render = () => {
+      const ids = top < 75 ? [1, 2] : top < 175 ? [2, 3, 4] : [4, 5];
+      session.innerHTML = ids
+        .map(
+          (id) =>
+            `<ms-chat-turn id="turn-${id}"><div data-turn-role="User"><div class="turn-content">message-${id}</div></div></ms-chat-turn>`,
+        )
+        .join('');
+    };
+    Object.defineProperty(scroll, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (value) => {
+        top = Number(value);
+        render();
+      },
+    });
+    Object.defineProperty(scroll, 'scrollLeft', {
+      configurable: true,
+      get: () => left,
+      set: (value) => {
+        left = Number(value);
+      },
+    });
+    render();
+
+    const def = createGoogleAiStudioCollectorDef(
+      createCollectorEnv({
+        window: dom.window as any,
+        document: document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const prepared = await def.collector.prepareManualCapture({
+      maxPasses: 3,
+      maxSteps: 20,
+      stableSamples: 1,
+      pollMs: 0,
+      sleep: async () => {},
+    });
+    const snap = await def.collector.capture({ manual: true, preparedCapture: prepared });
+    expect(snap.messages.map((message: any) => message.contentText)).toEqual([
+      'message-1',
+      'message-2',
+      'message-3',
+      'message-4',
+      'message-5',
+    ]);
+    expect(top).toBe(60);
+    expect(left).toBe(7);
+  });
+
   it('uses stable turn-role-ordinal keys for multiple messages in one turn', async () => {
     const html = `<div class="chat-session-content"><ms-chat-turn id="turn-1"><div data-turn-role="User"><div class="turn-content">Q</div></div><div data-turn-role="Model"><div class="turn-content">A</div></div></ms-chat-turn></div>`;
     const dom = setupDom(html, 'https://aistudio.google.com/app/identity');
@@ -447,13 +517,13 @@ describe('googleaistudio-collector', () => {
       }),
     ) as any;
     const preparedCapture = await def.collector.prepareManualCapture({ settleMs: 0 });
-    expect(preparedCapture.messages.map((message: any) => message.messageKey)).toEqual([
+    expect(preparedCapture.records.map((record: any) => record.payload.messageKey)).toEqual([
       'turn-1:user:0',
       'turn-1:assistant:1',
     ]);
-    expect(preparedCapture.messages.every((message: any) => !String(message.messageKey).startsWith('fallback_'))).toBe(
-      true,
-    );
+    expect(
+      preparedCapture.records.every((record: any) => !String(record.payload.messageKey).startsWith('fallback_')),
+    ).toBe(true);
   });
 
   it('refuses to verify manual identity when stable turn ids are missing', async () => {
@@ -468,8 +538,10 @@ describe('googleaistudio-collector', () => {
       }),
     ) as any;
     const preparedCapture = await def.collector.prepareManualCapture({ settleMs: 0 });
+    expect(preparedCapture.identityVerified).toBe(false);
+    expect(preparedCapture.conversationKey).toBe('');
+    expect(preparedCapture.records).toEqual([]);
     const snap = await def.collector.capture({ manual: true, preparedCapture });
-    expect(snap.captureMeta.identityVerified).toBe(false);
-    expect(snap.conversation.conversationKey).toBe('');
+    expect(snap).toBeNull();
   });
 });
