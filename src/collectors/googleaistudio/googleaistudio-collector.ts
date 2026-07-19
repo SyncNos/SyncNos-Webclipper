@@ -577,7 +577,7 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
           maxSteps: options.maxSteps,
           stableSamples: options.stableSamples,
           pollMs: options.pollMs,
-          stepTimeoutMs: options.stepTimeoutMs || options.perTurnTimeoutMs,
+          stepTimeoutMs: options.stepTimeoutMs,
           overlapRatio: options.overlapRatio,
           maxOverlapRecoveries: options.maxOverlapRecoveries,
           sleep: options.sleep,

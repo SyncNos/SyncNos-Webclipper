@@ -403,7 +403,7 @@ describe('googleaistudio-collector', () => {
     });
 
     const def = createGoogleAiStudioCollectorDef(env) as any;
-    const preparedCapture = await Promise.resolve(def.collector.prepareManualCapture({ settleMs: 0 }));
+    const preparedCapture = await Promise.resolve(def.collector.prepareManualCapture());
     const snap = (await Promise.resolve(def.collector.capture({ manual: true, preparedCapture }))) as any;
     expect(snap).toBeTruthy();
     expect(Array.isArray(snap.conversation.warningFlags)).toBe(true);
@@ -435,10 +435,7 @@ describe('googleaistudio-collector', () => {
         normalize: normalizeApi,
       }),
     ) as any;
-    const [a, b] = await Promise.all([
-      first.collector.prepareManualCapture({ settleMs: 0 }),
-      second.collector.prepareManualCapture({ settleMs: 0 }),
-    ]);
+    const [a, b] = await Promise.all([first.collector.prepareManualCapture(), second.collector.prepareManualCapture()]);
     const firstSnap = await first.collector.capture({ manual: true, preparedCapture: a });
     const secondSnap = await second.collector.capture({ manual: true, preparedCapture: b });
     expect(firstSnap.messages.map((message: any) => message.contentText)).toEqual(['A']);
@@ -481,7 +478,7 @@ describe('googleaistudio-collector', () => {
     });
 
     const def = createGoogleAiStudioCollectorDef(env) as any;
-    const preparedCapture = await Promise.resolve(def.collector.prepareManualCapture({ settleMs: 0 }));
+    const preparedCapture = await Promise.resolve(def.collector.prepareManualCapture());
     const snap = (await Promise.resolve(def.collector.capture({ manual: true, preparedCapture }))) as any;
 
     expect(snap).toBeTruthy();
@@ -572,7 +569,7 @@ describe('googleaistudio-collector', () => {
         normalize: normalizeApi,
       }),
     ) as any;
-    const preparedCapture = await def.collector.prepareManualCapture({ settleMs: 0 });
+    const preparedCapture = await def.collector.prepareManualCapture();
     expect(preparedCapture.records.map((record: any) => record.payload.messageKey)).toEqual([
       'turn-1:user:0',
       'turn-1:assistant:1',
@@ -593,7 +590,7 @@ describe('googleaistudio-collector', () => {
         normalize: normalizeApi,
       }),
     ) as any;
-    const preparedCapture = await def.collector.prepareManualCapture({ settleMs: 0 });
+    const preparedCapture = await def.collector.prepareManualCapture();
     expect(preparedCapture.identityVerified).toBe(false);
     expect(preparedCapture.conversationKey).toBe('');
     expect(preparedCapture.records).toEqual([]);
