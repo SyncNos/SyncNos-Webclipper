@@ -186,6 +186,53 @@ describe('background-router conversations events', () => {
     );
   });
 
+  it('keeps transient protective policies through author normalization and image inlining', async () => {
+    writeMocks.writeConversationMessagesSnapshot.mockResolvedValue({ upserted: 1, deleted: 0 });
+    imageInlineMocks.inlineChatImagesInMessages.mockImplementation(async (input: any) =>
+      makeInlineResult(
+        input.messages.map((message: any) => ({
+          ...message,
+          contentMarkdown: 'fallback\n\n![](syncnos-asset://9)',
+        })),
+      ),
+    );
+    const router = createRouter();
+
+    const res = await router.__handleMessageForTests({
+      type: 'syncConversationMessages',
+      conversationId: 2003,
+      conversationSourceType: 'chat',
+      conversationUrl: 'https://aistudio.google.com/app/1',
+      mode: 'append',
+      diff: { added: [], updated: ['m1'], removed: [] },
+      messages: [
+        {
+          messageKey: 'm1',
+          role: 'user',
+          contentText: 'fallback',
+          contentMarkdown: 'fallback\n\n![](data:image/png;base64,AQ==)',
+          captureSequencePolicy: 'preserve-existing-tail',
+          captureMergePolicy: 'preserve-existing-markdown',
+        },
+      ],
+    });
+
+    expect(res.ok).toBe(true);
+    expect(writeMocks.writeConversationMessagesSnapshot).toHaveBeenCalledWith(
+      2003,
+      [
+        expect.objectContaining({
+          messageKey: 'm1',
+          authorName: 'You',
+          contentMarkdown: 'fallback\n\n![](syncnos-asset://9)',
+          captureSequencePolicy: 'preserve-existing-tail',
+          captureMergePolicy: 'preserve-existing-markdown',
+        }),
+      ],
+      { mode: 'append', diff: { added: [], updated: ['m1'], removed: [] } },
+    );
+  });
+
   it('uses web_article_cache_images_enabled for article source auto-save', async () => {
     writeMocks.writeConversationMessagesSnapshot.mockResolvedValue({ upserted: 1, deleted: 0 });
     localStorageMocks.storageGet.mockImplementation(async (keys: string[]) => {
