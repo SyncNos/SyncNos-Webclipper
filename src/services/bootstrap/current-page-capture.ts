@@ -4,6 +4,7 @@ import { resolveActiveOrInpageCollector, type CollectorRegistryLike } from '@col
 import { DISCOURSE_OP_NOT_FOUND_ERROR, isDiscourseOpNotFoundErrorMessage } from '@collectors/web/article-fetch-errors';
 import { ARTICLE_MESSAGE_TYPES, CORE_MESSAGE_TYPES } from '@platform/messaging/message-contracts';
 import { buildCaptureSuccessTipMessage } from '@services/shared/capture-tip';
+import { resolveCaptureIntegrity } from '@services/shared/capture-integrity';
 
 type RuntimeClient = {
   send?: (type: string, payload?: Record<string, unknown>) => Promise<any>;
@@ -99,11 +100,15 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
     };
   }
 
-  async function saveSnapshot(snapshot: any) {
+  async function saveSnapshot(snapshot: any, collectorId: string | null) {
     if (!snapshot || !snapshot.conversation) return null;
 
+    const integrity = resolveCaptureIntegrity(collectorId, snapshot);
+    if (!integrity.ok) return null;
+    const normalizedSnapshot = integrity.snapshot;
+
     const conversationRes = await send(CORE_MESSAGE_TYPES.UPSERT_CONVERSATION, {
-      payload: snapshot.conversation,
+      payload: normalizedSnapshot.conversation,
     });
     if (!conversationRes?.ok) {
       throw new Error(conversationRes?.error?.message || 'upsertConversation failed');
@@ -112,11 +117,11 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
     const conversation = conversationRes.data;
     const messagesRes = await send(CORE_MESSAGE_TYPES.SYNC_CONVERSATION_MESSAGES, {
       conversationId: conversation.id,
-      messages: snapshot.messages || [],
-      mode: 'snapshot',
-      diff: null,
-      conversationSourceType: snapshot?.conversation?.sourceType || 'chat',
-      conversationUrl: snapshot?.conversation?.url || '',
+      messages: normalizedSnapshot.messages || [],
+      mode: integrity.persistence.mode,
+      diff: integrity.persistence.diff,
+      conversationSourceType: normalizedSnapshot?.conversation?.sourceType || 'chat',
+      conversationUrl: normalizedSnapshot?.conversation?.url || '',
     });
     if (!messagesRes?.ok) {
       throw new Error(messagesRes?.error?.message || 'syncConversationMessages failed');
@@ -192,7 +197,7 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
         // ignore hydration failures
       }
 
-      const saved = await saveSnapshot(snapshot);
+      const saved = await saveSnapshot(snapshot, target.collectorId);
       if (!saved) {
         throw new Error(t('noVisibleConversationFound'));
       }
