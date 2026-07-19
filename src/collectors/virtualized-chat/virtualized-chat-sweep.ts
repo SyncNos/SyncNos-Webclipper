@@ -699,6 +699,7 @@ export async function runVirtualizedSweep<T>(
     previousExtent = pass.maxScrollExtent;
     const noChanges = pass.added === 0 && pass.updated === 0;
     const hasBlockingReason = accumulator.reasons.some((reason) => INCOMPLETE_REASONS.has(reason));
+    if (hasBlockingReason) break;
 
     if (
       passes >= 2 &&

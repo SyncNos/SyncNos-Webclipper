@@ -663,6 +663,7 @@ describe('virtualized chat confirmation sweep', () => {
     );
 
     expect(result.completeness).toBe('partial');
+    expect(result.passes).toBe(1);
     expect(result.reasons).toContain('invalid_reason');
     expect(JSON.stringify(result)).not.toContain('PRIVATE_PROVIDER_ERROR');
   });
