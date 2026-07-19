@@ -131,12 +131,24 @@ export function resolveCaptureIntegrity(collectorId: unknown, snapshot: any): Ca
     };
   }
 
-  const effectiveMeta: CaptureMeta = meta || {
+  let effectiveMeta: CaptureMeta = meta || {
     completeness: 'partial',
     identityVerified: false,
     reasons: ['protective_message_merge'],
   };
-  const forcePartial = effectiveMeta.completeness === 'partial' || hasProtectivePolicy;
+  const completeKeys = rawMessages.map((message: any) => stableIdentityString(message?.messageKey));
+  const completeKeysAreSafe =
+    rawMessages.length > 0 &&
+    completeKeys.every((key) => isStablePartialKey(key)) &&
+    new Set(completeKeys).size === completeKeys.length;
+  const unsafeComplete =
+    isVirtual &&
+    effectiveMeta.completeness === 'complete' &&
+    (!completeKeysAreSafe || (effectiveMeta.reasons || []).length > 0);
+  if (unsafeComplete) {
+    effectiveMeta = failureMeta(effectiveMeta, 'capture_integrity_complete_untrusted');
+  }
+  const forcePartial = effectiveMeta.completeness === 'partial' || hasProtectivePolicy || unsafeComplete;
 
   if (!forcePartial) {
     return {

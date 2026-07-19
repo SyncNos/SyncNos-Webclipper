@@ -51,6 +51,30 @@ describe('resolveCaptureIntegrity', () => {
     expect(result).toMatchObject({ ok: true, persistence: { mode: 'snapshot', diff: null } });
   });
 
+  it.each([
+    ['empty messages', []],
+    ['missing key', [{ role: 'assistant', contentText: 'missing' }]],
+    ['fallback key', [{ messageKey: 'fallback_1', contentText: 'fallback' }]],
+    [
+      'duplicate key',
+      [
+        { messageKey: 'm1', contentText: 'first' },
+        { messageKey: 'm1', contentText: 'second' },
+      ],
+    ],
+  ])('never treats complete virtual capture with %s as destructive snapshot', (_label, messages) => {
+    const result = resolveCaptureIntegrity('chatgpt', snapshot({ messages }));
+    expect(result.ok ? result.persistence.mode : result.code).not.toBe('snapshot');
+  });
+
+  it('downgrades complete virtual metadata with failure reasons to append', () => {
+    const result = resolveCaptureIntegrity(
+      'chatgpt',
+      snapshot({ captureMeta: { completeness: 'complete', identityVerified: true, reasons: ['step_timeout'] } }),
+    );
+    expect(result).toMatchObject({ ok: true, meta: { completeness: 'partial' }, persistence: { mode: 'append' } });
+  });
+
   it('routes verified partial messages to append with exact transient policy', () => {
     const result = resolveCaptureIntegrity(
       'chatgpt',
