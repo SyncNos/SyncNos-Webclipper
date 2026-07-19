@@ -613,11 +613,15 @@ export async function syncConversationMessages(
     diff?: { added?: string[]; updated?: string[]; removed?: string[] } | null;
   },
 ): Promise<{ upserted: number; deleted: number }> {
+  const requestedMode = options?.mode;
+  if (requestedMode !== undefined && !['snapshot', 'incremental', 'append'].includes(String(requestedMode))) {
+    throw new Error(`Unknown message persistence mode: ${String(requestedMode)}`);
+  }
+  const mode = requestedMode || 'snapshot';
   const db = await openDb();
   const { t, stores } = tx(db, ['messages'], 'readwrite');
   const idx = stores.messages.index('by_conversationId_messageKey');
 
-  const mode = options?.mode === 'incremental' ? 'incremental' : options?.mode === 'append' ? 'append' : 'snapshot';
   const diff = options?.diff || null;
 
   const normalizeKeys = (value: unknown): string[] => {

@@ -149,6 +149,25 @@ describe('conversations storage-idb', () => {
     expect(after2.map((m) => m.messageKey)).toEqual(['m1']);
   });
 
+  it('rejects an unknown persistence mode before mutating stored messages', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: 'unknown_mode',
+      title: 'Mode',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+    await syncConversationMessages(id, [{ messageKey: 'm1', role: 'user', contentText: 'old', sequence: 0 }]);
+
+    await expect(
+      syncConversationMessages(id, [{ messageKey: 'm2', role: 'assistant', contentText: 'new', sequence: 1 }], {
+        mode: 'snapshop' as any,
+      }),
+    ).rejects.toThrow('Unknown message persistence mode');
+    expect((await getMessagesByConversationId(id)).map((message) => message.messageKey)).toEqual(['m1']);
+  });
+
   it('syncs messages in append-only mode and never deletes even when removed is provided', async () => {
     const convo = await upsertConversation({
       sourceType: 'chat',
