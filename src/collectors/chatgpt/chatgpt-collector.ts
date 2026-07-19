@@ -9,7 +9,10 @@ import {
   finishPreparedCapture,
   mergePreparedRecords,
   readPreparedCapture,
+  resolveScrollRoot,
+  writeScrollPosition,
   type PreparedAccumulator,
+  type PreparedIdentityGuard,
   type PreparedMessageRecord,
 } from '@collectors/virtualized-chat/virtualized-chat-sweep.ts';
 
@@ -251,15 +254,72 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return `fallback_${hash}`;
   }
 
-  // Content-independent conversation cache key shared across manual prepare/capture passes and any
-  // cross-pass harvesting. Uses the URL conversation id when present (/c/, /g/.../c/); otherwise
-  // hashes host|pathname so /share/ and temporary chats stay stable regardless of message content.
-  function resolveConversationCacheKey(): string {
-    const fromUrl = findConversationIdFromUrl();
-    if (fromUrl) return String(fromUrl);
-    const seed = `${env.location.hostname}|${env.location.pathname}`;
-    const hash = env.normalize && env.normalize.fnv1a32 ? env.normalize.fnv1a32(seed) : String(Date.now());
-    return `conv_${hash}`;
+  function normalizedRoute(): string {
+    const pathname = String(env.location.pathname || '/').replace(/\/+$/, '') || '/';
+    const search = String(env.location.search || '');
+    return `${String(env.location.hostname || '').toLowerCase()}${pathname}${search}`;
+  }
+
+  function hashStableIdentity(value: string): string {
+    const hash = env.normalize?.fnv1a32 ? env.normalize.fnv1a32(value) : value;
+    return String(hash);
+  }
+
+  function directMessageId(element: any): string {
+    const direct = String(element?.getAttribute?.('data-message-id') || '').trim();
+    if (direct) return direct;
+    const nested = element?.querySelector?.('[data-message-id]');
+    return String(nested?.getAttribute?.('data-message-id') || '').trim();
+  }
+
+  function stableManualMessageKey(element: any, role: string, turnKey: string, withinTurn: number): string {
+    const messageId = directMessageId(element);
+    if (messageId) return messageId;
+    if (!turnKey || (role !== 'user' && role !== 'assistant')) return '';
+    return `${turnKey}:${role}:${withinTurn}`;
+  }
+
+  function sampleIdentityGuard(root: any): PreparedIdentityGuard {
+    const durableId = findConversationIdFromUrl() || findShareIdFromUrl();
+    const anchors: string[] = [];
+    const seen = new Set<string>();
+    const push = (value: unknown) => {
+      const anchor = String(value || '').trim();
+      if (!anchor || seen.has(anchor)) return;
+      seen.add(anchor);
+      anchors.push(anchor);
+    };
+    for (const turn of getTurnSkeleton(root)) push(`turn:${turnKeyOf(turn)}`);
+    const perTurn = new Map<string, number>();
+    for (const wrapper of getTurnWrappers(root)) {
+      const turnKey = turnKeyOf(wrapper);
+      const withinTurn = perTurn.get(turnKey) || 0;
+      perTurn.set(turnKey, withinTurn + 1);
+      push(stableManualMessageKey(wrapper, roleFromWrapper(wrapper), turnKey, withinTurn));
+    }
+    const topAnchor = anchors[0] || '';
+    return { route: normalizedRoute(), durableId, anchors, topAnchor };
+  }
+
+  function identityConversationKey(guard: PreparedIdentityGuard): string {
+    if (guard.durableId) return guard.durableId;
+    return guard.topAnchor ? `chatgpt_${hashStableIdentity(guard.topAnchor)}` : '';
+  }
+
+  function identityGuardsMatch(expected: PreparedIdentityGuard, actual: PreparedIdentityGuard): boolean {
+    if (!expected || !actual || expected.route !== actual.route) return false;
+    if (expected.durableId || actual.durableId) {
+      return !!expected.durableId && expected.durableId === actual.durableId;
+    }
+    if (!expected.anchors.length || !actual.anchors.length) return false;
+    const actualAnchors = new Set(actual.anchors);
+    return expected.anchors.some((anchor) => actualAnchors.has(anchor));
+  }
+
+  function samplePageIdentity(): string | null {
+    const guard = sampleIdentityGuard(getConversationRoot());
+    const stable = guard.durableId || guard.topAnchor;
+    return stable ? `${guard.route}|${stable}` : null;
   }
 
   function isTemporaryChatMode(): boolean {
@@ -428,7 +488,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
   async function extractMessageFromWrapper(
     el: any,
     i: number,
-    { allowEditing, preferDeepResearchPlaceholders }: any = {},
+    { allowEditing, preferDeepResearchPlaceholders, messageKeyOverride }: any = {},
   ): Promise<any | null> {
     const role = roleFromWrapper(el);
     const messageId =
@@ -486,7 +546,10 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
 
     if (!contentText && !imageUrls.length) return null;
     const contentMarkdown = appendImageMarkdown(baseMarkdown, imageUrls);
-    const messageKey = messageId || env.normalize.makeFallbackMessageKey({ role, contentText, sequence: i });
+    const messageKey =
+      String(messageKeyOverride || '').trim() ||
+      messageId ||
+      env.normalize.makeFallbackMessageKey({ role, contentText, sequence: i });
     return {
       messageKey,
       role,
@@ -536,15 +599,21 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     const records: Array<Omit<PreparedMessageRecord<any>, 'firstSeenIndex'>> = [];
     for (let i = 0; i < wrappers.length; i += 1) {
       const el = wrappers[i];
-      const turnKey = turnKeyOf(el) || `idx_${i}`;
+      const turnKey = turnKeyOf(el);
       const withinTurn = perTurn.get(turnKey) || 0;
       perTurn.set(turnKey, withinTurn + 1);
+      const stableKey = stableManualMessageKey(el, roleFromWrapper(el), turnKey, withinTurn);
+      if (!stableKey) {
+        addPreparedReason(accumulator, 'unstable_identity');
+        continue;
+      }
       const message = await extractMessageFromWrapper(el, i, {
         allowEditing: !!options.allowEditing,
         preferDeepResearchPlaceholders,
+        messageKeyOverride: stableKey,
       });
       if (!message) continue;
-      const key = String(message.messageKey || `${turnKey}#${withinTurn}`);
+      const key = stableKey;
       records.push({ key, turnKey, withinTurn, fingerprint: messageFingerprint(message), payload: message });
     }
     return mergePreparedRecords(accumulator, records);
@@ -565,25 +634,34 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     const perTurnTimeoutMs = Math.max(120, Number(options.perTurnTimeoutMs) || 900);
     const pollMs = Math.max(30, Number(options.pollMs) || 80);
 
-    const conversationKey = resolveConversationCacheKey();
-    const durableId = findConversationIdFromUrl() || findShareIdFromUrl();
-    const accumulator = createPreparedAccumulator<any>({
-      source: 'chatgpt',
-      conversationKey,
-      identityVerified: !!durableId,
-    });
-    addPreparedReason(accumulator, 'single_pass_unconfirmed');
-
+    const scrollRuntime = { document: env.document, window: env.window };
     const scrollRestorer = createScrollRootRestorer({
-      document: env.document,
-      window: env.window,
+      ...scrollRuntime,
       getSeed: () => getConversationRoot(),
-      sampleIdentity: () => resolveConversationCacheKey(),
+      sampleIdentity: samplePageIdentity,
     });
 
     try {
+      const scrollRoot = resolveScrollRoot(scrollRuntime, root);
+      try {
+        writeScrollPosition(scrollRuntime, scrollRoot, 0, 0);
+      } catch (_error) {
+        // The identity remains unverified when the top cannot be sampled safely.
+      }
+      if (settleMs) await sleep(settleMs);
+      const identityGuard = sampleIdentityGuard(getConversationRoot());
+      const conversationKey = identityConversationKey(identityGuard);
+      const accumulator = createPreparedAccumulator<any>({
+        source: 'chatgpt',
+        conversationKey,
+        identityVerified: !!conversationKey,
+        identityGuard,
+      });
+      addPreparedReason(accumulator, 'single_pass_unconfirmed');
+      if (!conversationKey) addPreparedReason(accumulator, 'unstable_identity');
+
       // Harvest whatever is already rendered before we start moving the viewport.
-      await harvestRenderedInto(accumulator, root, { allowEditing: true });
+      await harvestRenderedInto(accumulator, getConversationRoot(), { allowEditing: true });
 
       for (let i = 0; i < skeleton.length; i += 1) {
         const turnEl = skeleton[i];
@@ -601,11 +679,11 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         }
         if (settleMs) await sleep(settleMs);
         // Re-harvest after this turn hydrated; captures it before it can virtualize away again.
-        await harvestRenderedInto(accumulator, root, { allowEditing: true });
+        await harvestRenderedInto(accumulator, getConversationRoot(), { allowEditing: true });
       }
 
       // Final sweep to pick up anything that hydrated late.
-      await harvestRenderedInto(accumulator, root, { allowEditing: true });
+      await harvestRenderedInto(accumulator, getConversationRoot(), { allowEditing: true });
 
       return finishPreparedCapture(accumulator);
     } finally {
@@ -619,15 +697,17 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
 
     let messages: any[] = [];
     let prepared = manual ? readPreparedCapture<any>(options?.preparedCapture, 'chatgpt') : null;
-    const currentIdentity = resolveConversationCacheKey();
-    if (prepared && prepared.conversationKey !== currentIdentity) prepared = null;
+    const currentGuard = sampleIdentityGuard(getConversationRoot());
+    if (prepared && !identityGuardsMatch(prepared.identityGuard, currentGuard)) prepared = null;
 
     if (manual) {
-      const durableId = findConversationIdFromUrl() || findShareIdFromUrl();
+      const identityGuard = prepared?.identityGuard || currentGuard;
+      const conversationKey = prepared?.conversationKey || identityConversationKey(identityGuard);
       const accumulator = createPreparedAccumulator<any>({
         source: 'chatgpt',
-        conversationKey: prepared?.conversationKey || currentIdentity,
-        identityVerified: prepared?.identityVerified === true || !!durableId,
+        conversationKey,
+        identityVerified: !!conversationKey && (prepared?.identityVerified === true || !!identityGuard.topAnchor),
+        identityGuard,
       });
       addPreparedReason(accumulator, 'single_pass_unconfirmed');
       if (prepared) {
@@ -637,17 +717,18 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         );
       }
       const root = getConversationRoot();
-      if (root) await harvestRenderedInto(accumulator, root, { allowEditing: true });
+      if (root) await harvestRenderedInto(accumulator, getConversationRoot(), { allowEditing: true });
       prepared = finishPreparedCapture(accumulator);
       messages = prepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
     } else {
       messages = await collectMessages({ allowEditing: false });
     }
     if (!messages.length) return null;
-    const conversationKey =
-      (manual && prepared?.identityVerified ? prepared.conversationKey : '') ||
-      findConversationIdFromUrl() ||
-      makeFallbackConversationKey(messages);
+    const conversationKey = manual
+      ? prepared?.identityVerified
+        ? prepared.conversationKey
+        : ''
+      : findConversationIdFromUrl() || makeFallbackConversationKey(messages);
     return {
       conversation: {
         sourceType: 'chat',
@@ -677,7 +758,8 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     getRoot: getConversationRoot,
     prepareManualCapture,
     __test: {
-      resolveConversationCacheKey,
+      sampleIdentityGuard,
+      identityConversationKey,
       getRoot: getConversationRoot,
       collectMessages,
     },

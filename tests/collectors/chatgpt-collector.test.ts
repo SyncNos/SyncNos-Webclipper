@@ -42,12 +42,16 @@ describe('chatgpt-collector', () => {
     expect(snap.conversation.title).toBe('GPR signal preprocessing');
   });
 
-  it('keeps fallback conversationKey in temporary chat and derives title from first user message', async () => {
+  it('derives a stable temporary conversation key from the canonical top turn anchor', async () => {
     const html = `
-      <div data-message-author-role="user"><div class="whitespace-pre-wrap">请帮我整理今天的发布检查清单</div></div>
-      <div data-message-author-role="assistant" data-message-id="m_ai_tmp_1">
-        <div class="markdown prose"><p>好的，我们先从回归范围开始。</p></div>
-      </div>
+      <article data-testid="conversation-turn-1" data-turn-id="turn_tmp_user">
+        <div data-message-author-role="user"><div class="whitespace-pre-wrap">请帮我整理今天的发布检查清单</div></div>
+      </article>
+      <article data-testid="conversation-turn-2" data-turn-id="turn_tmp_assistant">
+        <div data-message-author-role="assistant" data-message-id="m_ai_tmp_1">
+          <div class="markdown prose"><p>好的，我们先从回归范围开始。</p></div>
+        </div>
+      </article>
     `;
 
     const dom = setupChatgptDom(html, 'https://chatgpt.com/?temporary-chat=true');
@@ -61,9 +65,55 @@ describe('chatgpt-collector', () => {
 
     const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
     expect(snap).toBeTruthy();
-    expect(String(snap.conversation.conversationKey || '')).toMatch(/^fallback_/);
+    expect(String(snap.conversation.conversationKey || '')).toMatch(/^chatgpt_/);
+    expect(snap.captureMeta).toMatchObject({ completeness: 'partial', identityVerified: true });
+    expect(snap.messages.every((message: any) => !String(message.messageKey).startsWith('fallback_'))).toBe(true);
     expect(String(snap.conversation.title || '')).toBe('请帮我整理今天的发布检查清单');
     expect(String(snap.conversation.title || '')).not.toBe('ChatGPT');
+  });
+
+  it('keeps the temporary conversation key stable across first-user edits and history growth', async () => {
+    async function capture(text: string, includeExtra: boolean) {
+      const html = `
+        <article data-testid="conversation-turn-1" data-turn-id="turn_stable_top">
+          <div data-message-author-role="user"><div class="whitespace-pre-wrap">${text}</div></div>
+        </article>
+        <article data-testid="conversation-turn-2" data-turn-id="turn_stable_answer">
+          <div data-message-author-role="assistant"><div class="markdown prose"><p>answer</p></div></div>
+        </article>
+        ${
+          includeExtra
+            ? '<article data-testid="conversation-turn-3" data-turn-id="turn_extra"><div data-message-author-role="user"><div class="whitespace-pre-wrap">extra</div></div></article>'
+            : ''
+        }
+      `;
+      const dom = setupChatgptDom(html, 'https://chatgpt.com/?temporary-chat=true');
+      const env = createCollectorEnv({
+        window: dom.window as any,
+        document: dom.window.document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      });
+      return (await createChatgptCollectorDef(env).collector.capture({ manual: true })) as any;
+    }
+
+    const before = await capture('first draft', false);
+    const after = await capture('edited prompt', true);
+    expect(before.conversation.conversationKey).toBe(after.conversation.conversationKey);
+  });
+
+  it('returns no manual snapshot when no stable message or turn identity exists', async () => {
+    const dom = setupChatgptDom(
+      '<div data-message-author-role="user"><div class="whitespace-pre-wrap">unstable</div></div>',
+      'https://chatgpt.com/?temporary-chat=true',
+    );
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    expect(await createChatgptCollectorDef(env).collector.capture({ manual: true })).toBeNull();
   });
 
   it('extracts assistant contentMarkdown from semantic markdown DOM', async () => {
@@ -628,6 +678,25 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
     expect(JSON.parse(JSON.stringify(secondPrepared))).toEqual(secondPrepared);
     firstPrepared.records[0].payload.contentText = 'mutated-first-only';
     expect(secondPrepared.records[0].payload.contentText).not.toBe('mutated-first-only');
+  });
+
+  it('rejects a prepared object after same-path temporary-chat replacement', async () => {
+    const firstDom = setupChatgptDom(
+      '<article data-testid="conversation-turn-1" data-turn-id="turn_first"><div data-message-author-role="user"><div class="whitespace-pre-wrap">first</div></div></article>',
+      'https://chatgpt.com/?temporary-chat=true',
+    );
+    (firstDom.window as any).scrollTo = vi.fn();
+    const first = createChatgptCollectorDef(buildEnv(firstDom)) as any;
+    const prepared = await first.collector.prepareManualCapture({ settleMs: 0 });
+
+    const secondDom = setupChatgptDom(
+      '<article data-testid="conversation-turn-1" data-turn-id="turn_second"><div data-message-author-role="user"><div class="whitespace-pre-wrap">second</div></div></article>',
+      'https://chatgpt.com/?temporary-chat=true',
+    );
+    const second = createChatgptCollectorDef(buildEnv(secondDom)) as any;
+    const snap = await second.collector.capture({ manual: true, preparedCapture: prepared });
+    expect(snap.messages.map((message: any) => message.contentText)).toEqual(['second']);
+    expect(snap.conversation.conversationKey).not.toBe(prepared.conversationKey);
   });
 
   it('ignores a prepared object from another conversation identity', async () => {

@@ -149,10 +149,18 @@ export type PreparedMessageRecord<T> = {
   firstSeenIndex: number;
 };
 
+export type PreparedIdentityGuard = {
+  route: string;
+  durableId: string;
+  anchors: string[];
+  topAnchor: string;
+};
+
 export type PreparedAccumulator<T> = {
   source: string;
   conversationKey: string;
   identityVerified: boolean;
+  identityGuard: PreparedIdentityGuard;
   records: PreparedMessageRecord<T>[];
   reasons: string[];
   samples: number;
@@ -163,6 +171,7 @@ export type VirtualizedPreparedCapture<T> = {
   source: string;
   conversationKey: string;
   identityVerified: boolean;
+  identityGuard: PreparedIdentityGuard;
   records: PreparedMessageRecord<T>[];
   reasons: string[];
   metrics: { samples: number; messages: number };
@@ -172,11 +181,20 @@ export function createPreparedAccumulator<T>(input: {
   source: string;
   conversationKey: string;
   identityVerified: boolean;
+  identityGuard?: Partial<PreparedIdentityGuard>;
 }): PreparedAccumulator<T> {
   return {
     source: String(input.source || '').trim(),
     conversationKey: String(input.conversationKey || '').trim(),
     identityVerified: input.identityVerified === true,
+    identityGuard: {
+      route: String(input.identityGuard?.route || ''),
+      durableId: String(input.identityGuard?.durableId || ''),
+      anchors: Array.isArray(input.identityGuard?.anchors)
+        ? input.identityGuard.anchors.map((value) => String(value || '').trim()).filter(Boolean)
+        : [],
+      topAnchor: String(input.identityGuard?.topAnchor || ''),
+    },
     records: [],
     reasons: [],
     samples: 0,
@@ -285,6 +303,10 @@ export function finishPreparedCapture<T>(accumulator: PreparedAccumulator<T>): V
     source: accumulator.source,
     conversationKey: accumulator.conversationKey,
     identityVerified: accumulator.identityVerified,
+    identityGuard: {
+      ...accumulator.identityGuard,
+      anchors: accumulator.identityGuard.anchors.slice(),
+    },
     records: accumulator.records.map((record) => ({ ...record })),
     reasons: accumulator.reasons.slice(),
     metrics: { samples: accumulator.samples, messages: accumulator.records.length },
@@ -295,6 +317,6 @@ export function readPreparedCapture<T>(value: unknown, source: string): Virtuali
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const token = value as Partial<VirtualizedPreparedCapture<T>>;
   if (token.kind !== 'syncnos.virtualized-chat.prepared.v1') return null;
-  if (token.source !== source || !token.conversationKey || !Array.isArray(token.records)) return null;
+  if (token.source !== source || !Array.isArray(token.records) || !token.identityGuard) return null;
   return token as VirtualizedPreparedCapture<T>;
 }
