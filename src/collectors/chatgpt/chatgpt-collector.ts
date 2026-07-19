@@ -39,53 +39,6 @@ export function turnKeyOf(el: any): string {
 
 export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinition {
   const consumePreparedCapture = createPreparedCaptureConsumer<any>('chatgpt');
-  const DEEP_RESEARCH_MESSAGE_TYPES = Object.freeze({
-    REQUEST: 'SYNCNOS_DEEP_RESEARCH_REQUEST',
-    RESPONSE: 'SYNCNOS_DEEP_RESEARCH_RESPONSE',
-  });
-
-  const deepResearchCache = new Map<string, { markdown: string; text: string; title: string; updatedAt: number }>();
-  const deepResearchInFlight = new Map<string, Promise<{ markdown: string; text: string; title: string } | null>>();
-  const deepResearchPending = new Map<
-    string,
-    {
-      resolve: (payload: { markdown: string; text: string; title: string } | null) => void;
-      timeoutId: any;
-      intervalId?: any;
-    }
-  >();
-  let deepResearchListenerInstalled = false;
-
-  function ensureDeepResearchListener() {
-    if (deepResearchListenerInstalled) return;
-    deepResearchListenerInstalled = true;
-    env.window.addEventListener('message', (event: any) => {
-      const data = event?.data;
-      if (!data || data.__syncnos !== true) return;
-      if (data.type !== DEEP_RESEARCH_MESSAGE_TYPES.RESPONSE) return;
-      const requestId = String(data.requestId || '').trim();
-      if (!requestId) return;
-
-      const pending = deepResearchPending.get(requestId);
-      if (!pending) return;
-      deepResearchPending.delete(requestId);
-      try {
-        if (pending.timeoutId) clearTimeout(pending.timeoutId);
-        if (pending.intervalId) clearInterval(pending.intervalId);
-      } catch (_e) {
-        // ignore
-      }
-
-      const markdown = String(data.markdown || '').trim();
-      const text = String(data.text || '').trim();
-      const title = String(data.title || '').trim() || 'Deep Research';
-      if (!markdown && !text) {
-        pending.resolve(null);
-        return;
-      }
-      pending.resolve({ markdown, text, title });
-    });
-  }
 
   function findDeepResearchIframe(wrapper: any): any | null {
     if (!wrapper || !wrapper.querySelector) return null;
@@ -123,84 +76,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return best || nodes[0] || null;
   }
 
-  function requestDeepResearchContent(
-    iframeEl: any,
-    options?: { timeoutMs?: number; cacheKeyHint?: string },
-  ): Promise<{ markdown: string; text: string; title: string } | null> {
-    const iframeSrc = String(iframeEl?.getAttribute?.('src') || '').trim();
-    // NOTE: The deep-research iframe src is often identical across multiple turns in the same conversation.
-    // If we cache purely by src, later reports incorrectly reuse the first extracted snapshot.
-    const cacheKeyHint = String(options?.cacheKeyHint || '').trim();
-    const cacheKeyBase = iframeSrc || String(iframeEl?.getAttribute?.('title') || 'deep-research');
-    const cacheKey = cacheKeyHint ? `${cacheKeyHint}|${cacheKeyBase}` : cacheKeyBase;
-    const cached = deepResearchCache.get(cacheKey);
-    const now = Date.now();
-    if (cached && now - cached.updatedAt < 60_000)
-      return Promise.resolve({ markdown: cached.markdown, text: cached.text, title: cached.title });
-
-    const existing = deepResearchInFlight.get(cacheKey);
-    if (existing) return existing;
-
-    const timeoutMs = Number.isFinite(options?.timeoutMs as any) ? Math.max(400, Number(options?.timeoutMs)) : 2500;
-    const p = new Promise<{ markdown: string; text: string; title: string } | null>((resolve) => {
-      try {
-        ensureDeepResearchListener();
-
-        const requestId = `dr_${now}_${Math.random().toString(16).slice(2)}`;
-        const timeoutId = env.window.setTimeout(() => {
-          const pending = deepResearchPending.get(requestId);
-          deepResearchPending.delete(requestId);
-          try {
-            if (pending?.intervalId) clearInterval(pending.intervalId);
-          } catch (_e) {
-            // ignore
-          }
-          resolve(null);
-        }, timeoutMs);
-
-        const sendRequest = () => {
-          const targetWindow = iframeEl?.contentWindow;
-          if (!targetWindow || typeof targetWindow.postMessage !== 'function') return;
-          try {
-            targetWindow.postMessage(
-              {
-                __syncnos: true,
-                type: DEEP_RESEARCH_MESSAGE_TYPES.REQUEST,
-                requestId,
-              },
-              // Use '*' to avoid origin-mismatch errors while the iframe is still navigating (often starts as about:blank inheriting parent origin).
-              // The receiver validates parent origins and request ids, and we only post to the specific iframe window.
-              '*',
-            );
-          } catch (_e) {
-            // ignore
-          }
-        };
-
-        // Race-proof: the iframe's content script may not be ready yet. Retry for a short window.
-        const intervalId = env.window.setInterval(() => {
-          if (!deepResearchPending.has(requestId)) return;
-          sendRequest();
-        }, 250);
-
-        deepResearchPending.set(requestId, { resolve, timeoutId, intervalId });
-        sendRequest();
-      } catch (_e) {
-        resolve(null);
-      }
-    })
-      .then((payload) => {
-        if (payload) deepResearchCache.set(cacheKey, { ...payload, updatedAt: Date.now() });
-        return payload;
-      })
-      .finally(() => {
-        deepResearchInFlight.delete(cacheKey);
-      });
-
-    deepResearchInFlight.set(cacheKey, p);
-    return p;
-  }
-
   function matches(loc: any): any {
     const hostname = loc && loc.hostname ? loc.hostname : env.location.hostname;
     return /(^|\.)chatgpt\.com$/.test(hostname) || /(^|\.)chat\.openai\.com$/.test(hostname);
@@ -215,15 +90,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
   function findShareIdFromUrl(): string {
     const match = env.location.pathname.match(/^\/share\/([^/?#]+)/);
     return match?.[1] ? String(match[1]) : '';
-  }
-
-  function makeFallbackConversationKey(messages: any): any {
-    const firstUser = Array.isArray(messages)
-      ? messages.find((m: any) => m && m.role === 'user' && m.contentText)
-      : null;
-    const seed = `${env.location.hostname}|${env.location.pathname}|${firstUser ? firstUser.contentText : ''}`;
-    const hash = env.normalize && env.normalize.fnv1a32 ? env.normalize.fnv1a32(seed) : String(Date.now());
-    return `fallback_${hash}`;
   }
 
   function normalizedRoute(): string {
@@ -497,33 +363,9 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return 'assistant';
   }
 
-  // If a conversation contains multiple deep-research iframes, we intentionally keep placeholders
-  // and let the background hydrator fill them in bulk. Partial in-page extraction would make the
-  // remaining placeholders ambiguous and can collapse reports.
-  function computePreferDeepResearchPlaceholders(wrappers: any[]): boolean {
-    try {
-      let count = 0;
-      for (const w of wrappers) {
-        if (count >= 2) break;
-        const role = roleFromWrapper(w);
-        if (role !== 'assistant') continue;
-        if (findDeepResearchIframe(w)) count += 1;
-      }
-      return count >= 2;
-    } catch (_e) {
-      // ignore
-      return false;
-    }
-  }
-
   // Extract a single message from one turn wrapper. Returns null when the wrapper has no
   // textual content and no images (e.g. virtualized empty shells), so callers can skip it.
-  // Kept async because Deep Research extraction may await the iframe hydrator.
-  async function extractMessageFromWrapper(
-    el: any,
-    i: number,
-    { allowEditing, preferDeepResearchPlaceholders, messageKeyOverride }: any = {},
-  ): Promise<any | null> {
+  async function extractMessageFromWrapper(el: any, i: number, { messageKeyOverride }: any = {}): Promise<any | null> {
     const role = roleFromWrapper(el);
     const messageId =
       (el.getAttribute && (el.getAttribute('data-message-id') || el.getAttribute('data-turn-id') || el.id)) || '';
@@ -548,34 +390,10 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
 
     const deepResearchIframe = role === 'assistant' ? findDeepResearchIframe(el) : null;
     if (role === 'assistant' && deepResearchIframe) {
-      // Prefer a fast placeholder and let the background hydrator fill the body reliably.
-      // Best-effort request is kept short to avoid blocking capture for long-running reports.
       const iframeUrl = String(deepResearchIframe.getAttribute?.('src') || '').trim();
       const placeholder = iframeUrl ? `Deep Research (iframe): ${iframeUrl}` : 'Deep Research (iframe)';
-
-      if (preferDeepResearchPlaceholders) {
-        contentText = placeholder;
-        baseMarkdown = placeholder;
-      } else {
-        const deepResearchCacheKeyHint = messageId || String(el.getAttribute?.('data-testid') || '') || String(i);
-        const extracted = await requestDeepResearchContent(deepResearchIframe, {
-          timeoutMs: allowEditing ? 600 : 200,
-          cacheKeyHint: deepResearchCacheKeyHint,
-        });
-        if (extracted) {
-          const markdown = String(extracted.markdown || '').trim();
-          const text = String(extracted.text || '').trim();
-          baseMarkdown = markdown || text || baseMarkdown || '';
-          contentText = env.normalize.normalizeText(text || markdown || contentText || '');
-        } else {
-          // The parent page doesn't contain the report body; only the iframe does.
-          // If extraction fails (timing/permissions), keep a stable placeholder so users can still recover the link.
-          // Some locales expose an sr-only "ChatGPT said" label as the only text sibling of the iframe.
-          // Always prefer a stable placeholder so the hydrator can reliably fill the final report.
-          contentText = placeholder;
-          baseMarkdown = placeholder;
-        }
-      }
+      contentText = placeholder;
+      baseMarkdown = placeholder;
     }
 
     if (!contentText && !imageUrls.length) return null;
@@ -716,14 +534,9 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     if (!allowEditing && inEditMode(root)) return [];
 
     const wrappers = getTurnWrappers(root);
-    const preferDeepResearchPlaceholders = computePreferDeepResearchPlaceholders(wrappers);
-
     const out: any[] = [];
     for (let i = 0; i < wrappers.length; i += 1) {
-      const msg = await extractMessageFromWrapper(wrappers[i], i, {
-        allowEditing,
-        preferDeepResearchPlaceholders,
-      });
+      const msg = await extractMessageFromWrapper(wrappers[i], i);
       if (msg) out.push(msg);
     }
 
@@ -847,85 +660,54 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
   }
 
   async function capture(options: any): Promise<any | null> {
-    if (!matches({ hostname: env.location.hostname })) return null;
-    const manual = !!(options && options.manual);
-
-    let messages: any[] = [];
-    let manualConversationKey = '';
-    let manualMeta: any = null;
-    let prepared = manual ? consumePreparedCapture(options?.preparedCapture) : null;
+    if (!matches({ hostname: env.location.hostname }) || options?.manual !== true) return null;
+    const prepared = consumePreparedCapture(options?.preparedCapture);
+    if (!prepared) return null;
     const currentGuard = manualAdapter.readIdentity();
-    if (prepared && !identityGuardsMatch(prepared.identityGuard, currentGuard)) prepared = null;
+    if (!identityGuardsMatch(prepared.identityGuard, currentGuard)) return null;
 
-    if (manual && prepared) {
-      const accumulator = createPreparedAccumulator<any>({
-        source: 'chatgpt',
-        conversationKey: prepared.conversationKey,
-        identityVerified: prepared.identityVerified === true,
-        identityGuard: prepared.identityGuard,
-      });
-      accumulator.completeness = prepared.completeness;
-      accumulator.reasons.push(...prepared.reasons.filter((reason) => !accumulator.reasons.includes(reason)));
-      accumulator.sweepMetrics = { ...prepared.metrics };
-      mergePreparedRecords(
-        accumulator,
-        prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
-      );
-      const root = getConversationRoot();
-      const finalLive = root
-        ? await harvestRenderedInto(accumulator, root, { allowEditing: true })
-        : { added: 0, updated: 0 };
-      if (accumulator.completeness === 'complete' && (finalLive.added > 0 || finalLive.updated > 0)) {
-        accumulator.completeness = 'partial';
-        addPreparedReason(accumulator, 'final_live_changed');
-      }
-      const finalGuard = manualAdapter.readIdentity();
-      if (!identityGuardsMatch(accumulator.identityGuard, finalGuard)) {
-        accumulator.identityVerified = false;
-        accumulator.conversationKey = '';
-        accumulator.completeness = 'partial';
-        addPreparedReason(accumulator, 'identity_changed');
-      }
-      prepared = finishPreparedCapture(accumulator);
-      messages = prepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
-      manualConversationKey = prepared.identityVerified ? prepared.conversationKey : '';
-      manualMeta = {
-        completeness: prepared.completeness,
-        identityVerified: prepared.identityVerified === true,
-        reasons: prepared.reasons,
-        metrics: prepared.metrics,
-      };
-    } else if (manual) {
-      // A direct/manual capture without a prepared sweep keeps the normal live extraction behavior.
-      // Persistence still fails closed through partial metadata and stable-key filtering in P1.
-      messages = await collectMessages({ allowEditing: true });
-      const guard = manualAdapter.readIdentity();
-      manualConversationKey = identityConversationKey(guard);
-      manualMeta = {
-        completeness: 'partial',
-        identityVerified: !!manualConversationKey,
-        reasons: ['prepare_missing'],
-        metrics: { samples: 1, messages: messages.length },
-      };
-    } else {
-      messages = await collectMessages({ allowEditing: false });
+    const accumulator = createPreparedAccumulator<any>({
+      source: 'chatgpt',
+      conversationKey: prepared.conversationKey,
+      identityVerified: prepared.identityVerified === true,
+      identityGuard: prepared.identityGuard,
+    });
+    accumulator.completeness = prepared.completeness;
+    accumulator.reasons.push(...prepared.reasons.filter((reason) => !accumulator.reasons.includes(reason)));
+    accumulator.sweepMetrics = { ...prepared.metrics };
+    mergePreparedRecords(
+      accumulator,
+      prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
+    );
+    const root = getConversationRoot();
+    const finalLive = root ? await harvestRenderedInto(accumulator, root) : { added: 0, updated: 0 };
+    if (accumulator.completeness === 'complete' && (finalLive.added > 0 || finalLive.updated > 0)) {
+      accumulator.completeness = 'partial';
+      addPreparedReason(accumulator, 'final_live_changed');
     }
-    if (!messages.length) return null;
-    const conversationKey = manual
-      ? manualConversationKey || makeFallbackConversationKey(messages)
-      : findConversationIdFromUrl() || makeFallbackConversationKey(messages);
+    const finalGuard = manualAdapter.readIdentity();
+    if (!identityGuardsMatch(accumulator.identityGuard, finalGuard)) return null;
+
+    const finalPrepared = finishPreparedCapture(accumulator);
+    const messages = finalPrepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
+    if (!messages.length || !finalPrepared.identityVerified || !finalPrepared.conversationKey) return null;
     return {
       conversation: {
         sourceType: 'chat',
         source: 'chatgpt',
-        conversationKey,
+        conversationKey: finalPrepared.conversationKey,
         title: findTitle(messages),
         url: env.location.href,
         warningFlags: [],
         lastCapturedAt: Date.now(),
       },
       messages,
-      ...(manual ? { captureMeta: manualMeta } : null),
+      captureMeta: {
+        completeness: finalPrepared.completeness,
+        identityVerified: true,
+        reasons: finalPrepared.reasons,
+        metrics: finalPrepared.metrics,
+      },
     };
   }
 

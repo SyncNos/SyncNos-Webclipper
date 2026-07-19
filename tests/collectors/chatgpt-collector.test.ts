@@ -11,6 +11,17 @@ function setupChatgptDom(html: string, url: string) {
   return dom;
 }
 
+async function capturePrepared(def: any, prepareOptions: any = {}) {
+  const preparedCapture = await def.collector.prepareManualCapture({
+    stableSamples: 1,
+    pollMs: 0,
+    sleep: async () => {},
+    ...prepareOptions,
+  });
+  if (!preparedCapture) return null;
+  return def.collector.capture({ manual: true, preparedCapture });
+}
+
 describe('chatgpt-collector', () => {
   it('uses active conversation title in ChatGPT Projects pages (instead of project name h1)', async () => {
     const html = `
@@ -32,7 +43,7 @@ describe('chatgpt-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+    const snap = (await capturePrepared(createChatgptCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.conversation.title).toBe('GPR signal preprocessing');
   });
@@ -91,7 +102,7 @@ describe('chatgpt-collector', () => {
         location: dom.window.location as any,
         normalize: normalizeApi,
       });
-      return (await createChatgptCollectorDef(env).collector.capture({ manual: true })) as any;
+      return (await capturePrepared(createChatgptCollectorDef(env))) as any;
     }
 
     const before = await capture('first draft', false);
@@ -110,10 +121,8 @@ describe('chatgpt-collector', () => {
       location: dom.window.location as any,
       normalize: normalizeApi,
     });
-    const snap = (await createChatgptCollectorDef(env).collector.capture({ manual: true })) as any;
-    expect(snap).toBeTruthy();
-    expect(snap.captureMeta).toMatchObject({ completeness: 'partial', identityVerified: false });
-    expect(String(snap.messages[0].messageKey)).toMatch(/^fallback_/);
+    const snap = await createChatgptCollectorDef(env).collector.capture({ manual: true });
+    expect(snap).toBeNull();
   });
 
   it('does not verify temporary-chat identity from an empty structural turn shell', async () => {
@@ -133,16 +142,15 @@ describe('chatgpt-collector', () => {
     expect(def.collector.__test.identityConversationKey(guard)).toBe('');
 
     const snapshot = await def.collector.capture({ manual: true });
-    expect(snapshot.captureMeta).toMatchObject({ completeness: 'partial', identityVerified: false });
-    expect(snapshot.conversation.conversationKey).toMatch(/^fallback_/);
+    expect(snapshot).toBeNull();
   });
 
   it('extracts assistant contentMarkdown from semantic markdown DOM', async () => {
     const html = `
-      <article data-testid="conversation-turn-1">
+      <article data-testid="conversation-turn-1" data-turn-id="turn_md_user">
         <div data-message-author-role="user"><div class="whitespace-pre-wrap">你好</div></div>
       </article>
-      <article data-testid="conversation-turn-2">
+      <article data-testid="conversation-turn-2" data-turn-id="turn_md_assistant">
         <div data-message-author-role="assistant" data-message-id="m_ai_1">
           <div class="markdown prose">
             <h1>主标题</h1>
@@ -185,7 +193,7 @@ describe('chatgpt-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+    const snap = (await capturePrepared(createChatgptCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(2);
 
@@ -214,7 +222,7 @@ describe('chatgpt-collector', () => {
 
   it('extracts multiple assistant messages inside an agent-turn container', async () => {
     const html = `
-      <div data-message-author-role="user"><div class="whitespace-pre-wrap">Q</div></div>
+      <div data-message-author-role="user" data-message-id="m_user_1"><div class="whitespace-pre-wrap">Q</div></div>
       <div class="group/turn-messages flex flex-col agent-turn">
         <div data-message-author-role="assistant" data-message-id="m_ai_1" class="text-message">
           <div class="markdown prose"><p>first</p></div>
@@ -236,7 +244,7 @@ describe('chatgpt-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+    const snap = (await capturePrepared(createChatgptCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.map((m: any) => m.role)).toEqual(['user', 'assistant', 'assistant']);
     expect(snap.messages.map((m: any) => m.contentText)).toEqual(['Q', 'first', 'second']);
@@ -265,119 +273,13 @@ describe('chatgpt-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+    const snap = (await capturePrepared(createChatgptCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(1);
     expect(snap.messages[0].role).toBe('assistant');
     expect(snap.messages[0].contentMarkdown).toContain('```mermaid');
     expect(snap.messages[0].contentMarkdown).toContain('graph TD');
     expect(snap.messages[0].contentText).toContain('graph TD');
-  });
-
-  it('captures deep-research iframe content via postMessage', async () => {
-    const html = `
-      <div data-message-author-role="assistant" data-message-id="m_ai_prev">
-        <div class="markdown prose"><p>previous</p></div>
-      </div>
-      <article data-testid="conversation-turn-4" data-turn="assistant" data-turn-id="t1">
-        <div class="agent-turn">
-          <iframe title="internal://deep-research" src="https://connector_openai_deep_research.web-sandbox.oaiusercontent.com/?app=chatgpt"></iframe>
-        </div>
-      </article>
-    `;
-
-    const dom = setupChatgptDom(html, 'https://chatgpt.com/c/conv_deep_research_1');
-    const iframe = dom.window.document.querySelector('iframe') as any;
-    expect(iframe).toBeTruthy();
-
-    const fakeFrameWindow = {
-      postMessage: (msg: any) => {
-        const requestId = msg?.requestId;
-        dom.window.dispatchEvent(
-          new (dom.window as any).MessageEvent('message', {
-            data: {
-              __syncnos: true,
-              type: 'SYNCNOS_DEEP_RESEARCH_RESPONSE',
-              requestId,
-              title: 'Report',
-              markdown: '# Title\n\nBody',
-              text: 'Title\n\nBody',
-            },
-            origin: 'https://connector_openai_deep_research.web-sandbox.oaiusercontent.com',
-            source: fakeFrameWindow as any,
-          }),
-        );
-      },
-    };
-    Object.defineProperty(iframe, 'contentWindow', { configurable: true, value: fakeFrameWindow });
-
-    const env = createCollectorEnv({
-      window: dom.window as any,
-      document: dom.window.document as any,
-      location: dom.window.location as any,
-      normalize: normalizeApi,
-    });
-
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
-    expect(snap).toBeTruthy();
-    expect(snap.messages.length).toBe(2);
-    expect(snap.messages[0].contentText).toContain('previous');
-    expect(snap.messages[1].role).toBe('assistant');
-    expect(snap.messages[1].contentMarkdown).toContain('# Title');
-    expect(snap.messages[1].contentText).toContain('Body');
-  });
-
-  it('captures deep-research iframe inside section conversation-turn wrappers', async () => {
-    const html = `
-      <section data-testid="conversation-turn-1" data-turn="user">
-        <div data-message-author-role="user"><div class="whitespace-pre-wrap">Q</div></div>
-      </section>
-      <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="t2">
-        <h4 class="sr-only select-none">ChatGPT said:</h4>
-        <div class="agent-turn">
-          <iframe title="internal://deep-research" src="https://connector_openai_deep_research.web-sandbox.oaiusercontent.com?app=chatgpt&locale=en-US&deviceType=desktop"></iframe>
-        </div>
-      </section>
-    `;
-
-    const dom = setupChatgptDom(html, 'https://chatgpt.com/c/conv_deep_research_section_1');
-    const iframe = dom.window.document.querySelector('iframe') as any;
-    expect(iframe).toBeTruthy();
-
-    const fakeFrameWindow = {
-      postMessage: (msg: any) => {
-        const requestId = msg?.requestId;
-        dom.window.dispatchEvent(
-          new (dom.window as any).MessageEvent('message', {
-            data: {
-              __syncnos: true,
-              type: 'SYNCNOS_DEEP_RESEARCH_RESPONSE',
-              requestId,
-              title: 'Report',
-              markdown: '# Title\n\nBody',
-              text: 'Title\n\nBody',
-            },
-            origin: 'https://connector_openai_deep_research.web-sandbox.oaiusercontent.com',
-            source: fakeFrameWindow as any,
-          }),
-        );
-      },
-    };
-    Object.defineProperty(iframe, 'contentWindow', { configurable: true, value: fakeFrameWindow });
-
-    const env = createCollectorEnv({
-      window: dom.window as any,
-      document: dom.window.document as any,
-      location: dom.window.location as any,
-      normalize: normalizeApi,
-    });
-
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
-    expect(snap).toBeTruthy();
-    expect(snap.messages.map((m: any) => m.role)).toEqual(['user', 'assistant']);
-    expect(snap.messages[0].contentText).toBe('Q');
-    expect(snap.messages[1].contentMarkdown).toContain('# Title');
-    expect(snap.messages[1].contentText).toContain('Body');
   });
 
   it('captures multiple deep-research iframes with identical src as distinct reports', async () => {
@@ -443,7 +345,7 @@ describe('chatgpt-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+    const snap = (await capturePrepared(createChatgptCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     const assistant = snap.messages.filter((m: any) => m.role === 'assistant');
     expect(assistant.length).toBe(3);
@@ -496,7 +398,7 @@ describe('chatgpt-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({}))) as any;
+    const snap = (await capturePrepared(createChatgptCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(1);
     expect(snap.messages[0].role).toBe('assistant');
@@ -509,8 +411,8 @@ describe('chatgpt-collector', () => {
 
   it('falls back to plain text markdown when markdown helper is unavailable', async () => {
     const html = `
-      <article data-testid="conversation-turn-1">
-        <div data-message-author-role="assistant">
+      <article data-testid="conversation-turn-1" data-turn-id="turn_fallback">
+        <div data-message-author-role="assistant" data-message-id="m_fallback">
           <div class="markdown prose"><p>plain answer</p></div>
         </div>
       </article>
@@ -529,7 +431,7 @@ describe('chatgpt-collector', () => {
         normalize: normalizeApi,
       });
 
-      const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+      const snap = (await capturePrepared(createChatgptCollectorDef(env))) as any;
       expect(snap).toBeTruthy();
       expect(snap.messages.length).toBe(1);
       expect(snap.messages[0].role).toBe('assistant');
@@ -777,7 +679,7 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
       location: dom.window.location as any,
       normalize: normalizeApi,
     });
-    const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+    const snap = (await capturePrepared(createChatgptCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(9);
     expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(3);
@@ -1033,8 +935,7 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
     );
     const second = createChatgptCollectorDef(buildEnv(secondDom)) as any;
     const snap = await second.collector.capture({ manual: true, preparedCapture: prepared });
-    expect(snap.messages.map((message: any) => message.contentText)).toEqual(['second']);
-    expect(snap.conversation.conversationKey).not.toBe(prepared.conversationKey);
+    expect(snap).toBeNull();
   });
 
   it('ignores a prepared object from another conversation identity', async () => {
@@ -1054,16 +955,14 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
     );
     const other = createChatgptCollectorDef(buildEnv(otherDom)) as any;
     const snap = await other.collector.capture({ manual: true, preparedCapture: prepared });
-    expect(snap.messages).toHaveLength(1);
-    expect(snap.messages[0].contentText).toBe('other');
+    expect(snap).toBeNull();
   });
 
-  it('manual capture without prepareManualCapture falls back to a live single pass (3 rounds)', async () => {
+  it('rejects manual capture without prepareManualCapture', async () => {
     const dom = loadFixtureDom();
     const def = createChatgptCollectorDef(buildEnv(dom)) as any;
-    const snap = (await Promise.resolve(def.collector.capture({ manual: true }))) as any;
-    expect(snap.messages.length).toBe(9);
-    expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(3);
+    const snap = await def.collector.capture({ manual: true });
+    expect(snap).toBeNull();
   });
 
   it('restores the scroll position after the sweep', async () => {

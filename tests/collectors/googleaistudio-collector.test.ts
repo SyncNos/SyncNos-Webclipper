@@ -9,6 +9,17 @@ function setupDom(html: string, url: string) {
   return dom;
 }
 
+async function capturePrepared(def: any, prepareOptions: any = {}) {
+  const preparedCapture = await def.collector.prepareManualCapture({
+    stableSamples: 1,
+    pollMs: 0,
+    sleep: async () => {},
+    ...prepareOptions,
+  });
+  if (!preparedCapture) return null;
+  return def.collector.capture({ manual: true, preparedCapture });
+}
+
 describe('googleaistudio-collector', () => {
   it('captures AI Studio ms-chat-turn DOM and renders assistant markdown', async () => {
     const html = `
@@ -48,7 +59,7 @@ describe('googleaistudio-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createGoogleAiStudioCollectorDef(env).collector.capture())) as any;
+    const snap = (await capturePrepared(createGoogleAiStudioCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.conversation.source).toBe('googleaistudio');
     expect(snap.messages.length).toBe(2);
@@ -109,7 +120,7 @@ describe('googleaistudio-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createGoogleAiStudioCollectorDef(env).collector.capture())) as any;
+    const snap = (await capturePrepared(createGoogleAiStudioCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(1);
     const assistant = snap.messages[0];
@@ -149,7 +160,7 @@ describe('googleaistudio-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createGoogleAiStudioCollectorDef(env).collector.capture())) as any;
+    const snap = (await capturePrepared(createGoogleAiStudioCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(1);
     const assistant = snap.messages[0];
@@ -234,7 +245,7 @@ describe('googleaistudio-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createGoogleAiStudioCollectorDef(env).collector.capture())) as any;
+    const snap = (await capturePrepared(createGoogleAiStudioCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(1);
     const assistant = snap.messages[0];
@@ -277,7 +288,7 @@ describe('googleaistudio-collector', () => {
       normalize: normalizeApi,
     });
 
-    const snap = (await Promise.resolve(createGoogleAiStudioCollectorDef(env).collector.capture())) as any;
+    const snap = (await capturePrepared(createGoogleAiStudioCollectorDef(env))) as any;
     expect(snap).toBeTruthy();
     expect(snap.messages.length).toBe(1);
     const user = snap.messages.find((m: { role: string }) => m.role === 'user');
@@ -309,12 +320,14 @@ describe('googleaistudio-collector', () => {
         normalize: normalizeApi,
       }),
     ) as any;
-    const capture = def.collector.capture();
+    const preparing = def.collector.prepareManualCapture({ stableSamples: 1, pollMs: 0, sleep: async () => {} });
     while (!releaseFirst) await Promise.resolve();
     dom.window.document.querySelector('.chat-session-content')!.innerHTML = '<p>replaced</p>';
     releaseFirst();
-    const snap = await capture;
-    expect(snap.messages.map((message: any) => message.contentText)).toEqual(['one', 'two']);
+    const prepared = await preparing;
+    expect(prepared.records).toEqual([]);
+    expect(prepared.reasons).toContain('identity_changed');
+    expect(await def.collector.capture({ manual: true, preparedCapture: prepared })).toBeNull();
     expect(calls).toBe(2);
   });
 
@@ -338,7 +351,7 @@ describe('googleaistudio-collector', () => {
         normalize: normalizeApi,
       }),
     ) as any;
-    const snap = await def.collector.capture();
+    const snap = await capturePrepared(def);
     expect(snap.messages).toHaveLength(2);
     expect(calls).toBe(1);
     expect(snap.conversation.warningFlags).toContain('inline_images_fetch_failed');

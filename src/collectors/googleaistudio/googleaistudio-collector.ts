@@ -606,94 +606,55 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
   }
 
   async function capture(options: any = {}): Promise<any> {
-    if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl()) return null;
-    const manual = options?.manual === true;
+    if (!matches({ hostname: env.location.hostname }) || !isValidConversationUrl() || options?.manual !== true) {
+      return null;
+    }
     const ctx = createInlineImageContext();
-    let messages: any[] = [];
-    let captureMeta: any = null;
-    let manualConversationKey = '';
+    const prepared = consumePreparedCapture(options?.preparedCapture);
+    if (!prepared || !identityGuardsMatch(prepared.identityGuard)) return null;
+    for (const flag of (options.preparedCapture as any)?.warningFlags || []) ctx.warningFlags.add(String(flag));
 
-    let prepared = manual ? consumePreparedCapture(options?.preparedCapture) : null;
-    if (prepared && !identityGuardsMatch(prepared.identityGuard)) prepared = null;
-
-    if (manual && prepared) {
-      for (const flag of (options.preparedCapture as any)?.warningFlags || []) ctx.warningFlags.add(String(flag));
-      const accumulator = createPreparedAccumulator<any>({
-        source: 'googleaistudio',
-        conversationKey: prepared.conversationKey,
-        identityVerified: prepared.identityVerified === true,
-        identityGuard: prepared.identityGuard,
-      });
-      accumulator.completeness = prepared.completeness;
-      accumulator.reasons.push(...prepared.reasons.filter((reason) => !accumulator.reasons.includes(reason)));
-      accumulator.sweepMetrics = { ...prepared.metrics };
-      mergePreparedRecords(
-        accumulator,
-        prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
-      );
-      const finalLive = await harvestManualInto(accumulator, ctx);
-      if (accumulator.completeness === 'complete' && (finalLive.added > 0 || finalLive.updated > 0)) {
-        accumulator.completeness = 'partial';
-        addPreparedReason(accumulator, 'final_live_changed');
-      }
-      if (!identityGuardsMatch(accumulator.identityGuard)) {
-        accumulator.identityVerified = false;
-        accumulator.conversationKey = '';
-        accumulator.records = [];
-        accumulator.completeness = 'partial';
-        addPreparedReason(accumulator, 'identity_changed');
-      }
-      const finalPrepared = finishPreparedCapture(accumulator);
-      messages = finalPrepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
-      manualConversationKey = finalPrepared.conversationKey;
-      captureMeta = {
-        completeness: finalPrepared.completeness,
-        identityVerified: finalPrepared.identityVerified,
-        reasons: finalPrepared.reasons,
-        metrics: finalPrepared.metrics,
-      };
-    } else if (manual) {
-      const identityGuard = sampleIdentityGuard();
-      const accumulator = createPreparedAccumulator<any>({
-        source: 'googleaistudio',
-        conversationKey: '',
-        identityVerified: false,
-        identityGuard,
-      });
-      addPreparedReason(accumulator, prepared ? 'identity_changed' : 'missing_identity');
-      await harvestManualInto(accumulator, ctx);
-      messages = accumulator.records.map((record, index) => ({ ...record.payload, sequence: index }));
-      captureMeta = {
-        completeness: 'partial',
-        identityVerified: false,
-        reasons: accumulator.reasons,
-        metrics: finishPreparedCapture(accumulator).metrics,
-      };
-    } else {
-      messages = await collectMessages(ctx);
+    const accumulator = createPreparedAccumulator<any>({
+      source: 'googleaistudio',
+      conversationKey: prepared.conversationKey,
+      identityVerified: prepared.identityVerified === true,
+      identityGuard: prepared.identityGuard,
+    });
+    accumulator.completeness = prepared.completeness;
+    accumulator.reasons.push(...prepared.reasons.filter((reason) => !accumulator.reasons.includes(reason)));
+    accumulator.sweepMetrics = { ...prepared.metrics };
+    mergePreparedRecords(
+      accumulator,
+      prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
+    );
+    const finalLive = await harvestManualInto(accumulator, ctx);
+    if (accumulator.completeness === 'complete' && (finalLive.added > 0 || finalLive.updated > 0)) {
+      accumulator.completeness = 'partial';
+      addPreparedReason(accumulator, 'final_live_changed');
     }
+    if (!identityGuardsMatch(accumulator.identityGuard)) return null;
 
-    if (manual && messages.some((message) => message.captureMergePolicy === 'preserve-existing-markdown')) {
-      captureMeta = captureMeta || { completeness: 'partial', identityVerified: false, reasons: [] };
-      captureMeta.completeness = 'partial';
-      if (!captureMeta.reasons.includes('inline_images_incomplete')) {
-        captureMeta.reasons.push('inline_images_incomplete');
-      }
-    }
-
-    if (!messages.length) return null;
+    const finalPrepared = finishPreparedCapture(accumulator);
+    const messages = finalPrepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
+    if (!messages.length || !finalPrepared.identityVerified || !finalPrepared.conversationKey) return null;
+    const captureMeta = {
+      completeness: finalPrepared.completeness,
+      identityVerified: true,
+      reasons: finalPrepared.reasons,
+      metrics: finalPrepared.metrics,
+    };
     return {
       conversation: {
         sourceType: 'chat',
         source: 'googleaistudio',
-        conversationKey: manual ? manualConversationKey : findConversationKey(),
+        conversationKey: finalPrepared.conversationKey,
         title: extractConversationTitle(),
         url: env.location.href,
         warningFlags: Array.from(ctx.warningFlags),
         lastCapturedAt: Date.now(),
       },
       messages,
-      ...(captureMeta ? { captureMeta } : null),
+      captureMeta,
     };
   }
 
