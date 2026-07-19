@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import normalizeApi from '@services/shared/normalize.ts';
 import { createCollectorEnv } from '../../src/collectors/collector-env.ts';
 import { createChatgptCollectorDef, turnKeyOf } from '../../src/collectors/chatgpt/chatgpt-collector.ts';
+import chatgptMarkdown from '../../src/collectors/chatgpt/chatgpt-markdown.ts';
 
 function setupChatgptDom(html: string, url: string) {
   const dom = new JSDOM(`<body><main>${html}</main></body>`, { url });
@@ -62,7 +63,7 @@ describe('chatgpt-collector', () => {
     const snap = (await Promise.resolve(def.collector.capture({ manual: true, preparedCapture }))) as any;
     expect(snap).toBeTruthy();
     expect(String(snap.conversation.conversationKey || '')).toMatch(/^chatgpt_/);
-    expect(snap.captureMeta).toMatchObject({ completeness: 'partial', identityVerified: true });
+    expect(snap.captureMeta).toMatchObject({ completeness: 'complete', identityVerified: true });
     expect(snap.messages.every((message: any) => !String(message.messageKey).startsWith('fallback_'))).toBe(true);
     expect(String(snap.conversation.title || '')).toBe('请帮我整理今天的发布检查清单');
     expect(String(snap.conversation.title || '')).not.toBe('ChatGPT');
@@ -494,25 +495,29 @@ describe('chatgpt-collector', () => {
       </article>
     `;
 
-    vi.resetModules();
-    vi.doMock('../../src/collectors/chatgpt/chatgpt-markdown.ts', () => ({ default: {} }));
+    const extractAssistantText = chatgptMarkdown.extractAssistantText;
+    const extractAssistantMarkdown = chatgptMarkdown.extractAssistantMarkdown;
+    (chatgptMarkdown as any).extractAssistantText = undefined;
+    (chatgptMarkdown as any).extractAssistantMarkdown = undefined;
+    try {
+      const dom = setupChatgptDom(html, 'https://chatgpt.com/c/conv_fallback_1');
+      const env = createCollectorEnv({
+        window: dom.window as any,
+        document: dom.window.document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      });
 
-    const dom = setupChatgptDom(html, 'https://chatgpt.com/c/conv_fallback_1');
-    const { createChatgptCollectorDef: createDef } = await import('../../src/collectors/chatgpt/chatgpt-collector.ts');
-
-    const env = createCollectorEnv({
-      window: dom.window as any,
-      document: dom.window.document as any,
-      location: dom.window.location as any,
-      normalize: normalizeApi,
-    });
-
-    const snap = (await Promise.resolve(createDef(env).collector.capture({ manual: true }))) as any;
-    expect(snap).toBeTruthy();
-    expect(snap.messages.length).toBe(1);
-    expect(snap.messages[0].role).toBe('assistant');
-    expect(snap.messages[0].contentText).toBe('plain answer');
-    expect(snap.messages[0].contentMarkdown).toBe('plain answer');
+      const snap = (await Promise.resolve(createChatgptCollectorDef(env).collector.capture({ manual: true }))) as any;
+      expect(snap).toBeTruthy();
+      expect(snap.messages.length).toBe(1);
+      expect(snap.messages[0].role).toBe('assistant');
+      expect(snap.messages[0].contentText).toBe('plain answer');
+      expect(snap.messages[0].contentMarkdown).toBe('plain answer');
+    } finally {
+      chatgptMarkdown.extractAssistantText = extractAssistantText;
+      chatgptMarkdown.extractAssistantMarkdown = extractAssistantMarkdown;
+    }
   });
 });
 
@@ -677,7 +682,7 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
     expect(snap.messages.length).toBe(12);
     expect(snap.messages.filter((m: any) => m.role === 'user').length).toBe(5);
     expect(snap.messages.every((m: any, i: number) => m.sequence === i)).toBe(true);
-    expect(snap.captureMeta).toMatchObject({ completeness: 'partial', identityVerified: true });
+    expect(snap.captureMeta).toMatchObject({ completeness: 'complete', identityVerified: true });
     const injectedPositions = snap.messages
       .map((message: any, index: number) => (String(message.contentText || '').startsWith('注入-') ? index : -1))
       .filter((index: number) => index >= 0);

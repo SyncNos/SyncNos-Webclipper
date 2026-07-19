@@ -9,7 +9,7 @@ import {
   finishPreparedCapture,
   mergePreparedRecords,
   readPreparedCapture,
-  runVirtualizedPass,
+  runVirtualizedSweep,
   resolveScrollRoot,
   writeScrollPosition,
   type PreparedAccumulator,
@@ -393,6 +393,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     role: 'user' | 'assistant';
     fingerprint: string;
     hasDeepResearch: boolean;
+    rendered: boolean;
   };
 
   type ChatgptExtractionInput = ChatgptDescriptor & {
@@ -595,6 +596,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         role,
         fingerprint: descriptorFingerprint({ role, key, text, imageUrls, iframeUrl }),
         hasDeepResearch: !!iframe,
+        rendered: !!text || imageUrls.length > 0 || !!iframe,
       });
     }
     return descriptors;
@@ -624,6 +626,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         role,
         fingerprint: descriptorFingerprint({ role, key: stableKey, text, imageUrls, iframeUrl }),
         hasDeepResearch: !!iframe,
+        rendered: !!text || imageUrls.length > 0 || !!iframe,
         outerHtml: String(wrapper?.outerHTML || ''),
         imageUrls,
         iframeUrl,
@@ -670,6 +673,10 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     readScrollSeed: () => getConversationRoot(),
     readDescriptors: readCurrentDescriptors,
     readDescriptorKeys: () => readCurrentDescriptors().map((descriptor) => descriptor.key),
+    readUnresolvedKeys: () =>
+      readCurrentDescriptors()
+        .filter((descriptor) => !descriptor.rendered)
+        .map((descriptor) => descriptor.key),
     snapshotExtractionInput,
   };
 
@@ -766,10 +773,9 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         identityVerified: !!conversationKey,
         identityGuard,
       });
-      addPreparedReason(accumulator, 'single_pass_unconfirmed');
       if (!conversationKey) addPreparedReason(accumulator, 'unstable_identity');
 
-      const pass = await runVirtualizedPass(
+      const sweep = await runVirtualizedSweep(
         scrollRuntime,
         {
           getScrollSeed: manualAdapter.readScrollSeed,
@@ -779,6 +785,8 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         },
         accumulator,
         {
+          maxPasses: options.maxPasses,
+          totalDeadlineMs: options.totalDeadlineMs,
           maxSteps: options.maxSteps,
           stableSamples: options.stableSamples,
           pollMs: options.pollMs,
@@ -789,12 +797,12 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
           now: options.now,
         },
       );
-      if (!pass.reachedTop) addPreparedReason(accumulator, 'top_not_reached');
-      if (!pass.reachedBottom) addPreparedReason(accumulator, 'bottom_not_reached');
+      accumulator.completeness = sweep.completeness;
       const finalGuard = manualAdapter.readIdentity();
       if (!identityGuardsMatch(accumulator.identityGuard, finalGuard)) {
         accumulator.identityVerified = false;
         accumulator.conversationKey = '';
+        accumulator.completeness = 'partial';
         addPreparedReason(accumulator, 'identity_changed');
       }
       return finishPreparedCapture(accumulator);
@@ -821,25 +829,34 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         identityVerified: prepared.identityVerified === true,
         identityGuard: prepared.identityGuard,
       });
-      addPreparedReason(accumulator, 'single_pass_unconfirmed');
+      accumulator.completeness = prepared.completeness;
+      accumulator.reasons.push(...prepared.reasons.filter((reason) => !accumulator.reasons.includes(reason)));
+      accumulator.sweepMetrics = { ...prepared.metrics };
       mergePreparedRecords(
         accumulator,
         prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
       );
       Object.assign(accumulator.descriptorFingerprints, prepared.descriptorFingerprints || {});
       const root = getConversationRoot();
-      if (root) await harvestRenderedInto(accumulator, root, { allowEditing: true });
+      const finalLive = root
+        ? await harvestRenderedInto(accumulator, root, { allowEditing: true })
+        : { added: 0, updated: 0 };
+      if (accumulator.completeness === 'complete' && (finalLive.added > 0 || finalLive.updated > 0)) {
+        accumulator.completeness = 'partial';
+        addPreparedReason(accumulator, 'final_live_changed');
+      }
       const finalGuard = manualAdapter.readIdentity();
       if (!identityGuardsMatch(accumulator.identityGuard, finalGuard)) {
         accumulator.identityVerified = false;
         accumulator.conversationKey = '';
+        accumulator.completeness = 'partial';
         addPreparedReason(accumulator, 'identity_changed');
       }
       prepared = finishPreparedCapture(accumulator);
       messages = prepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
       manualConversationKey = prepared.identityVerified ? prepared.conversationKey : '';
       manualMeta = {
-        completeness: 'partial',
+        completeness: prepared.completeness,
         identityVerified: prepared.identityVerified === true,
         reasons: prepared.reasons,
         metrics: prepared.metrics,

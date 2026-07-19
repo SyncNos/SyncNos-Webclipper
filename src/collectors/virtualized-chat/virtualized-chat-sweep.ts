@@ -165,6 +165,8 @@ export type PreparedAccumulator<T> = {
   reasons: string[];
   samples: number;
   descriptorFingerprints: Record<string, string>;
+  completeness: 'complete' | 'partial';
+  sweepMetrics: Record<string, number | boolean>;
 };
 
 export type VirtualizedPreparedCapture<T> = {
@@ -176,7 +178,8 @@ export type VirtualizedPreparedCapture<T> = {
   records: PreparedMessageRecord<T>[];
   reasons: string[];
   descriptorFingerprints: Record<string, string>;
-  metrics: { samples: number; messages: number };
+  completeness: 'complete' | 'partial';
+  metrics: Record<string, number | boolean> & { samples: number; messages: number };
 };
 
 export function createPreparedAccumulator<T>(input: {
@@ -201,6 +204,8 @@ export function createPreparedAccumulator<T>(input: {
     reasons: [],
     samples: 0,
     descriptorFingerprints: Object.create(null) as Record<string, string>,
+    completeness: 'partial',
+    sweepMetrics: {},
   };
 }
 
@@ -313,7 +318,12 @@ export function finishPreparedCapture<T>(accumulator: PreparedAccumulator<T>): V
     records: accumulator.records.map((record) => ({ ...record })),
     reasons: accumulator.reasons.slice(),
     descriptorFingerprints: { ...accumulator.descriptorFingerprints },
-    metrics: { samples: accumulator.samples, messages: accumulator.records.length },
+    completeness: accumulator.completeness,
+    metrics: {
+      samples: accumulator.samples,
+      messages: accumulator.records.length,
+      ...accumulator.sweepMetrics,
+    },
   };
 }
 
@@ -329,6 +339,7 @@ export type VirtualizedPassAdapter<T> = {
   getScrollSeed: () => Element | null;
   sampleIdentity: () => string | null;
   readDescriptorKeys: () => string[];
+  readUnresolvedKeys?: () => string[];
   harvest: (accumulator: PreparedAccumulator<T>) => Promise<{ added: number; updated: number }>;
 };
 
@@ -338,6 +349,8 @@ export type VirtualizedPassResult = {
   steps: number;
   maxScrollExtent: number;
   reasons: string[];
+  added: number;
+  updated: number;
 };
 
 export type VirtualizedPassOptions = {
@@ -394,6 +407,8 @@ export async function runVirtualizedPass<T>(
   let maxScrollExtent = 0;
   let previousTop = 0;
   let overlapRecoveries = 0;
+  let added = 0;
+  let updated = 0;
 
   const validateAfterAwait = (): boolean => {
     if (!isDocumentScrollRoot(runtime.document, root) && !root.isConnected) {
@@ -438,7 +453,7 @@ export async function runVirtualizedPass<T>(
   try {
     writeScrollPosition(runtime, root, 0, 0);
     let stable = await stabilize();
-    if (!stable) return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons };
+    if (!stable) return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated };
     reachedTop = isAtScrollTop(stable.metrics);
     previousTop = stable.metrics.top;
 
@@ -456,7 +471,9 @@ export async function runVirtualizedPass<T>(
       }
       if (!hasOverlap && knownKeys.size) addReason('order_unanchored');
 
-      await adapter.harvest(accumulator);
+      const harvested = await adapter.harvest(accumulator);
+      added += harvested.added;
+      updated += harvested.updated;
       if (!validateAfterAwait()) break;
       steps += 1;
       const metrics = readScrollMetrics(runtime, root);
@@ -483,5 +500,126 @@ export async function runVirtualizedPass<T>(
     addReason('pass_failed');
   }
 
-  return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons };
+  return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated };
+}
+
+export type VirtualizedSweepOptions = VirtualizedPassOptions & {
+  maxPasses?: number;
+  totalDeadlineMs?: number;
+};
+
+export type VirtualizedSweepResult = {
+  completeness: 'complete' | 'partial';
+  passes: number;
+  steps: number;
+  maxScrollExtent: number;
+  reachedTop: boolean;
+  reachedBottom: boolean;
+  reasons: string[];
+};
+
+const INCOMPLETE_REASONS = new Set([
+  'step_timeout',
+  'step_budget_exhausted',
+  'pass_budget_exhausted',
+  'total_deadline_exhausted',
+  'root_detached',
+  'root_replaced',
+  'identity_changed',
+  'order_unanchored',
+  'order_conflict',
+  'unresolved_turn',
+  'pass_failed',
+  'extraction_error',
+  'scroll_stalled',
+  'top_not_reached',
+  'bottom_not_reached',
+  'final_live_changed',
+]);
+
+export async function runVirtualizedSweep<T>(
+  runtime: Pick<ScrollRuntime, 'document' | 'window'>,
+  adapter: VirtualizedPassAdapter<T>,
+  accumulator: PreparedAccumulator<T>,
+  options: VirtualizedSweepOptions = {},
+): Promise<VirtualizedSweepResult> {
+  const maxPasses = boundedInteger(options.maxPasses, 4, 2, 20);
+  const totalDeadlineMs = boundedInteger(options.totalDeadlineMs, 30_000, 1, 300_000);
+  const now = options.now || Date.now;
+  const deadline = now() + totalDeadlineMs;
+  let passes = 0;
+  let steps = 0;
+  let maxScrollExtent = 0;
+  let reachedTop = false;
+  let reachedBottom = false;
+  let previousExtent: number | null = null;
+  let complete = false;
+  let finalUnresolved: string[] = [];
+  let finalLiveChanged = false;
+
+  for (; passes < maxPasses; ) {
+    if (now() > deadline) {
+      addPreparedReason(accumulator, 'total_deadline_exhausted');
+      break;
+    }
+    const pass = await runVirtualizedPass(runtime, adapter, accumulator, options);
+    passes += 1;
+    steps += pass.steps;
+    maxScrollExtent = Math.max(maxScrollExtent, pass.maxScrollExtent);
+    reachedTop = pass.reachedTop;
+    reachedBottom = pass.reachedBottom;
+
+    const unresolved = adapter.readUnresolvedKeys?.().filter(Boolean) || [];
+    finalUnresolved = unresolved;
+    const extentStable = previousExtent !== null && previousExtent === pass.maxScrollExtent;
+    previousExtent = pass.maxScrollExtent;
+    const noChanges = pass.added === 0 && pass.updated === 0;
+    const hasBlockingReason = accumulator.reasons.some((reason) => INCOMPLETE_REASONS.has(reason));
+
+    if (
+      passes >= 2 &&
+      noChanges &&
+      extentStable &&
+      pass.reachedTop &&
+      pass.reachedBottom &&
+      accumulator.identityVerified &&
+      !unresolved.length &&
+      !hasBlockingReason
+    ) {
+      try {
+        const finalLive = await adapter.harvest(accumulator);
+        if (finalLive.added === 0 && finalLive.updated === 0) {
+          complete = true;
+          break;
+        }
+        finalLiveChanged = true;
+      } catch (_error) {
+        addPreparedReason(accumulator, 'extraction_error');
+        break;
+      }
+    }
+  }
+
+  if (!complete && finalUnresolved.length) addPreparedReason(accumulator, 'unresolved_turn');
+  if (!complete && finalLiveChanged) addPreparedReason(accumulator, 'final_live_changed');
+  if (!complete && passes >= maxPasses) addPreparedReason(accumulator, 'pass_budget_exhausted');
+  if (!reachedTop) addPreparedReason(accumulator, 'top_not_reached');
+  if (!reachedBottom) addPreparedReason(accumulator, 'bottom_not_reached');
+  accumulator.completeness = complete ? 'complete' : 'partial';
+  accumulator.sweepMetrics = {
+    passes,
+    steps,
+    maxScrollExtent,
+    reachedTop,
+    reachedBottom,
+  };
+  return {
+    completeness: accumulator.completeness,
+    passes,
+    steps,
+    maxScrollExtent,
+    reachedTop,
+    reachedBottom,
+    reasons: accumulator.reasons.slice(),
+  };
 }

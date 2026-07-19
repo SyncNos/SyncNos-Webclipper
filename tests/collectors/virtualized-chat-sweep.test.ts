@@ -6,6 +6,7 @@ import {
   finishPreparedCapture,
   mergePreparedRecords,
   runVirtualizedPass,
+  runVirtualizedSweep,
   isAtScrollBottom,
   isAtScrollTop,
   readScrollMetrics,
@@ -395,5 +396,135 @@ describe('virtualized chat single pass', () => {
       },
     );
     expect(result.reasons).toContain('step_timeout');
+  });
+});
+
+describe('virtualized chat confirmation sweep', () => {
+  function singlePageAdapter(
+    harvestPayloads: Array<Array<{ key: string; fingerprint: string; text: string }>>,
+    unresolved: () => string[] = () => [],
+  ) {
+    const dom = new JSDOM('<body><div id="root"><div id="seed"></div></div></body>');
+    const root = dom.window.document.querySelector('#root') as HTMLElement;
+    const seed = dom.window.document.querySelector('#seed') as HTMLElement;
+    root.style.overflowY = 'auto';
+    setMetric(root, 'clientHeight', 100);
+    setMetric(root, 'scrollHeight', 100);
+    setMetric(root, 'clientWidth', 100);
+    setMetric(root, 'scrollWidth', 100);
+    root.scrollTop = 0;
+    let harvestIndex = 0;
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'test',
+      conversationKey: 'conversation',
+      identityVerified: true,
+    });
+    const currentPayload = () => harvestPayloads[Math.min(harvestIndex, harvestPayloads.length - 1)] || [];
+    const adapter = {
+      getScrollSeed: () => seed,
+      sampleIdentity: () => 'identity',
+      readDescriptorKeys: () => currentPayload().map((item) => item.key),
+      readUnresolvedKeys: unresolved,
+      harvest: async (target: typeof accumulator) => {
+        const payload = currentPayload();
+        harvestIndex += 1;
+        return mergePreparedRecords(
+          target,
+          payload.map((item, index) => ({
+            key: item.key,
+            turnKey: item.key,
+            withinTurn: index,
+            fingerprint: item.fingerprint,
+            payload: { text: item.text },
+          })),
+        );
+      },
+    };
+    return { dom, accumulator, adapter };
+  }
+
+  it('marks complete only after a no-change confirmation pass and final live sample', async () => {
+    const test = singlePageAdapter([
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+    ]);
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, maxPasses: 4 },
+    );
+    expect(result).toMatchObject({ completeness: 'complete', reachedTop: true, reachedBottom: true });
+    expect(result.passes).toBe(2);
+  });
+
+  it('continues when a second pass discovers a late turn', async () => {
+    const test = singlePageAdapter([
+      [{ key: 'a', fingerprint: 'a', text: 'A' }],
+      [
+        { key: 'a', fingerprint: 'a', text: 'A' },
+        { key: 'b', fingerprint: 'b', text: 'B' },
+      ],
+      [
+        { key: 'a', fingerprint: 'a', text: 'A' },
+        { key: 'b', fingerprint: 'b', text: 'B' },
+      ],
+      [
+        { key: 'a', fingerprint: 'a', text: 'A' },
+        { key: 'b', fingerprint: 'b', text: 'B' },
+      ],
+    ]);
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, maxPasses: 5 },
+    );
+    expect(result.completeness).toBe('complete');
+    expect(finishPreparedCapture(test.accumulator).records.map((record) => record.key)).toEqual(['a', 'b']);
+  });
+
+  it('requires another confirmation after a late known-key update or final-live change', async () => {
+    const test = singlePageAdapter([
+      [{ key: 'a', fingerprint: 'draft', text: 'draft' }],
+      [{ key: 'a', fingerprint: 'final', text: 'final' }],
+      [{ key: 'a', fingerprint: 'final', text: 'final' }],
+      [
+        { key: 'a', fingerprint: 'final', text: 'final' },
+        { key: 'b', fingerprint: 'late', text: 'late' },
+      ],
+      [
+        { key: 'a', fingerprint: 'final', text: 'final' },
+        { key: 'b', fingerprint: 'late', text: 'late' },
+      ],
+      [
+        { key: 'a', fingerprint: 'final', text: 'final' },
+        { key: 'b', fingerprint: 'late', text: 'late' },
+      ],
+    ]);
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, maxPasses: 6 },
+    );
+    expect(result.completeness).toBe('complete');
+    expect(finishPreparedCapture(test.accumulator).records.map((record) => record.payload.text)).toEqual([
+      'final',
+      'late',
+    ]);
+  });
+
+  it('keeps unresolved expected turns and pass exhaustion partial', async () => {
+    const test = singlePageAdapter([[{ key: 'a', fingerprint: 'a', text: 'A' }]], () => ['unresolved-shell']);
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, maxPasses: 2 },
+    );
+    expect(result.completeness).toBe('partial');
+    expect(result.reasons).toEqual(expect.arrayContaining(['unresolved_turn', 'pass_budget_exhausted']));
   });
 });
