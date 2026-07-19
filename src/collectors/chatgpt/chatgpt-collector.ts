@@ -2,6 +2,7 @@ import type { CollectorDefinition } from '@collectors/collector-contract.ts';
 import type { CollectorEnv } from '@collectors/collector-env.ts';
 import { appendImageMarkdown, extractImageUrlsFromElement } from '@collectors/collector-utils.ts';
 import chatgptMarkdown from '@collectors/chatgpt/chatgpt-markdown.ts';
+import { createScrollRootRestorer } from '@collectors/virtualized-chat/virtualized-chat-sweep.ts';
 
 // ---- Pure turn primitives ----
 // These are env-free and side-effect-free (they never scroll or mutate the DOM), so they can be
@@ -613,8 +614,12 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     const conversationKey = resolveConversationCacheKey();
     const cache = createHarvestCache(conversationKey);
 
-    const prevX = Number((env.window as any)?.scrollX) || 0;
-    const prevY = Number((env.window as any)?.scrollY) || 0;
+    const scrollRestorer = createScrollRootRestorer({
+      document: env.document,
+      window: env.window,
+      getSeed: () => getConversationRoot(),
+      sampleIdentity: () => resolveConversationCacheKey(),
+    });
 
     try {
       // Harvest whatever is already rendered before we start moving the viewport.
@@ -644,11 +649,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
 
       manualHarvestCache = cache;
     } finally {
-      try {
-        (env.window as any)?.scrollTo?.(prevX, prevY);
-      } catch (_e) {
-        // ignore
-      }
+      scrollRestorer.restore();
     }
   }
 
