@@ -579,6 +579,46 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
     return new JSDOM(html, { url: 'https://chatgpt.com/share/6a422ac4-0fac-83ee-8050-90dec7c22b89' });
   }
 
+  it('asserts captured fixture facts without treating spacer selectors as completeness proof', () => {
+    const dom = loadFixture();
+    const doc = dom.window.document;
+    expect(doc.querySelectorAll('main')).toHaveLength(0);
+    const nestedDuplicates = Array.from(doc.querySelectorAll('[data-turn-id-container]')).filter((element) =>
+      element.parentElement?.hasAttribute('data-turn-id-container'),
+    );
+    expect(nestedDuplicates.length).toBeGreaterThan(0);
+    expect(getTurnSkeleton(doc).some((turn) => !turnIsHydrated(turn))).toBe(true);
+    expect(getTurnSkeleton(doc).some((turn) => turn.querySelectorAll('[data-message-author-role]').length > 1)).toBe(
+      true,
+    );
+  });
+
+  it('re-queries fresh descriptors and snapshots only plain extraction input', () => {
+    const dom = loadFixture();
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    const def = createChatgptCollectorDef(env) as any;
+    const adapter = def.collector.__test.manualAdapter;
+    const before = adapter.readDescriptors();
+    expect(before).toHaveLength(12);
+    expect(before.filter((descriptor: any) => descriptor.key).length).toBe(12);
+    const first = before[0];
+    const input = adapter.snapshotExtractionInput(first.key);
+    expect(JSON.parse(JSON.stringify(input))).toEqual(input);
+    expect(input.outerHtml).toEqual(expect.any(String));
+    expect(Object.values(input).some((value) => value instanceof dom.window.Element)).toBe(false);
+
+    const firstRole = dom.window.document.querySelector('[data-message-author-role]') as HTMLElement;
+    firstRole.querySelector('.whitespace-pre-wrap, .markdown')!.textContent = 'replacement content';
+    const after = adapter.readDescriptors();
+    expect(after[0].key).toBe(first.key);
+    expect(after[0].fingerprint).not.toBe(first.fingerprint);
+  });
+
   it('captures the virtualized fixture as a full document without regression (9 messages, 3 rounds)', async () => {
     const dom = loadFixture();
     expect(dom.window.document.querySelectorAll('main').length).toBe(0);
