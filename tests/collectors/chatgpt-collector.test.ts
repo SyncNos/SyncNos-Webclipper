@@ -585,6 +585,92 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
     expect(after[0].fingerprint).not.toBe(first.fingerprint);
   });
 
+  it('bounds manual extraction to new or changed descriptor fingerprints', async () => {
+    const dom = setupChatgptDom(
+      `
+        <article data-testid="conversation-turn-1" data-turn-id="turn_cost_user">
+          <div data-message-author-role="user"><div class="whitespace-pre-wrap">question</div></div>
+        </article>
+        <article data-testid="conversation-turn-2" data-turn-id="turn_cost_answer">
+          <div data-message-author-role="assistant"><div class="markdown prose"><p>draft answer</p></div></div>
+        </article>
+      `,
+      'https://chatgpt.com/c/conv_cost',
+    );
+    (dom.window as any).scrollTo = vi.fn();
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    const def = createChatgptCollectorDef(env) as any;
+    const prepared = await def.collector.prepareManualCapture({
+      maxPasses: 2,
+      maxSteps: 4,
+      stableSamples: 1,
+      pollMs: 0,
+      stepTimeoutMs: 20,
+    });
+
+    expect(prepared.completeness).toBe('complete');
+    expect(def.collector.__test.manualAdapter.getExtractionCount()).toBe(2);
+    expect(JSON.parse(JSON.stringify(prepared))).toEqual(prepared);
+    const containsLiveElement = (value: any): boolean => {
+      if (value instanceof dom.window.Element) return true;
+      if (!value || typeof value !== 'object') return false;
+      return Object.values(value).some((child) => containsLiveElement(child));
+    };
+    expect(containsLiveElement(prepared)).toBe(false);
+
+    const answer = dom.window.document.querySelector('.markdown.prose p') as HTMLElement;
+    answer.textContent = 'final answer';
+    const snapshot = await def.collector.capture({ manual: true, preparedCapture: prepared });
+    expect(def.collector.__test.manualAdapter.getExtractionCount()).toBe(3);
+    expect(snapshot.messages.map((message: any) => message.contentText)).toEqual(['question', 'final answer']);
+    expect(snapshot.captureMeta).toMatchObject({ completeness: 'partial' });
+    expect(snapshot.captureMeta.reasons).toContain('final_live_changed');
+  });
+
+  it('keeps Deep Research manual extraction synchronous and emits only a placeholder', async () => {
+    const dom = setupChatgptDom(
+      `
+        <article data-testid="conversation-turn-1" data-turn-id="turn_report">
+          <div data-message-author-role="assistant">
+            <iframe title="internal://deep-research" src="https://connector_openai_deep_research.web-sandbox.oaiusercontent.com/report-a"></iframe>
+          </div>
+        </article>
+      `,
+      'https://chatgpt.com/c/conv_report',
+    );
+    (dom.window as any).scrollTo = vi.fn();
+    const iframe = dom.window.document.querySelector('iframe') as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    Object.defineProperty(iframe, 'contentWindow', { configurable: true, value: { postMessage } });
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    const def = createChatgptCollectorDef(env) as any;
+    const prepared = await def.collector.prepareManualCapture({
+      maxPasses: 2,
+      maxSteps: 4,
+      stableSamples: 1,
+      pollMs: 0,
+      stepTimeoutMs: 20,
+    });
+
+    expect(postMessage).not.toHaveBeenCalled();
+    expect(prepared.records).toHaveLength(1);
+    expect(prepared.records[0].payload).toMatchObject({
+      contentText:
+        'Deep Research (iframe): https://connector_openai_deep_research.web-sandbox.oaiusercontent.com/report-a',
+    });
+    expect(def.collector.__test.manualAdapter.getExtractionCount()).toBe(1);
+  });
+
   it('captures the virtualized fixture as a full document without regression (9 messages, 3 rounds)', async () => {
     const dom = loadFixture();
     expect(dom.window.document.querySelectorAll('main').length).toBe(0);

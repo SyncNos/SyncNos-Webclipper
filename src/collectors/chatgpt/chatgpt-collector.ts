@@ -558,6 +558,11 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     };
   }
 
+  function compactFingerprintPart(value: string): string {
+    const normalized = String(value || '');
+    return env.normalize?.fnv1a32 ? String(env.normalize.fnv1a32(normalized)) : normalized;
+  }
+
   function descriptorFingerprint(input: {
     role: string;
     key: string;
@@ -565,10 +570,11 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     imageUrls: string[];
     iframeUrl: string;
   }): string {
-    const source = `${input.role}|${input.key}|${input.text.length}|${input.text}|${input.imageUrls.join('|')}|${
-      input.iframeUrl
-    }`;
-    return env.normalize?.fnv1a32 ? String(env.normalize.fnv1a32(source)) : source;
+    const imageRefs = input.imageUrls.join('|');
+    const source = `${input.role}|${input.key}|${input.text.length}|${compactFingerprintPart(input.text)}|${
+      input.imageUrls.length
+    }|${compactFingerprintPart(imageRefs)}|${compactFingerprintPart(input.iframeUrl)}`;
+    return compactFingerprintPart(source);
   }
 
   function readCurrentDescriptors(): ChatgptDescriptor[] {
@@ -635,7 +641,10 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return null;
   }
 
+  let manualExtractionCount = 0;
+
   function extractManualMessage(input: ChatgptExtractionInput, sequence: number): any | null {
+    manualExtractionCount += 1;
     const holder = env.document.createElement('div');
     holder.innerHTML = input.outerHtml;
     const wrapper = holder.firstElementChild as any;
@@ -678,6 +687,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         .filter((descriptor) => !descriptor.rendered)
         .map((descriptor) => descriptor.key),
     snapshotExtractionInput,
+    getExtractionCount: () => manualExtractionCount,
   };
 
   async function collectMessages({ allowEditing }: any = {}): Promise<any[]> {
@@ -781,6 +791,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
           getScrollSeed: manualAdapter.readScrollSeed,
           sampleIdentity: samplePageIdentity,
           readDescriptorKeys: manualAdapter.readDescriptorKeys,
+          readUnresolvedKeys: manualAdapter.readUnresolvedKeys,
           harvest: (target) => harvestRenderedInto(target, null, { allowEditing: true }),
         },
         accumulator,
