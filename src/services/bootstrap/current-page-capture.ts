@@ -35,6 +35,8 @@ export type CurrentPageCaptureResult = {
   conversationId: number | null;
   title?: string;
   isNew?: boolean;
+  captureCompleteness?: 'complete' | 'partial';
+  captureReasons?: string[];
 };
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -176,6 +178,8 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
     return {
       conversationId: normalizeConversationId(conversation.id),
       isNew: typeof rawIsNew === 'boolean' ? rawIsNew : undefined,
+      captureCompleteness: integrity.meta?.completeness,
+      captureReasons: integrity.meta?.reasons?.slice(),
     };
   }
 
@@ -247,7 +251,12 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
 
       const title = String(snapshot?.conversation?.title || '');
       const isNew = saved.isNew !== false;
-      report(buildCaptureSuccessTipMessage({ isNew, title }), 'default');
+      report(
+        saved.captureCompleteness === 'partial'
+          ? t('partialCaptureSaved')
+          : buildCaptureSuccessTipMessage({ isNew, title }),
+        'default',
+      );
       return {
         kind: 'chat',
         label: target.label,
@@ -255,6 +264,8 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
         conversationId: normalizeConversationId(saved.conversationId),
         title: String(title || '').trim() || undefined,
         isNew,
+        captureCompleteness: saved.captureCompleteness,
+        captureReasons: saved.captureReasons,
       };
     } catch (error) {
       report(errorMessage(error, t('captureFailedFallback')), 'error');

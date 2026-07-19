@@ -61,8 +61,11 @@ describe('current page capture integrity routing', () => {
       snapshot: chatSnapshot({ completeness: 'partial' }),
     });
 
-    await harness.service.captureCurrentPage();
+    const progress: any[] = [];
+    const result = await harness.service.captureCurrentPage({ onProgress: (item) => progress.push(item) });
 
+    expect(result).toMatchObject({ captureCompleteness: 'partial' });
+    expect(progress.at(-1)?.message).toContain('无法确认完整历史');
     expect(harness.calls.map((call) => call.type)).toEqual(['upsertConversation', 'syncConversationMessages']);
     expect(harness.calls[1].payload).toMatchObject({
       mode: 'append',
