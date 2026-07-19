@@ -344,6 +344,36 @@ describe('googleaistudio-collector', () => {
     expect(snap.conversation.warningFlags).toContain('inline_images_fetch_failed');
   });
 
+  it('protects only messages whose blob images could not be inlined', async () => {
+    const html = `<div class="chat-session-content">
+      <ms-chat-turn id="turn-1"><div data-turn-role="User"><div class="turn-content">failed<img src="blob:https://aistudio.google.com/fail" /></div></div></ms-chat-turn>
+      <ms-chat-turn id="turn-2"><div data-turn-role="Model"><div class="turn-content">ok<img src="blob:https://aistudio.google.com/ok" /></div></div></ms-chat-turn>
+    </div>`;
+    const dom = setupDom(html, 'https://aistudio.google.com/app/image-policy');
+    (dom.window as any).fetch = async (url: string) =>
+      url.endsWith('/fail')
+        ? { ok: false }
+        : {
+            ok: true,
+            blob: async () => new (dom.window as any).Blob([new Uint8Array([1])], { type: 'image/png' }),
+          };
+    const def = createGoogleAiStudioCollectorDef(
+      createCollectorEnv({
+        window: dom.window as any,
+        document: dom.window.document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const prepared = await def.collector.prepareManualCapture({ stableSamples: 1, pollMs: 0, sleep: async () => {} });
+    const snap = await def.collector.capture({ manual: true, preparedCapture: prepared });
+    expect(snap.captureMeta.completeness).toBe('partial');
+    expect(snap.captureMeta.reasons).toContain('inline_images_incomplete');
+    expect(snap.messages[0].captureMergePolicy).toBe('preserve-existing-markdown');
+    expect(snap.messages[1].captureMergePolicy).toBeUndefined();
+    expect(snap.messages[1].contentMarkdown).toContain('data:image/png;base64,');
+  });
+
   it('preserves inline image warningFlags in manual capture flow', async () => {
     const html = `
       <div class="chat-session-content">

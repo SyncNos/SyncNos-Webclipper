@@ -421,27 +421,33 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     return output;
   }
 
-  async function resolveImageReferences(references: PlainImageReferences, ctx: InlineImageContext): Promise<string[]> {
+  async function resolveImageReferences(
+    references: PlainImageReferences,
+    ctx: InlineImageContext,
+  ): Promise<{ urls: string[]; incomplete: boolean }> {
     const output = references.httpUrls.slice();
+    let incomplete = false;
     for (const blobUrl of references.blobUrls) {
       const dataUrl = await inlineBlobImageUrl(blobUrl, ctx);
       if (dataUrl) output.push(dataUrl);
+      else incomplete = true;
     }
-    return uniqueStrings(output);
+    return { urls: uniqueStrings(output), incomplete };
   }
 
   async function extractMessageFromInput(input: PlainExtractionInput, ctx: InlineImageContext): Promise<any | null> {
-    const imageUrls = await resolveImageReferences(input.imageReferences, ctx);
-    if (!input.contentText && !imageUrls.length) return null;
+    const resolved = await resolveImageReferences(input.imageReferences, ctx);
+    if (!input.contentText && !resolved.urls.length) return null;
     return {
       messageKey: input.messageKey,
       role: input.role,
       contentText: input.contentText,
-      contentMarkdown: appendImageMarkdown(input.baseMarkdown || input.contentText, imageUrls, {
+      contentMarkdown: appendImageMarkdown(input.baseMarkdown || input.contentText, resolved.urls, {
         allowDataImageUrls: true,
       }),
       sequence: input.sequence,
       updatedAt: input.updatedAt,
+      ...(resolved.incomplete ? { captureMergePolicy: 'preserve-existing-markdown' } : null),
     };
   }
 
@@ -526,6 +532,12 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
       if (!input) continue;
       const message = await extractMessageFromInput(input, ctx);
       if (!message) continue;
+      if (message.captureMergePolicy === 'preserve-existing-markdown') {
+        accumulator.completeness = 'partial';
+        if (!accumulator.reasons.includes('inline_images_incomplete')) {
+          accumulator.reasons.push('inline_images_incomplete');
+        }
+      }
       records.push({
         key: descriptor.key,
         turnKey: descriptor.turnKey,
@@ -588,7 +600,9 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
           now: options.now,
         },
       );
-      accumulator.completeness = sweep.completeness;
+      accumulator.completeness = accumulator.reasons.includes('inline_images_incomplete')
+        ? 'partial'
+        : sweep.completeness;
     } finally {
       const restored = restorer.restore();
       if (!restored.restored) {
@@ -675,6 +689,14 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
       };
     } else {
       messages = await collectMessages(ctx);
+    }
+
+    if (manual && messages.some((message) => message.captureMergePolicy === 'preserve-existing-markdown')) {
+      captureMeta = captureMeta || { completeness: 'partial', identityVerified: false, reasons: [] };
+      captureMeta.completeness = 'partial';
+      if (!captureMeta.reasons.includes('inline_images_incomplete')) {
+        captureMeta.reasons.push('inline_images_incomplete');
+      }
     }
 
     if (!messages.length) return null;
