@@ -590,12 +590,16 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return compactFingerprintPart(source);
   }
 
-  function readCurrentDescriptors(): ChatgptDescriptor[] {
+  function readCurrentManualWindow(includeInputs = false): {
+    descriptors: ChatgptDescriptor[];
+    inputsByKey: Map<string, ChatgptExtractionInput>;
+  } {
     const root = getConversationRoot();
-    if (!root) return [];
+    const descriptors: ChatgptDescriptor[] = [];
+    const inputsByKey = new Map<string, ChatgptExtractionInput>();
+    if (!root) return { descriptors, inputsByKey };
     const wrappers = getTurnWrappers(root);
     const perTurn = new Map<string, number>();
-    const descriptors: ChatgptDescriptor[] = [];
     for (const wrapper of wrappers) {
       const role = roleFromWrapper(wrapper);
       const turnKey = turnKeyOf(wrapper);
@@ -608,7 +612,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
       const imageUrls = extractImageUrlsFromElement(wrapper);
       const iframe = role === 'assistant' ? findDeepResearchIframe(wrapper) : null;
       const iframeUrl = String(iframe?.getAttribute?.('src') || '').trim();
-      descriptors.push({
+      const descriptor: ChatgptDescriptor = {
         key,
         turnKey,
         withinTurn,
@@ -616,42 +620,22 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         fingerprint: descriptorFingerprint({ role, key, text, imageUrls, iframeUrl }),
         hasDeepResearch: !!iframe,
         rendered: !!text || imageUrls.length > 0 || !!iframe,
-      });
+      };
+      descriptors.push(descriptor);
+      if (includeInputs) {
+        inputsByKey.set(key, {
+          ...descriptor,
+          outerHtml: String(wrapper?.outerHTML || ''),
+          imageUrls,
+          iframeUrl,
+        });
+      }
     }
-    return descriptors;
+    return { descriptors, inputsByKey };
   }
 
-  function snapshotExtractionInput(key: string): ChatgptExtractionInput | null {
-    const root = getConversationRoot();
-    if (!root) return null;
-    const wrappers = getTurnWrappers(root);
-    const perTurn = new Map<string, number>();
-    for (const wrapper of wrappers) {
-      const role = roleFromWrapper(wrapper);
-      const turnKey = turnKeyOf(wrapper);
-      const withinTurn = perTurn.get(turnKey) || 0;
-      perTurn.set(turnKey, withinTurn + 1);
-      const stableKey = stableManualMessageKey(wrapper, role, turnKey, withinTurn);
-      if (stableKey !== key) continue;
-      const node = role === 'user' ? userContentNode(wrapper) : assistantContentNode(wrapper);
-      const text = env.normalize.normalizeText(node?.innerText || node?.textContent || '');
-      const imageUrls = extractImageUrlsFromElement(wrapper);
-      const iframe = role === 'assistant' ? findDeepResearchIframe(wrapper) : null;
-      const iframeUrl = String(iframe?.getAttribute?.('src') || '').trim();
-      return {
-        key: stableKey,
-        turnKey,
-        withinTurn,
-        role,
-        fingerprint: descriptorFingerprint({ role, key: stableKey, text, imageUrls, iframeUrl }),
-        hasDeepResearch: !!iframe,
-        rendered: !!text || imageUrls.length > 0 || !!iframe,
-        outerHtml: String(wrapper?.outerHTML || ''),
-        imageUrls,
-        iframeUrl,
-      };
-    }
-    return null;
+  function readCurrentDescriptors(): ChatgptDescriptor[] {
+    return readCurrentManualWindow().descriptors;
   }
 
   let manualExtractionCount = 0;
@@ -699,7 +683,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
       readCurrentDescriptors()
         .filter((descriptor) => !descriptor.rendered)
         .map((descriptor) => descriptor.turnKey),
-    snapshotExtractionInput,
+    readWindow: () => readCurrentManualWindow(true),
     getExtractionCount: () => manualExtractionCount,
   };
 
@@ -728,7 +712,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     _root: any,
     _options: any = {},
   ): Promise<{ added: number; updated: number }> {
-    const descriptors = manualAdapter.readDescriptors();
+    const { descriptors, inputsByKey } = manualAdapter.readWindow();
     const existingByKey = new Map(accumulator.records.map((record) => [record.key, record]));
     const records: Array<Omit<PreparedMessageRecord<any>, 'firstSeenIndex'>> = [];
     for (let i = 0; i < descriptors.length; i += 1) {
@@ -744,7 +728,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         });
         continue;
       }
-      const input = manualAdapter.snapshotExtractionInput(descriptor.key);
+      const input = inputsByKey.get(descriptor.key);
       if (!input) continue;
       const message = extractManualMessage(input, i);
       if (!message) continue;

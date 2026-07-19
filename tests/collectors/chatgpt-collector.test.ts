@@ -580,7 +580,7 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
     expect(turns.some((turn) => turn.querySelectorAll('[data-message-author-role]').length > 1)).toBe(true);
   });
 
-  it('re-queries fresh descriptors and snapshots only plain extraction input', () => {
+  it('re-queries fresh descriptors and snapshots plain extraction input in one scan', () => {
     const dom = loadFixture();
     const env = createCollectorEnv({
       window: dom.window as any,
@@ -590,11 +590,12 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
     });
     const def = createChatgptCollectorDef(env) as any;
     const adapter = def.collector.__test.manualAdapter;
-    const before = adapter.readDescriptors();
+    const beforeWindow = adapter.readWindow();
+    const before = beforeWindow.descriptors;
     expect(before).toHaveLength(12);
     expect(before.filter((descriptor: any) => descriptor.key).length).toBe(12);
     const first = before[0];
-    const input = adapter.snapshotExtractionInput(first.key);
+    const input = beforeWindow.inputsByKey.get(first.key);
     expect(JSON.parse(JSON.stringify(input))).toEqual(input);
     expect(input.outerHtml).toEqual(expect.any(String));
     expect(Object.values(input).some((value) => value instanceof dom.window.Element)).toBe(false);
@@ -625,14 +626,15 @@ describe('chatgpt virtualized share fixture (5 rounds)', () => {
       }),
     ) as any;
     const adapter = def.collector.__test.manualAdapter;
-    const originalSnapshot = adapter.snapshotExtractionInput;
+    const originalReadWindow = adapter.readWindow;
     let remainingMisses = 1;
-    adapter.snapshotExtractionInput = (key: string) => {
+    adapter.readWindow = () => {
+      const window = originalReadWindow();
       if (remainingMisses > 0) {
         remainingMisses -= 1;
-        return null;
+        return { ...window, inputsByKey: new Map() };
       }
-      return originalSnapshot(key);
+      return window;
     };
 
     const prepared = await def.collector.prepareManualCapture({
