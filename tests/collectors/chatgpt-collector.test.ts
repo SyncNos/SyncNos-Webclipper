@@ -116,6 +116,27 @@ describe('chatgpt-collector', () => {
     expect(String(snap.messages[0].messageKey)).toMatch(/^fallback_/);
   });
 
+  it('does not verify temporary-chat identity from an empty structural turn shell', async () => {
+    const dom = setupChatgptDom(
+      '<article data-testid="conversation-turn-1"><div data-message-author-role="user"><div class="whitespace-pre-wrap">unstable shell</div></div></article>',
+      'https://chatgpt.com/?temporary-chat=true',
+    );
+    const env = createCollectorEnv({
+      window: dom.window as any,
+      document: dom.window.document as any,
+      location: dom.window.location as any,
+      normalize: normalizeApi,
+    });
+    const def = createChatgptCollectorDef(env) as any;
+    const guard = def.collector.__test.sampleIdentityGuard(dom.window.document.querySelector('main'));
+    expect(guard.anchors).toEqual([]);
+    expect(def.collector.__test.identityConversationKey(guard)).toBe('');
+
+    const snapshot = await def.collector.capture({ manual: true });
+    expect(snapshot.captureMeta).toMatchObject({ completeness: 'partial', identityVerified: false });
+    expect(snapshot.conversation.conversationKey).toMatch(/^fallback_/);
+  });
+
   it('extracts assistant contentMarkdown from semantic markdown DOM', async () => {
     const html = `
       <article data-testid="conversation-turn-1">
@@ -806,6 +827,81 @@ describe('chatgpt manual scroll-sweep capture (P2)', () => {
       .map((message: any, index: number) => (String(message.contentText || '').startsWith('注入-') ? index : -1))
       .filter((index: number) => index >= 0);
     expect(injectedPositions).toEqual([3, 4, 5]);
+  });
+
+  it('recycles every visible anchor without treating scrolling as navigation', async () => {
+    const dom = setupChatgptDom('', 'https://chatgpt.com/?temporary-chat=true');
+    const main = dom.window.document.querySelector('main') as HTMLElement;
+    const root = dom.window.document.documentElement;
+    Object.defineProperty(root, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollHeight', { configurable: true, value: 200 });
+    Object.defineProperty(root, 'clientWidth', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollWidth', { configurable: true, value: 100 });
+    let top = 0;
+    const render = () => {
+      const suffix = top < 50 ? 'a' : 'b';
+      main.innerHTML = `
+        <article data-testid="conversation-turn-1" data-turn-id="turn_${suffix}">
+          <div data-message-author-role="${suffix === 'a' ? 'user' : 'assistant'}">
+            <div class="${suffix === 'a' ? 'whitespace-pre-wrap' : 'markdown prose'}">message-${suffix}</div>
+          </div>
+        </article>
+      `;
+    };
+    render();
+    Object.defineProperty(dom.window, 'scrollY', { configurable: true, get: () => top });
+    Object.defineProperty(dom.window, 'scrollX', { configurable: true, get: () => 0 });
+    (dom.window as any).scrollTo = (_left: number, nextTop: number) => {
+      top = Number(nextTop) || 0;
+      render();
+    };
+    const def = createChatgptCollectorDef(buildEnv(dom)) as any;
+
+    const prepared = await def.collector.prepareManualCapture({
+      maxPasses: 2,
+      maxSteps: 4,
+      maxOverlapRecoveries: 0,
+      stableSamples: 1,
+      pollMs: 0,
+      stepTimeoutMs: 20,
+    });
+
+    expect(top).toBe(0);
+    expect(prepared.identityVerified).toBe(true);
+    expect(prepared.reasons).not.toContain('identity_changed');
+    expect(prepared.records.map((record: any) => record.key)).toEqual(['turn_a:user:0', 'turn_b:assistant:0']);
+  });
+
+  it('downgrades a prepared capture when scroll restoration fails', async () => {
+    const dom = setupChatgptDom(
+      '<article data-testid="conversation-turn-1" data-turn-id="turn_restore"><div data-message-author-role="user"><div class="whitespace-pre-wrap">restore me</div></div></article>',
+      'https://chatgpt.com/c/conv_restore_failure',
+    );
+    const root = dom.window.document.documentElement;
+    Object.defineProperty(root, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollHeight', { configurable: true, value: 300 });
+    Object.defineProperty(root, 'clientWidth', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollWidth', { configurable: true, value: 100 });
+    let top = 50;
+    Object.defineProperty(dom.window, 'scrollY', { configurable: true, get: () => top });
+    Object.defineProperty(dom.window, 'scrollX', { configurable: true, get: () => 0 });
+    (dom.window as any).scrollTo = (_left: number, nextTop: number) => {
+      if (Number(nextTop) === 50) throw new Error('restore blocked');
+      top = Number(nextTop) || 0;
+    };
+    const def = createChatgptCollectorDef(buildEnv(dom)) as any;
+
+    const prepared = await def.collector.prepareManualCapture({
+      maxPasses: 2,
+      maxSteps: 8,
+      stableSamples: 1,
+      pollMs: 0,
+      stepTimeoutMs: 20,
+    });
+
+    expect(prepared.completeness).toBe('partial');
+    expect(prepared.reasons).toContain('restore_failed');
+    expect(prepared.records).toHaveLength(1);
   });
 
   it('returns a plain prepared object without sharing state across collector instances', async () => {
