@@ -10,8 +10,6 @@ import {
   mergePreparedRecords,
   readPreparedCapture,
   runVirtualizedSweep,
-  resolveScrollRoot,
-  writeScrollPosition,
   type PreparedAccumulator,
   type PreparedIdentityGuard,
   type PreparedMessageRecord,
@@ -54,10 +52,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     }
   >();
   let deepResearchListenerInstalled = false;
-
-  function sleep(ms: any): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
-  }
 
   function ensureDeepResearchListener() {
     if (deepResearchListenerInstalled) return;
@@ -726,13 +720,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     }
 
     return out;
-  }
-
-  function messageFingerprint(message: any): string {
-    const source = `${String(message?.role || '')}|${String(message?.contentText || '')}|${String(
-      message?.contentMarkdown || '',
-    )}`;
-    return env.normalize?.fnv1a32 ? String(env.normalize.fnv1a32(source)) : source;
   }
 
   async function harvestRenderedInto(

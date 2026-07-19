@@ -86,7 +86,6 @@ describe('virtualized chat scroll root', () => {
   it('uses the document scroller fallback without moving an inner element', () => {
     const dom = new JSDOM('<body><main id="seed"></main></body>');
     const root = dom.window.document.documentElement;
-    const seed = dom.window.document.querySelector('#seed') as HTMLElement;
     setMetric(root, 'clientHeight', 100);
     setMetric(root, 'scrollHeight', 500);
     setMetric(root, 'clientWidth', 100);
