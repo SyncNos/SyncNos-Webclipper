@@ -40,6 +40,10 @@ function stableString(value: unknown): string {
   return String(value || '').trim();
 }
 
+function stableIdentityString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function dedupeStrings(values: unknown): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -84,7 +88,7 @@ function normalizedMergePolicy(value: unknown): CaptureMessageMergePolicy {
 }
 
 function isStablePartialKey(value: unknown): value is string {
-  const key = stableString(value);
+  const key = stableIdentityString(value);
   return !!key && !key.toLowerCase().startsWith('fallback_');
 }
 
@@ -98,7 +102,7 @@ function failureMeta(meta: CaptureMeta | null, reason: string): CaptureMeta {
 }
 
 export function resolveCaptureIntegrity(collectorId: unknown, snapshot: any): CaptureIntegrityResult {
-  const normalizedCollectorId = stableString(collectorId).toLowerCase();
+  const normalizedCollectorId = stableIdentityString(collectorId).toLowerCase();
   const isVirtual = VIRTUALIZED_MANUAL_CAPTURE_COLLECTOR_IDS.has(normalizedCollectorId);
   const meta = normalizeMeta(snapshot?.captureMeta);
   const rawMessages = Array.isArray(snapshot?.messages) ? snapshot.messages : [];
@@ -107,8 +111,8 @@ export function resolveCaptureIntegrity(collectorId: unknown, snapshot: any): Ca
   );
 
   if (isVirtual) {
-    const source = stableString(snapshot?.conversation?.source);
-    const conversationKey = stableString(snapshot?.conversation?.conversationKey);
+    const source = stableIdentityString(snapshot?.conversation?.source);
+    const conversationKey = stableIdentityString(snapshot?.conversation?.conversationKey);
     if (!meta || meta.identityVerified !== true || !source || !conversationKey) {
       return {
         ok: false,
@@ -146,7 +150,7 @@ export function resolveCaptureIntegrity(collectorId: unknown, snapshot: any): Ca
   const firstPositions: string[] = [];
   const byKey = new Map<string, any>();
   for (const message of rawMessages) {
-    const key = stableString(message?.messageKey);
+    const key = stableIdentityString(message?.messageKey);
     if (!isStablePartialKey(key)) continue;
     if (!byKey.has(key)) firstPositions.push(key);
     byKey.set(key, {

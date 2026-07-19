@@ -96,6 +96,29 @@ describe('resolveCaptureIntegrity', () => {
     expect(result).toMatchObject({ ok: false, code: 'capture_integrity_unverified' });
   });
 
+  it.each([
+    [{ source: { id: 'chatgpt' }, conversationKey: 'k' }, 'object source'],
+    [{ source: 'chatgpt', conversationKey: { id: 'k' } }, 'object conversation key'],
+    [{ source: 'chatgpt', conversationKey: 123 }, 'numeric conversation key'],
+  ])('rejects non-string virtual identity: %s', (conversation) => {
+    const result = resolveCaptureIntegrity('chatgpt', snapshot({ conversation }));
+    expect(result).toMatchObject({ ok: false, code: 'capture_integrity_unverified' });
+  });
+
+  it('rejects non-string partial message keys instead of stringifying them', () => {
+    const result = resolveCaptureIntegrity(
+      'chatgpt',
+      snapshot({
+        captureMeta: { completeness: 'partial', identityVerified: true },
+        messages: [
+          { messageKey: { id: 'm1' }, contentText: 'object' },
+          { messageKey: 1, contentText: 'number' },
+        ],
+      }),
+    );
+    expect(result).toMatchObject({ ok: false, code: 'capture_integrity_no_safe_messages' });
+  });
+
   it('keeps legacy non-virtual collectors on snapshot without metadata', () => {
     const result = resolveCaptureIntegrity('gemini', snapshot({ captureMeta: undefined }));
     expect(result).toMatchObject({ ok: true, meta: null, persistence: { mode: 'snapshot', diff: null } });
