@@ -695,6 +695,29 @@ describe('virtualized chat confirmation sweep', () => {
     expect(JSON.stringify(result)).not.toContain('PRIVATE_PROVIDER_ERROR');
   });
 
+  it('enforces the total deadline inside a pass', async () => {
+    const test = singlePageAdapter([[{ key: 'a', fingerprint: 'a', text: 'A' }]]);
+    let clock = 0;
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      {
+        stableSamples: 2,
+        pollMs: 1,
+        maxPasses: 4,
+        totalDeadlineMs: 3,
+        now: () => clock,
+        sleep: async () => {
+          clock += 4;
+        },
+      },
+    );
+    expect(result.completeness).toBe('partial');
+    expect(result.passes).toBe(1);
+    expect(result.reasons).toContain('total_deadline_exhausted');
+  });
+
   it('normalizes invalid budgets to bounded defaults', async () => {
     const test = singlePageAdapter([
       [{ key: 'a', fingerprint: 'a', text: 'A' }],

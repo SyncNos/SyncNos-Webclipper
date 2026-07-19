@@ -388,6 +388,7 @@ export type VirtualizedPassOptions = {
   maxOverlapRecoveries?: number;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
+  deadline?: number;
 };
 
 const PASS_DEFAULTS = Object.freeze({
@@ -465,10 +466,16 @@ export async function runVirtualizedPass<T>(
   );
   const sleep = options.sleep || ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const now = options.now || Date.now;
+  const deadline = Number.isFinite(options.deadline) ? Number(options.deadline) : Number.POSITIVE_INFINITY;
   const reasons: string[] = [];
   const addReason = (reason: string) => {
     if (!reasons.includes(reason)) reasons.push(reason);
     addPreparedReason(accumulator, reason);
+  };
+  const deadlineExceeded = (): boolean => {
+    if (now() <= deadline) return false;
+    addReason('total_deadline_exhausted');
+    return true;
   };
 
   const originalIdentity = String(adapter.sampleIdentity() || '').trim();
@@ -541,13 +548,16 @@ export async function runVirtualizedPass<T>(
       }
       if (stableCount >= stableSamples) return { metrics, keys };
       await sleep(pollMs);
-      if (!validateAfterAwait()) return null;
+      if (deadlineExceeded() || !validateAfterAwait()) return null;
     }
     addReason('step_timeout');
     return null;
   };
 
   try {
+    if (deadlineExceeded()) {
+      return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated, unresolvedKeys: [] };
+    }
     writeScrollPosition(runtime, root, 0, 0);
     let stable = await stabilize();
     if (!stable)
@@ -556,7 +566,7 @@ export async function runVirtualizedPass<T>(
     previousTop = stable.metrics.top;
 
     while (steps < maxSteps) {
-      if (!validateAfterAwait()) break;
+      if (deadlineExceeded() || !validateAfterAwait()) break;
       const knownKeys = new Set(accumulator.records.map((record) => record.key));
       const hasOverlap = !knownKeys.size || stable.keys.some((key) => knownKeys.has(key));
       if (!hasOverlap && overlapRecoveries < maxOverlapRecoveries && stable.metrics.top > previousTop + 1) {
@@ -570,6 +580,7 @@ export async function runVirtualizedPass<T>(
       if (!hasOverlap && knownKeys.size) addReason('order_unanchored');
       if (!sampleUnresolvedKeys()) break;
 
+      if (deadlineExceeded()) break;
       const checkpoint = checkpointAccumulatorData(accumulator);
       let harvested: { added: number; updated: number };
       try {
@@ -579,7 +590,7 @@ export async function runVirtualizedPass<T>(
         addReason('extraction_error');
         break;
       }
-      if (!validateAfterAwait()) {
+      if (deadlineExceeded() || !validateAfterAwait()) {
         restoreAccumulatorData(accumulator, checkpoint);
         if (accumulator.reasons.includes('identity_changed')) invalidateAccumulatorIdentity(accumulator);
         break;
@@ -705,7 +716,7 @@ export async function runVirtualizedSweep<T>(
       addPreparedReason(accumulator, 'total_deadline_exhausted');
       break;
     }
-    const pass = await runVirtualizedPass(runtime, adapter, accumulator, options);
+    const pass = await runVirtualizedPass(runtime, adapter, accumulator, { ...options, deadline });
     passes += 1;
     steps += pass.steps;
     maxScrollExtent = Math.max(maxScrollExtent, pass.maxScrollExtent);
