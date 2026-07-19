@@ -164,6 +164,7 @@ export type PreparedAccumulator<T> = {
   records: PreparedMessageRecord<T>[];
   reasons: string[];
   samples: number;
+  descriptorFingerprints: Record<string, string>;
 };
 
 export type VirtualizedPreparedCapture<T> = {
@@ -174,6 +175,7 @@ export type VirtualizedPreparedCapture<T> = {
   identityGuard: PreparedIdentityGuard;
   records: PreparedMessageRecord<T>[];
   reasons: string[];
+  descriptorFingerprints: Record<string, string>;
   metrics: { samples: number; messages: number };
 };
 
@@ -198,6 +200,7 @@ export function createPreparedAccumulator<T>(input: {
     records: [],
     reasons: [],
     samples: 0,
+    descriptorFingerprints: Object.create(null) as Record<string, string>,
   };
 }
 
@@ -309,6 +312,7 @@ export function finishPreparedCapture<T>(accumulator: PreparedAccumulator<T>): V
     },
     records: accumulator.records.map((record) => ({ ...record })),
     reasons: accumulator.reasons.slice(),
+    descriptorFingerprints: { ...accumulator.descriptorFingerprints },
     metrics: { samples: accumulator.samples, messages: accumulator.records.length },
   };
 }
@@ -319,4 +323,165 @@ export function readPreparedCapture<T>(value: unknown, source: string): Virtuali
   if (token.kind !== 'syncnos.virtualized-chat.prepared.v1') return null;
   if (token.source !== source || !Array.isArray(token.records) || !token.identityGuard) return null;
   return token as VirtualizedPreparedCapture<T>;
+}
+
+export type VirtualizedPassAdapter<T> = {
+  getScrollSeed: () => Element | null;
+  sampleIdentity: () => string | null;
+  readDescriptorKeys: () => string[];
+  harvest: (accumulator: PreparedAccumulator<T>) => Promise<{ added: number; updated: number }>;
+};
+
+export type VirtualizedPassResult = {
+  reachedTop: boolean;
+  reachedBottom: boolean;
+  steps: number;
+  maxScrollExtent: number;
+  reasons: string[];
+};
+
+export type VirtualizedPassOptions = {
+  maxSteps?: number;
+  stableSamples?: number;
+  pollMs?: number;
+  stepTimeoutMs?: number;
+  overlapRatio?: number;
+  maxOverlapRecoveries?: number;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+};
+
+function boundedInteger(value: unknown, fallback: number, min: number, max: number): number {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(number)));
+}
+
+function boundedRatio(value: unknown, fallback: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(0.95, Math.max(0.1, number)) : fallback;
+}
+
+function contentFreeWindowSignature(identity: string, metrics: ScrollMetrics, keys: string[]): string {
+  return `${identity}|${metrics.top}|${metrics.scrollHeight}|${metrics.clientHeight}|${keys.join('\u001f')}`;
+}
+
+export async function runVirtualizedPass<T>(
+  runtime: Pick<ScrollRuntime, 'document' | 'window'>,
+  adapter: VirtualizedPassAdapter<T>,
+  accumulator: PreparedAccumulator<T>,
+  options: VirtualizedPassOptions = {},
+): Promise<VirtualizedPassResult> {
+  const maxSteps = boundedInteger(options.maxSteps, 120, 1, 2000);
+  const stableSamples = boundedInteger(options.stableSamples, 2, 1, 10);
+  const pollMs = boundedInteger(options.pollMs, 40, 0, 5000);
+  const stepTimeoutMs = boundedInteger(options.stepTimeoutMs, 1200, 1, 60_000);
+  const overlapRatio = boundedRatio(options.overlapRatio, 0.65);
+  const maxOverlapRecoveries = boundedInteger(options.maxOverlapRecoveries, 4, 0, 20);
+  const sleep = options.sleep || ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const now = options.now || Date.now;
+  const reasons: string[] = [];
+  const addReason = (reason: string) => {
+    if (!reasons.includes(reason)) reasons.push(reason);
+    addPreparedReason(accumulator, reason);
+  };
+
+  const originalIdentity = String(adapter.sampleIdentity() || '').trim();
+  const root = resolveScrollRoot(runtime, adapter.getScrollSeed());
+  let reachedTop = false;
+  let reachedBottom = false;
+  let steps = 0;
+  let maxScrollExtent = 0;
+  let previousTop = 0;
+  let overlapRecoveries = 0;
+
+  const validateAfterAwait = (): boolean => {
+    if (!isDocumentScrollRoot(runtime.document, root) && !root.isConnected) {
+      addReason('root_detached');
+      return false;
+    }
+    if (resolveScrollRoot(runtime, adapter.getScrollSeed()) !== root) {
+      addReason('root_replaced');
+      return false;
+    }
+    if (String(adapter.sampleIdentity() || '').trim() !== originalIdentity) {
+      addReason('identity_changed');
+      return false;
+    }
+    return true;
+  };
+
+  const stabilize = async (): Promise<{ metrics: ScrollMetrics; keys: string[] } | null> => {
+    const deadline = now() + stepTimeoutMs;
+    let lastSignature = '';
+    let stableCount = 0;
+    while (now() <= deadline) {
+      const metrics = readScrollMetrics(runtime, root);
+      const keys = adapter
+        .readDescriptorKeys()
+        .map((key) => String(key || '').trim())
+        .filter(Boolean);
+      const signature = contentFreeWindowSignature(originalIdentity, metrics, keys);
+      if (signature === lastSignature) stableCount += 1;
+      else {
+        lastSignature = signature;
+        stableCount = 1;
+      }
+      if (stableCount >= stableSamples) return { metrics, keys };
+      await sleep(pollMs);
+      if (!validateAfterAwait()) return null;
+    }
+    addReason('step_timeout');
+    return null;
+  };
+
+  try {
+    writeScrollPosition(runtime, root, 0, 0);
+    let stable = await stabilize();
+    if (!stable) return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons };
+    reachedTop = isAtScrollTop(stable.metrics);
+    previousTop = stable.metrics.top;
+
+    while (steps < maxSteps) {
+      if (!validateAfterAwait()) break;
+      const knownKeys = new Set(accumulator.records.map((record) => record.key));
+      const hasOverlap = !knownKeys.size || stable.keys.some((key) => knownKeys.has(key));
+      if (!hasOverlap && overlapRecoveries < maxOverlapRecoveries && stable.metrics.top > previousTop + 1) {
+        overlapRecoveries += 1;
+        const recoveryTop = Math.floor((previousTop + stable.metrics.top) / 2);
+        writeScrollPosition(runtime, root, stable.metrics.left, recoveryTop);
+        stable = await stabilize();
+        if (!stable) break;
+        continue;
+      }
+      if (!hasOverlap && knownKeys.size) addReason('order_unanchored');
+
+      await adapter.harvest(accumulator);
+      if (!validateAfterAwait()) break;
+      steps += 1;
+      const metrics = readScrollMetrics(runtime, root);
+      maxScrollExtent = Math.max(maxScrollExtent, metrics.scrollHeight);
+      if (isAtScrollBottom(metrics)) {
+        reachedBottom = true;
+        break;
+      }
+
+      previousTop = metrics.top;
+      const stepSize = Math.max(1, Math.floor(metrics.clientHeight * overlapRatio));
+      const maxTop = Math.max(0, metrics.scrollHeight - metrics.clientHeight);
+      const nextTop = Math.min(maxTop, metrics.top + stepSize);
+      if (nextTop <= metrics.top) {
+        addReason('scroll_stalled');
+        break;
+      }
+      writeScrollPosition(runtime, root, metrics.left, nextTop);
+      stable = await stabilize();
+      if (!stable) break;
+    }
+    if (steps >= maxSteps && !reachedBottom) addReason('step_budget_exhausted');
+  } catch (_error) {
+    addReason('pass_failed');
+  }
+
+  return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons };
 }

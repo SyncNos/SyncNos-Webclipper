@@ -5,6 +5,7 @@ import {
   createScrollRootRestorer,
   finishPreparedCapture,
   mergePreparedRecords,
+  runVirtualizedPass,
   isAtScrollBottom,
   isAtScrollTop,
   readScrollMetrics,
@@ -240,5 +241,159 @@ describe('virtualized chat overlapping window order', () => {
     });
     mergePreparedRecords(accumulator, [record('a'), record('b')]);
     expect(mergePreparedRecords(accumulator, [record('a'), record('b')])).toEqual({ added: 0, updated: 0 });
+  });
+});
+
+describe('virtualized chat single pass', () => {
+  function harness(windows: Array<{ top: number; keys: string[] }>, options: { growAt?: number } = {}) {
+    const dom = new JSDOM('<body><div id="root"><div id="seed"></div></div></body>');
+    const root = dom.window.document.querySelector('#root') as HTMLElement;
+    const seed = dom.window.document.querySelector('#seed') as HTMLElement;
+    root.style.overflowY = 'auto';
+    let top = 0;
+    let scrollHeight = 300;
+    Object.defineProperty(root, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollHeight', {
+      configurable: true,
+      get: () => scrollHeight,
+    });
+    Object.defineProperty(root, 'clientWidth', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollWidth', { configurable: true, value: 100 });
+    Object.defineProperty(root, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (value: number) => {
+        top = Number(value) || 0;
+        if (options.growAt !== undefined && top >= options.growAt) scrollHeight = 400;
+      },
+    });
+    const currentKeys = () => {
+      let selected = windows[0]?.keys || [];
+      for (const window of windows) if (top >= window.top) selected = window.keys;
+      return selected.slice();
+    };
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'test',
+      conversationKey: 'conversation',
+      identityVerified: true,
+    });
+    let generation = 0;
+    const adapter = {
+      getScrollSeed: () => seed,
+      sampleIdentity: () => 'identity',
+      readDescriptorKeys: currentKeys,
+      harvest: async (target: typeof accumulator) => {
+        generation += 1;
+        const records = currentKeys().map((key, index) => ({
+          key,
+          turnKey: key,
+          withinTurn: index,
+          fingerprint: key,
+          payload: { text: `${key}:${generation}` },
+        }));
+        return mergePreparedRecords(target, records);
+      },
+    };
+    return { dom, root, seed, accumulator, adapter, getTop: () => top };
+  }
+
+  it('survives replacement and node recycling because each window is plain data', async () => {
+    const test = harness([
+      { top: 0, keys: ['a', 'b'] },
+      { top: 60, keys: ['b', 'c'] },
+      { top: 120, keys: ['c', 'd'] },
+      { top: 180, keys: ['d', 'e'] },
+    ]);
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, overlapRatio: 0.6 },
+    );
+    expect(result.reachedBottom).toBe(true);
+    expect(finishPreparedCapture(test.accumulator).records.map((record) => record.key)).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+    ]);
+  });
+
+  it('follows dynamic height growth during a single pass', async () => {
+    const test = harness(
+      [
+        { top: 0, keys: ['a', 'b'] },
+        { top: 60, keys: ['b', 'c'] },
+        { top: 120, keys: ['c', 'd'] },
+        { top: 180, keys: ['d', 'e'] },
+        { top: 240, keys: ['e', 'f'] },
+        { top: 300, keys: ['f', 'g'] },
+      ],
+      { growAt: 60 },
+    );
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, overlapRatio: 0.6 },
+    );
+    expect(result.maxScrollExtent).toBe(400);
+    expect(finishPreparedCapture(test.accumulator).records.at(-1)?.key).toBe('g');
+  });
+
+  it('reduces the step to recover overlap before declaring an unanchored window', async () => {
+    const test = harness([
+      { top: 0, keys: ['a', 'b'] },
+      { top: 30, keys: ['b', 'c'] },
+      { top: 60, keys: ['c', 'd'] },
+      { top: 120, keys: ['d', 'e'] },
+    ]);
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, overlapRatio: 0.8, maxOverlapRecoveries: 4 },
+    );
+    expect(result.reasons).not.toContain('order_unanchored');
+    expect(finishPreparedCapture(test.accumulator).records.map((record) => record.key)).toContain('e');
+  });
+
+  it('returns already harvested data as partial on an irrecoverable missing overlap', async () => {
+    const test = harness([
+      { top: 0, keys: ['a'] },
+      { top: 20, keys: ['x'] },
+    ]);
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, overlapRatio: 0.6, maxOverlapRecoveries: 0 },
+    );
+    expect(result.reasons).toContain('order_unanchored');
+    expect(finishPreparedCapture(test.accumulator).records.map((record) => record.key)).toContain('a');
+  });
+
+  it('bounds a window that never stabilizes', async () => {
+    const test = harness([{ top: 0, keys: ['a'] }]);
+    let flip = false;
+    let tick = 0;
+    test.adapter.readDescriptorKeys = () => {
+      flip = !flip;
+      return [flip ? 'a' : 'b'];
+    };
+    const result = await runVirtualizedPass(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      {
+        stableSamples: 2,
+        pollMs: 0,
+        stepTimeoutMs: 3,
+        now: () => tick++,
+        sleep: async () => undefined,
+      },
+    );
+    expect(result.reasons).toContain('step_timeout');
   });
 });

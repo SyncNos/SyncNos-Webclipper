@@ -9,6 +9,7 @@ import {
   finishPreparedCapture,
   mergePreparedRecords,
   readPreparedCapture,
+  runVirtualizedPass,
   resolveScrollRoot,
   writeScrollPosition,
   type PreparedAccumulator,
@@ -34,32 +35,6 @@ export function turnKeyOf(el: any): string {
     if (testid) return String(testid);
   }
   return el.id ? String(el.id) : '';
-}
-
-// All conversation-turn skeleton nodes in document order, including virtualized empty shells.
-export function getTurnSkeleton(root: any): any[] {
-  if (!root || !root.querySelectorAll) return [];
-  return Array.from(
-    root.querySelectorAll("[data-testid^='conversation-turn-'], [data-testid='conversation-turn']"),
-  ) as any[];
-}
-
-// The scroll anchor element for a turn: its outer virtualization container. Returns the element
-// only and never scrolls; the caller decides whether/when to bring it into view.
-export function scrollTargetForTurn(turnEl: any): any | null {
-  if (!turnEl) return null;
-  const container = turnEl.closest ? turnEl.closest('[data-turn-id-container]') : null;
-  return container || turnEl;
-}
-
-// A turn is hydrated when it carries rendered content (a role node, an image, or non-whitespace
-// text) rather than being an empty virtualized shell.
-export function turnIsHydrated(turnEl: any): boolean {
-  if (!turnEl) return false;
-  if (turnEl.querySelector && turnEl.querySelector('[data-message-author-role]')) return true;
-  if (turnEl.querySelector && turnEl.querySelector('img')) return true;
-  const text = turnEl.textContent ? String(turnEl.textContent).trim() : '';
-  return text.length > 0;
 }
 
 export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinition {
@@ -279,6 +254,13 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return `${turnKey}:${role}:${withinTurn}`;
   }
 
+  function readTurnShells(root: any): any[] {
+    if (!root?.querySelectorAll) return [];
+    return Array.from(
+      root.querySelectorAll("[data-testid^='conversation-turn-'], [data-testid='conversation-turn']"),
+    ) as any[];
+  }
+
   function sampleIdentityGuard(root: any): PreparedIdentityGuard {
     const durableId = findConversationIdFromUrl() || findShareIdFromUrl();
     const anchors: string[] = [];
@@ -289,7 +271,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
       seen.add(anchor);
       anchors.push(anchor);
     };
-    for (const turn of getTurnSkeleton(root)) push(`turn:${turnKeyOf(turn)}`);
+    for (const turn of readTurnShells(root)) push(`turn:${turnKeyOf(turn)}`);
     const perTurn = new Map<string, number>();
     for (const wrapper of getTurnWrappers(root)) {
       const turnKey = turnKeyOf(wrapper);
@@ -687,6 +669,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     readIdentity: () => sampleIdentityGuard(getConversationRoot()),
     readScrollSeed: () => getConversationRoot(),
     readDescriptors: readCurrentDescriptors,
+    readDescriptorKeys: () => readCurrentDescriptors().map((descriptor) => descriptor.key),
     snapshotExtractionInput,
   };
 
@@ -723,9 +706,24 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     _options: any = {},
   ): Promise<{ added: number; updated: number }> {
     const descriptors = manualAdapter.readDescriptors();
+    const existingByKey = new Map(accumulator.records.map((record) => [record.key, record]));
     const records: Array<Omit<PreparedMessageRecord<any>, 'firstSeenIndex'>> = [];
     for (let i = 0; i < descriptors.length; i += 1) {
       const descriptor = descriptors[i];
+      const existing = existingByKey.get(descriptor.key);
+      const previousFingerprint = accumulator.descriptorFingerprints[descriptor.key];
+      accumulator.descriptorFingerprints[descriptor.key] = descriptor.fingerprint;
+      if (existing && existing.fingerprint === descriptor.fingerprint) {
+        records.push({
+          key: existing.key,
+          turnKey: existing.turnKey,
+          withinTurn: existing.withinTurn,
+          fingerprint: existing.fingerprint,
+          payload: existing.payload,
+        });
+        continue;
+      }
+      if (!existing && previousFingerprint === descriptor.fingerprint) continue;
       const input = manualAdapter.snapshotExtractionInput(descriptor.key);
       if (!input) continue;
       const message = extractManualMessage(input, i);
@@ -745,20 +743,12 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     return mergePreparedRecords(accumulator, records);
   }
 
-  // Manual scroll-sweep. Walks the turn skeleton top-to-bottom, brings each still-virtualized turn
-  // into view, polls until it hydrates, and harvests after every step so turns that unmount again
-  // as we scroll past are already cached. The result is stashed for the next manual capture().
-  // Scroll position is restored when finished. Pure additive method; never called automatically.
+  // Manual-only dynamic sweep. The provider re-queries after every wait; no turn/message node
+  // survives across an await. The original scroll root is restored exactly once in finally.
   async function prepareManualCapture(options: any = {}): Promise<any | null> {
-    if (!matches({ hostname: env.location.hostname })) return;
-    const root = getConversationRoot();
-    if (!root) return;
-    const skeleton = getTurnSkeleton(root);
-    if (!skeleton.length) return;
-
-    const settleMs = Math.max(0, Number(options.settleMs) || 80);
-    const perTurnTimeoutMs = Math.max(120, Number(options.perTurnTimeoutMs) || 900);
-    const pollMs = Math.max(30, Number(options.pollMs) || 80);
+    if (!matches({ hostname: env.location.hostname })) return null;
+    const root = manualAdapter.readRoot();
+    if (!root) return null;
 
     const scrollRuntime = { document: env.document, window: env.window };
     const scrollRestorer = createScrollRootRestorer({
@@ -768,13 +758,6 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     });
 
     try {
-      const scrollRoot = resolveScrollRoot(scrollRuntime, root);
-      try {
-        writeScrollPosition(scrollRuntime, scrollRoot, 0, 0);
-      } catch (_error) {
-        // The identity remains unverified when the top cannot be sampled safely.
-      }
-      if (settleMs) await sleep(settleMs);
       const identityGuard = manualAdapter.readIdentity();
       const conversationKey = identityConversationKey(identityGuard);
       const accumulator = createPreparedAccumulator<any>({
@@ -786,31 +769,34 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
       addPreparedReason(accumulator, 'single_pass_unconfirmed');
       if (!conversationKey) addPreparedReason(accumulator, 'unstable_identity');
 
-      // Harvest whatever is already rendered before we start moving the viewport.
-      await harvestRenderedInto(accumulator, getConversationRoot(), { allowEditing: true });
-
-      for (let i = 0; i < skeleton.length; i += 1) {
-        const turnEl = skeleton[i];
-        if (turnIsHydrated(turnEl)) continue;
-        const target = scrollTargetForTurn(turnEl);
-        try {
-          (target as any)?.scrollIntoView?.({ block: 'center' });
-        } catch (_e) {
-          // ignore: scrollIntoView is unavailable in some environments
-        }
-        const start = Date.now();
-        while (Date.now() - start <= perTurnTimeoutMs) {
-          if (turnIsHydrated(turnEl)) break;
-          await sleep(pollMs);
-        }
-        if (settleMs) await sleep(settleMs);
-        // Re-harvest after this turn hydrated; captures it before it can virtualize away again.
-        await harvestRenderedInto(accumulator, getConversationRoot(), { allowEditing: true });
+      const pass = await runVirtualizedPass(
+        scrollRuntime,
+        {
+          getScrollSeed: manualAdapter.readScrollSeed,
+          sampleIdentity: samplePageIdentity,
+          readDescriptorKeys: manualAdapter.readDescriptorKeys,
+          harvest: (target) => harvestRenderedInto(target, null, { allowEditing: true }),
+        },
+        accumulator,
+        {
+          maxSteps: options.maxSteps,
+          stableSamples: options.stableSamples,
+          pollMs: options.pollMs,
+          stepTimeoutMs: options.stepTimeoutMs || options.perTurnTimeoutMs,
+          overlapRatio: options.overlapRatio,
+          maxOverlapRecoveries: options.maxOverlapRecoveries,
+          sleep: options.sleep,
+          now: options.now,
+        },
+      );
+      if (!pass.reachedTop) addPreparedReason(accumulator, 'top_not_reached');
+      if (!pass.reachedBottom) addPreparedReason(accumulator, 'bottom_not_reached');
+      const finalGuard = manualAdapter.readIdentity();
+      if (!identityGuardsMatch(accumulator.identityGuard, finalGuard)) {
+        accumulator.identityVerified = false;
+        accumulator.conversationKey = '';
+        addPreparedReason(accumulator, 'identity_changed');
       }
-
-      // Final sweep to pick up anything that hydrated late.
-      await harvestRenderedInto(accumulator, getConversationRoot(), { allowEditing: true });
-
       return finishPreparedCapture(accumulator);
     } finally {
       scrollRestorer.restore();
@@ -822,38 +808,60 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     const manual = !!(options && options.manual);
 
     let messages: any[] = [];
+    let manualConversationKey = '';
+    let manualMeta: any = null;
     let prepared = manual ? readPreparedCapture<any>(options?.preparedCapture, 'chatgpt') : null;
     const currentGuard = manualAdapter.readIdentity();
     if (prepared && !identityGuardsMatch(prepared.identityGuard, currentGuard)) prepared = null;
 
-    if (manual) {
-      const identityGuard = prepared?.identityGuard || currentGuard;
-      const conversationKey = prepared?.conversationKey || identityConversationKey(identityGuard);
+    if (manual && prepared) {
       const accumulator = createPreparedAccumulator<any>({
         source: 'chatgpt',
-        conversationKey,
-        identityVerified: !!conversationKey && (prepared?.identityVerified === true || !!identityGuard.topAnchor),
-        identityGuard,
+        conversationKey: prepared.conversationKey,
+        identityVerified: prepared.identityVerified === true,
+        identityGuard: prepared.identityGuard,
       });
       addPreparedReason(accumulator, 'single_pass_unconfirmed');
-      if (prepared) {
-        mergePreparedRecords(
-          accumulator,
-          prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
-        );
-      }
+      mergePreparedRecords(
+        accumulator,
+        prepared.records.map(({ firstSeenIndex: _firstSeenIndex, ...record }) => record),
+      );
+      Object.assign(accumulator.descriptorFingerprints, prepared.descriptorFingerprints || {});
       const root = getConversationRoot();
-      if (root) await harvestRenderedInto(accumulator, getConversationRoot(), { allowEditing: true });
+      if (root) await harvestRenderedInto(accumulator, root, { allowEditing: true });
+      const finalGuard = manualAdapter.readIdentity();
+      if (!identityGuardsMatch(accumulator.identityGuard, finalGuard)) {
+        accumulator.identityVerified = false;
+        accumulator.conversationKey = '';
+        addPreparedReason(accumulator, 'identity_changed');
+      }
       prepared = finishPreparedCapture(accumulator);
       messages = prepared.records.map((record, index) => ({ ...record.payload, sequence: index }));
+      manualConversationKey = prepared.identityVerified ? prepared.conversationKey : '';
+      manualMeta = {
+        completeness: 'partial',
+        identityVerified: prepared.identityVerified === true,
+        reasons: prepared.reasons,
+        metrics: prepared.metrics,
+      };
+    } else if (manual) {
+      // A direct/manual capture without a prepared sweep keeps the normal live extraction behavior.
+      // Persistence still fails closed through partial metadata and stable-key filtering in P1.
+      messages = await collectMessages({ allowEditing: true });
+      const guard = manualAdapter.readIdentity();
+      manualConversationKey = identityConversationKey(guard);
+      manualMeta = {
+        completeness: 'partial',
+        identityVerified: !!manualConversationKey,
+        reasons: ['prepare_missing'],
+        metrics: { samples: 1, messages: messages.length },
+      };
     } else {
       messages = await collectMessages({ allowEditing: false });
     }
     if (!messages.length) return null;
     const conversationKey = manual
-      ? prepared?.identityVerified
-        ? prepared.conversationKey
-        : ''
+      ? manualConversationKey || makeFallbackConversationKey(messages)
       : findConversationIdFromUrl() || makeFallbackConversationKey(messages);
     return {
       conversation: {
@@ -866,16 +874,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
         lastCapturedAt: Date.now(),
       },
       messages,
-      ...(manual
-        ? {
-            captureMeta: {
-              completeness: 'partial',
-              identityVerified: prepared?.identityVerified === true,
-              reasons: prepared?.reasons || ['single_pass_unconfirmed'],
-              metrics: prepared?.metrics,
-            },
-          }
-        : null),
+      ...(manual ? { captureMeta: manualMeta } : null),
     };
   }
 
