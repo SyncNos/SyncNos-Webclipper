@@ -192,9 +192,7 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
   }
 
   type InlineImageContext = {
-    blobUrlCache: Map<string, { dataUrl: string; bytes: number }>;
-    inlinedCount: number;
-    inlinedBytes: number;
+    blobUrlCache: Map<string, string | null>;
     warningFlags: Set<string>;
   };
 
@@ -218,8 +216,6 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
   function createInlineImageContext(): InlineImageContext {
     return {
       blobUrlCache: new Map(),
-      inlinedCount: 0,
-      inlinedBytes: 0,
       warningFlags: new Set(),
     };
   }
@@ -278,47 +274,31 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
   }
 
   async function inlineBlobImageUrl(blobUrl: string, ctx: InlineImageContext): Promise<string | null> {
-    const cached = ctx.blobUrlCache.get(blobUrl);
-    if (cached && cached.dataUrl) return cached.dataUrl;
+    if (ctx.blobUrlCache.has(blobUrl)) return ctx.blobUrlCache.get(blobUrl) || null;
+    const fail = (warning: string): null => {
+      ctx.warningFlags.add(warning);
+      ctx.blobUrlCache.set(blobUrl, null);
+      return null;
+    };
 
     const fetchFn: any = (env.window as any)?.fetch || (globalThis as any).fetch;
-    if (typeof fetchFn !== 'function') {
-      ctx.warningFlags.add('inline_images_fetch_unavailable');
-      return null;
-    }
+    if (typeof fetchFn !== 'function') return fail('inline_images_fetch_unavailable');
 
     try {
       const response = await fetchFn(blobUrl);
-      if (!response || response.ok === false) {
-        ctx.warningFlags.add('inline_images_fetch_failed');
-        return null;
-      }
-
+      if (!response || response.ok === false) return fail('inline_images_fetch_failed');
       const blob = await response.blob();
       const size = Number(blob?.size || 0);
       const type = String(blob?.type || '');
-      if (!type || !/^image\//i.test(type)) {
-        ctx.warningFlags.add('inline_images_non_image_blob');
-        return null;
-      }
-      if (size <= 0) {
-        ctx.warningFlags.add('inline_images_empty_blob');
-        return null;
-      }
+      if (!type || !/^image\//i.test(type)) return fail('inline_images_non_image_blob');
+      if (size <= 0) return fail('inline_images_empty_blob');
 
       const dataUrl = await blobToDataUrl(blob);
-      if (!dataUrl || !/^data:image\//i.test(dataUrl)) {
-        ctx.warningFlags.add('inline_images_encode_failed');
-        return null;
-      }
-
-      ctx.blobUrlCache.set(blobUrl, { dataUrl, bytes: size });
-      ctx.inlinedCount += 1;
-      ctx.inlinedBytes += size;
+      if (!dataUrl || !/^data:image\//i.test(dataUrl)) return fail('inline_images_encode_failed');
+      ctx.blobUrlCache.set(blobUrl, dataUrl);
       return dataUrl;
     } catch (_error) {
-      ctx.warningFlags.add('inline_images_fetch_failed');
-      return null;
+      return fail('inline_images_fetch_failed');
     }
   }
 

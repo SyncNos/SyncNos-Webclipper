@@ -318,6 +318,32 @@ describe('googleaistudio-collector', () => {
     expect(calls).toBe(2);
   });
 
+  it('extracts each unchanged blob reference once per capture, including failed references', async () => {
+    const shared = 'blob:https://aistudio.google.com/shared';
+    const html = `<div class="chat-session-content">
+      <ms-chat-turn id="turn-1"><div data-turn-role="User"><div class="turn-content">one<img src="${shared}" /></div></div></ms-chat-turn>
+      <ms-chat-turn id="turn-2"><div data-turn-role="Model"><div class="turn-content">two<img src="${shared}" /></div></div></ms-chat-turn>
+    </div>`;
+    const dom = setupDom(html, 'https://aistudio.google.com/app/blob-cache');
+    let calls = 0;
+    (dom.window as any).fetch = async () => {
+      calls += 1;
+      return { ok: false };
+    };
+    const def = createGoogleAiStudioCollectorDef(
+      createCollectorEnv({
+        window: dom.window as any,
+        document: dom.window.document as any,
+        location: dom.window.location as any,
+        normalize: normalizeApi,
+      }),
+    ) as any;
+    const snap = await def.collector.capture();
+    expect(snap.messages).toHaveLength(2);
+    expect(calls).toBe(1);
+    expect(snap.conversation.warningFlags).toContain('inline_images_fetch_failed');
+  });
+
   it('preserves inline image warningFlags in manual capture flow', async () => {
     const html = `
       <div class="chat-session-content">
