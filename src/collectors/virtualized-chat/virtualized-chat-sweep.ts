@@ -352,12 +352,69 @@ export function finishPreparedCapture<T>(accumulator: PreparedAccumulator<T>): V
   };
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isPreparedIdentityGuard(value: unknown): value is PreparedIdentityGuard {
+  if (!isPlainRecord(value)) return false;
+  return (
+    typeof value.route === 'string' &&
+    typeof value.durableId === 'string' &&
+    typeof value.topAnchor === 'string' &&
+    Array.isArray(value.anchors) &&
+    value.anchors.every((anchor) => typeof anchor === 'string')
+  );
+}
+
+function isPreparedRecord<T>(value: unknown): value is PreparedMessageRecord<T> {
+  if (!isPlainRecord(value)) return false;
+  return (
+    typeof value.key === 'string' &&
+    !!value.key.trim() &&
+    typeof value.turnKey === 'string' &&
+    !!value.turnKey.trim() &&
+    Number.isInteger(value.withinTurn) &&
+    Number(value.withinTurn) >= 0 &&
+    typeof value.fingerprint === 'string' &&
+    Number.isInteger(value.firstSeenIndex) &&
+    Number(value.firstSeenIndex) >= 0 &&
+    'payload' in value
+  );
+}
+
+function isPreparedMetrics(value: unknown): value is VirtualizedPreparedCapture<unknown>['metrics'] {
+  if (!isPlainRecord(value)) return false;
+  if (!Number.isFinite(value.samples) || Number(value.samples) < 0) return false;
+  if (!Number.isFinite(value.messages) || Number(value.messages) < 0) return false;
+  return Object.values(value).every(
+    (metric) => typeof metric === 'boolean' || (typeof metric === 'number' && Number.isFinite(metric)),
+  );
+}
+
 export function readPreparedCapture<T>(value: unknown, source: string): VirtualizedPreparedCapture<T> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const token = value as Partial<VirtualizedPreparedCapture<T>>;
-  if (token.kind !== 'syncnos.virtualized-chat.prepared.v1') return null;
-  if (token.source !== source || !Array.isArray(token.records) || !token.identityGuard) return null;
-  return token as VirtualizedPreparedCapture<T>;
+  if (!isPlainRecord(value)) return null;
+  if (value.kind !== 'syncnos.virtualized-chat.prepared.v1' || value.source !== source) return null;
+  if (typeof value.conversationKey !== 'string' || typeof value.identityVerified !== 'boolean') return null;
+  if (value.identityVerified && !value.conversationKey.trim()) return null;
+  if (!isPreparedIdentityGuard(value.identityGuard)) return null;
+  if (!Array.isArray(value.records) || !value.records.every((record) => isPreparedRecord<T>(record))) return null;
+  if (!Array.isArray(value.reasons) || !value.reasons.every((reason) => typeof reason === 'string')) return null;
+  if (!isPlainRecord(value.descriptorFingerprints)) return null;
+  if (!Object.values(value.descriptorFingerprints).every((fingerprint) => typeof fingerprint === 'string')) return null;
+  if (value.completeness !== 'complete' && value.completeness !== 'partial') return null;
+  if (!isPreparedMetrics(value.metrics)) return null;
+  return value as VirtualizedPreparedCapture<T>;
+}
+
+export function createPreparedCaptureConsumer<T>(source: string) {
+  const consumed = new WeakSet<object>();
+  return (value: unknown): VirtualizedPreparedCapture<T> | null => {
+    const prepared = readPreparedCapture<T>(value, source);
+    if (!prepared || !isPlainRecord(value) || consumed.has(value)) return null;
+    consumed.add(value);
+    return prepared;
+  };
 }
 
 export type VirtualizedPassAdapter<T> = {

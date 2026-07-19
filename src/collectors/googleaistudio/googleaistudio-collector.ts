@@ -13,7 +13,7 @@ import {
   createScrollRootRestorer,
   finishPreparedCapture,
   mergePreparedRecords,
-  readPreparedCapture,
+  createPreparedCaptureConsumer,
   runVirtualizedSweep,
   type PreparedAccumulator,
   type PreparedIdentityGuard,
@@ -45,6 +45,7 @@ function pickTurnContent(turn: Element, role: 'user' | 'assistant'): Element | n
 }
 
 export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDefinition {
+  const consumePreparedCapture = createPreparedCaptureConsumer<any>('googleaistudio');
   function matches(loc: any): any {
     const hostname = loc && loc.hostname ? loc.hostname : env.location.hostname;
     return /(^|\.)aistudio\.google\.com$/.test(hostname) || /(^|\.)makersuite\.google\.com$/.test(hostname);
@@ -614,7 +615,7 @@ export function createGoogleAiStudioCollectorDef(env: CollectorEnv): CollectorDe
     let captureMeta: any = null;
     let manualConversationKey = '';
 
-    let prepared = manual ? readPreparedCapture<any>(options?.preparedCapture, 'googleaistudio') : null;
+    let prepared = manual ? consumePreparedCapture(options?.preparedCapture) : null;
     if (prepared && !identityGuardsMatch(prepared.identityGuard)) prepared = null;
 
     if (manual && prepared) {

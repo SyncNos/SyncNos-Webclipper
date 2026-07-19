@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   addPreparedReason,
   createPreparedAccumulator,
+  createPreparedCaptureConsumer,
+  readPreparedCapture,
   createScrollRootRestorer,
   finishPreparedCapture,
   mergePreparedRecords,
@@ -145,6 +147,25 @@ describe('virtualized chat prepared accumulator', () => {
     const prepared = finishPreparedCapture(accumulator);
     expect(JSON.parse(JSON.stringify(prepared))).toEqual(prepared);
     expect(prepared.records[0]).toMatchObject({ firstSeenIndex: 0, payload: { text: 'final' } });
+  });
+
+  it('rejects malformed prepared tokens and consumes a valid token once', () => {
+    const accumulator = createPreparedAccumulator<{ text: string }>({
+      source: 'chatgpt',
+      conversationKey: 'conversation-a',
+      identityVerified: true,
+      identityGuard: { route: '/c/a', durableId: 'a', anchors: ['t1'], topAnchor: 't1' },
+    });
+    mergePreparedRecords(accumulator, [
+      { key: 'm1', turnKey: 't1', withinTurn: 0, fingerprint: 'a', payload: { text: 'A' } },
+    ]);
+    const prepared = finishPreparedCapture(accumulator);
+    expect(readPreparedCapture({ ...prepared, records: [{ key: '' }] }, 'chatgpt')).toBeNull();
+    expect(readPreparedCapture({ ...prepared, metrics: { samples: Number.NaN, messages: 1 } }, 'chatgpt')).toBeNull();
+
+    const consume = createPreparedCaptureConsumer<{ text: string }>('chatgpt');
+    expect(consume(prepared)).toBe(prepared);
+    expect(consume(prepared)).toBeNull();
   });
 
   it('keeps concurrent prepared accumulators isolated', () => {

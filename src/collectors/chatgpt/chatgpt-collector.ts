@@ -8,7 +8,7 @@ import {
   createScrollRootRestorer,
   finishPreparedCapture,
   mergePreparedRecords,
-  readPreparedCapture,
+  createPreparedCaptureConsumer,
   runVirtualizedSweep,
   type PreparedAccumulator,
   type PreparedIdentityGuard,
@@ -36,6 +36,7 @@ export function turnKeyOf(el: any): string {
 }
 
 export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinition {
+  const consumePreparedCapture = createPreparedCaptureConsumer<any>('chatgpt');
   const DEEP_RESEARCH_MESSAGE_TYPES = Object.freeze({
     REQUEST: 'SYNCNOS_DEEP_RESEARCH_REQUEST',
     RESPONSE: 'SYNCNOS_DEEP_RESEARCH_RESPONSE',
@@ -842,7 +843,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     let messages: any[] = [];
     let manualConversationKey = '';
     let manualMeta: any = null;
-    let prepared = manual ? readPreparedCapture<any>(options?.preparedCapture, 'chatgpt') : null;
+    let prepared = manual ? consumePreparedCapture(options?.preparedCapture) : null;
     const currentGuard = manualAdapter.readIdentity();
     if (prepared && !identityGuardsMatch(prepared.identityGuard, currentGuard)) prepared = null;
 
