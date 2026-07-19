@@ -57,6 +57,51 @@ function normalizeConversationId(value: unknown): number | null {
   return conversationId;
 }
 
+function isUnresolvedDeepResearchMessage(message: any): boolean {
+  if (!message || message.role !== 'assistant') return false;
+  const value = String(message.contentText || message.contentMarkdown || '').trim();
+  return value.startsWith('Deep Research (iframe):') || value === 'Deep Research (iframe)';
+}
+
+function dedupeCodes(values: unknown[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const code = String(value || '').trim();
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    result.push(code);
+  }
+  return result;
+}
+
+function markUnresolvedDeepResearch(snapshot: any): void {
+  const unresolved = Array.isArray(snapshot?.messages)
+    ? snapshot.messages.filter((message: any) => isUnresolvedDeepResearchMessage(message))
+    : [];
+  if (!unresolved.length) return;
+
+  for (const message of unresolved) {
+    message.captureMergePolicy = 'preserve-existing-content';
+  }
+  const existingMeta = snapshot?.captureMeta && typeof snapshot.captureMeta === 'object' ? snapshot.captureMeta : {};
+  snapshot.captureMeta = {
+    ...existingMeta,
+    completeness: 'partial',
+    reasons: dedupeCodes([
+      ...(Array.isArray(existingMeta.reasons) ? existingMeta.reasons : []),
+      'deep_research_hydration_incomplete',
+    ]),
+  };
+  const conversation = snapshot?.conversation;
+  if (conversation && typeof conversation === 'object') {
+    conversation.warningFlags = dedupeCodes([
+      ...(Array.isArray(conversation.warningFlags) ? conversation.warningFlags : []),
+      'deep_research_hydration_incomplete',
+    ]);
+  }
+}
+
 export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
   const runtime = deps.runtime;
   const collectorsRegistry = deps.collectorsRegistry;
@@ -177,24 +222,21 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
         throw new Error(t('noVisibleConversationFound'));
       }
 
-      try {
-        const isChatgpt =
-          String(snapshot?.conversation?.source || '')
-            .trim()
-            .toLowerCase() === 'chatgpt';
-        const hasDeepResearchPlaceholders =
-          isChatgpt &&
-          Array.isArray(snapshot?.messages) &&
-          snapshot.messages.some((m: any) =>
-            String(m?.contentText || m?.contentMarkdown || '')
-              .trim()
-              .startsWith('Deep Research (iframe):'),
-          );
-        if (hasDeepResearchPlaceholders) {
+      const isChatgpt =
+        String(snapshot?.conversation?.source || '')
+          .trim()
+          .toLowerCase() === 'chatgpt';
+      const hasDeepResearchPlaceholders =
+        isChatgpt &&
+        Array.isArray(snapshot?.messages) &&
+        snapshot.messages.some((message: any) => isUnresolvedDeepResearchMessage(message));
+      if (hasDeepResearchPlaceholders) {
+        try {
           await hydrateChatgptDeepResearchSnapshot(snapshot, send);
+        } catch (_error) {
+          // The unresolved placeholder is marked partial below.
         }
-      } catch (_e) {
-        // ignore hydration failures
+        markUnresolvedDeepResearch(snapshot);
       }
 
       const saved = await saveSnapshot(snapshot, target.collectorId);

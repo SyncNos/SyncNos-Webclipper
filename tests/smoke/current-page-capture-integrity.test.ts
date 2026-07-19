@@ -85,6 +85,33 @@ describe('current page capture integrity routing', () => {
     expect(harness.calls).toEqual([]);
   });
 
+  it('routes unresolved Deep Research placeholders to protective append', async () => {
+    const placeholder = 'Deep Research (iframe): https://example.web-sandbox.oaiusercontent.com/report';
+    const harness = createHarness({
+      collectorId: 'chatgpt',
+      snapshot: {
+        ...chatSnapshot(),
+        messages: [
+          {
+            messageKey: 'm1',
+            role: 'assistant',
+            contentText: placeholder,
+            contentMarkdown: placeholder,
+            sequence: 0,
+          },
+        ],
+      },
+    });
+
+    await harness.service.captureCurrentPage();
+
+    const sync = harness.calls.find((call) => call.type === 'syncConversationMessages');
+    expect(sync?.payload).toMatchObject({ mode: 'append' });
+    expect(sync?.payload.messages[0]).toMatchObject({
+      captureMergePolicy: 'preserve-existing-content',
+    });
+  });
+
   it('keeps legacy non-virtual collectors compatible', async () => {
     const snapshot = { ...chatSnapshot({ source: 'gemini' }), captureMeta: undefined };
     const harness = createHarness({ collectorId: 'gemini', snapshot });

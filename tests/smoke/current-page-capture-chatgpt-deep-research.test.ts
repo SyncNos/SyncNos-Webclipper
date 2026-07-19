@@ -60,6 +60,7 @@ describe('current-page-capture chatgpt deep research hydration', () => {
             false,
           );
           expect(messages.some((m: any) => String(m?.contentText || '').includes('Body'))).toBe(true);
+          expect(payload?.mode).toBe('snapshot');
           return { ok: true, data: { ok: true } };
         }
         return { ok: true, data: {} };
@@ -80,6 +81,7 @@ describe('current-page-capture chatgpt deep research hydration', () => {
               warningFlags: [],
               lastCapturedAt: Date.now(),
             },
+            captureMeta: { completeness: 'complete', identityVerified: true },
             messages: [
               {
                 messageKey: 'm1',
@@ -106,5 +108,69 @@ describe('current-page-capture chatgpt deep research hydration', () => {
     const res = await service.captureCurrentPage();
     expect(res.kind).toBe('chat');
     expect(seen.some((x) => x.type === 'chatgptExtractDeepResearch')).toBe(true);
+  });
+
+  it('marks unresolved placeholders partial and protective when hydration fails', async () => {
+    setupDom('https://chatgpt.com/c/conv2');
+    const seen: Array<{ type: string; payload?: any }> = [];
+    const placeholder =
+      'Deep Research (iframe): https://connector_openai_deep_research.web-sandbox.oaiusercontent.com?app=chatgpt';
+    const runtime = {
+      send: async (type: string, payload?: any) => {
+        seen.push({ type, payload });
+        if (type === 'chatgptExtractDeepResearch') return { ok: false, error: { message: 'unavailable' } };
+        if (type === 'upsertConversation') {
+          expect(payload?.payload?.warningFlags).toContain('deep_research_hydration_incomplete');
+          return { ok: true, data: { id: 102, __isNew: false } };
+        }
+        if (type === 'syncConversationMessages') {
+          expect(payload?.mode).toBe('append');
+          expect(payload?.messages[0]).toMatchObject({
+            contentText: placeholder,
+            captureMergePolicy: 'preserve-existing-content',
+            captureSequencePolicy: 'preserve-existing-tail',
+          });
+          return { ok: true, data: { upserted: 1 } };
+        }
+        return { ok: true, data: {} };
+      },
+    };
+    const service = createCurrentPageCaptureService({
+      runtime: runtime as any,
+      collectorsRegistry: {
+        pickActive: () => ({
+          id: 'chatgpt',
+          collector: {
+            capture: () => ({
+              conversation: {
+                sourceType: 'chat',
+                source: 'chatgpt',
+                conversationKey: 'conv2',
+                warningFlags: [],
+              },
+              captureMeta: { completeness: 'complete', identityVerified: true },
+              messages: [
+                {
+                  messageKey: 'm1',
+                  role: 'assistant',
+                  contentText: placeholder,
+                  contentMarkdown: placeholder,
+                  sequence: 0,
+                },
+              ],
+            }),
+          },
+        }),
+        list: () => [],
+      } as any,
+    });
+
+    await service.captureCurrentPage();
+
+    expect(seen.map((entry) => entry.type)).toEqual([
+      'chatgptExtractDeepResearch',
+      'upsertConversation',
+      'syncConversationMessages',
+    ]);
   });
 });
