@@ -630,6 +630,33 @@ describe('virtualized chat confirmation sweep', () => {
     ]);
   });
 
+  it('clears an unresolved turn when a message from that turn is harvested later', async () => {
+    let phase = 0;
+    const test = singlePageAdapter(
+      [
+        [],
+        [{ key: 'message-a', fingerprint: 'a', text: 'A' }],
+        [{ key: 'message-a', fingerprint: 'a', text: 'A' }],
+        [{ key: 'message-a', fingerprint: 'a', text: 'A' }],
+      ],
+      () => (phase++ === 0 ? ['turn-a'] : []),
+    );
+    const originalHarvest = test.adapter.harvest;
+    test.adapter.harvest = async (target) => {
+      const result = await originalHarvest(target);
+      for (const record of target.records) record.turnKey = 'turn-a';
+      return result;
+    };
+    const result = await runVirtualizedSweep(
+      { document: test.dom.window.document, window: test.dom.window as any },
+      test.adapter,
+      test.accumulator,
+      { stableSamples: 1, pollMs: 0, maxPasses: 4 },
+    );
+    expect(result.completeness).toBe('complete');
+    expect(result.reasons).not.toContain('unresolved_turn');
+  });
+
   it('keeps unresolved expected turns and pass exhaustion partial', async () => {
     const test = singlePageAdapter([[{ key: 'a', fingerprint: 'a', text: 'A' }]], () => ['unresolved-shell']);
     const result = await runVirtualizedSweep(

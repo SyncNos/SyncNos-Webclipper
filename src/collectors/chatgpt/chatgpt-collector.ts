@@ -697,7 +697,7 @@ export function createChatgptCollectorDef(env: CollectorEnv): CollectorDefinitio
     readUnresolvedKeys: () =>
       readCurrentDescriptors()
         .filter((descriptor) => !descriptor.rendered)
-        .map((descriptor) => descriptor.key),
+        .map((descriptor) => descriptor.turnKey),
     snapshotExtractionInput,
     getExtractionCount: () => manualExtractionCount,
   };

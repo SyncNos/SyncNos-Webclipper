@@ -376,6 +376,7 @@ export type VirtualizedPassResult = {
   reasons: string[];
   added: number;
   updated: number;
+  unresolvedKeys: string[];
 };
 
 export type VirtualizedPassOptions = {
@@ -480,11 +481,30 @@ export async function runVirtualizedPass<T>(
   let overlapRecoveries = 0;
   let added = 0;
   let updated = 0;
+  const unresolvedKeys = new Set<string>();
+  const sampleUnresolvedKeys = (): boolean => {
+    try {
+      for (const key of adapter.readUnresolvedKeys?.() || []) {
+        const normalized = String(key || '').trim();
+        if (normalized) unresolvedKeys.add(normalized);
+      }
+      return true;
+    } catch (_error) {
+      addReason('pass_failed');
+      return false;
+    }
+  };
+  const clearResolvedKeys = () => {
+    for (const record of accumulator.records) {
+      unresolvedKeys.delete(record.key);
+      unresolvedKeys.delete(record.turnKey);
+    }
+  };
 
   if (!originalIdentity) {
     addReason('missing_identity');
     invalidateAccumulatorIdentity(accumulator);
-    return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated };
+    return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated, unresolvedKeys: [] };
   }
 
   const validateAfterAwait = (): boolean => {
@@ -530,7 +550,8 @@ export async function runVirtualizedPass<T>(
   try {
     writeScrollPosition(runtime, root, 0, 0);
     let stable = await stabilize();
-    if (!stable) return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated };
+    if (!stable)
+      return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated, unresolvedKeys: [] };
     reachedTop = isAtScrollTop(stable.metrics);
     previousTop = stable.metrics.top;
 
@@ -547,6 +568,7 @@ export async function runVirtualizedPass<T>(
         continue;
       }
       if (!hasOverlap && knownKeys.size) addReason('order_unanchored');
+      if (!sampleUnresolvedKeys()) break;
 
       const checkpoint = checkpointAccumulatorData(accumulator);
       let harvested: { added: number; updated: number };
@@ -564,6 +586,7 @@ export async function runVirtualizedPass<T>(
       }
       added += harvested.added;
       updated += harvested.updated;
+      clearResolvedKeys();
       steps += 1;
       const metrics = readScrollMetrics(runtime, root);
       maxScrollExtent = Math.max(maxScrollExtent, metrics.scrollHeight);
@@ -589,7 +612,16 @@ export async function runVirtualizedPass<T>(
     addReason('pass_failed');
   }
 
-  return { reachedTop, reachedBottom, steps, maxScrollExtent, reasons, added, updated };
+  return {
+    reachedTop,
+    reachedBottom,
+    steps,
+    maxScrollExtent,
+    reasons,
+    added,
+    updated,
+    unresolvedKeys: Array.from(unresolvedKeys),
+  };
 }
 
 export type VirtualizedSweepOptions = VirtualizedPassOptions & {
@@ -648,6 +680,7 @@ export async function runVirtualizedSweep<T>(
   let previousExtent: number | null = null;
   let complete = false;
   let finalUnresolved: string[] = [];
+  const unresolvedAcrossPasses = new Set<string>();
   let finalLiveChanged = false;
   const sweepIdentity = String(adapter.sampleIdentity() || '').trim();
   const validateSweepIdentity = (): boolean => {
@@ -686,14 +719,12 @@ export async function runVirtualizedSweep<T>(
     }
     if (pass.reasons.some((reason) => terminalPassReasons.has(reason))) break;
 
-    let unresolved: string[] = [];
-    try {
-      unresolved = adapter.readUnresolvedKeys?.().filter(Boolean) || [];
-    } catch (_error) {
-      addPreparedReason(accumulator, 'pass_failed');
-      break;
+    for (const key of pass.unresolvedKeys) unresolvedAcrossPasses.add(key);
+    for (const record of accumulator.records) {
+      unresolvedAcrossPasses.delete(record.key);
+      unresolvedAcrossPasses.delete(record.turnKey);
     }
-    if (!validateSweepIdentity()) break;
+    const unresolved = Array.from(unresolvedAcrossPasses);
     finalUnresolved = unresolved;
     const extentStable = previousExtent !== null && previousExtent === pass.maxScrollExtent;
     previousExtent = pass.maxScrollExtent;
