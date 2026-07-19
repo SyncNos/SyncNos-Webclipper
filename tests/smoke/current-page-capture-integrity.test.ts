@@ -21,7 +21,7 @@ function chatSnapshot(options?: { completeness?: 'complete' | 'partial'; verifie
 
 function createHarness(input: { collectorId: string; snapshot?: any; prepare?: () => any; article?: any }) {
   const calls: Array<{ type: string; payload?: any }> = [];
-  const capture = vi.fn(() => input.snapshot);
+  const capture = vi.fn((_options?: any) => input.snapshot);
   const runtime = {
     send: vi.fn(async (type: string, payload?: any) => {
       calls.push({ type, payload });
@@ -119,6 +119,32 @@ describe('current page capture integrity routing', () => {
     await harness.service.captureCurrentPage();
 
     expect(harness.calls[1].payload).toMatchObject({ mode: 'snapshot', diff: null });
+  });
+
+  it('passes the exact prepared object to one capture call', async () => {
+    const preparedCapture = { token: Symbol('prepared') };
+    const prepare = vi.fn(() => preparedCapture);
+    const harness = createHarness({ collectorId: 'chatgpt', snapshot: chatSnapshot(), prepare });
+
+    await harness.service.captureCurrentPage();
+
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(harness.capture).toHaveBeenCalledTimes(1);
+    expect(harness.capture.mock.calls[0][0]).toEqual({ manual: true, preparedCapture });
+    expect(harness.capture.mock.calls[0][0].preparedCapture).toBe(preparedCapture);
+  });
+
+  it('stops before capture and persistence when prepare rejects', async () => {
+    const prepare = vi.fn(async () => {
+      throw new Error('prepare failed');
+    });
+    const harness = createHarness({ collectorId: 'chatgpt', snapshot: chatSnapshot(), prepare });
+
+    await expect(harness.service.captureCurrentPage()).rejects.toThrow('prepare failed');
+
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(harness.capture).not.toHaveBeenCalled();
+    expect(harness.calls).toEqual([]);
   });
 
   it('keeps article capture unchanged', async () => {

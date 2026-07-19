@@ -213,11 +213,12 @@ export function createCurrentPageCaptureService(deps: CurrentPageCaptureDeps) {
         };
       }
 
+      let preparedCapture: unknown;
       if (typeof target.collector.prepareManualCapture === 'function') {
-        await target.collector.prepareManualCapture();
+        preparedCapture = await target.collector.prepareManualCapture({ manual: true });
       }
 
-      const snapshot = await Promise.resolve(target.collector.capture({ manual: true }));
+      const snapshot = await Promise.resolve(target.collector.capture({ manual: true, preparedCapture }));
       if (!snapshot) {
         throw new Error(t('noVisibleConversationFound'));
       }
