@@ -220,10 +220,10 @@ describe('conversations storage-idb', () => {
       { mode: 'append', diff: diff as any },
     );
 
-    expect(result).toEqual({ upserted: 1, deleted: 0 });
+    expect(result).toEqual({ upserted: 0, deleted: 0 });
     const stored = await getMessagesByConversationId(id);
     expect(stored.map((message) => message.messageKey)).toEqual(['m1', 'm2']);
-    expect(stored.find((message) => message.messageKey === 'm1')?.contentText).toBe('new');
+    expect(stored.find((message) => message.messageKey === 'm1')?.contentText).toBe('old');
   });
 
   it('treats unkeyed append input as a no-delete no-op', async () => {
@@ -391,7 +391,7 @@ describe('conversations storage-idb', () => {
           captureSequencePolicy: 'preserve-existing-tail',
         },
       ],
-      { mode: 'append', diff: null },
+      { mode: 'append', diff: { added: ['m1', 'm2'], updated: [], removed: [] } },
     );
 
     expect((await getMessagesByConversationId(id)).map((message) => message.sequence)).toEqual([0, 1]);

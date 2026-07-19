@@ -637,18 +637,16 @@ export async function syncConversationMessages(
       byKey.set(key, m);
     }
 
-    if (mode === 'incremental' && !diff) {
+    const requestedKeys = Array.from(new Set([...normalizeKeys(diff?.added), ...normalizeKeys(diff?.updated)]));
+    const requestedKeySet = new Set(requestedKeys);
+    const removedKeys = mode === 'incremental' ? normalizeKeys(diff?.removed) : [];
+    const hasEffectiveDiff =
+      !!diff && (mode === 'append' ? requestedKeys.length > 0 : requestedKeys.length > 0 || removedKeys.length > 0);
+    if (!hasEffectiveDiff) {
       await txDone(t);
       return { upserted: 0, deleted: 0 };
     }
-
-    const requestedKeys = Array.from(new Set([...normalizeKeys(diff?.added), ...normalizeKeys(diff?.updated)]));
-    const requestedKeySet = new Set(requestedKeys);
-    const upsertKeys =
-      mode === 'append' && requestedKeys.length === 0
-        ? Array.from(byKey.keys())
-        : Array.from(byKey.keys()).filter((key) => requestedKeySet.has(key));
-    const removedKeys = mode === 'incremental' ? normalizeKeys(diff?.removed) : [];
+    const upsertKeys = Array.from(byKey.keys()).filter((key) => requestedKeySet.has(key));
 
     const hasTailPolicy =
       mode === 'append' && upsertKeys.some((key) => byKey.get(key)?.captureSequencePolicy === 'preserve-existing-tail');
