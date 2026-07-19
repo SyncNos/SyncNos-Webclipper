@@ -254,6 +254,119 @@ describe('conversations storage-idb', () => {
     expect((await getMessagesByConversationId(id)).map((message) => message.contentText)).toEqual(['old', 'keep']);
   });
 
+  it('preserves existing order and tail-assigns new virtual partial rows', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: 'append_sequence_tail',
+      title: 'Order',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+    await syncConversationMessages(id, [
+      { messageKey: 'm1', role: 'user', contentText: 'one', sequence: 10 },
+      { messageKey: 'm2', role: 'assistant', contentText: 'two', sequence: 20 },
+      { messageKey: 'm3', role: 'user', contentText: 'three', sequence: 30 },
+    ]);
+
+    await syncConversationMessages(
+      id,
+      [
+        {
+          messageKey: 'm3',
+          role: 'user',
+          contentText: 'three updated',
+          sequence: 0,
+          captureSequencePolicy: 'preserve-existing-tail',
+        },
+        {
+          messageKey: 'm4',
+          role: 'assistant',
+          contentText: 'four',
+          sequence: 0,
+          captureSequencePolicy: 'preserve-existing-tail',
+        },
+        {
+          messageKey: 'm5',
+          role: 'user',
+          contentText: 'five',
+          sequence: 0,
+          captureSequencePolicy: 'preserve-existing-tail',
+        },
+      ],
+      { mode: 'append', diff: { added: ['m4', 'm5'], updated: ['m3'], removed: [] } },
+    );
+
+    const stored = await getMessagesByConversationId(id);
+    expect(stored.map(({ messageKey, sequence }) => [messageKey, sequence])).toEqual([
+      ['m1', 10],
+      ['m2', 20],
+      ['m3', 30],
+      ['m4', 31],
+      ['m5', 32],
+    ]);
+  });
+
+  it('tail-assigns virtual partial rows from zero in an empty conversation', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: 'append_sequence_empty',
+      title: 'Order',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+
+    await syncConversationMessages(
+      id,
+      [
+        {
+          messageKey: 'm1',
+          role: 'user',
+          contentText: 'one',
+          sequence: 999,
+          captureSequencePolicy: 'preserve-existing-tail',
+        },
+        {
+          messageKey: 'm2',
+          role: 'assistant',
+          contentText: 'two',
+          sequence: 999,
+          captureSequencePolicy: 'preserve-existing-tail',
+        },
+      ],
+      { mode: 'append', diff: null },
+    );
+
+    expect((await getMessagesByConversationId(id)).map((message) => message.sequence)).toEqual([0, 1]);
+  });
+
+  it('keeps unmarked append incoming sequence for autosave prefix reconciliation', async () => {
+    const convo = await upsertConversation({
+      sourceType: 'chat',
+      source: 'debug',
+      conversationKey: 'append_sequence_unmarked',
+      title: 'Order',
+      lastCapturedAt: 1,
+    });
+    const id = Number(convo.id);
+    await syncConversationMessages(id, [
+      { messageKey: 'm2', role: 'assistant', contentText: 'two', sequence: 20 },
+      { messageKey: 'm3', role: 'user', contentText: 'three', sequence: 30 },
+    ]);
+
+    await syncConversationMessages(id, [{ messageKey: 'm1', role: 'user', contentText: 'one', sequence: 10 }], {
+      mode: 'append',
+      diff: { added: ['m1'], updated: [], removed: [] },
+    });
+
+    expect((await getMessagesByConversationId(id)).map(({ messageKey, sequence }) => [messageKey, sequence])).toEqual([
+      ['m1', 10],
+      ['m2', 20],
+      ['m3', 30],
+    ]);
+  });
+
   it('reads message tails by conversation id with ascending sequence order', async () => {
     const convo = await upsertConversation({
       sourceType: 'chat',

@@ -637,12 +637,31 @@ export async function syncConversationMessages(
     const upsertKeys = mode === 'append' && requestedKeys.length === 0 ? Array.from(byKey.keys()) : requestedKeys;
     const removedKeys = mode === 'incremental' ? normalizeKeys(diff?.removed) : [];
 
+    const hasTailPolicy =
+      mode === 'append' && upsertKeys.some((key) => byKey.get(key)?.captureSequencePolicy === 'preserve-existing-tail');
+    let nextTailSequence = 0;
+    if (hasTailPolicy) {
+      const seqIdx = stores.messages.index('by_conversationId_sequence');
+      const range = IDBKeyRange.bound([conversationId, -Infinity] as any, [conversationId, Infinity] as any);
+      const lastCursor = await reqToPromise(seqIdx.openCursor(range, 'prev') as any);
+      const maxSequence = Number((lastCursor as any)?.value?.sequence);
+      nextTailSequence = Number.isFinite(maxSequence) ? maxSequence + 1 : 0;
+    }
+
     let upserted = 0;
     for (const key of upsertKeys) {
       const m = byKey.get(key);
       if (!m) continue;
 
       const existing: any = await reqToPromise(idx.get([conversationId, key]) as any);
+      const preserveSequence = mode === 'append' && m.captureSequencePolicy === 'preserve-existing-tail';
+      const sequence = preserveSequence
+        ? existing && Number.isFinite(existing.sequence)
+          ? existing.sequence
+          : nextTailSequence++
+        : Number.isFinite(m.sequence)
+          ? m.sequence
+          : 0;
       const incomingMarkdown = m.contentMarkdown && String(m.contentMarkdown).trim() ? String(m.contentMarkdown) : '';
       const incomingAuthorName = m.authorName && String(m.authorName).trim() ? String(m.authorName).trim() : '';
       const baseRecord = {
@@ -652,7 +671,7 @@ export async function syncConversationMessages(
         authorName: incomingAuthorName || (existing ? existing.authorName || '' : ''),
         contentText: m.contentText || '',
         contentMarkdown: incomingMarkdown || (existing ? existing.contentMarkdown || '' : ''),
-        sequence: Number.isFinite(m.sequence) ? m.sequence : 0,
+        sequence,
         updatedAt: m.updatedAt || Date.now(),
       };
       const record: any = withOptionalId(existing && existing.id, baseRecord);
